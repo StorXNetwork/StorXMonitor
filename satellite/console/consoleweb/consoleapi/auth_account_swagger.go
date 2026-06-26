@@ -28,6 +28,7 @@ type AuthAccountSwaggerResponse struct {
 	PendingVerification   bool       `json:"pendingVerification" example:"false"`
 	TrialExpiration       *time.Time `json:"trialExpiration"`
 	HasVarPartner         bool       `json:"hasVarPartner" example:"false"`
+	HasPassword           bool       `json:"hasPassword" example:"false"`
 	LoginToken            string     `json:"loginToken" example:""`
 	SocialLinkedin        string     `json:"socialLinkedin" example:""`
 	SocialTwitter         string     `json:"socialTwitter" example:""`
@@ -87,8 +88,8 @@ type DeleteAuthAccountSwaggerRequest struct {
 
 // PaymentPlansSwaggerResponse is returned by GET /payment-plans (server root, not under /api/v0).
 type PaymentPlansSwaggerResponse struct {
-	CryptoModes []string                   `json:"crypto_modes" example:"SRX,XDC,USDT"`
-	Group       []PaymentPlanGroupSwagger  `json:"group"`
+	CryptoModes []string                  `json:"crypto_modes" example:"SRX,XDC,USDT"`
+	Group       []PaymentPlanGroupSwagger `json:"group"`
 }
 
 // PaymentPlanGroupSwagger groups plans by billing group name.
@@ -129,6 +130,17 @@ type UserDeveloperAccessSwaggerItem struct {
 	ConsentExpiresAt       *time.Time `json:"consent_expires_at"`
 	IsActive               bool       `json:"is_active" example:"true"`
 	TotalRequests          int        `json:"total_requests" example:"12"`
+}
+
+// AuthChangePasswordSwaggerRequest is the body for POST /api/v0/auth/account/change-password.
+type AuthChangePasswordSwaggerRequest struct {
+	Password    string `json:"password" example:"CurrentPass1!"`
+	NewPassword string `json:"newPassword" example:"NewSecurePass1!"`
+}
+
+// AuthSetPasswordSwaggerRequest is the body for POST /api/v0/auth/account/set-password.
+type AuthSetPasswordSwaggerRequest struct {
+	NewPassword string `json:"newPassword" example:"MySecurePass1!"`
 }
 
 // UserDeveloperAccessHistorySwaggerItem is one history row for developer access.

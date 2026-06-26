@@ -185,6 +185,9 @@ definitions:
       fullName:
         example: Jane Doe
         type: string
+      hasPassword:
+        example: false
+        type: boolean
       hasVarPartner:
         example: false
         type: boolean
@@ -250,6 +253,95 @@ definitions:
       walletId:
         example: ""
         type: string
+    type: object
+  consoleapi.AuthChangePasswordSwaggerRequest:
+    properties:
+      newPassword:
+        example: NewSecurePass1!
+        type: string
+      password:
+        example: CurrentPass1!
+        type: string
+    type: object
+  consoleapi.AuthCredentialLoginSwaggerResponse:
+    properties:
+      action:
+        enum:
+        - logged_in
+        example: logged_in
+        type: string
+      expiresAt:
+        type: string
+      google_backup:
+        type: object
+      onboarding:
+        $ref: '#/definitions/consoleapi.GoogleBackupOnboardingSwagger'
+      success:
+        example: true
+        type: boolean
+      token:
+        example: <session-token>
+        type: string
+    type: object
+  consoleapi.AuthForgotPasswordSwaggerRequest:
+    properties:
+      captchaResponse:
+        example: <captcha-token>
+        type: string
+      email:
+        example: user@example.com
+        type: string
+    type: object
+  consoleapi.AuthResetPasswordMFARequiredResponse:
+    properties:
+      code:
+        example: mfa_required
+        type: string
+      error:
+        example: A MFA passcode or recovery code is required
+        type: string
+    type: object
+  consoleapi.AuthResetPasswordSwaggerRequest:
+    properties:
+      mfaPasscode:
+        example: "123456"
+        type: string
+      mfaRecoveryCode:
+        example: ""
+        type: string
+      password:
+        example: NewSecurePass1!
+        type: string
+      token:
+        example: <recovery-token-from-email>
+        type: string
+    type: object
+  consoleapi.AuthSetPasswordSwaggerRequest:
+    properties:
+      newPassword:
+        example: MySecurePass1!
+        type: string
+    type: object
+  consoleapi.AuthTokenSwaggerRequest:
+    properties:
+      captchaResponse:
+        example: ""
+        type: string
+      email:
+        example: user@example.com
+        type: string
+      mfaPasscode:
+        example: "123456"
+        type: string
+      mfaRecoveryCode:
+        example: ""
+        type: string
+      password:
+        example: MySecurePass1!
+        type: string
+      rememberForOneWeek:
+        example: false
+        type: boolean
     type: object
   consoleapi.AuthUserSettingsSwaggerResponse:
     properties:
@@ -2924,6 +3016,40 @@ paths:
       summary: Update account display name
       tags:
       - auth-account
+  /auth/account/change-password:
+    post:
+      consumes:
+      - application/json
+      description: '**Full route:** `POST /api/v0/auth/account/change-password`'
+      parameters:
+      - description: From GET /config when CSRF enabled
+        in: header
+        name: X-CSRF-Token
+        type: string
+      - description: Current and new password
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.AuthChangePasswordSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Change password (logged in, password already set)
+      tags:
+      - auth-account
   /auth/account/freezestatus:
     get:
       description: '**Full route:** `GET /api/v0/auth/account/freezestatus`'
@@ -2973,6 +3099,44 @@ paths:
       summary: Update account profile links
       tags:
       - auth-account
+  /auth/account/set-password:
+    post:
+      consumes:
+      - application/json
+      description: '**Full route:** `POST /api/v0/auth/account/set-password`'
+      parameters:
+      - description: From GET /config when CSRF enabled
+        in: header
+        name: X-CSRF-Token
+        type: string
+      - description: New password only
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.AuthSetPasswordSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Password set
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Set initial password (optional after Google / email verify)
+      tags:
+      - auth-set-password
   /auth/account/settings:
     get:
       description: '**Full route:** `GET /api/v0/auth/account/settings`'
@@ -3106,6 +3270,30 @@ paths:
       summary: Revoke developer access
       tags:
       - auth-account
+  /auth/forgot-password:
+    post:
+      consumes:
+      - application/json
+      description: '**Full route:** `POST /api/v0/auth/forgot-password`'
+      parameters:
+      - description: Email and captcha
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.AuthForgotPasswordSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Email sent if account exists
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      summary: Request password reset email
+      tags:
+      - auth-password-recovery
   /auth/google-backup:
     get:
       description: '**Route:** `GET /api/v0/auth/google-backup`. Exchanges OAuth code
@@ -3301,6 +3489,76 @@ paths:
       summary: Refresh login session
       tags:
       - auth-account
+  /auth/reset-password:
+    post:
+      consumes:
+      - application/json
+      description: '**Full route:** `POST /api/v0/auth/reset-password`'
+      parameters:
+      - description: Recovery token and new password
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.AuthResetPasswordSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Password reset; session cookie cleared
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/consoleapi.AuthResetPasswordMFARequiredResponse'
+      summary: Reset password with recovery token
+      tags:
+      - auth-password-recovery
+  /auth/token:
+    post:
+      consumes:
+      - application/json
+      description: '**Full route:** `POST /api/v0/auth/token`'
+      parameters:
+      - description: From GET /config when CSRF enabled
+        in: header
+        name: X-CSRF-Token
+        type: string
+      - description: Email, password, captcha
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.AuthTokenSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.AuthCredentialLoginSwaggerResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      summary: Email + password login
+      tags:
+      - auth-email-login
   /blog-list:
     get:
       description: '**Full route:** `GET /blog-list` (server root, not under `/api/v0`).'
@@ -5877,9 +6135,24 @@ tags:
   name: google-backup-restore-cron
 - description: GET /google-backup/backup-restore/logs
   name: google-backup-logs
-- description: 'Account & session: profile, settings, refresh-session, developer-access,
-    MFA'
+- description: 'Logged-in account: profile (`GET/PATCH /auth/account` — check `hasPassword`),
+    change-password when password exists, MFA, settings, onboarding PATCH, refresh-session,
+    developer-access. Login: Google via `/auth/google-backup` or email via `POST /auth/token`.'
   name: auth-account
+- description: '**Email + password login:** `POST /auth/token` (CSRF header when enabled).
+    Sets `_tokenKey` cookie. Response: `token`, `success`, `action` (`logged_in`),
+    `onboarding` (same block as google-backup), `google_backup` when user has stored
+    Google credentials (scopes refreshed via refresh token). Send `mfaPasscode` or
+    `mfaRecoveryCode` on second request if MFA enabled.'
+  name: auth-email-login
+- description: '**Optional first password** (after Google signup or email verify):
+    `POST /auth/account/set-password` when `GET /auth/account` returns `hasPassword:
+    false`. User may skip — do not call this route if they decline.'
+  name: auth-set-password
+- description: '**Forgot password:** `POST /auth/forgot-password` (login captcha)
+    → email link `/password-recovery?token=` → `POST /auth/reset-password` → login
+    with new password via `POST /auth/token`.'
+  name: auth-password-recovery
 - description: 'Settings → Push devices: register and manage FCM tokens at `/api/v0/fcm-token`
     (session cookie). IP address is set server-side.'
   name: settings-fcm

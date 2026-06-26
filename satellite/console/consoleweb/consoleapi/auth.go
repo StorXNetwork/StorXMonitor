@@ -5,11 +5,13 @@ package consoleapi
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"math/big"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -22,6 +24,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
 
+	"github.com/StorXNetwork/common/http/requestid"
 	"github.com/StorXNetwork/common/uuid"
 
 	"github.com/StorXNetwork/StorXMonitor/private/post"
@@ -32,6 +35,7 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth/csrf"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth/sso"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consoleapi/socialmedia"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consoleapi/utils"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consolewebauth"
 	"github.com/StorXNetwork/StorXMonitor/satellite/mailservice"
 	"github.com/StorXNetwork/StorXMonitor/satellite/tenancy"
@@ -252,7 +256,307 @@ func (a *Auth) recordFailedLoginByEmail(ctx context.Context, email, failureMessa
 	a.service.RecordUserAuditForEmail(ctx, email, "AUTH_LOGIN", "Session", "User logged in", console.ErrLoginCredentials.New(failureMessage))
 }
 
-// Token authenticates user by credentials and returns auth token.
+// Register creates a new user account with email and password.
+func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var registerData struct {
+		FullName         string `json:"fullName"`
+		ShortName        string `json:"shortName"`
+		Email            string `json:"email"`
+		Partner          string `json:"partner"`
+		UserAgent        []byte `json:"userAgent"`
+		Password         string `json:"password"`
+		SecretInput      string `json:"secret"`
+		ReferrerUserID   string `json:"referrerUserId"`
+		IsProfessional   bool   `json:"isProfessional"`
+		Position         string `json:"position"`
+		CompanyName      string `json:"companyName"`
+		StorageNeeds     string `json:"storageNeeds"`
+		EmployeeCount    string `json:"employeeCount"`
+		HaveSalesContact bool   `json:"haveSalesContact"`
+		CaptchaResponse  string `json:"captchaResponse"`
+		SignupPromoCode  string `json:"signupPromoCode"`
+		IsMinimal        bool   `json:"isMinimal"`
+	}
+
+	err = json.NewDecoder(r.Body).Decode(&registerData)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	verifier := socialmedia.NewVerifierData(r)
+	if r.URL.Query().Has("zoho-insert") {
+		a.log.Debug("inserting lead in Zoho CRM")
+		go zohoInsertLead(context.Background(), registerData.FullName, registerData.Email, a.log, verifier)
+	}
+
+	registerData.Email = strings.TrimSpace(registerData.Email)
+
+	if !utils.ValidateEmail(registerData.Email) {
+		a.serveJSONError(ctx, w, console.ErrValidation.Wrap(errs.New("Invalid email.")))
+		return
+	}
+
+	if a.badPasswords != nil {
+		if _, exists := a.badPasswords[registerData.Password]; exists {
+			a.serveJSONError(ctx, w, console.ErrValidation.Wrap(errs.New("The password you chose is on a list of insecure or breached passwords. Please choose a different one.")))
+			return
+		}
+	}
+
+	if len([]rune(registerData.Partner)) > 100 {
+		a.serveJSONError(ctx, w, console.ErrValidation.Wrap(errs.New("Partner must be less than or equal to 100 characters")))
+		return
+	}
+
+	if len([]rune(registerData.SignupPromoCode)) > 100 {
+		a.serveJSONError(ctx, w, console.ErrValidation.Wrap(errs.New("Promo code must be less than or equal to 100 characters")))
+		return
+	}
+
+	verified, unverified, err := a.service.GetUserByEmailWithUnverified(ctx, registerData.Email)
+	if err != nil && !console.ErrEmailNotFound.Has(err) {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	if verified != nil {
+		satelliteAddress := a.getExternalAddress(ctx)
+		if !strings.HasSuffix(satelliteAddress, "/") {
+			satelliteAddress += "/"
+		}
+		a.mailService.SendRenderedAsync(
+			ctx,
+			[]post.Address{{Address: verified.Email}},
+			&console.AccountAlreadyExistsEmail{
+				Origin:            satelliteAddress,
+				SatelliteName:     a.SatelliteName,
+				SignInLink:        satelliteAddress + "login",
+				ResetPasswordLink: satelliteAddress + "forgot-password",
+				CreateAccountLink: satelliteAddress + "signup",
+			},
+		)
+
+		a.serveJSONError(ctx, w, console.ErrAlreadyMember.Wrap(errs.New("The requested Email ID is already registered. Please try again using a different email address.")))
+		return
+	}
+
+	var user *console.User
+	if len(unverified) > 0 {
+		user = &unverified[0]
+	} else {
+		secret, err := console.RegistrationSecretFromBase64(registerData.SecretInput)
+		if err != nil {
+			a.serveJSONError(ctx, w, err)
+			return
+		}
+
+		if registerData.Partner != "" {
+			registerData.UserAgent = []byte(registerData.Partner)
+		}
+
+		ip, err := web.GetRequestIP(r)
+		if err != nil {
+			a.serveJSONError(ctx, w, err)
+			return
+		}
+
+		var code string
+		var requestID string
+		if a.ActivationCodeEnabled {
+			randNum, err := rand.Int(rand.Reader, big.NewInt(900000))
+			if err != nil {
+				a.serveJSONError(ctx, w, console.Error.Wrap(err))
+				return
+			}
+			randNum = randNum.Add(randNum, big.NewInt(100000))
+			code = randNum.String()
+
+			requestID = requestid.FromContext(ctx)
+		}
+
+		var utmParams *console.UtmParams
+		if verifier != nil {
+			utmParams = &console.UtmParams{
+				UtmTerm:     verifier.UTMTerm,
+				UtmContent:  verifier.UTMContent,
+				UtmSource:   verifier.UTMSource,
+				UtmMedium:   verifier.UTMMedium,
+				UtmCampaign: verifier.UTMCampaign,
+			}
+		}
+
+		user, err = a.service.CreateUser(ctx,
+			console.CreateUser{
+				FullName:         registerData.FullName,
+				ShortName:        registerData.ShortName,
+				Email:            registerData.Email,
+				UserAgent:        registerData.UserAgent,
+				Password:         registerData.Password,
+				IsProfessional:   registerData.IsProfessional,
+				Position:         registerData.Position,
+				CompanyName:      registerData.CompanyName,
+				EmployeeCount:    registerData.EmployeeCount,
+				HaveSalesContact: registerData.HaveSalesContact,
+				CaptchaResponse:  registerData.CaptchaResponse,
+				IP:               ip,
+				SignupPromoCode:  registerData.SignupPromoCode,
+				ActivationCode:   code,
+				SignupId:         requestID,
+				AllowNoName:      registerData.IsMinimal,
+				Source:           "Register",
+				UtmParams:        utmParams,
+			},
+			secret, false,
+		)
+		if err != nil {
+			if !console.ErrEmailUsed.Has(err) {
+				a.serveJSONError(ctx, w, err)
+			}
+			return
+		}
+
+		invites, err := a.service.GetInvitesByEmail(ctx, registerData.Email)
+		if err != nil {
+			a.log.Error("Could not get invitations", zap.String("email", registerData.Email), zap.Error(err))
+		} else if len(invites) > 0 {
+			var firstInvite console.ProjectInvitation
+			for _, inv := range invites {
+				if inv.InviterID != nil && (firstInvite.CreatedAt.IsZero() || inv.CreatedAt.Before(firstInvite.CreatedAt)) {
+					firstInvite = inv
+				}
+			}
+			if firstInvite.InviterID != nil {
+				inviter, err := a.service.GetUser(ctx, *firstInvite.InviterID)
+				if err != nil {
+					a.log.Error("Error getting inviter info", zap.String("ID", firstInvite.InviterID.String()), zap.Error(err))
+				} else {
+					a.analytics.TrackInviteLinkSignup(inviter.Email, registerData.Email)
+				}
+			}
+		}
+
+		referrer := r.URL.Query().Get("referrer")
+		if referrer == "" {
+			referrer = r.Referer()
+		}
+		hubspotUTK := ""
+		hubspotCookie, err := r.Cookie("hubspotutk")
+		if err == nil {
+			hubspotUTK = hubspotCookie.Value
+		}
+
+		trackCreateUserFields := analytics.TrackCreateUserFields{
+			ID:            user.ID,
+			AnonymousID:   loadSession(r),
+			FullName:      user.FullName,
+			Email:         user.Email,
+			Type:          analytics.Personal,
+			OriginHeader:  r.Header.Get("Origin"),
+			Referrer:      referrer,
+			HubspotUTK:    hubspotUTK,
+			UserAgent:     string(user.UserAgent),
+			SignupCaptcha: user.SignupCaptcha,
+		}
+		if user.IsProfessional {
+			trackCreateUserFields.Type = analytics.Professional
+			trackCreateUserFields.EmployeeCount = user.EmployeeCount
+			trackCreateUserFields.CompanyName = user.CompanyName
+			trackCreateUserFields.StorageNeeds = registerData.StorageNeeds
+			trackCreateUserFields.JobTitle = user.Position
+			trackCreateUserFields.HaveSalesContact = user.HaveSalesContact
+		}
+		a.analytics.TrackCreateUser(trackCreateUserFields)
+	}
+
+	if a.ActivationCodeEnabled {
+		*user, err = a.service.SetActivationCodeAndSignupID(ctx, *user)
+		if err != nil {
+			a.serveJSONError(ctx, w, err)
+			return
+		}
+
+		a.mailService.SendRenderedAsync(
+			ctx,
+			[]post.Address{{Address: user.Email}},
+			&console.AccountActivationCodeEmail{
+				ActivationCode: user.ActivationCode,
+			},
+		)
+
+		return
+	}
+
+	token, err := a.service.GenerateActivationToken(ctx, user.ID, user.Email)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	link := a.ActivateAccountURL + "?token=" + token
+
+	a.mailService.SendRenderedAsync(
+		ctx,
+		[]post.Address{{Address: user.Email}},
+		&console.AccountActivationEmail{
+			Username:       user.FullName,
+			ActivationLink: link,
+			Origin:         a.ExternalAddress,
+		},
+	)
+
+	customExpiry := 24 * 7 * time.Hour
+
+	ip, err := web.GetRequestIP(r)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	tokenInfo, err := a.service.GenerateSessionToken(ctx, user.ID, user.Email, ip, r.UserAgent(), LoadAjsAnonymousID(r), nil, nil, &customExpiry)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+	a.log.Info("registration session token created", zap.String("token", tokenInfo.Token.String()))
+
+	authed := console.WithUser(ctx, user)
+
+	project, err := a.service.CreateProject(authed, console.UpsertProjectInfo{
+		Name: "My Project",
+	})
+	if err != nil {
+		a.log.Error("Error in Default Project:", zap.Error(err))
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	a.log.Info("Default Project Name: " + project.Name)
+}
+
+// Token authenticates user by email and password and returns session token with onboarding metadata.
+//
+// @Summary      Email + password login
+// @Description  **Full route:** `POST /api/v0/auth/token`
+//
+// Authenticates with email and password. Sets `_tokenKey` session cookie.
+// On success returns the same `onboarding` and `google_backup` payload as `GET /auth/google-backup`
+// (`google_backup` only when the user has stored Google backup credentials; scopes refreshed via refresh token).
+// If MFA is enabled, first call may return HTTP 200 with an MFA required error — resubmit with `mfaPasscode` or `mfaRecoveryCode`.
+// @Tags         auth-email-login
+// @Accept       json
+// @Produce      json
+// @Param        X-CSRF-Token  header    string                      false  "From GET /config when CSRF enabled"
+// @Param        body          body      AuthTokenSwaggerRequest       true   "Email, password, captcha"
+// @Success      200           {object}  AuthCredentialLoginSwaggerResponse
+// @Failure      400           {object}  SwaggerErrorResponse
+// @Failure      401           {object}  SwaggerErrorResponse
+// @Failure      403           {object}  SwaggerErrorResponse
+// @Router       /auth/token [post]
 func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -292,17 +596,14 @@ func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.cookieAuth.SetTokenCookie(w, *tokenInfo)
-
-	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(struct {
-		console.TokenInfo
-		Token string `json:"token"`
-	}{*tokenInfo, tokenInfo.Token.String()})
-	if err != nil {
-		a.log.Error("token handler could not encode token response", zap.Error(ErrAuthAPI.Wrap(err)))
+	verified, _, err := a.service.GetUserByEmailWithUnverified(ctx, tokenRequest.Email)
+	if err != nil || verified == nil {
+		a.log.Error("token handler could not load user after successful login", zap.String("email", tokenRequest.Email), zap.Error(err))
+		a.serveJSONError(ctx, w, console.Error.New("login succeeded but user could not be loaded"))
 		return
 	}
+
+	a.writeCredentialAuthSuccess(w, ctx, verified, *tokenInfo, googleBackupAuthActionLoggedIn)
 }
 
 // AuthenticateSso logs in/signs up a user using already authenticated
@@ -1545,6 +1846,53 @@ func (a *Auth) writeGoogleBackupAuthSuccess(w http.ResponseWriter, action string
 	}
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(payload)
+}
+
+type credentialAuthSuccessResponse struct {
+	console.TokenInfo
+	Token        string                            `json:"token"`
+	Success      bool                              `json:"success"`
+	Action       string                            `json:"action"`
+	Onboarding   console.GoogleBackupOnboardingAPI `json:"onboarding"`
+	GoogleBackup map[string]interface{}            `json:"google_backup,omitempty"`
+}
+
+// writeCredentialAuthSuccess returns the session token plus the same onboarding and google_backup
+// payload as GET /auth/google-backup (scopes refreshed from stored refresh token when present).
+func (a *Auth) writeCredentialAuthSuccess(w http.ResponseWriter, ctx context.Context, user *console.User, tokenInfo console.TokenInfo, action string) {
+	a.cookieAuth.SetTokenCookie(w, tokenInfo)
+
+	authed := console.WithUser(ctx, user)
+	sessionToken := tokenInfo.Token.String()
+
+	var googleBackup map[string]interface{}
+	backupPayload, backupErr := a.service.LoadGoogleBackupAtLogin(authed, sessionToken)
+	if backupErr != nil {
+		a.log.Warn("failed to load google backup metadata at credential auth", zap.Error(backupErr))
+		googleBackup = map[string]interface{}{
+			"error": backupErr.Error(),
+		}
+	} else {
+		googleBackup = backupPayload
+	}
+
+	onboarding, err := a.service.GetGoogleBackupOnboarding(authed)
+	if err != nil {
+		a.log.Warn("failed to read onboarding at credential auth", zap.Error(err))
+		onboarding = console.GoogleBackupOnboardingAPI{}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(credentialAuthSuccessResponse{
+		TokenInfo:    tokenInfo,
+		Token:        sessionToken,
+		Success:      true,
+		Action:       action,
+		Onboarding:   onboarding,
+		GoogleBackup: googleBackup,
+	}); err != nil {
+		a.log.Error("could not encode credential auth response", zap.Error(ErrAuthAPI.Wrap(err)))
+	}
 }
 
 func (a *Auth) writeGoogleBackupAuthError(w http.ResponseWriter, message string) {
@@ -3346,6 +3694,8 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 		TrialExpiration       *time.Time `json:"trialExpiration"`
 		HasVarPartner         bool       `json:"hasVarPartner"`
 
+		HasPassword bool `json:"hasPassword"`
+
 		LoginToken string `json:"loginToken"`
 
 		SocialLinkedin string `json:"socialLinkedin"`
@@ -3397,6 +3747,8 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	user.HasPassword = console.HasPasswordSet(consoleUser.PasswordHash)
+
 	token, err := r.Cookie("_tokenKey")
 	if err == nil {
 		user.LoginToken = token.Value
@@ -3411,6 +3763,19 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 }
 
 // ChangePassword auth user, changes users password for a new one.
+//
+// @Summary      Change password (logged in, password already set)
+// @Description  **Full route:** `POST /api/v0/auth/account/change-password`
+// @Tags         auth-account
+// @Accept       json
+// @Produce      json
+// @Param        X-CSRF-Token  header    string                              false  "From GET /config when CSRF enabled"
+// @Param        body          body      AuthChangePasswordSwaggerRequest      true   "Current and new password"
+// @Success      200
+// @Failure      400  {object}  SwaggerErrorResponse
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /auth/account/change-password [post]
 func (a *Auth) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -3449,7 +3814,66 @@ func (a *Auth) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// SetPassword sets the initial login password for the authenticated user when none is configured.
+// Call only when GET /auth/account returns hasPassword: false. Skip this step if the user declines.
+//
+// @Summary      Set initial password (optional after Google / email verify)
+// @Description  **Full route:** `POST /api/v0/auth/account/set-password`
+// @Tags         auth-set-password
+// @Accept       json
+// @Produce      json
+// @Param        X-CSRF-Token  header    string                         false  "From GET /config when CSRF enabled"
+// @Param        body          body      AuthSetPasswordSwaggerRequest    true   "New password only"
+// @Success      200  "Password set"
+// @Failure      400  {object}  SwaggerErrorResponse
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Failure      409  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /auth/account/set-password [post]
+func (a *Auth) SetPassword(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var passwordSet struct {
+		NewPassword string `json:"newPassword"`
+	}
+
+	err = json.NewDecoder(r.Body).Decode(&passwordSet)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	if a.badPasswords != nil {
+		if _, exists := a.badPasswords[passwordSet.NewPassword]; exists {
+			a.serveJSONError(ctx, w, console.ErrValidation.Wrap(errs.New("The password you chose is on a list of insecure or breached passwords. Please choose a different one.")))
+			return
+		}
+	}
+
+	err = a.service.SetPassword(ctx, passwordSet.NewPassword)
+	a.service.RecordUserAudit(ctx, "ACCOUNT_SET_PASSWORD", "Account", "Initial password set", err)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+}
+
 // ForgotPassword creates password-reset token and sends email to user.
+//
+// @Summary      Request password reset email
+// @Description  **Full route:** `POST /api/v0/auth/forgot-password`
+//
+// Sends a password recovery email when the account exists. Uses login captcha (`captchaResponse`).
+// Always returns HTTP 200 on valid captcha (no email enumeration).
+// @Tags         auth-password-recovery
+// @Accept       json
+// @Produce      json
+// @Param        body  body  AuthForgotPasswordSwaggerRequest  true  "Email and captcha"
+// @Success      200   "Email sent if account exists"
+// @Failure      400   {object}  SwaggerErrorResponse
+// @Router       /auth/forgot-password [post]
 func (a *Auth) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -3912,6 +4336,21 @@ func (a *Auth) RegenerateMFARecoveryCodes(w http.ResponseWriter, r *http.Request
 }
 
 // ResetPassword resets user's password using recovery token.
+//
+// @Summary      Reset password with recovery token
+// @Description  **Full route:** `POST /api/v0/auth/reset-password`
+//
+// Completes forgot-password flow using `token` from the email link (`/password-recovery?token=`).
+// Clears session cookie on success. Returns `code: mfa_required` when MFA is enabled.
+// @Tags         auth-password-recovery
+// @Accept       json
+// @Produce      json
+// @Param        body  body  AuthResetPasswordSwaggerRequest  true  "Recovery token and new password"
+// @Success      200   "Password reset; session cookie cleared"
+// @Failure      400   {object}  SwaggerErrorResponse
+// @Failure      401   {object}  SwaggerErrorResponse
+// @Failure      422   {object}  AuthResetPasswordMFARequiredResponse
+// @Router       /auth/reset-password [post]
 func (a *Auth) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -4345,7 +4784,7 @@ func (a *Auth) getStatusCode(err error) int {
 		console.ErrActivationCode.Has(err), sso.ErrTokenVerification.Has(err),
 		sso.ErrInvalidState.Has(err):
 		return http.StatusUnauthorized
-	case console.ErrEmailUsed.Has(err), console.ErrMFAConflict.Has(err), console.ErrMFAEnabled.Has(err), console.ErrConflict.Has(err):
+	case console.ErrEmailUsed.Has(err), console.ErrMFAConflict.Has(err), console.ErrMFAEnabled.Has(err), console.ErrConflict.Has(err), console.ErrPasswordAlreadySet.Has(err):
 		return http.StatusConflict
 	case console.ErrLoginRestricted.Has(err), console.ErrTooManyAttempts.Has(err), console.ErrForbidden.Has(err), console.ErrSsoUserRestricted.Has(err), console.ErrProjectInviteInvalid.Has(err):
 		return http.StatusForbidden
@@ -4377,6 +4816,8 @@ func (a *Auth) getUserErrorMessage(err error) string {
 		return "We are unable to create your account. This is an invite-only alpha, please join our waitlist to receive an invitation"
 	case console.ErrEmailUsed.Has(err):
 		return "This email is already in use; try another"
+	case console.ErrPasswordAlreadySet.Has(err):
+		return "A password is already set on this account; use change-password instead"
 	case console.ErrRecoveryToken.Has(err):
 		if console.ErrTokenExpiration.Has(err) {
 			return "The recovery token has expired"

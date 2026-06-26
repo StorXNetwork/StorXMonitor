@@ -166,6 +166,9 @@ var (
 	// ErrChangePassword occurs when provided old password is incorrect.
 	ErrChangePassword = errs.Class("change password")
 
+	// ErrPasswordAlreadySet occurs when set-password is called but a password is already configured.
+	ErrPasswordAlreadySet = errs.Class("password already set")
+
 	// ErrEmailUsed is error type that occurs on repeating auth attempts with email.
 	ErrEmailUsed = errs.Class("email used")
 
@@ -2222,8 +2225,9 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	// 	return nil, ErrEmailUsed.New(emailUsedErrMsg)
 	// }
 
-	hash, err := bcrypt.GenerateFromPassword([]byte(user.Password), s.config.PasswordCost)
-	if !socialsign {
+	var hash []byte
+	if user.Password != "" {
+		hash, err = bcrypt.GenerateFromPassword([]byte(user.Password), s.config.PasswordCost)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
@@ -4562,6 +4566,38 @@ func (s *Service) DeleteAccountRequest(ctx context.Context) (err error) {
 	deleteAt := time.Now().AddDate(0, 1, 0)
 
 	err = s.store.Users().CreateDeleteRequest(ctx, user.ID, deleteAt)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return nil
+}
+
+// SetPassword sets the initial login password for the authenticated user when none is configured yet.
+func (s *Service) SetPassword(ctx context.Context, newPass string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "set password")
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	if HasPasswordSet(user.PasswordHash) {
+		return ErrPasswordAlreadySet.New("password is already set")
+	}
+
+	if err := ValidateNewPassword(newPass); err != nil {
+		return ErrValidation.Wrap(err)
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(newPass), s.config.PasswordCost)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	err = s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
+		PasswordHash: hash,
+	})
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -10061,6 +10097,69 @@ func (s *Service) RegisterGoogleBackupCredential(ctx context.Context, googleEmai
 	}
 
 	return result, nil
+}
+
+// LoadGoogleBackupAtLogin refreshes stored Google backup credentials and returns the same
+// google_backup payload shape as google-backup auth. Returns nil when no credentials exist.
+func (s *Service) LoadGoogleBackupAtLogin(ctx context.Context, sessionToken string) (googleBackup map[string]interface{}, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := GetUser(ctx)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	credential, err := s.store.GoogleBackupCredentials().GetByUserID(ctx, user.ID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, Error.Wrap(err)
+	}
+
+	result := RegisterGoogleBackupResult{
+		GoogleEmail: credential.GoogleEmail,
+		AccountType: credential.AccountType,
+	}
+
+	accessTokenExpiry := time.Time{}
+	if credential.AccessTokenExpiry != nil {
+		accessTokenExpiry = *credential.AccessTokenExpiry
+	}
+
+	if credential.AccessToken == "" && credential.RefreshToken == "" {
+		return GoogleBackupRegistrationPayload(result), nil
+	}
+
+	accessToken, validExpiry, err := socialmedia.ResolveAccessToken(ctx, credential.AccessToken, credential.RefreshToken, accessTokenExpiry)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	if storeErr := s.storeGoogleBackupCredential(ctx, user.ID, credential.GoogleEmail, accessToken, credential.RefreshToken, validExpiry, credential.AccountType); storeErr != nil {
+		s.log.Warn("failed to persist google tokens at login", zap.Error(storeErr))
+	}
+
+	if granted, scopeErr := socialmedia.ResolveGrantedScopes(ctx, accessToken, ""); scopeErr != nil {
+		s.log.Warn("failed to resolve google granted scopes at login", zap.Error(scopeErr))
+	} else {
+		result.GrantedScopes, result.UngrantedScopes = socialmedia.GoogleBackupScopeSummary(granted)
+	}
+
+	if strings.TrimSpace(sessionToken) != "" {
+		domainUsers, domainErr := s.fetchGmailCorporateDomainUsers(ctx, sessionToken, accessToken)
+		if domainErr != nil {
+			s.log.Warn("domain-users call failed at login", zap.Error(domainErr))
+			result.DomainError = domainErr.Error()
+		} else {
+			result.DomainUsers = domainUsers
+			if accountType, ok := domainUsers["account_type"].(string); ok && accountType != "" {
+				result.AccountType = accountType
+			}
+		}
+	}
+
+	return GoogleBackupRegistrationPayload(result), nil
 }
 
 func (s *Service) storeGoogleBackupCredential(ctx context.Context, userID uuid.UUID, googleEmail, accessToken, refreshToken string, accessTokenExpiry time.Time, accountType string) error {

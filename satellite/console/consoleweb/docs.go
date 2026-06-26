@@ -81,7 +81,16 @@ package consoleweb
 // @tag.description GET /google-backup/backup-restore/logs
 
 // @tag.name auth-account
-// @tag.description Account & session: profile, settings, refresh-session, developer-access, MFA
+// @tag.description Logged-in account: profile (`GET/PATCH /auth/account` — check `hasPassword`), change-password when password exists, MFA, settings, onboarding PATCH, refresh-session, developer-access. Login: Google via `/auth/google-backup` or email via `POST /auth/token`.
+
+// @tag.name auth-email-login
+// @tag.description **Email + password login:** `POST /auth/token` (CSRF header when enabled). Sets `_tokenKey` cookie. Response: `token`, `success`, `action` (`logged_in`), `onboarding` (same block as google-backup), `google_backup` when user has stored Google credentials (scopes refreshed via refresh token). Send `mfaPasscode` or `mfaRecoveryCode` on second request if MFA enabled.
+
+// @tag.name auth-set-password
+// @tag.description **Optional first password** (after Google signup or email verify): `POST /auth/account/set-password` when `GET /auth/account` returns `hasPassword: false`. User may skip — do not call this route if they decline.
+
+// @tag.name auth-password-recovery
+// @tag.description **Forgot password:** `POST /auth/forgot-password` (login captcha) → email link `/password-recovery?token=` → `POST /auth/reset-password` → login with new password via `POST /auth/token`.
 
 // @tag.name settings-fcm
 // @tag.description Settings → Push devices: register and manage FCM tokens at `/api/v0/fcm-token` (session cookie). IP address is set server-side.

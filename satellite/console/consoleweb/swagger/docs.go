@@ -525,6 +525,60 @@ const docTemplate = `{
                 }
             }
         },
+        "/auth/account/change-password": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `POST /api/v0/auth/account/change-password` + "`" + `",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth-account"
+                ],
+                "summary": "Change password (logged in, password already set)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "From GET /config when CSRF enabled",
+                        "name": "X-CSRF-Token",
+                        "in": "header"
+                    },
+                    {
+                        "description": "Current and new password",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.AuthChangePasswordSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/auth/account/freezestatus": {
             "get": {
                 "security": [
@@ -597,6 +651,66 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/account/set-password": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `POST /api/v0/auth/account/set-password` + "`" + `",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth-set-password"
+                ],
+                "summary": "Set initial password (optional after Google / email verify)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "From GET /config when CSRF enabled",
+                        "name": "X-CSRF-Token",
+                        "in": "header"
+                    },
+                    {
+                        "description": "New password only",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.AuthSetPasswordSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Password set"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
                         "schema": {
                             "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
                         }
@@ -809,6 +923,43 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/forgot-password": {
+            "post": {
+                "description": "**Full route:** ` + "`" + `POST /api/v0/auth/forgot-password` + "`" + `",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth-password-recovery"
+                ],
+                "summary": "Request password reset email",
+                "parameters": [
+                    {
+                        "description": "Email and captcha",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.AuthForgotPasswordSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Email sent if account exists"
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
                         }
@@ -1114,6 +1265,113 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/reset-password": {
+            "post": {
+                "description": "**Full route:** ` + "`" + `POST /api/v0/auth/reset-password` + "`" + `",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth-password-recovery"
+                ],
+                "summary": "Reset password with recovery token",
+                "parameters": [
+                    {
+                        "description": "Recovery token and new password",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.AuthResetPasswordSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Password reset; session cookie cleared"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.AuthResetPasswordMFARequiredResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/token": {
+            "post": {
+                "description": "**Full route:** ` + "`" + `POST /api/v0/auth/token` + "`" + `",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth-email-login"
+                ],
+                "summary": "Email + password login",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "From GET /config when CSRF enabled",
+                        "name": "X-CSRF-Token",
+                        "in": "header"
+                    },
+                    {
+                        "description": "Email, password, captcha",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.AuthTokenSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.AuthCredentialLoginSwaggerResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
                         }
@@ -5221,6 +5479,10 @@ const docTemplate = `{
                     "type": "string",
                     "example": "Jane Doe"
                 },
+                "hasPassword": {
+                    "type": "boolean",
+                    "example": false
+                },
                 "hasVarPartner": {
                     "type": "boolean",
                     "example": false
@@ -5307,6 +5569,133 @@ const docTemplate = `{
                 "walletId": {
                     "type": "string",
                     "example": ""
+                }
+            }
+        },
+        "consoleapi.AuthChangePasswordSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "newPassword": {
+                    "type": "string",
+                    "example": "NewSecurePass1!"
+                },
+                "password": {
+                    "type": "string",
+                    "example": "CurrentPass1!"
+                }
+            }
+        },
+        "consoleapi.AuthCredentialLoginSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": [
+                        "logged_in"
+                    ],
+                    "example": "logged_in"
+                },
+                "expiresAt": {
+                    "type": "string"
+                },
+                "google_backup": {
+                    "type": "object"
+                },
+                "onboarding": {
+                    "$ref": "#/definitions/consoleapi.GoogleBackupOnboardingSwagger"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "token": {
+                    "type": "string",
+                    "example": "\u003csession-token\u003e"
+                }
+            }
+        },
+        "consoleapi.AuthForgotPasswordSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "captchaResponse": {
+                    "type": "string",
+                    "example": "\u003ccaptcha-token\u003e"
+                },
+                "email": {
+                    "type": "string",
+                    "example": "user@example.com"
+                }
+            }
+        },
+        "consoleapi.AuthResetPasswordMFARequiredResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "example": "mfa_required"
+                },
+                "error": {
+                    "type": "string",
+                    "example": "A MFA passcode or recovery code is required"
+                }
+            }
+        },
+        "consoleapi.AuthResetPasswordSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "mfaPasscode": {
+                    "type": "string",
+                    "example": "123456"
+                },
+                "mfaRecoveryCode": {
+                    "type": "string",
+                    "example": ""
+                },
+                "password": {
+                    "type": "string",
+                    "example": "NewSecurePass1!"
+                },
+                "token": {
+                    "type": "string",
+                    "example": "\u003crecovery-token-from-email\u003e"
+                }
+            }
+        },
+        "consoleapi.AuthSetPasswordSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "newPassword": {
+                    "type": "string",
+                    "example": "MySecurePass1!"
+                }
+            }
+        },
+        "consoleapi.AuthTokenSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "captchaResponse": {
+                    "type": "string",
+                    "example": ""
+                },
+                "email": {
+                    "type": "string",
+                    "example": "user@example.com"
+                },
+                "mfaPasscode": {
+                    "type": "string",
+                    "example": "123456"
+                },
+                "mfaRecoveryCode": {
+                    "type": "string",
+                    "example": ""
+                },
+                "password": {
+                    "type": "string",
+                    "example": "MySecurePass1!"
+                },
+                "rememberForOneWeek": {
+                    "type": "boolean",
+                    "example": false
                 }
             }
         },
@@ -8660,8 +9049,20 @@ const docTemplate = `{
             "name": "google-backup-logs"
         },
         {
-            "description": "Account \u0026 session: profile, settings, refresh-session, developer-access, MFA",
+            "description": "Logged-in account: profile (` + "`" + `GET/PATCH /auth/account` + "`" + ` — check ` + "`" + `hasPassword` + "`" + `), change-password when password exists, MFA, settings, onboarding PATCH, refresh-session, developer-access. Login: Google via ` + "`" + `/auth/google-backup` + "`" + ` or email via ` + "`" + `POST /auth/token` + "`" + `.",
             "name": "auth-account"
+        },
+        {
+            "description": "**Email + password login:** ` + "`" + `POST /auth/token` + "`" + ` (CSRF header when enabled). Sets ` + "`" + `_tokenKey` + "`" + ` cookie. Response: ` + "`" + `token` + "`" + `, ` + "`" + `success` + "`" + `, ` + "`" + `action` + "`" + ` (` + "`" + `logged_in` + "`" + `), ` + "`" + `onboarding` + "`" + ` (same block as google-backup), ` + "`" + `google_backup` + "`" + ` when user has stored Google credentials (scopes refreshed via refresh token). Send ` + "`" + `mfaPasscode` + "`" + ` or ` + "`" + `mfaRecoveryCode` + "`" + ` on second request if MFA enabled.",
+            "name": "auth-email-login"
+        },
+        {
+            "description": "**Optional first password** (after Google signup or email verify): ` + "`" + `POST /auth/account/set-password` + "`" + ` when ` + "`" + `GET /auth/account` + "`" + ` returns ` + "`" + `hasPassword: false` + "`" + `. User may skip — do not call this route if they decline.",
+            "name": "auth-set-password"
+        },
+        {
+            "description": "**Forgot password:** ` + "`" + `POST /auth/forgot-password` + "`" + ` (login captcha) → email link ` + "`" + `/password-recovery?token=` + "`" + ` → ` + "`" + `POST /auth/reset-password` + "`" + ` → login with new password via ` + "`" + `POST /auth/token` + "`" + `.",
+            "name": "auth-password-recovery"
         },
         {
             "description": "Settings → Push devices: register and manage FCM tokens at ` + "`" + `/api/v0/fcm-token` + "`" + ` (session cookie). IP address is set server-side.",
