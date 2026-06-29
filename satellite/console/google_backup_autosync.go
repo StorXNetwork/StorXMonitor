@@ -162,7 +162,7 @@ func (s *Service) CreateGoogleBackupAutoSyncJobs(ctx context.Context, req Create
 		"services":          req.Services,
 		"google_email":      credential.GoogleEmail,
 		"account_type":      credential.AccountType,
-		"project_id":        project.ID.String(),
+		"project_id":        project.PublicID.String(),
 		"satellite_user_id": user.ID.String(),
 		"refresh_token":     credential.RefreshToken,
 	}

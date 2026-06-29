@@ -806,7 +806,7 @@ func (s *Service) RefreshStorxTokenForBackupTools(ctx context.Context, req Refre
 
 	return RefreshStorxTokenResult{
 		AccessGrant: accessGrant,
-		ProjectID:   project.ID.String(),
+		ProjectID:   project.PublicID.String(),
 	}, nil
 }
 
@@ -2231,6 +2231,9 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
+	} else {
+		// Passwordless social signup: empty bytea satisfies NOT NULL; HasPasswordSet treats len==0 as unset.
+		hash = make([]byte, 0)
 	}
 
 	// patern validation for user details

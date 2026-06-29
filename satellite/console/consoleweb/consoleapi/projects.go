@@ -1202,10 +1202,17 @@ func (p *Projects) GetProjectIDFromAccessGrant(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	project, err := p.service.GetProjectNoAuth(ctx, apiKeyInfo.ProjectID)
+	if err != nil {
+		p.log.Info("Failed to resolve project for access grant", zap.Error(err))
+		p.serveJSONError(ctx, w, http.StatusUnauthorized, errs.New("invalid access grant or API key not found"))
+		return
+	}
+
 	response := struct {
 		ProjectID string `json:"project_id"`
 	}{
-		ProjectID: apiKeyInfo.ProjectID.String(),
+		ProjectID: project.PublicID.String(),
 	}
 
 	if err := json.NewEncoder(w).Encode(response); err != nil {
