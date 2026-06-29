@@ -305,7 +305,7 @@ func (s *Service) applyGoogleBackupProjectUpdateTokens(ctx context.Context, req 
 	refreshToken := strings.TrimSpace(req.RefreshToken)
 
 	if code != "" {
-		tokenRes, err := socialmedia.GetGoogleOauthToken(code, "signin", false)
+		tokenRes, err := socialmedia.GetGoogleOauthToken(code, "googlebackup", false)
 		if err != nil {
 			return ErrValidation.New("failed to exchange google oauth code: %v", err)
 		}
@@ -474,8 +474,8 @@ type ConnectGoogleBackupResult struct {
 	UngrantedScopes []string
 }
 
-// ConnectGoogleBackupCredential exchanges a Google OAuth code for an already logged-in user (login redirect, not register).
-// The UI must request backup scopes on the Google consent screen; redirect_uri must match GOOGLE_OAUTH_REDIRECT_URL_LOGIN.
+// ConnectGoogleBackupCredential exchanges a Google OAuth code for an already logged-in user.
+// The UI must request backup scopes on the Google consent screen; redirect_uri must match GOOGLE_OAUTH_REDIRECT_URL_GOOGLE_BACKUP.
 func (s *Service) ConnectGoogleBackupCredential(ctx context.Context, code string) (result ConnectGoogleBackupResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -489,7 +489,7 @@ func (s *Service) ConnectGoogleBackupCredential(ctx context.Context, code string
 		return result, Error.Wrap(err)
 	}
 
-	tokenRes, err := socialmedia.GetGoogleOauthToken(code, "connect", false)
+	tokenRes, err := socialmedia.GetGoogleOauthToken(code, "googlebackup", false)
 	if err != nil {
 		return result, ErrValidation.New("failed to exchange google oauth code: %v", err)
 	}

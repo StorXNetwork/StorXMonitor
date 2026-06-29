@@ -288,7 +288,7 @@ func (g *GoogleBackup) GetAutoSyncJob(w http.ResponseWriter, r *http.Request) {
 // @Summary      Update Google Backup jobs by project
 // @Description  **Full route:** `PUT /api/v0/google-backup/auto-sync/jobs/project`
 //
-// Account-level update (refresh_token, storx_token, active). Schedule and retention use PUT .../auto-sync/policy/{policy_id}. Send `code` to re-auth: Satellite exchanges OAuth code, updates google_backup_credentials, then forwards refresh_token to Backup-Tools (never forwards code).
+// Account-level update (refresh_token, storx_token, active). Schedule and retention use PUT .../auto-sync/policy/{policy_id}. Send `code` to re-auth: Satellite exchanges OAuth code using `GOOGLE_OAUTH_REDIRECT_URL_GOOGLE_BACKUP`, updates google_backup_credentials, then forwards refresh_token to Backup-Tools (never forwards code).
 // @Tags         google-backup
 // @Accept       json
 // @Produce      json
@@ -420,7 +420,7 @@ func (g *GoogleBackup) GetDomainUsers(w http.ResponseWriter, r *http.Request) {
 // ConnectGoogle exchanges an OAuth code and upserts google_backup_credentials for the logged-in user.
 //
 // @Summary      Connect Google account for backup
-// @Description  **Route:** `POST /api/v0/google-backup/connect`. Body: Google OAuth `code` (login redirect_uri). Returns scopes metadata. Tokens stored server-side only.
+// @Description  **Route:** `POST /api/v0/google-backup/connect`. Body: Google OAuth `code` (`redirect_uri` = `GOOGLE_OAUTH_REDIRECT_URL_GOOGLE_BACKUP`, same as `GET /auth/google-backup`). Returns scopes metadata. Tokens stored server-side only.
 // @Tags         google-backup
 // @Accept       json
 // @Produce      json

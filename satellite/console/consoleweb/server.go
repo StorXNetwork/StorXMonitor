@@ -1445,12 +1445,8 @@ func (server *Server) withCSRFProtection(handler http.Handler) http.Handler {
 // frontendConfigHandler handles sending the frontend config to the client.
 //
 // @Summary      Get frontend satellite configuration
-// @Description  **Full route:** `GET /api/v0/config`
-//
-// Public endpoint (no authentication). Called on console load to bootstrap the web app.
-// Returns `apiBaseURL`, `externalAddress`, feature flags (billing, MFA, domains, object lock, etc.),
-// captcha settings, session/CSRF token when CSRF protection is enabled, Stripe public key, pricing fields,
-// and other UI toggles defined in `FrontendConfig`.
+// @Description  **Full route:** `GET /api/v0/config` — public bootstrap (no auth). Call before `POST /auth/token`: read `captcha.login` (hCaptcha/reCAPTCHA site keys) and `csrfToken` when CSRF is enabled; send `captchaResponse` and optional `X-CSRF-Token` on login. Also returns `apiBaseURL`, feature flags, Stripe key, and other `FrontendConfig` fields.
+// @Tags         auth-email-login
 // @Tags         config
 // @Produce      json
 // @Success      200  {object}  FrontendConfig

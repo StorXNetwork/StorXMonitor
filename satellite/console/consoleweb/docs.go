@@ -18,10 +18,17 @@ package consoleweb
 // @securityDefinitions.apikey ApiKeyAuth
 // @in header
 // @name Authorization
+// @description Bearer / API key (rare for console routes).
 
 // @securityDefinitions.apikey CookieAuth
 // @in cookie
 // @name _tokenKey
+// @description Session cookie after login. **Swagger Authorize:** paste the token value only (e.g. from `POST /auth/token` response `token` field or browser cookie `_tokenKey`). Do not prefix with `Cookie:` or `_tokenKey=`. UI syncs this into `document.cookie` automatically.
+
+// @securityDefinitions.apikey CSRFAuth
+// @in header
+// @name X-CSRF-Token
+// @description When `console.csrf-protection-enabled` is true: copy `csrfToken` from `GET /config` and Authorize here. Must match `csrf_token` cookie (set by GET /config or synced by Swagger UI). Required for `POST /auth/token`, `POST /auth/account/set-password`, and other CSRF-protected routes.
 
 // @tag.name projects
 // @tag.description Project management: invitations, members, usage, and project CRUD
@@ -57,7 +64,7 @@ package consoleweb
 // @tag.description Google Backup combined auth: `GET /auth/google-backup` (register or login by email). Returns `action`, `onboarding` block, and `google_backup`. OAuth redirect = `GOOGLE_OAUTH_REDIRECT_URL_GOOGLE_BACKUP`.
 
 // @tag.name google-backup
-// @tag.description Google Backup auto-sync APIs (jobs, connect, domain-users). `POST /auto-sync/jobs` sets onboarding complete on success.
+// @tag.description Google Backup auto-sync APIs (jobs, connect, domain-users). OAuth `code` on `POST /google-backup/connect` and `PUT /auto-sync/jobs/project` uses `GOOGLE_OAUTH_REDIRECT_URL_GOOGLE_BACKUP` (same as `GET /auth/google-backup`). `POST /auto-sync/jobs` sets onboarding complete on success.
 
 // @tag.name google-backup-autosync-live
 // @tag.description Live backup progress poll: GET /api/v0/google-backup/auto-sync/live → Backup-Tools GET /auto-sync/live (running/failed tasks only; poll 3–5s). Not `/autosync/live`.
@@ -84,10 +91,10 @@ package consoleweb
 // @tag.description Logged-in account: profile (`GET/PATCH /auth/account` — check `hasPassword`), change-password when password exists, MFA, settings, onboarding PATCH, refresh-session, developer-access. Login: Google via `/auth/google-backup` or email via `POST /auth/token`.
 
 // @tag.name auth-email-login
-// @tag.description **Email + password login:** `POST /auth/token` (CSRF header when enabled). Sets `_tokenKey` cookie. Response: `token`, `success`, `action` (`logged_in`), `onboarding` (same block as google-backup), `google_backup` when user has stored Google credentials (scopes refreshed via refresh token). Send `mfaPasscode` or `mfaRecoveryCode` on second request if MFA enabled.
+// @tag.description **Email + password login:** `GET /config` first for `captcha.login` site keys and `csrfToken` when CSRF is enabled, then `POST /auth/token` with `captchaResponse` and optional `X-CSRF-Token` header. Sets `_tokenKey` cookie. Response: `token`, `success`, `action` (`logged_in`), `onboarding` (same block as google-backup), `google_backup` when user has stored Google credentials (scopes refreshed via refresh token). Send `mfaPasscode` or `mfaRecoveryCode` on second request if MFA enabled.
 
 // @tag.name auth-set-password
-// @tag.description **Optional first password** (after Google signup or email verify): `POST /auth/account/set-password` when `GET /auth/account` returns `hasPassword: false`. User may skip — do not call this route if they decline.
+// @tag.description **Optional first password** when `GET /auth/account` returns `hasPassword: false`. **Swagger test:** (1) `GET /config` → copy `csrfToken`. (2) Authorize **CookieAuth** = `_tokenKey` value from Google login / `auth/token`. (3) Authorize **CSRFAuth** = same `csrfToken`. (4) `POST /auth/account/set-password` with `{ "newPassword": "..." }`.
 
 // @tag.name auth-password-recovery
 // @tag.description **Forgot password:** `POST /auth/forgot-password` (login captcha) → email link `/password-recovery?token=` → `POST /auth/reset-password` → login with new password via `POST /auth/token`.

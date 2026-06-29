@@ -663,9 +663,12 @@ const docTemplate = `{
                 "security": [
                     {
                         "CookieAuth": []
+                    },
+                    {
+                        "CSRFAuth": []
                     }
                 ],
-                "description": "**Full route:** ` + "`" + `POST /api/v0/auth/account/set-password` + "`" + `",
+                "description": "**Full route:** ` + "`" + `POST /api/v0/auth/account/set-password` + "`" + ` — requires logged-in session (` + "`" + `_tokenKey` + "`" + ` cookie) and CSRF when enabled. **Swagger:** Authorize **CookieAuth** with session token value; Authorize **CSRFAuth** with ` + "`" + `csrfToken` + "`" + ` from ` + "`" + `GET /config` + "`" + `; then call this route. Body: ` + "`" + `{ \"newPassword\": \"...\" }` + "`" + ` (8–64 chars). Returns 409 if password already set.",
                 "consumes": [
                     "application/json"
                 ],
@@ -677,12 +680,6 @@ const docTemplate = `{
                 ],
                 "summary": "Set initial password (optional after Google / email verify)",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "From GET /config when CSRF enabled",
-                        "name": "X-CSRF-Token",
-                        "in": "header"
-                    },
                     {
                         "description": "New password only",
                         "name": "body",
@@ -705,6 +702,12 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
                         }
@@ -1323,6 +1326,11 @@ const docTemplate = `{
         },
         "/auth/token": {
             "post": {
+                "security": [
+                    {
+                        "CSRFAuth": []
+                    }
+                ],
                 "description": "**Full route:** ` + "`" + `POST /api/v0/auth/token` + "`" + `",
                 "consumes": [
                     "application/json"
@@ -1335,12 +1343,6 @@ const docTemplate = `{
                 ],
                 "summary": "Email + password login",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "From GET /config when CSRF enabled",
-                        "name": "X-CSRF-Token",
-                        "in": "header"
-                    },
                     {
                         "description": "Email, password, captcha",
                         "name": "body",
@@ -1603,11 +1605,12 @@ const docTemplate = `{
         },
         "/config": {
             "get": {
-                "description": "**Full route:** ` + "`" + `GET /api/v0/config` + "`" + `",
+                "description": "**Full route:** ` + "`" + `GET /api/v0/config` + "`" + ` — public bootstrap (no auth). Call before ` + "`" + `POST /auth/token` + "`" + `: read ` + "`" + `captcha.login` + "`" + ` (hCaptcha/reCAPTCHA site keys) and ` + "`" + `csrfToken` + "`" + ` when CSRF is enabled; send ` + "`" + `captchaResponse` + "`" + ` and optional ` + "`" + `X-CSRF-Token` + "`" + ` on login. Also returns ` + "`" + `apiBaseURL` + "`" + `, feature flags, Stripe key, and other ` + "`" + `FrontendConfig` + "`" + ` fields.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
+                    "auth-email-login",
                     "config"
                 ],
                 "summary": "Get frontend satellite configuration",
@@ -2794,7 +2797,7 @@ const docTemplate = `{
                         "CookieAuth": []
                     }
                 ],
-                "description": "**Route:** ` + "`" + `POST /api/v0/google-backup/connect` + "`" + `. Body: Google OAuth ` + "`" + `code` + "`" + ` (login redirect_uri). Returns scopes metadata. Tokens stored server-side only.",
+                "description": "**Route:** ` + "`" + `POST /api/v0/google-backup/connect` + "`" + `. Body: Google OAuth ` + "`" + `code` + "`" + ` (` + "`" + `redirect_uri` + "`" + ` = ` + "`" + `GOOGLE_OAUTH_REDIRECT_URL_GOOGLE_BACKUP` + "`" + `, same as ` + "`" + `GET /auth/google-backup` + "`" + `). Returns scopes metadata. Tokens stored server-side only.",
                 "consumes": [
                     "application/json"
                 ],
@@ -8161,7 +8164,7 @@ const docTemplate = `{
             "properties": {
                 "error": {
                     "type": "string",
-                    "example": "error message"
+                    "example": "Invalid CSRF token"
                 }
             }
         },
@@ -8961,11 +8964,19 @@ const docTemplate = `{
     },
     "securityDefinitions": {
         "ApiKeyAuth": {
+            "description": "Bearer / API key (rare for console routes).",
             "type": "apiKey",
             "name": "Authorization",
             "in": "header"
         },
+        "CSRFAuth": {
+            "description": "When ` + "`" + `console.csrf-protection-enabled` + "`" + ` is true: copy ` + "`" + `csrfToken` + "`" + ` from ` + "`" + `GET /config` + "`" + ` and Authorize here. Must match ` + "`" + `csrf_token` + "`" + ` cookie (set by GET /config or synced by Swagger UI). Required for ` + "`" + `POST /auth/token` + "`" + `, ` + "`" + `POST /auth/account/set-password` + "`" + `, and other CSRF-protected routes.",
+            "type": "apiKey",
+            "name": "X-CSRF-Token",
+            "in": "header"
+        },
         "CookieAuth": {
+            "description": "Session cookie after login. **Swagger Authorize:** paste the token value only (e.g. from ` + "`" + `POST /auth/token` + "`" + ` response ` + "`" + `token` + "`" + ` field or browser cookie ` + "`" + `_tokenKey` + "`" + `). Do not prefix with ` + "`" + `Cookie:` + "`" + ` or ` + "`" + `_tokenKey=` + "`" + `. UI syncs this into ` + "`" + `document.cookie` + "`" + ` automatically.",
             "type": "apiKey",
             "name": "_tokenKey",
             "in": "cookie"
@@ -9017,7 +9028,7 @@ const docTemplate = `{
             "name": "google-backup-onboarding"
         },
         {
-            "description": "Google Backup auto-sync APIs (jobs, connect, domain-users). ` + "`" + `POST /auto-sync/jobs` + "`" + ` sets onboarding complete on success.",
+            "description": "Google Backup auto-sync APIs (jobs, connect, domain-users). OAuth ` + "`" + `code` + "`" + ` on ` + "`" + `POST /google-backup/connect` + "`" + ` and ` + "`" + `PUT /auto-sync/jobs/project` + "`" + ` uses ` + "`" + `GOOGLE_OAUTH_REDIRECT_URL_GOOGLE_BACKUP` + "`" + ` (same as ` + "`" + `GET /auth/google-backup` + "`" + `). ` + "`" + `POST /auto-sync/jobs` + "`" + ` sets onboarding complete on success.",
             "name": "google-backup"
         },
         {
@@ -9053,11 +9064,11 @@ const docTemplate = `{
             "name": "auth-account"
         },
         {
-            "description": "**Email + password login:** ` + "`" + `POST /auth/token` + "`" + ` (CSRF header when enabled). Sets ` + "`" + `_tokenKey` + "`" + ` cookie. Response: ` + "`" + `token` + "`" + `, ` + "`" + `success` + "`" + `, ` + "`" + `action` + "`" + ` (` + "`" + `logged_in` + "`" + `), ` + "`" + `onboarding` + "`" + ` (same block as google-backup), ` + "`" + `google_backup` + "`" + ` when user has stored Google credentials (scopes refreshed via refresh token). Send ` + "`" + `mfaPasscode` + "`" + ` or ` + "`" + `mfaRecoveryCode` + "`" + ` on second request if MFA enabled.",
+            "description": "**Email + password login:** ` + "`" + `GET /config` + "`" + ` first for ` + "`" + `captcha.login` + "`" + ` site keys and ` + "`" + `csrfToken` + "`" + ` when CSRF is enabled, then ` + "`" + `POST /auth/token` + "`" + ` with ` + "`" + `captchaResponse` + "`" + ` and optional ` + "`" + `X-CSRF-Token` + "`" + ` header. Sets ` + "`" + `_tokenKey` + "`" + ` cookie. Response: ` + "`" + `token` + "`" + `, ` + "`" + `success` + "`" + `, ` + "`" + `action` + "`" + ` (` + "`" + `logged_in` + "`" + `), ` + "`" + `onboarding` + "`" + ` (same block as google-backup), ` + "`" + `google_backup` + "`" + ` when user has stored Google credentials (scopes refreshed via refresh token). Send ` + "`" + `mfaPasscode` + "`" + ` or ` + "`" + `mfaRecoveryCode` + "`" + ` on second request if MFA enabled.",
             "name": "auth-email-login"
         },
         {
-            "description": "**Optional first password** (after Google signup or email verify): ` + "`" + `POST /auth/account/set-password` + "`" + ` when ` + "`" + `GET /auth/account` + "`" + ` returns ` + "`" + `hasPassword: false` + "`" + `. User may skip — do not call this route if they decline.",
+            "description": "**Optional first password** when ` + "`" + `GET /auth/account` + "`" + ` returns ` + "`" + `hasPassword: false` + "`" + `. **Swagger test:** (1) ` + "`" + `GET /config` + "`" + ` → copy ` + "`" + `csrfToken` + "`" + `. (2) Authorize **CookieAuth** = ` + "`" + `_tokenKey` + "`" + ` value from Google login / ` + "`" + `auth/token` + "`" + `. (3) Authorize **CSRFAuth** = same ` + "`" + `csrfToken` + "`" + `. (4) ` + "`" + `POST /auth/account/set-password` + "`" + ` with ` + "`" + `{ \"newPassword\": \"...\" }` + "`" + `.",
             "name": "auth-set-password"
         },
         {

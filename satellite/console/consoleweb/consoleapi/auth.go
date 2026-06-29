@@ -550,12 +550,12 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 // @Tags         auth-email-login
 // @Accept       json
 // @Produce      json
-// @Param        X-CSRF-Token  header    string                      false  "From GET /config when CSRF enabled"
 // @Param        body          body      AuthTokenSwaggerRequest       true   "Email, password, captcha"
 // @Success      200           {object}  AuthCredentialLoginSwaggerResponse
 // @Failure      400           {object}  SwaggerErrorResponse
 // @Failure      401           {object}  SwaggerErrorResponse
 // @Failure      403           {object}  SwaggerErrorResponse
+// @Security     CSRFAuth
 // @Router       /auth/token [post]
 func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -3818,17 +3818,18 @@ func (a *Auth) ChangePassword(w http.ResponseWriter, r *http.Request) {
 // Call only when GET /auth/account returns hasPassword: false. Skip this step if the user declines.
 //
 // @Summary      Set initial password (optional after Google / email verify)
-// @Description  **Full route:** `POST /api/v0/auth/account/set-password`
+// @Description  **Full route:** `POST /api/v0/auth/account/set-password` — requires logged-in session (`_tokenKey` cookie) and CSRF when enabled. **Swagger:** Authorize **CookieAuth** with session token value; Authorize **CSRFAuth** with `csrfToken` from `GET /config`; then call this route. Body: `{ "newPassword": "..." }` (8–64 chars). Returns 409 if password already set.
 // @Tags         auth-set-password
 // @Accept       json
 // @Produce      json
-// @Param        X-CSRF-Token  header    string                         false  "From GET /config when CSRF enabled"
 // @Param        body          body      AuthSetPasswordSwaggerRequest    true   "New password only"
 // @Success      200  "Password set"
 // @Failure      400  {object}  SwaggerErrorResponse
 // @Failure      401  {object}  SwaggerErrorResponse
+// @Failure      403  {object}  SwaggerErrorResponse
 // @Failure      409  {object}  SwaggerErrorResponse
 // @Security     CookieAuth
+// @Security     CSRFAuth
 // @Router       /auth/account/set-password [post]
 func (a *Auth) SetPassword(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

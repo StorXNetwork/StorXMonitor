@@ -10,19 +10,62 @@
 <body>
     <div id="swagger-ui"></div>
     <script>
-        // Browsers forbid setting the Cookie request header from JS, so Swagger's
-        // CookieAuth "Authorize" dialog does not send _tokenKey by itself. Sync the
-        // authorized value into document.cookie (same origin) and send credentials.
-        function syncCookieAuthFromSwagger(ui) {
+        // Browsers forbid setting the Cookie request header from JS. Swagger's Authorize
+        // dialog stores apiKey values; we mirror them into document.cookie for same-origin requests.
+        function getAuthorizedValue(ui, schemeName) {
             try {
                 const authorized = ui.getSystem().authSelectors.authorized();
-                const entry = authorized && authorized.get && authorized.get('CookieAuth');
-                const value = entry && (entry.get ? entry.get('value') : entry.value);
-                if (value) {
-                    document.cookie = '_tokenKey=' + value + '; path=/; SameSite=Lax';
+                const entry = authorized && authorized.get && authorized.get(schemeName);
+                if (!entry) {
+                    return '';
+                }
+                return entry.get ? entry.get('value') : entry.value;
+            } catch (e) {
+                return '';
+            }
+        }
+
+        function setCookie(name, value) {
+            if (!value) {
+                return;
+            }
+            document.cookie = name + '=' + encodeURIComponent(value) + '; path=/; SameSite=Lax';
+        }
+
+        function syncAuthCookiesFromSwagger(ui) {
+            try {
+                const tokenKey = getAuthorizedValue(ui, 'CookieAuth');
+                if (tokenKey) {
+                    setCookie('_tokenKey', tokenKey);
+                }
+
+                const csrfToken = getAuthorizedValue(ui, 'CSRFAuth');
+                if (csrfToken) {
+                    setCookie('csrf_token', csrfToken);
                 }
             } catch (e) {
-                console.warn('swagger CookieAuth sync:', e);
+                console.warn('swagger auth cookie sync:', e);
+            }
+        }
+
+        function authorizeCSRF(ui, csrfToken) {
+            if (!csrfToken || !ui || !ui.authActions || !ui.authActions.authorize) {
+                return;
+            }
+            try {
+                ui.authActions.authorize({
+                    CSRFAuth: {
+                        name: 'X-CSRF-Token',
+                        schema: {
+                            type: 'apiKey',
+                            in: 'header',
+                            name: 'X-CSRF-Token'
+                        },
+                        value: csrfToken
+                    }
+                });
+            } catch (e) {
+                console.warn('swagger CSRF authorize:', e);
             }
         }
 
@@ -91,9 +134,23 @@
                 ],
                 layout: "BaseLayout",
                 requestInterceptor: function(req) {
-                    syncCookieAuthFromSwagger(ui);
+                    syncAuthCookiesFromSwagger(ui);
                     req.credentials = 'include';
                     return rewriteRootPathRequest(req, rootPaths, basePath);
+                },
+                responseInterceptor: function(res) {
+                    try {
+                        if (res.url && res.url.indexOf('/config') !== -1 && res.status >= 200 && res.status < 300 && res.text) {
+                            const body = JSON.parse(res.text);
+                            if (body.csrfToken) {
+                                setCookie('csrf_token', body.csrfToken);
+                                authorizeCSRF(ui, body.csrfToken);
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('swagger config CSRF capture:', e);
+                    }
+                    return res;
                 }
             });
             window.ui = ui;

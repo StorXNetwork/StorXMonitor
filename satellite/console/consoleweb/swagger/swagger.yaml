@@ -2113,7 +2113,7 @@ definitions:
   consoleapi.SwaggerErrorResponse:
     properties:
       error:
-        example: error message
+        example: Invalid CSRF token
         type: string
     type: object
   consoleapi.UnreadCountResponse:
@@ -3103,12 +3103,12 @@ paths:
     post:
       consumes:
       - application/json
-      description: '**Full route:** `POST /api/v0/auth/account/set-password`'
+      description: '**Full route:** `POST /api/v0/auth/account/set-password` — requires
+        logged-in session (`_tokenKey` cookie) and CSRF when enabled. **Swagger:**
+        Authorize **CookieAuth** with session token value; Authorize **CSRFAuth**
+        with `csrfToken` from `GET /config`; then call this route. Body: `{ "newPassword":
+        "..." }` (8–64 chars). Returns 409 if password already set.'
       parameters:
-      - description: From GET /config when CSRF enabled
-        in: header
-        name: X-CSRF-Token
-        type: string
       - description: New password only
         in: body
         name: body
@@ -3128,12 +3128,17 @@ paths:
           description: Unauthorized
           schema:
             $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
         "409":
           description: Conflict
           schema:
             $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
       security:
       - CookieAuth: []
+      - CSRFAuth: []
       summary: Set initial password (optional after Google / email verify)
       tags:
       - auth-set-password
@@ -3527,10 +3532,6 @@ paths:
       - application/json
       description: '**Full route:** `POST /api/v0/auth/token`'
       parameters:
-      - description: From GET /config when CSRF enabled
-        in: header
-        name: X-CSRF-Token
-        type: string
       - description: Email, password, captcha
         in: body
         name: body
@@ -3556,6 +3557,8 @@ paths:
           description: Forbidden
           schema:
             $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CSRFAuth: []
       summary: Email + password login
       tags:
       - auth-email-login
@@ -3705,7 +3708,11 @@ paths:
       - buckets-reserved-usage
   /config:
     get:
-      description: '**Full route:** `GET /api/v0/config`'
+      description: '**Full route:** `GET /api/v0/config` — public bootstrap (no auth).
+        Call before `POST /auth/token`: read `captcha.login` (hCaptcha/reCAPTCHA site
+        keys) and `csrfToken` when CSRF is enabled; send `captchaResponse` and optional
+        `X-CSRF-Token` on login. Also returns `apiBaseURL`, feature flags, Stripe
+        key, and other `FrontendConfig` fields.'
       produces:
       - application/json
       responses:
@@ -3717,6 +3724,7 @@ paths:
           description: Internal Server Error
       summary: Get frontend satellite configuration
       tags:
+      - auth-email-login
       - config
   /dashboard/stats:
     get:
@@ -4484,7 +4492,8 @@ paths:
       consumes:
       - application/json
       description: '**Route:** `POST /api/v0/google-backup/connect`. Body: Google
-        OAuth `code` (login redirect_uri). Returns scopes metadata. Tokens stored
+        OAuth `code` (`redirect_uri` = `GOOGLE_OAUTH_REDIRECT_URL_GOOGLE_BACKUP`,
+        same as `GET /auth/google-backup`). Returns scopes metadata. Tokens stored
         server-side only.'
       parameters:
       - description: OAuth authorization code
@@ -6064,10 +6073,23 @@ paths:
       - access
 securityDefinitions:
   ApiKeyAuth:
+    description: Bearer / API key (rare for console routes).
     in: header
     name: Authorization
     type: apiKey
+  CSRFAuth:
+    description: 'When `console.csrf-protection-enabled` is true: copy `csrfToken`
+      from `GET /config` and Authorize here. Must match `csrf_token` cookie (set by
+      GET /config or synced by Swagger UI). Required for `POST /auth/token`, `POST
+      /auth/account/set-password`, and other CSRF-protected routes.'
+    in: header
+    name: X-CSRF-Token
+    type: apiKey
   CookieAuth:
+    description: Session cookie after login. **Swagger Authorize:** paste the token
+      value only (e.g. from `POST /auth/token` response `token` field or browser cookie
+      `_tokenKey`). Do not prefix with `Cookie:` or `_tokenKey=`. UI syncs this into
+      `document.cookie` automatically.
     in: cookie
     name: _tokenKey
     type: apiKey
@@ -6107,8 +6129,10 @@ tags:
     login by email). Returns `action`, `onboarding` block, and `google_backup`. OAuth
     redirect = `GOOGLE_OAUTH_REDIRECT_URL_GOOGLE_BACKUP`.'
   name: google-backup-onboarding
-- description: Google Backup auto-sync APIs (jobs, connect, domain-users). `POST /auto-sync/jobs`
-    sets onboarding complete on success.
+- description: Google Backup auto-sync APIs (jobs, connect, domain-users). OAuth `code`
+    on `POST /google-backup/connect` and `PUT /auto-sync/jobs/project` uses `GOOGLE_OAUTH_REDIRECT_URL_GOOGLE_BACKUP`
+    (same as `GET /auth/google-backup`). `POST /auto-sync/jobs` sets onboarding complete
+    on success.
   name: google-backup
 - description: 'Live backup progress poll: GET /api/v0/google-backup/auto-sync/live
     → Backup-Tools GET /auto-sync/live (running/failed tasks only; poll 3–5s). Not
@@ -6139,15 +6163,19 @@ tags:
     change-password when password exists, MFA, settings, onboarding PATCH, refresh-session,
     developer-access. Login: Google via `/auth/google-backup` or email via `POST /auth/token`.'
   name: auth-account
-- description: '**Email + password login:** `POST /auth/token` (CSRF header when enabled).
-    Sets `_tokenKey` cookie. Response: `token`, `success`, `action` (`logged_in`),
-    `onboarding` (same block as google-backup), `google_backup` when user has stored
-    Google credentials (scopes refreshed via refresh token). Send `mfaPasscode` or
-    `mfaRecoveryCode` on second request if MFA enabled.'
+- description: '**Email + password login:** `GET /config` first for `captcha.login`
+    site keys and `csrfToken` when CSRF is enabled, then `POST /auth/token` with `captchaResponse`
+    and optional `X-CSRF-Token` header. Sets `_tokenKey` cookie. Response: `token`,
+    `success`, `action` (`logged_in`), `onboarding` (same block as google-backup),
+    `google_backup` when user has stored Google credentials (scopes refreshed via
+    refresh token). Send `mfaPasscode` or `mfaRecoveryCode` on second request if MFA
+    enabled.'
   name: auth-email-login
-- description: '**Optional first password** (after Google signup or email verify):
-    `POST /auth/account/set-password` when `GET /auth/account` returns `hasPassword:
-    false`. User may skip — do not call this route if they decline.'
+- description: '**Optional first password** when `GET /auth/account` returns `hasPassword:
+    false`. **Swagger test:** (1) `GET /config` → copy `csrfToken`. (2) Authorize
+    **CookieAuth** = `_tokenKey` value from Google login / `auth/token`. (3) Authorize
+    **CSRFAuth** = same `csrfToken`. (4) `POST /auth/account/set-password` with `{
+    "newPassword": "..." }`.'
   name: auth-set-password
 - description: '**Forgot password:** `POST /auth/forgot-password` (login captcha)
     → email link `/password-recovery?token=` → `POST /auth/reset-password` → login
