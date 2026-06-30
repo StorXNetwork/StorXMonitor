@@ -12,11 +12,44 @@ import (
 	"os/signal"
 	"runtime"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
-
-	"github.com/StorXNetwork/common/sync2"
 )
+
+// taskLimiter runs at most n tasks concurrently, similar to sync2.Limiter.
+type taskLimiter struct {
+	sem chan struct{}
+	wg  sync.WaitGroup
+}
+
+func newTaskLimiter(n int) *taskLimiter {
+	if n < 1 {
+		n = 1
+	}
+	return &taskLimiter{sem: make(chan struct{}, n)}
+}
+
+func (l *taskLimiter) Go(ctx context.Context, fn func()) bool {
+	select {
+	case <-ctx.Done():
+		return false
+	case l.sem <- struct{}{}:
+	}
+
+	l.wg.Add(1)
+	go func() {
+		defer l.wg.Done()
+		defer func() { <-l.sem }()
+		fn()
+	}()
+
+	return true
+}
+
+func (l *taskLimiter) Wait() {
+	l.wg.Wait()
+}
 
 func newCommand(ctx context.Context, directory string, name string, args ...string) *exec.Cmd {
 	target := append([]string{name}, args...)
@@ -81,7 +114,7 @@ func main() {
 	ctx, halt := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer halt()
 
-	submit := func(limiter *sync2.Limiter, cmd *exec.Cmd) bool {
+	submit := func(limiter *taskLimiter, cmd *exec.Cmd) bool {
 		prefix := "[" + cmd.Dir + " " + strings.Join(cmd.Args, " ") + "]"
 
 		return limiter.Go(ctx, func() {
@@ -177,7 +210,7 @@ func main() {
 	}()
 
 	for _, tier := range commands {
-		limiter := sync2.NewLimiter(*parallel)
+		limiter := newTaskLimiter(*parallel)
 		for _, cmd := range tier {
 			ok := submit(limiter, cmd)
 			if !ok {

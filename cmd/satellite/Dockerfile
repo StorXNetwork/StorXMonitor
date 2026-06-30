@@ -20,7 +20,7 @@ ARG TARGETARCH
 
 ENV CONF_PATH=/root/.local/share/storxnetwork/satellite \
     STORJ_CONSOLE_STATIC_DIR=/app \
-    STORJ_MAIL_TEMPLATE_PATH=/app/static/emails \
+    STORJ_MAIL_TEMPLATE_PATH= \
     STORJ_CONSOLE_ADDRESS=0.0.0.0:10100
 ENV PATH=$PATH:/app
 

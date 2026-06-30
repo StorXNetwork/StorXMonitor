@@ -547,6 +547,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 // On success returns the same `onboarding` and `google_backup` payload as `GET /auth/google-backup`
 // (`google_backup` only when the user has stored Google backup credentials; scopes refreshed via refresh token).
 // If MFA is enabled, first call may return HTTP 200 with an MFA required error — resubmit with `mfaPasscode` or `mfaRecoveryCode`.
+// **CSRF:** when enabled, call `GET /config` first (sets `csrf_token` cookie), Authorize **CSRFAuth** with `csrfToken`, then call this endpoint. Mismatch returns HTTP 403 `Invalid CSRF token`.
 // @Tags         auth-email-login
 // @Accept       json
 // @Produce      json
@@ -3868,6 +3869,7 @@ func (a *Auth) SetPassword(w http.ResponseWriter, r *http.Request) {
 //
 // Sends a password recovery email when the account exists. Uses login captcha (`captchaResponse`).
 // Always returns HTTP 200 on valid captcha (no email enumeration).
+// **CSRF:** not required on this route. `Invalid CSRF token` (HTTP 403) only applies to CSRF-protected routes such as `POST /auth/token`.
 // @Tags         auth-password-recovery
 // @Accept       json
 // @Produce      json
@@ -4343,6 +4345,7 @@ func (a *Auth) RegenerateMFARecoveryCodes(w http.ResponseWriter, r *http.Request
 //
 // Completes forgot-password flow using `token` from the email link (`/password-recovery?token=`).
 // Clears session cookie on success. Returns `code: mfa_required` when MFA is enabled.
+// **CSRF:** not required on this route. After reset, login via `POST /auth/token` — that route requires `GET /config` → Authorize **CSRFAuth** when CSRF protection is enabled.
 // @Tags         auth-password-recovery
 // @Accept       json
 // @Produce      json

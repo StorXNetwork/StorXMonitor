@@ -8201,7 +8201,7 @@ const docTemplate = `{
             "properties": {
                 "error": {
                     "type": "string",
-                    "example": "Invalid CSRF token"
+                    "example": "request validation failed"
                 }
             }
         },
@@ -9109,7 +9109,7 @@ const docTemplate = `{
             "name": "auth-set-password"
         },
         {
-            "description": "**Forgot password:** ` + "`" + `POST /auth/forgot-password` + "`" + ` (login captcha) → email link ` + "`" + `/password-recovery?token=` + "`" + ` → ` + "`" + `POST /auth/reset-password` + "`" + ` → login with new password via ` + "`" + `POST /auth/token` + "`" + `.",
+            "description": "**Forgot password (no CSRF):** ` + "`" + `POST /auth/forgot-password` + "`" + ` and ` + "`" + `POST /auth/reset-password` + "`" + ` do **not** require ` + "`" + `X-CSRF-Token` + "`" + ` (only login captcha / recovery token). Flow: forgot-password → email link ` + "`" + `/password-recovery?token=` + "`" + ` → reset-password → **` + "`" + `POST /auth/token` + "`" + ` needs CSRF** when enabled: call ` + "`" + `GET /config` + "`" + ` first, copy ` + "`" + `csrfToken` + "`" + `, Authorize **CSRFAuth**, then login with the new password.",
             "name": "auth-password-recovery"
         },
         {

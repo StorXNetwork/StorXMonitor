@@ -17,6 +17,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"github.com/StorXNetwork/StorXMonitor/mail-templates"
 	"github.com/StorXNetwork/StorXMonitor/private/post"
 	"github.com/StorXNetwork/StorXMonitor/satellite/tenancy"
 	"github.com/StorXNetwork/common/context2"
@@ -25,7 +26,7 @@ import (
 // Config defines values needed by mailservice service.
 type Config struct {
 	SMTPServerAddress string `help:"smtp server address" default:"" testDefault:"smtp.mail.test:587"`
-	TemplatePath      string `help:"path to email templates source" default:""`
+	TemplatePath      string `help:"optional override for email templates on disk; empty uses embedded mail-templates/emails" default:""`
 	From              string `help:"sender email address" default:"" testDefault:"Labs <storxnetwork@mail.test>"`
 	AuthType          string `help:"smtp authentication type" releaseDefault:"login" devDefault:"simulate"`
 	Login             string `help:"plain/login auth user login" default:""`
@@ -91,6 +92,7 @@ type flattenedEmailVars struct {
 	emailVars
 	// Message fields flattened to root for templates that use .Username, .LoginLink, etc.
 	Username              string
+	UserName              string
 	LoginLink             string
 	FullName              string
 	Email                 string
@@ -105,7 +107,11 @@ type flattenedEmailVars struct {
 	LoginTime             string
 	SignInLink            string
 	ResetPasswordLink     string
+	ResetLink             string
+	CancelPasswordRecoveryLink string
+	DoubleCheckLink       string
 	CreateAccountLink     string
+	SupportTeamLink       string
 	SatelliteName         string
 	ContactInfoURL        string
 	TermsAndConditionsURL string
@@ -148,12 +154,50 @@ func New(log *zap.Logger, sender Sender, templatePath string, cfg TenantConfig, 
 	// 	return nil, err
 	// }
 
-	service.html, err = htmltemplate.ParseGlob(filepath.Join(templatePath, "*.html"))
+	service.html, err = loadHTMLTemplates(templatePath)
 	if err != nil {
-		return nil, errs.Wrap(err)
+		return nil, err
 	}
 
 	return service, nil
+}
+
+// loadHTMLTemplates loads templates from mail-templates/emails on disk or embedded FS.
+// templatePath may be empty (embedded), mail-templates root, or mail-templates/emails.
+func loadHTMLTemplates(templatePath string) (*htmltemplate.Template, error) {
+	if templatePath != "" {
+		emailsDir := resolveEmailsTemplateDir(templatePath)
+		pattern := filepath.Join(emailsDir, "*.html")
+		templates, err := htmltemplate.ParseGlob(pattern)
+		if err != nil {
+			return nil, errs.Wrap(err)
+		}
+		if len(templates.Templates()) == 0 {
+			return nil, errs.New("no email templates found in %s", emailsDir)
+		}
+		return templates, nil
+	}
+
+	templates, err := htmltemplate.ParseFS(mailtemplates.FS, mailtemplates.EmailsDir+"/*.html")
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+	return templates, nil
+}
+
+func resolveEmailsTemplateDir(templatePath string) string {
+	base := filepath.Base(templatePath)
+	if base == mailtemplates.EmailsDir {
+		return templatePath
+	}
+	if base == mailtemplates.RootDir {
+		return filepath.Join(templatePath, mailtemplates.EmailsDir)
+	}
+	// Legacy flat directory containing *.html directly.
+	if matches, _ := filepath.Glob(filepath.Join(templatePath, "*.html")); len(matches) > 0 {
+		return templatePath
+	}
+	return filepath.Join(templatePath, mailtemplates.EmailsDir)
 }
 
 // Close closes and waits for any pending actions.
@@ -215,6 +259,7 @@ func (service *Service) SendRendered(ctx context.Context, to []post.Address, msg
 		}
 		if v.Kind() == reflect.Struct {
 			copyStringField(&flatVars.Username, v, "Username")
+			copyStringField(&flatVars.UserName, v, "UserName")
 			copyStringField(&flatVars.LoginLink, v, "LoginLink")
 			copyStringField(&flatVars.FullName, v, "FullName")
 			copyStringField(&flatVars.Email, v, "Email")
@@ -229,7 +274,11 @@ func (service *Service) SendRendered(ctx context.Context, to []post.Address, msg
 			copyStringField(&flatVars.LoginTime, v, "LoginTime")
 			copyStringField(&flatVars.SignInLink, v, "SignInLink")
 			copyStringField(&flatVars.ResetPasswordLink, v, "ResetPasswordLink")
+			copyStringField(&flatVars.ResetLink, v, "ResetLink")
+			copyStringField(&flatVars.CancelPasswordRecoveryLink, v, "CancelPasswordRecoveryLink")
+			copyStringField(&flatVars.DoubleCheckLink, v, "DoubleCheckLink")
 			copyStringField(&flatVars.CreateAccountLink, v, "CreateAccountLink")
+			copyStringField(&flatVars.SupportTeamLink, v, "SupportTeamLink")
 			copyStringField(&flatVars.SatelliteName, v, "SatelliteName")
 			copyStringField(&flatVars.ContactInfoURL, v, "ContactInfoURL")
 			copyStringField(&flatVars.TermsAndConditionsURL, v, "TermsAndConditionsURL")

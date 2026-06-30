@@ -380,7 +380,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 				"--mail.smtp-server-address", "smtp.gmail.com:587",
 				"--mail.from", "Storj <yaroslav-satellite-test@storj.io>",
-				"--mail.template-path", filepath.Join(storjRoot, "web/satellite/static/emails"),
+				"--mail.template-path", filepath.Join(storjRoot, "mail-templates"),
 				"--version.server-address", getHttpHost(versioncontrol.Address),
 				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugHTTP)),
 

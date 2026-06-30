@@ -97,7 +97,7 @@ package consoleweb
 // @tag.description **Optional first password** when `GET /auth/account` returns `hasPassword: false`. **Swagger test:** (1) `GET /config` → copy `csrfToken`. (2) Authorize **CookieAuth** = `_tokenKey` value from Google login / `auth/token`. (3) Authorize **CSRFAuth** = same `csrfToken`. (4) `POST /auth/account/set-password` with `{ "newPassword": "..." }`.
 
 // @tag.name auth-password-recovery
-// @tag.description **Forgot password:** `POST /auth/forgot-password` (login captcha) → email link `/password-recovery?token=` → `POST /auth/reset-password` → login with new password via `POST /auth/token`.
+// @tag.description **Forgot password (no CSRF):** `POST /auth/forgot-password` and `POST /auth/reset-password` do **not** require `X-CSRF-Token` (only login captcha / recovery token). Flow: forgot-password → email link `/password-recovery?token=` → reset-password → **`POST /auth/token` needs CSRF** when enabled: call `GET /config` first, copy `csrfToken`, Authorize **CSRFAuth**, then login with the new password.
 
 // @tag.name settings-fcm
 // @tag.description Settings → Push devices: register and manage FCM tokens at `/api/v0/fcm-token` (session cookie). IP address is set server-side.

@@ -35,7 +35,7 @@ ENV STORJ_CONSOLE_BAD_PASSWORDS_FILE=/etc/seclist/bad-passwords.txt
 COPY --from=badpasswords /etc/seclist/bad-passwords.txt /etc/seclist/bad-passwords.txt
 COPY --from=badpasswords /etc/seclist/LICENSE /etc/seclist/LICENSE
 ENV STORJ_CONSOLE_STATIC_DIR=/app
-ENV STORJ_MAIL_TEMPLATE_PATH=/app/static/emails
+ENV STORJ_MAIL_TEMPLATE_PATH=
 RUN apt-get install -y graphviz
 COPY --from=ca-cert /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=builder /go/bin/satellite /app/satellite

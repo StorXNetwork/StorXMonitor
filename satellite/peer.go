@@ -341,19 +341,19 @@ func setupMailService(log *zap.Logger, mailConfig mailservice.Config, consoleCon
 	}
 
 	defaultBranding := mailservice.WhiteLabelConfig{
-		BrandName:         "Storj",
-		LogoURL:           "https://link.storjshare.io/raw/jvu2d4ymgfizmfo4n7ljvc7augra/public-assets/Storj%20-%20Branding/Storj-logo-web-hq.png",
+		BrandName:         "CyberLS",
+		LogoURL:           "https://storxnetwork.io/img/logo.svg",
 		HomepageURL:       consoleConfig.HomepageURL,
 		SupportURL:        consoleConfig.GeneralRequestURL,
 		DocsURL:           consoleConfig.DocumentationURL,
 		PrivacyPolicyURL:  "https://www.storxnetwork.io/legal/privacy-policy",
 		TermsOfServiceURL: consoleConfig.TermsAndConditionsURL,
 		TermsOfUseURL:     "https://www.storxnetwork.io/legal/terms-of-use",
-		SourceCodeURL:     "https://github.com/storxnetwork",
+		SourceCodeURL:     "https://github.com/StorXNetwork",
 		SocialURL:         "https://twitter.com/storxnetwork",
 		BlogURL:           "https://storxnetwork.io/blog",
 		PrimaryColor:      "#0052FF",
-		CompanyName:       "Storj Labs",
+		CompanyName:       "CyberLS",
 		AddressLine1:      "1870 The Exchange SE Ste 220, PMB 75268",
 		AddressLine2:      "Atlanta, GA 30339-2171, United States",
 	}

@@ -61,7 +61,7 @@ type UpdateGoogleBackupAutoSyncJobsByProjectSwaggerRequest struct {
 
 // SwaggerErrorResponse is a generic API error body.
 type SwaggerErrorResponse struct {
-	Error string `json:"error" example:"Invalid CSRF token"`
+	Error string `json:"error" example:"request validation failed"`
 }
 
 // BackupToolsJSONResponse is an opaque Backup-Tools JSON payload (passthrough).

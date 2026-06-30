@@ -24,7 +24,6 @@ tool (
 	honnef.co/go/tools/cmd/staticcheck
 )
 
-require github.com/StorXNetwork/common v0.0.3
 
 require (
 	4d63.com/gocheckcompilerdirectives v1.3.0 // indirect
