@@ -338,6 +338,48 @@ func (p *PushNotifications) DeleteToken(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
+// SendTestNotification handles POST /api/v0/push-notifications/test.
+//
+// @Summary      Send test push notification
+// @Description  **Full route:** `POST /api/v0/push-notifications/test`. Sends a hardcoded Firebase push notification to all FCM tokens registered for the logged-in user. For testing only.
+// @Tags         settings-fcm
+// @Produce      json
+// @Success      200  {object}  SettingsMessageSwaggerResponse
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Failure      500  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /push-notifications/test [post]
+func (p *PushNotifications) SendTestNotification(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := console.GetUser(ctx)
+	if err != nil {
+		web.ServeJSONError(ctx, p.log, w, http.StatusUnauthorized, console.ErrUnauthorized.Wrap(err))
+		return
+	}
+
+	notification := pushnotifications.Notification{
+		Title:    "Test notification",
+		Body:     "This is a test push notification from StorX.",
+		Priority: "high",
+		Data:     map[string]string{"source": "test"},
+	}
+
+	if err = p.service.SendPushNotification(ctx, user.ID, notification); err != nil {
+		web.ServeJSONError(ctx, p.log, w, http.StatusInternalServerError, ErrPushNotificationsAPI.Wrap(err))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err = json.NewEncoder(w).Encode(map[string]string{
+		"message": "push notification sent successfully",
+	}); err != nil {
+		p.log.Error("failed to encode response", zap.Error(err))
+	}
+}
+
 // extractIPAddress extracts the client IP address from HTTP request headers.
 // It checks X-Forwarded-For, X-Real-IP, and falls back to RemoteAddr.
 func extractIPAddress(r *http.Request) string {

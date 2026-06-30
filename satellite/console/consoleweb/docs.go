@@ -23,7 +23,7 @@ package consoleweb
 // @securityDefinitions.apikey CookieAuth
 // @in cookie
 // @name _tokenKey
-// @description Session cookie after login. **Swagger Authorize:** paste the token value only (e.g. from `POST /auth/token` response `token` field or browser cookie `_tokenKey`). Do not prefix with `Cookie:` or `_tokenKey=`. UI syncs this into `document.cookie` automatically.
+// @description Session cookie after login. **Swagger Authorize:** paste the token value only (from `POST /auth/token` response `token` field). Do not prefix with `Cookie:` or `_tokenKey=`. Copied curl uses `-b '_tokenKey=...'` (not a header). Login via Swagger auto-fills this.
 
 // @securityDefinitions.apikey CSRFAuth
 // @in header

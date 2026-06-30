@@ -666,6 +666,11 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	pushNotificationsRouter.Handle("", http.HandlerFunc(pushNotificationsController.GetTokens)).Methods(http.MethodGet, http.MethodOptions)
 	pushNotificationsRouter.Handle("/{tokenId}", http.HandlerFunc(pushNotificationsController.DeleteToken)).Methods(http.MethodDelete, http.MethodOptions)
 
+	pushNotificationsTestRouter := router.PathPrefix("/api/v0/push-notifications").Subrouter()
+	pushNotificationsTestRouter.Use(server.withCORS)
+	pushNotificationsTestRouter.Use(server.withAuth)
+	pushNotificationsTestRouter.Handle("/test", http.HandlerFunc(pushNotificationsController.SendTestNotification)).Methods(http.MethodPost, http.MethodOptions)
+
 	// User Notification Preferences API
 	userNotificationPreferencesController := consoleapi.NewUserNotificationPreferences(logger, service)
 	userNotificationPreferencesRouter := router.PathPrefix("/api/v0/user/notification-preferences").Subrouter()

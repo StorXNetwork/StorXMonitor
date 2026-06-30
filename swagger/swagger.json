@@ -5017,6 +5017,43 @@
                 }
             }
         },
+        "/push-notifications/test": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** `POST /api/v0/push-notifications/test`. Sends a hardcoded Firebase push notification to all FCM tokens registered for the logged-in user. For testing only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "settings-fcm"
+                ],
+                "summary": "Send test push notification",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SettingsMessageSwaggerResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/resources-list": {
             "get": {
                 "description": "**Full route:** `GET /resources-list` (server root, not under `/api/v0`).",
@@ -8969,7 +9006,7 @@
             "in": "header"
         },
         "CookieAuth": {
-            "description": "Session cookie after login. **Swagger Authorize:** paste the token value only (e.g. from `POST /auth/token` response `token` field or browser cookie `_tokenKey`). Do not prefix with `Cookie:` or `_tokenKey=`. UI syncs this into `document.cookie` automatically.",
+            "description": "Session cookie after login. **Swagger Authorize:** paste the token value only (from `POST /auth/token` response `token` field). Do not prefix with `Cookie:` or `_tokenKey=`. Copied curl uses `-b '_tokenKey=...'` (not a header). Login via Swagger auto-fills this.",
             "type": "apiKey",
             "name": "_tokenKey",
             "in": "cookie"
