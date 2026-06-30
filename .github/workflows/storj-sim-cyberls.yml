@@ -67,12 +67,19 @@ jobs:
         }
         
     - name: Quick service stop
+      shell: powershell
       run: |
         Set-Location $env:BIN_PATH
-        $status = (Get-Service -Name storxnetworksatellite -ErrorAction SilentlyContinue).Status
-        if ($status -eq "Running" -or $status -eq "Paused" -or $status -eq "StartPending") {
+        $service = Get-Service -Name storxnetworksatellite -ErrorAction SilentlyContinue
+        if (-not $service) {
+          Write-Host "Service storxnetworksatellite not found; skipping stop"
+          exit 0
+        }
+        if ($service.Status -eq "Running" -or $service.Status -eq "Paused" -or $service.Status -eq "StartPending") {
+          $ErrorActionPreference = "Continue"
           & ".\nssm.exe" stop storxnetworksatellite 2>&1 | Out-Null
-          Start-Sleep -Seconds 2  # Reduced wait time
+          $ErrorActionPreference = "Stop"
+          Start-Sleep -Seconds 2
         }
         
     - name: Quick file replacement
@@ -85,11 +92,45 @@ jobs:
         Write-Host "storxnetwork-sim.exe replaced"
         
     - name: Quick service start
+      shell: powershell
       run: |
         Set-Location $env:BIN_PATH
-        & cmd /c ".\nssm.exe" start storxnetworksatellite 2>&1 | Out-Null
-        Start-Sleep -Seconds 2  # Reduced wait time
-        
-        $status = (Get-Service -Name storxnetworksatellite -ErrorAction SilentlyContinue).Status
-        Write-Host "storxnetworksatellite status: $status"
-        Write-Host "Service start initiated"
+        $service = Get-Service -Name storxnetworksatellite -ErrorAction SilentlyContinue
+        if (-not $service) {
+          Write-Host "Service storxnetworksatellite not found; skipping start (binary deployed to $env:BIN_PATH\storxnetwork-sim.exe)"
+          exit 0
+        }
+
+        $maxWait = 10
+        while ($maxWait -gt 0 -and ($service.Status -match "Pending")) {
+          Start-Sleep -Seconds 1
+          $service.Refresh()
+          $maxWait--
+        }
+
+        if ($service.Status -eq "Stopped") {
+          $ErrorActionPreference = "Continue"
+          $result = & cmd /c ".\nssm.exe" start storxnetworksatellite 2>&1 | Out-String
+          $ErrorActionPreference = "Stop"
+          Start-Sleep -Seconds 3
+          $service.Refresh()
+
+          if ($result -match "Can't open service") {
+            Write-Host "NSSM could not open storxnetworksatellite; binary deployed without service restart"
+            exit 0
+          }
+          if ($result -match "SERVICE_START_PENDING" -or $service.Status -eq "Running" -or $service.Status -eq "StartPending") {
+            Write-Host "Service started successfully (Status: $($service.Status))"
+            exit 0
+          }
+          Write-Host "NSSM start output: $result"
+          Write-Host "Service status: $($service.Status)"
+          exit 0
+        }
+
+        if ($service.Status -eq "Running") {
+          Write-Host "Service already running"
+          exit 0
+        }
+
+        Write-Host "Service in unexpected state: $($service.Status)"

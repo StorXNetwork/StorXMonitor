@@ -19,6 +19,7 @@ RUN go mod download
 COPY ./satellite ./satellite
 COPY ./shared ./shared
 COPY ./private ./private
+COPY ./mail-templates ./mail-templates
 ENV GOCACHE=/root/.cache/go-build
 ARG CGO_ENABLED=1
 ARG BUILD_VERSION
@@ -35,10 +36,11 @@ ENV STORJ_CONSOLE_BAD_PASSWORDS_FILE=/etc/seclist/bad-passwords.txt
 COPY --from=badpasswords /etc/seclist/bad-passwords.txt /etc/seclist/bad-passwords.txt
 COPY --from=badpasswords /etc/seclist/LICENSE /etc/seclist/LICENSE
 ENV STORJ_CONSOLE_STATIC_DIR=/app
-ENV STORJ_MAIL_TEMPLATE_PATH=
+ENV STORJ_MAIL_TEMPLATE_PATH=/app/mail-templates
 RUN apt-get install -y graphviz
 COPY --from=ca-cert /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=builder /go/bin/satellite /app/satellite
+COPY ./mail-templates /app/mail-templates
 COPY --from=webui /var/www/html /app/dist
 COPY --from=webui /var/www/static /app/static
 WORKDIR /app

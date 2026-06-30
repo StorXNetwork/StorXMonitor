@@ -20,7 +20,7 @@ ARG TARGETARCH
 
 ENV CONF_PATH=/root/.local/share/storxnetwork/satellite \
     STORJ_CONSOLE_STATIC_DIR=/app \
-    STORJ_MAIL_TEMPLATE_PATH= \
+    STORJ_MAIL_TEMPLATE_PATH=/app/mail-templates \
     STORJ_CONSOLE_ADDRESS=0.0.0.0:10100
 ENV PATH=$PATH:/app
 
@@ -40,6 +40,7 @@ COPY --from=binaries /${TARGETOS}_${TARGETARCH}/satellite /app/satellite
 
 COPY --from=ui /dist   /app/dist
 COPY --from=ui /static /app/static
+COPY mail-templates   /app/mail-templates
 
 COPY cmd/satellite/entrypoint   /app/entrypoint
 
