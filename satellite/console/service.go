@@ -34,6 +34,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/exp/slices"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/StorXNetwork/StorXMonitor/private/api"
 	"github.com/StorXNetwork/StorXMonitor/private/blockchain"
@@ -9605,42 +9606,66 @@ func (s *Service) GetDashboardStats(ctx context.Context, userID uuid.UUID, token
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.store.Users().Get(ctx, userID)
+	user, err := GetUser(ctx)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-
-	projects, err := s.GetUsersProjects(ctx)
-	if err != nil {
-		return nil, Error.Wrap(err)
+	if user.ID != userID {
+		return nil, ErrUnauthorized.New("user mismatch")
 	}
 
-	response := s.loadDashboardCardConfig(ctx)
+	var (
+		response       DashboardCardsResponse
+		protectedStats *ProtectedServicesStats
+		usageLimits    *ProjectUsageLimits
+	)
+
+	g, gctx := errgroup.WithContext(ctx)
+
+	g.Go(func() error {
+		response = s.loadDashboardCardConfig(gctx)
+		return nil
+	})
+
+	if s.backupToolsURL != "" && tokenGetter != nil {
+		g.Go(func() error {
+			stats, fetchErr := s.fetchProtectedServicesStats(gctx, tokenGetter)
+			if fetchErr != nil {
+				s.log.Warn("failed to fetch Protected Services stats from Backup-Tools", zap.Error(fetchErr))
+				return nil
+			}
+			protectedStats = stats
+			return nil
+		})
+	}
+
+	g.Go(func() error {
+		projects, projErr := s.store.Projects().GetByUserID(gctx, user.ID)
+		if projErr != nil {
+			return projErr
+		}
+		if len(projects) == 0 {
+			return nil
+		}
+
+		limits, limitsErr := s.getDashboardUsageLimits(gctx, user.ID, projects[0].ID)
+		if limitsErr != nil {
+			return limitsErr
+		}
+		usageLimits = limits
+		return nil
+	})
+
+	if err := g.Wait(); err != nil {
+		return nil, Error.Wrap(err)
+	}
 
 	s.enrichBillingCard(ctx, &response.Billing, user)
-
-	var projectID uuid.UUID
-	hasProject := len(projects) > 0
-	if hasProject {
-		projectID = projects[0].ID
-	}
-
-	var protectedStats *ProtectedServicesStats
-	if s.backupToolsURL != "" && tokenGetter != nil {
-		stats, fetchErr := s.fetchProtectedServicesStats(ctx, tokenGetter)
-		if fetchErr != nil {
-			s.log.Warn("failed to fetch Protected Services stats from Backup-Tools", zap.Error(fetchErr))
-		} else {
-			protectedStats = stats
-		}
-	}
-
 	s.enrichProtectedUsersCard(&response.ProtectedUsers, protectedStats)
 	s.enrichLastSnapshotCard(&response.LastSnapshot, protectedStats)
-
-	if hasProject {
-		s.enrichStorageQuotaCard(ctx, &response.StorageQuota, projectID)
-		s.enrichBandwidthQuotaCard(ctx, &response.BandwidthQuota, projectID)
+	if usageLimits != nil {
+		s.enrichStorageQuotaCardFromLimits(&response.StorageQuota, usageLimits)
+		s.enrichBandwidthQuotaCardFromLimits(&response.BandwidthQuota, usageLimits)
 	}
 
 	// Legacy enrichment (previous dashboard: autoSync active/failed, vault count, access grants).
@@ -9665,6 +9690,43 @@ func (s *Service) GetDashboardStats(ctx context.Context, userID uuid.UUID, token
 	}
 
 	return result, nil
+}
+
+// getDashboardUsageLimits returns quota fields for dashboard cards without object/segment or bucket counts.
+func (s *Service) getDashboardUsageLimits(ctx context.Context, userID, projectID uuid.UUID) (*ProjectUsageLimits, error) {
+	member, err := s.isProjectMember(ctx, userID, projectID)
+	if err != nil {
+		return nil, ErrUnauthorized.Wrap(err)
+	}
+
+	projectID = member.project.ID
+
+	limits, err := s.projectUsage.GetProjectLimits(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	storageUsed, segmentUsed, err := s.projectUsage.GetProjectStorageAndSegmentUsage(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	now := s.nowFn()
+	bandwidthUsed, err := s.projectUsage.GetProjectBandwidth(ctx, projectID, now.Year(), now.Month(), now.Day())
+	if err != nil {
+		return nil, err
+	}
+
+	return &ProjectUsageLimits{
+		StorageLimit:          *limits.Usage,
+		UserSetStorageLimit:   limits.UserSetUsage,
+		BandwidthLimit:        *limits.Bandwidth,
+		UserSetBandwidthLimit: limits.UserSetBandwidth,
+		StorageUsed:           storageUsed,
+		BandwidthUsed:         bandwidthUsed,
+		SegmentLimit:          *limits.Segments,
+		SegmentUsed:           segmentUsed,
+	}, nil
 }
 
 func (s *Service) loadDashboardCardConfig(ctx context.Context) DashboardCardsResponse {
@@ -9877,26 +9939,20 @@ func (s *Service) enrichLastSnapshotCard(card *BaseCard, stats *ProtectedService
 	}
 }
 
-func (s *Service) enrichStorageQuotaCard(ctx context.Context, card *BaseCard, projectID uuid.UUID) {
-	var used, limit int64
-	if usageLimits, err := s.GetProjectUsageLimits(ctx, projectID); err == nil && usageLimits != nil {
-		used = usageLimits.StorageUsed
-		limit = usageLimits.StorageLimit
-		if usageLimits.UserSetStorageLimit != nil && *usageLimits.UserSetStorageLimit > 0 {
-			limit = *usageLimits.UserSetStorageLimit
-		}
+func (s *Service) enrichStorageQuotaCardFromLimits(card *BaseCard, usageLimits *ProjectUsageLimits) {
+	used := usageLimits.StorageUsed
+	limit := usageLimits.StorageLimit
+	if usageLimits.UserSetStorageLimit != nil && *usageLimits.UserSetStorageLimit > 0 {
+		limit = *usageLimits.UserSetStorageLimit
 	}
 	s.enrichUsageQuotaCard(card, used, limit)
 }
 
-func (s *Service) enrichBandwidthQuotaCard(ctx context.Context, card *BaseCard, projectID uuid.UUID) {
-	var used, limit int64
-	if usageLimits, err := s.GetProjectUsageLimits(ctx, projectID); err == nil && usageLimits != nil {
-		used = usageLimits.BandwidthUsed
-		limit = usageLimits.BandwidthLimit
-		if usageLimits.UserSetBandwidthLimit != nil && *usageLimits.UserSetBandwidthLimit > 0 {
-			limit = *usageLimits.UserSetBandwidthLimit
-		}
+func (s *Service) enrichBandwidthQuotaCardFromLimits(card *BaseCard, usageLimits *ProjectUsageLimits) {
+	used := usageLimits.BandwidthUsed
+	limit := usageLimits.BandwidthLimit
+	if usageLimits.UserSetBandwidthLimit != nil && *usageLimits.UserSetBandwidthLimit > 0 {
+		limit = *usageLimits.UserSetBandwidthLimit
 	}
 	s.enrichUsageQuotaCard(card, used, limit)
 }
