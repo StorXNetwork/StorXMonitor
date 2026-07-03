@@ -4836,7 +4836,7 @@ func (a *Auth) getUserErrorMessage(err error) string {
 	case console.ErrMFARecoveryCode.Has(err):
 		return "The MFA recovery code is not valid or has been previously used"
 	case console.ErrLoginCredentials.Has(err):
-		return "Your login credentials are incorrect, please try again"
+		return err.Error()
 	case console.ErrLoginRestricted.Has(err):
 		return "You can't be authenticated. Please contact support"
 	case console.ErrValidation.Has(err), console.ErrChangePassword.Has(err), console.ErrInvalidProjectLimit.Has(err),

@@ -98,6 +98,8 @@ const (
 	emailNotFoundErrMsg                  = "There are no users with the specified email"
 	passwordRecoveryTokenIsExpiredErrMsg = "Your password recovery link has expired, please request another one"
 	credentialsErrMsg                    = "Your login credentials are incorrect, please try again"
+	googleSignInOnlyLoginErrMsg          = "This account was created using Google Sign-In. Please sign in with Google, then set a password in Settings if you want to use email and password login."
+	invalidPasswordLoginErrMsg           = "Invalid password. Please try again or reset your password."
 	tooManyAttemptsErrMsg                = "Too many attempts, please try again later"
 	generateSessionTokenErrMsg           = "Failed to generate session token"
 	failedToRetrieveUserErrMsg           = "Failed to retrieve user from database"
@@ -3153,6 +3155,16 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (response *TokenI
 		return nil, ErrSsoUserRestricted.New(credentialsErrMsg)
 	}
 
+	if !HasPasswordSet(user.PasswordHash) {
+		err = s.handleLogInLockAccount(ctx, user)
+		if err != nil {
+			return nil, err
+		}
+		mon.Counter("login_invalid_password").Inc(1)
+		s.auditLog(ctx, "login: failed password not set", &user.ID, user.Email)
+		return nil, ErrLoginCredentials.New(googleSignInOnlyLoginErrMsg)
+	}
+
 	err = bcrypt.CompareHashAndPassword(user.PasswordHash, []byte(request.Password))
 	if err != nil {
 		err = s.handleLogInLockAccount(ctx, user)
@@ -3161,7 +3173,7 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (response *TokenI
 		}
 		mon.Counter("login_invalid_password").Inc(1)
 		s.auditLog(ctx, "login: failed password invalid", &user.ID, user.Email)
-		return nil, ErrLoginCredentials.New(credentialsErrMsg)
+		return nil, ErrLoginCredentials.New(invalidPasswordLoginErrMsg)
 	}
 
 	if user.Status == PendingBotVerification || user.Status == LegalHold {

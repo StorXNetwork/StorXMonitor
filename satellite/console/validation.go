@@ -46,6 +46,17 @@ func HasPasswordSet(passwordHash []byte) bool {
 	return err != nil
 }
 
+// loginCredentialFailureMessage returns the user-facing login error for password auth failures.
+func loginCredentialFailureMessage(passwordHash []byte, passwordMatches bool) string {
+	if !HasPasswordSet(passwordHash) {
+		return googleSignInOnlyLoginErrMsg
+	}
+	if !passwordMatches {
+		return invalidPasswordLoginErrMsg
+	}
+	return ""
+}
+
 // ValidateFullName validates full name.
 // It returns an plain error (not wrapped in a errs.Class) if name is invalid.
 func ValidateFullName(name string) error {
