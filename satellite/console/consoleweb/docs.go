@@ -82,7 +82,7 @@ package consoleweb
 // @tag.description Google Backup manual restore: POST /google-backup/google/* (1–10 vault keys per request; same body for single or multiple items). Authorization header = Backup-Tools JWT from POST /google-backup/google-auth. No ACCESS_TOKEN (StorX from DB). Session cookie required.
 
 // @tag.name google-backup-restore-cron
-// @tag.description Google Backup restore-all scheduler: GET /restore/prepare (flat), POST /restore/all, GET /restore/live|jobs|job/* (token_key only; list/detail/live use {message,success,failed} envelope). UI service param (gmail,drive,...) maps to DB method (gmail,google_drive,...). OAuth reconnect via POST /google-backup/connect or PUT /auto-sync/jobs/project.
+// @tag.description Google Backup restore-all: target picker GET /restore/credentials (personal) and GET /restore/workspaces (domain tabs + mailboxes; replaces workspace-mailboxes), preflight GET /restore/prepare (optional target_email), POST /restore/all, job polling GET /restore/live|jobs|job/* (token_key only; no ACCESS_TOKEN). List/detail/live use {message,success,failed} envelope except credentials/workspaces/prepare. UI service param (gmail,drive,...) maps to DB method (gmail,google_drive,...). OAuth reconnect via POST /google-backup/connect or PUT /auto-sync/jobs/project.
 
 // @tag.name google-backup-logs
 // @tag.description GET /google-backup/backup-restore/logs

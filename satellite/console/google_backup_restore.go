@@ -23,9 +23,10 @@ var allowedGoogleBackupRestoreServices = []string{
 
 // GoogleBackupRestorePrepareParams are query params for Backup-Tools GET /restore/prepare.
 type GoogleBackupRestorePrepareParams struct {
-	ProjectID string
-	LoginID   string
-	Service   string
+	ProjectID   string
+	LoginID     string
+	Service     string
+	TargetEmail string
 }
 
 func (p *GoogleBackupRestorePrepareParams) Validate() error {
@@ -53,15 +54,19 @@ func (p GoogleBackupRestorePrepareParams) queryString() string {
 	v.Set("project_id", p.ProjectID)
 	v.Set("login_id", p.LoginID)
 	v.Set("service", p.Service)
+	if target := strings.TrimSpace(p.TargetEmail); target != "" {
+		v.Set("target_email", target)
+	}
 	return v.Encode()
 }
 
 // GoogleBackupRestoreAllRequest is the UI body for Backup-Tools POST /restore/all.
 // Backup-Tools resolves StorX and Google credentials from DB using token_key; do not send grants or JWT.
 type GoogleBackupRestoreAllRequest struct {
-	Service   string `json:"service"`
-	ProjectID string `json:"project_id"`
-	LoginID   string `json:"login_id"`
+	Service     string `json:"service"`
+	ProjectID   string `json:"project_id"`
+	LoginID     string `json:"login_id"`
+	TargetEmail string `json:"target_email,omitempty"`
 }
 
 func (r *GoogleBackupRestoreAllRequest) Validate() error {
@@ -85,11 +90,47 @@ func (r *GoogleBackupRestoreAllRequest) Validate() error {
 }
 
 func (r *GoogleBackupRestoreAllRequest) backupToolsPayload() ([]byte, error) {
-	return json.Marshal(map[string]string{
+	out := map[string]string{
 		"service":    r.Service,
 		"project_id": r.ProjectID,
 		"login_id":   r.LoginID,
-	})
+	}
+	if target := strings.TrimSpace(r.TargetEmail); target != "" {
+		out["target_email"] = target
+	}
+	return json.Marshal(out)
+}
+
+var restoreCredentialsAllowedQuery = map[string]struct{}{
+	"search":   {},
+	"limit":    {},
+	"offset":   {},
+	"login_id": {},
+}
+
+var restoreWorkspacesAllowedQuery = map[string]struct{}{
+	"domain":   {},
+	"search":   {},
+	"limit":    {},
+	"offset":   {},
+	"login_id": {},
+}
+
+func filterRestoreQuery(rawQuery string, allowed map[string]struct{}) string {
+	if rawQuery == "" {
+		return ""
+	}
+	values, err := url.ParseQuery(rawQuery)
+	if err != nil {
+		return rawQuery
+	}
+	filtered := url.Values{}
+	for key, vals := range values {
+		if _, ok := allowed[key]; ok {
+			filtered[key] = vals
+		}
+	}
+	return filtered.Encode()
 }
 
 // PrepareGoogleBackupRestore proxies GET /restore/prepare (token_key only).
@@ -121,6 +162,26 @@ func (s *Service) StartGoogleBackupRestoreAll(ctx context.Context, tokenKey stri
 func (s *Service) ProxyGoogleBackupRestoreCron(ctx context.Context, method, path, tokenKey string, payload []byte) (body []byte, status int, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return s.backupToolsRequest(ctx, method, path, tokenKey, "", payload)
+}
+
+// ListGoogleBackupRestoreCredentials proxies GET /restore/credentials (token_key only; no project_id).
+func (s *Service) ListGoogleBackupRestoreCredentials(ctx context.Context, tokenKey, rawQuery string) (body []byte, status int, err error) {
+	defer mon.Task()(&ctx)(&err)
+	path := "/restore/credentials"
+	if q := filterRestoreQuery(rawQuery, restoreCredentialsAllowedQuery); q != "" {
+		path += "?" + q
+	}
+	return s.backupToolsRequest(ctx, http.MethodGet, path, tokenKey, "", nil)
+}
+
+// ListGoogleBackupRestoreWorkspaces proxies GET /restore/workspaces (domain tabs or mailbox list).
+func (s *Service) ListGoogleBackupRestoreWorkspaces(ctx context.Context, tokenKey, rawQuery string) (body []byte, status int, err error) {
+	defer mon.Task()(&ctx)(&err)
+	path := "/restore/workspaces"
+	if q := filterRestoreQuery(rawQuery, restoreWorkspacesAllowedQuery); q != "" {
+		path += "?" + q
+	}
+	return s.backupToolsRequest(ctx, http.MethodGet, path, tokenKey, "", nil)
 }
 
 // CancelGoogleBackupRestoreJob proxies Backup-Tools POST /restore/job/{job_id}/cancel.

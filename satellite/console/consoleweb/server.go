@@ -584,6 +584,8 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 
 	googleBackupRestoreController := consoleapi.NewGoogleBackupRestore(logger, service, server.cookieAuth)
 	googleBackupRouter.Handle("/google-auth", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupRestoreController.GoogleAuth))).Methods(http.MethodPost, http.MethodOptions)
+	googleBackupRouter.Handle("/restore/credentials", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupRestoreController.RestoreCredentials))).Methods(http.MethodGet, http.MethodOptions)
+	googleBackupRouter.Handle("/restore/workspaces", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupRestoreController.RestoreWorkspaces))).Methods(http.MethodGet, http.MethodOptions)
 	googleBackupRouter.Handle("/restore/prepare", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupRestoreController.RestorePrepare))).Methods(http.MethodGet, http.MethodOptions)
 	googleBackupRouter.Handle("/restore/all", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupRestoreController.RestoreAll))).Methods(http.MethodPost, http.MethodOptions)
 	googleBackupRouter.Handle("/restore/live", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupRestoreController.RestoreLive))).Methods(http.MethodGet, http.MethodOptions)
