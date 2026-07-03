@@ -3995,11 +3995,11 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "enum": [
-                            "usage-guideline",
-                            "google-backup",
-                            "microsoft-backup",
-                            "corporate-mail-backup",
-                            "signup"
+                            "cyberls-signup",
+                            "cyberls-login",
+                            "cyberls-google-connect",
+                            "cyberls-domain-wide-delegation",
+                            "cyberls-2fa"
                         ],
                         "type": "string",
                         "description": "Guide identifier",
@@ -8954,15 +8954,15 @@ const docTemplate = `{
             "properties": {
                 "desc": {
                     "type": "string",
-                    "example": "Step-by-step guide to backup Google Workspace data"
+                    "example": "Step-by-step guide to create your CyberLs account"
                 },
                 "link": {
                     "type": "string",
-                    "example": "/guides?type=google-backup"
+                    "example": "/guides?type=cyberls-signup"
                 },
                 "name": {
                     "type": "string",
-                    "example": "Google Backup Guide"
+                    "example": "How to Sign Up in CyberLs"
                 },
                 "type": {
                     "type": "string",

@@ -2642,13 +2642,13 @@ definitions:
   staticapi.StaticResourceItemSwagger:
     properties:
       desc:
-        example: Step-by-step guide to backup Google Workspace data
+        example: Step-by-step guide to create your CyberLs account
         type: string
       link:
-        example: /guides?type=google-backup
+        example: /guides?type=cyberls-signup
         type: string
       name:
-        example: Google Backup Guide
+        example: How to Sign Up in CyberLs
         type: string
       type:
         enum:
@@ -5272,11 +5272,11 @@ paths:
       parameters:
       - description: Guide identifier
         enum:
-        - usage-guideline
-        - google-backup
-        - microsoft-backup
-        - corporate-mail-backup
-        - signup
+        - cyberls-signup
+        - cyberls-login
+        - cyberls-google-connect
+        - cyberls-domain-wide-delegation
+        - cyberls-2fa
         in: query
         name: type
         required: true

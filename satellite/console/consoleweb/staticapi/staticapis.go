@@ -32,6 +32,21 @@ var corporateMailBackupGuide []byte
 //go:embed signup-guide.html
 var signupGuide []byte
 
+//go:embed cyberls-signup-guide.html
+var cyberlsSignupGuide []byte
+
+//go:embed cyberls-login-guide.html
+var cyberlsLoginGuide []byte
+
+//go:embed cyberls-google-connect-guide.html
+var cyberlsGoogleConnectGuide []byte
+
+//go:embed cyberls-domain-wide-delegation-guide.html
+var cyberlsDomainWideDelegationGuide []byte
+
+//go:embed cyberls-2fa-guide.html
+var cyberls2FAGuide []byte
+
 // HandleResources returns curated help links for the web console or mobile app.
 //
 // @Summary      List help resources
@@ -90,9 +105,11 @@ func HandleUserGuidelineforApp(w http.ResponseWriter, r *http.Request) {
 // @Description  **Full route:** `GET /guides` (server root, not under `/api/v0`).
 //
 // Serves embedded HTML guides. Use the `type` query parameter to select which guide to return.
+// Active CyberLs guides: cyberls-signup, cyberls-login, cyberls-google-connect, cyberls-domain-wide-delegation, cyberls-2fa.
+// Guide screenshots are served from `/static/resources/cyberls-*` (e.g. `/static/resources/cyberls-google-signup/img-1.png`).
 // @Tags         static-api
 // @Produce      html
-// @Param        type  query  string  true  "Guide identifier"  Enums(usage-guideline, google-backup, microsoft-backup, corporate-mail-backup, signup)
+// @Param        type  query  string  true  "Guide identifier"  Enums(cyberls-signup, cyberls-login, cyberls-google-connect, cyberls-domain-wide-delegation, cyberls-2fa)
 // @Success      200   {string}  string  "HTML guide page"
 // @Failure      404   {string}  string  "Guide not found"
 // @Failure      405   {string}  string  "Method Not Allowed"
@@ -106,20 +123,36 @@ func HandleGuides(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 
 	switch r.URL.Query().Get("type") {
-	case "usage-guideline":
-		w.Write(userGuideline)
+	case "cyberls-signup":
+		w.Write(cyberlsSignupGuide)
 
-	case "google-backup":
-		w.Write(googleBackupGuide)
+	case "cyberls-login":
+		w.Write(cyberlsLoginGuide)
 
-	case "microsoft-backup":
-		w.Write(microsoftBackupGuide)
+	case "cyberls-google-connect":
+		w.Write(cyberlsGoogleConnectGuide)
 
-	case "corporate-mail-backup":
-		w.Write(corporateMailBackupGuide)
+	case "cyberls-domain-wide-delegation":
+		w.Write(cyberlsDomainWideDelegationGuide)
 
-	case "signup":
-		w.Write(signupGuide)
+	case "cyberls-2fa":
+		w.Write(cyberls2FAGuide)
+
+	// Old templates — commented out until new guides are added.
+	// case "usage-guideline":
+	// 	w.Write(userGuideline)
+	//
+	// case "google-backup":
+	// 	w.Write(googleBackupGuide)
+	//
+	// case "microsoft-backup":
+	// 	w.Write(microsoftBackupGuide)
+	//
+	// case "corporate-mail-backup":
+	// 	w.Write(corporateMailBackupGuide)
+	//
+	// case "signup":
+	// 	w.Write(signupGuide)
 
 	default:
 		http.Error(w, "Guide not found", http.StatusNotFound)

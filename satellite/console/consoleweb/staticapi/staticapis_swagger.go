@@ -7,10 +7,10 @@ package staticapi
 
 // StaticResourceItemSwagger is one entry in GET /resources-list responses.
 type StaticResourceItemSwagger struct {
-	Name string `json:"name" example:"Google Backup Guide"`
-	Desc string `json:"desc" example:"Step-by-step guide to backup Google Workspace data"`
+	Name string `json:"name" example:"How to Sign Up in CyberLs"`
+	Desc string `json:"desc" example:"Step-by-step guide to create your CyberLs account"`
 	Type string `json:"type" example:"url" enums:"url,contact"`
-	Link string `json:"link" example:"/guides?type=google-backup"`
+	Link string `json:"link" example:"/guides?type=cyberls-signup"`
 }
 
 // StaticBlogItemSwagger is one entry in GET /blog-list responses.

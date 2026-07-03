@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CyberLs – Domain-Wide Delegation Setup</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Geologica:wght@100..900&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: "Geologica", sans-serif;
+            margin: 0;
+            color: #1a1a1a;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: auto;
+            padding: 0 24px;
+        }
+
+        .sec-terms-condition {
+            padding: 60px 0;
+        }
+
+        .sec-terms-condition p {
+            font-size: 14px;
+            line-height: 24px;
+            color: #606060;
+            margin-bottom: 20px;
+        }
+
+        .sec-terms-condition h2 {
+            font-size: 28px;
+            line-height: 38px;
+            margin: 0 0 16px;
+            color: #1a1a1a;
+        }
+
+        .sec-terms-condition h3 {
+            font-size: 22px;
+            line-height: 32px;
+            margin: 30px 0 10px;
+            color: #1a1a1a;
+        }
+
+        .sec-terms-condition ul,
+        .sec-terms-condition ol {
+            padding-left: 18px;
+            margin-bottom: 20px;
+        }
+
+        .sec-terms-condition ul li,
+        .sec-terms-condition ol li {
+            font-size: 14px;
+            line-height: 24px;
+            color: #606060;
+            margin-bottom: 10px;
+        }
+
+        .sec-terms-condition a {
+            color: #0052FF;
+            text-decoration: none;
+        }
+
+        .sec-terms-condition a:hover {
+            text-decoration: underline;
+        }
+
+        .img-wrapper {
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .img-wrapper img {
+            max-width: 800px;
+            width: 100%;
+            border: 1px solid #e8e8e8;
+            border-radius: 8px;
+        }
+
+        .scope-table {
+            width: 100%;
+            max-width: 720px;
+            border-collapse: collapse;
+            margin: 16px 0 24px;
+            font-size: 14px;
+        }
+
+        .scope-table th,
+        .scope-table td {
+            border: 1px solid #e0e0e0;
+            padding: 10px 12px;
+            text-align: left;
+            color: #606060;
+            vertical-align: top;
+        }
+
+        .scope-table th {
+            background: #f5f8ff;
+            font-weight: 600;
+            color: #1a1a1a;
+            width: 140px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="sec-terms-condition">
+        <div class="container">
+            <div class="terms-condition-wrapper">
+
+                <h2>How to setup the Domain Wide delegation ?</h2>
+
+                <h3>Navigational Steps to Update Domain-Wide Delegation in Google Admin For CyberLS</h3>
+
+                <p>
+                    To enable auto-sync and allow scheduled mail backups, you must configure Domain-Wide Delegation in
+                    your Google Admin account.
+                </p>
+
+                <p>
+                    Follow the steps below from the Super Admin account connected to your Google Workspace.
+                </p>
+
+                <h3>Step 1 — Open Google Admin Console</h3>
+
+                <p>
+                    Go to: <a href="https://admin.google.com/" target="_blank"
+                        rel="noopener noreferrer">https://admin.google.com/</a> and sign in with your Super Admin
+                    account.
+                </p>
+
+                <div class="img-wrapper">
+                    <img src="/static/resources/cyberls-dwd/img-1.png"
+                        alt="Google Admin Console sign-in page">
+                </div>
+
+                <h3>Step 2 — Navigate to Domain-Wide Delegation</h3>
+
+                <ol>
+                    <li>From the Admin Console dashboard, go to: Security → API Controls</li>
+                    <li>Click on Domain-wide Delegation</li>
+                </ol>
+
+                <div class="img-wrapper">
+                    <img src="/static/resources/cyberls-dwd/img-2.png"
+                        alt="Google Admin Security API Controls and Domain-wide Delegation">
+                </div>
+
+                <h3>Step 3 — Add a New API Client</h3>
+
+                <ol>
+                    <li>Click Add new</li>
+                    <li>Enter the following details:</li>
+                </ol>
+
+                <table class="scope-table">
+                    <thead>
+                        <tr>
+                            <th>Field</th>
+                            <th>Value</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Client ID</td>
+                            <td>112742432393142971486</td>
+                        </tr>
+                        <tr>
+                            <td>OAuth Scopes</td>
+                            <td>https://www.googleapis.com/auth/calendar.readonly,https://www.googleapis.com/auth/contacts.readonly,https://www.googleapis.com/auth/drive.readonly,https://www.googleapis.com/auth/gmail.readonly,https://www.googleapis.com/auth/photoslibrary.readonly,https://www.googleapis.com/auth/gmail.insert,https://www.googleapis.com/auth/drive.file,https://www.googleapis.com/auth/calendar.events,https://www.googleapis.com/auth/contacts,https://www.googleapis.com/auth/photoslibrary.appendonly</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <ol start="3">
+                    <li>Click Authorize</li>
+                </ol>
+
+                <div class="img-wrapper">
+                    <img src="/static/resources/cyberls-dwd/img-3.png"
+                        alt="Add new API client with Client ID and OAuth scopes in Google Admin">
+                </div>
+
+                <h3>Step 4 — Verification</h3>
+
+                <p>
+                    Once authorized, the client ID will appear in the Domain-wide Delegation list. This confirms the
+                    configuration is complete.
+                </p>
+
+            </div>
+        </div>
+    </div>
+
+</body>
+
+</html>
