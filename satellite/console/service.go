@@ -9723,8 +9723,7 @@ func (s *Service) getDashboardUsageLimits(ctx context.Context, userID, projectID
 		return nil, err
 	}
 
-	now := s.nowFn()
-	bandwidthUsed, err := s.projectUsage.GetProjectBandwidth(ctx, projectID, now.Year(), now.Month(), now.Day())
+	bandwidthUsed, err := s.projectUsage.GetProjectBandwidthTotals(ctx, projectID)
 	if err != nil {
 		return nil, err
 	}
@@ -9971,7 +9970,7 @@ func (s *Service) enrichBandwidthQuotaCardFromLimits(card *BaseCard, usageLimits
 
 func (s *Service) enrichUsageQuotaCard(card *BaseCard, used, limit int64) {
 	percent := usagePercentUsed(used, limit)
-	card.Value1 = fmt.Sprintf("%s / %s", formatBytes(used), formatBytes(limit))
+	card.Value1 = formatQuotaFraction(used, limit)
 	card.Value2 = percent
 	card.Value2Label = "percent_used"
 
@@ -9983,6 +9982,23 @@ func (s *Service) enrichUsageQuotaCard(card *BaseCard, used, limit int64) {
 		status = warn
 	}
 	card.Status = &status
+}
+
+func quotaExceeded(used, limit int64) bool {
+	return limit > 0 && used > limit
+}
+
+func formatQuotaFraction(used, limit int64) string {
+	if limit <= 0 {
+		return formatBytes(used)
+	}
+
+	displayUsed := used
+	if quotaExceeded(used, limit) {
+		displayUsed = limit
+	}
+
+	return fmt.Sprintf("%s / %s", formatBytes(displayUsed), formatBytes(limit))
 }
 
 func usagePercentUsed(used, limit int64) int {
