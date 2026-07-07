@@ -335,6 +335,23 @@ func (s *Service) applyGoogleBackupProjectUpdateTokens(ctx context.Context, req 
 	return nil
 }
 
+// TriggerGoogleBackupAutoSyncBackupNow proxies Backup-Tools POST /auto-sync/task/{job_id}/backup-now.
+// Queues an on-demand backup for interval autosync jobs without changing the cron schedule or last_run.
+func (s *Service) TriggerGoogleBackupAutoSyncBackupNow(ctx context.Context, tokenKey, jobID string) (body []byte, status int, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if strings.TrimSpace(tokenKey) == "" {
+		return nil, 0, ErrUnauthorized.New("session token is required")
+	}
+	jobID = strings.TrimSpace(jobID)
+	if jobID == "" {
+		return nil, 0, ErrValidation.New("job_id is required")
+	}
+
+	path := "/auto-sync/task/" + url.PathEscape(jobID) + "/backup-now"
+	return s.backupToolsRequest(ctx, http.MethodPost, path, tokenKey, "", nil)
+}
+
 func (s *Service) UpdateGoogleBackupAutoSyncJob(ctx context.Context, tokenKey, jobID string, req UpdateGoogleBackupAutoSyncJobRequest) (body []byte, status int, err error) {
 	defer mon.Task()(&ctx)(&err)
 

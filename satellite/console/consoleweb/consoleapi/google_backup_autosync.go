@@ -330,6 +330,43 @@ func (g *GoogleBackup) UpdateAutoSyncJobsByProject(w http.ResponseWriter, r *htt
 	writeBackupToolsJSON(w, status, respBody)
 }
 
+// BackupNowAutoSyncJob queues an on-demand backup for an interval autosync job (Backup-Tools POST /auto-sync/task/{job_id}/backup-now).
+//
+// @Summary      Trigger on-demand auto-sync backup
+// @Description  **Full route:** `POST /api/v0/google-backup/auto-sync/task/{job_id}/backup-now`
+//
+// Proxies Backup-Tools `POST /auto-sync/task/{job_id}/backup-now` with session `token_key` only. For interval jobs (`sync_type=daily`); does not change cron schedule or `last_run`. Use `POST .../auto-sync/task/{job_id}` for one-time jobs. Poll `GET .../auto-sync/jobs/{job_id}` or `GET .../auto-sync/live` for progress. Task history: `GET .../auto-sync/task/{job_id}?limit=10` (on-demand tasks have `trigger=on_demand`).
+// @Tags         google-backup
+// @Produce      json
+// @Param        job_id  path      string  true  "Auto-sync job ID"
+// @Success      200     {object}  GoogleBackupAutoSyncBackupNowSwaggerResponse
+// @Failure      400     {object}  SwaggerErrorResponse
+// @Failure      401     {object}  SwaggerErrorResponse
+// @Failure      404     {object}  SwaggerErrorResponse
+// @Failure      500     {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /google-backup/auto-sync/task/{job_id}/backup-now [post]
+func (g *GoogleBackup) BackupNowAutoSyncJob(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	tokenKey, err := g.sessionTokenKey(r)
+	if err != nil {
+		g.serveJSONError(ctx, w, err)
+		return
+	}
+
+	jobID := mux.Vars(r)["job_id"]
+	respBody, status, err := g.service.TriggerGoogleBackupAutoSyncBackupNow(ctx, tokenKey, jobID)
+	g.service.RecordUserAuditHTTP(ctx, "GB_BACKUP_NOW", "Auto-sync job", "On-demand backup queued", status, respBody, err)
+	if err != nil {
+		g.serveJSONError(ctx, w, err)
+		return
+	}
+	writeBackupToolsJSON(w, status, respBody)
+}
+
 // UpdateAutoSyncJob toggles a single job active flag (Backup-Tools PUT /auto-sync/job/{job_id}).
 //
 // @Summary      Toggle Google Backup auto-sync job active

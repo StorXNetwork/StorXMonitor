@@ -967,6 +967,43 @@ definitions:
         example: eyJhbGciOiJIUzI1NiIs...
         type: string
     type: object
+  consoleapi.GoogleBackupAutoSyncBackupNowSwaggerResponse:
+    properties:
+      data:
+        $ref: '#/definitions/consoleapi.GoogleBackupAutoSyncBackupNowTaskSwagger'
+      message:
+        example: On-demand backup queued successfully
+        type: string
+    type: object
+  consoleapi.GoogleBackupAutoSyncBackupNowTaskSwagger:
+    properties:
+      cron_job_id:
+        example: 123
+        type: integer
+      id:
+        example: 456
+        type: integer
+      message:
+        example: ""
+        type: string
+      retry_count:
+        example: 0
+        type: integer
+      status:
+        enum:
+        - pushed
+        - running
+        - success
+        - failed
+        example: pushed
+        type: string
+      trigger:
+        enum:
+        - on_demand
+        - scheduled
+        example: on_demand
+        type: string
+    type: object
   consoleapi.GoogleBackupAutoSyncJobServiceStatsSwagger:
     properties:
       active_jobs:
@@ -4435,6 +4472,43 @@ paths:
       summary: List policy options for move picker
       tags:
       - google-backup-policy
+  /google-backup/auto-sync/task/{job_id}/backup-now:
+    post:
+      description: '**Full route:** `POST /api/v0/google-backup/auto-sync/task/{job_id}/backup-now`'
+      parameters:
+      - description: Auto-sync job ID
+        in: path
+        name: job_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.GoogleBackupAutoSyncBackupNowSwaggerResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Trigger on-demand auto-sync backup
+      tags:
+      - google-backup
   /google-backup/backup-restore/logs:
     get:
       parameters:

@@ -564,6 +564,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	googleBackupRouter.Handle("/auto-sync/jobs/services", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.ListAutoSyncJobServices))).Methods(http.MethodGet, http.MethodOptions)
 	googleBackupRouter.Handle("/auto-sync/live", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.AutoSyncLive))).Methods(http.MethodGet, http.MethodOptions)
 	googleBackupRouter.Handle("/auto-sync/jobs/project", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.UpdateAutoSyncJobsByProject))).Methods(http.MethodPut, http.MethodOptions)
+	googleBackupRouter.Handle("/auto-sync/task/{job_id}/backup-now", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.BackupNowAutoSyncJob))).Methods(http.MethodPost, http.MethodOptions)
 	googleBackupRouter.Handle("/auto-sync/jobs/{job_id}", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.UpdateAutoSyncJob))).Methods(http.MethodPut, http.MethodOptions)
 	googleBackupRouter.Handle("/auto-sync/jobs/{job_id}", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.GetAutoSyncJob))).Methods(http.MethodGet, http.MethodOptions)
 

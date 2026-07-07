@@ -2710,6 +2710,64 @@ const docTemplate = `{
                 }
             }
         },
+        "/google-backup/auto-sync/task/{job_id}/backup-now": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `POST /api/v0/google-backup/auto-sync/task/{job_id}/backup-now` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup"
+                ],
+                "summary": "Trigger on-demand auto-sync backup",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Auto-sync job ID",
+                        "name": "job_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.GoogleBackupAutoSyncBackupNowSwaggerResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/google-backup/backup-restore/logs": {
             "get": {
                 "security": [
@@ -6601,6 +6659,57 @@ const docTemplate = `{
                 "google-auth": {
                     "type": "string",
                     "example": "eyJhbGciOiJIUzI1NiIs..."
+                }
+            }
+        },
+        "consoleapi.GoogleBackupAutoSyncBackupNowSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/consoleapi.GoogleBackupAutoSyncBackupNowTaskSwagger"
+                },
+                "message": {
+                    "type": "string",
+                    "example": "On-demand backup queued successfully"
+                }
+            }
+        },
+        "consoleapi.GoogleBackupAutoSyncBackupNowTaskSwagger": {
+            "type": "object",
+            "properties": {
+                "cron_job_id": {
+                    "type": "integer",
+                    "example": 123
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 456
+                },
+                "message": {
+                    "type": "string",
+                    "example": ""
+                },
+                "retry_count": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "pushed",
+                        "running",
+                        "success",
+                        "failed"
+                    ],
+                    "example": "pushed"
+                },
+                "trigger": {
+                    "type": "string",
+                    "enum": [
+                        "on_demand",
+                        "scheduled"
+                    ],
+                    "example": "on_demand"
                 }
             }
         },

@@ -180,6 +180,22 @@ type AutosyncJobListResponse struct {
 	Failed  []interface{}        `json:"failed" swaggertype:"array,object"`
 }
 
+// GoogleBackupAutoSyncBackupNowTaskSwagger is the task object returned from POST .../auto-sync/task/{job_id}/backup-now.
+type GoogleBackupAutoSyncBackupNowTaskSwagger struct {
+	ID         int    `json:"id" example:"456"`
+	CronJobID  int    `json:"cron_job_id" example:"123"`
+	Status     string `json:"status" example:"pushed" enums:"pushed,running,success,failed"`
+	Trigger    string `json:"trigger" example:"on_demand" enums:"on_demand,scheduled"`
+	Message    string `json:"message" example:""`
+	RetryCount int    `json:"retry_count" example:"0"`
+}
+
+// GoogleBackupAutoSyncBackupNowSwaggerResponse is returned from POST .../auto-sync/task/{job_id}/backup-now.
+type GoogleBackupAutoSyncBackupNowSwaggerResponse struct {
+	Message string                                   `json:"message" example:"On-demand backup queued successfully"`
+	Data    GoogleBackupAutoSyncBackupNowTaskSwagger `json:"data"`
+}
+
 // AutosyncJobListFilterExamples documents example filter JSON values for the job list UI.
 type AutosyncJobListFilterExamples struct {
 	AllFields      AutosyncJobListFilter                      `json:"all_fields"`
