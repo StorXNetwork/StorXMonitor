@@ -73,8 +73,6 @@ type Auth struct {
 	badPasswords              map[string]struct{}
 	badPasswordsEncoded       string
 	validAnnouncementNames    []string
-	whiteLabelConfig          console.TenantWhiteLabelConfig
-	singleWhiteLabel          console.SingleWhiteLabelConfig
 	service                   *console.Service
 	accountFreezeService      *console.AccountFreezeService
 	analytics                 *analytics.Service
@@ -117,8 +115,6 @@ func NewAuth(
 	cookieAuth *consolewebauth.CookieAuth, analytics *analytics.Service, ssoService *sso.Service, csrfService *csrf.Service,
 	satelliteName, externalAddress, letUsKnowURL, termsAndConditionsURL, contactInfoURL, generalRequestURL string,
 	activationCodeEnabled, memberAccountsEnabled bool, badPasswords map[string]struct{}, badPasswordsEncoded string, validAnnouncementNames []string,
-	whiteLabelConfig console.TenantWhiteLabelConfig,
-	singleWhiteLabel console.SingleWhiteLabelConfig,
 ) *Auth {
 	return &Auth{
 		log:                    log,
@@ -130,8 +126,6 @@ func NewAuth(
 		SatelliteName:          satelliteName,
 		ActivationCodeEnabled:  activationCodeEnabled,
 		MemberAccountsEnabled:  memberAccountsEnabled,
-		whiteLabelConfig:       whiteLabelConfig,
-		singleWhiteLabel:       singleWhiteLabel,
 		service:                service,
 		accountFreezeService:   accountFreezeService,
 		mailService:            mailService,
@@ -234,22 +228,8 @@ func (a *Auth) MigrateToWeb3(w http.ResponseWriter, r *http.Request) {
 }
 
 // getExternalAddress returns the external address for the current tenant context.
-// If a tenant-specific external address is configured, it returns that; otherwise, it falls back
-// to the global external address.
 func (a *Auth) getExternalAddress(ctx context.Context) string {
-	// Check single-brand mode first
-	if a.singleWhiteLabel.Enabled() && a.singleWhiteLabel.ExternalAddress != "" {
-		return a.singleWhiteLabel.ExternalAddress
-	}
-
-	// Multi-tenant lookup
-	tenantID := tenancy.TenantIDFromContext(ctx)
-	if tenantID != "" {
-		if wlConfig, ok := a.whiteLabelConfig.Value[tenantID]; ok && wlConfig.ExternalAddress != "" {
-			return wlConfig.ExternalAddress
-		}
-	}
-	return a.ExternalAddress
+	return a.service.ExternalAddressForContext(ctx)
 }
 
 func (a *Auth) recordFailedLoginByEmail(ctx context.Context, email, failureMessage string) {
@@ -1035,14 +1015,7 @@ func (a *Auth) RegisterGoogleForApp(w http.ResponseWriter, r *http.Request) {
 
 	a.log.Info("Sending registration welcome email to user: " + user.Email)
 	if a.mailService != nil {
-		a.mailService.SendRenderedAsync(
-			ctx,
-			[]post.Address{{Address: user.Email}},
-			&console.RegistrationWelcomeEmail{
-				Username:  user.FullName,
-				LoginLink: fmt.Sprint(cnf.ClientOrigin, loginPageURL),
-			},
-		)
+		a.sendRegistrationWelcomeEmail(ctx, user.Email, user.FullName)
 	} else {
 		a.log.Warn("mailService is nil; skipping RegistrationWelcomeEmail", zap.String("email", user.Email))
 	}
@@ -1905,17 +1878,36 @@ func (a *Auth) writeGoogleBackupAuthError(w http.ResponseWriter, message string)
 	})
 }
 
+func (a *Auth) sendRegistrationWelcomeEmail(ctx context.Context, email, fullName string) {
+	if a.mailService == nil {
+		return
+	}
+	loginLink := a.getExternalAddress(ctx)
+	if !strings.HasSuffix(loginLink, "/") {
+		loginLink += "/"
+	}
+	loginLink += strings.TrimPrefix(loginPageURL, "/")
+	a.mailService.SendRenderedAsync(
+		tenancy.DetachContext(ctx),
+		[]post.Address{{Address: email}},
+		&console.RegistrationWelcomeEmail{
+			Username:  fullName,
+			LoginLink: loginLink,
+		},
+	)
+}
+
 // GoogleBackupAuth handles combined Google OAuth register-or-login for Google Backup.
 //
 // @Summary      Google Backup auth (register or login)
-// @Description  **Route:** `GET /api/v0/auth/google-backup`. Exchanges OAuth code (redirect_uri = GOOGLE_OAUTH_REDIRECT_URL_GOOGLE_BACKUP). If email exists, logs in; otherwise registers. Returns JSON with `action`, `onboarding`, and `google_backup`. Sets session cookie.
+// @Description  **Route:** `GET /api/v0/auth/google-backup`. Exchanges OAuth code; `redirect_uri` is derived server-side from request Host (e.g. `https://cyberls.com` or `http://localhost:3000` via config fallback). If email exists, logs in; otherwise registers. Returns JSON with `action`, `onboarding`, and `google_backup`. Sets session cookie.
 // @Tags         google-backup-onboarding
 // @Produce      json
-// @Param        code        query  string  true   "Fresh Google OAuth code (single-use)"
-// @Param        state       query  string  false  "OAuth state (UTM / verifier payload)"
-// @Param        zoho-insert query  bool    false  "When true, inserts CRM lead in Zoho"
-// @Success      200         {object}  GoogleBackupAuthSuccess  "Set-Cookie: _tokenKey"
-// @Failure      500         {object}  GoogleBackupAuthError
+// @Param        code         query  string  true   "Fresh Google OAuth code (single-use)"
+// @Param        state        query  string  false  "OAuth state (UTM / verifier payload)"
+// @Param        zoho-insert  query  bool    false  "When true, inserts CRM lead in Zoho"
+// @Success      200          {object}  GoogleBackupAuthSuccess  "Set-Cookie: _tokenKey"
+// @Failure      500          {object}  GoogleBackupAuthError
 // @Router       /auth/google-backup [get]
 func (a *Auth) GoogleBackupAuth(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -1928,7 +1920,8 @@ func (a *Auth) GoogleBackupAuth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tokenRes, err := socialmedia.GetGoogleOauthToken(code, "googlebackup", r.URL.Query().Has("zoho-insert"))
+	redirectURI := socialmedia.ResolveRequestOrigin(r)
+	session, err := socialmedia.ExchangeGoogleAuthCodeWithRedirect(code, "googlebackup", r.URL.Query().Has("zoho-insert"), redirectURI)
 	if err != nil {
 		a.log.Error("google-backup: google token exchange failed",
 			zap.Bool("zoho_insert", r.URL.Query().Has("zoho-insert")),
@@ -1940,11 +1933,11 @@ func (a *Auth) GoogleBackupAuth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	a.googleBackupAuthFromGoogle(w, r, googleBackupOAuthTokens{
-		idToken:           tokenRes.Id_token,
-		accessToken:       tokenRes.Access_token,
-		refreshToken:      tokenRes.Refresh_token,
-		googleScope:       tokenRes.Scope,
-		accessTokenExpiry: tokenRes.ExpiresAt,
+		idToken:           session.Tokens.Id_token,
+		accessToken:       session.Tokens.Access_token,
+		refreshToken:      session.Tokens.Refresh_token,
+		googleScope:       session.Tokens.Scope,
+		accessTokenExpiry: session.Tokens.ExpiresAt,
 	})
 }
 
@@ -2057,18 +2050,12 @@ func (a *Auth) completeGoogleBackupRegister(w http.ResponseWriter, r *http.Reque
 
 	sessionToken, err := a.issueSessionTokenForGoogleUser(ctx, googleuser.Email, "", w, r)
 	if err != nil {
+		a.writeGoogleBackupAuthError(w, "Error creating session token!")
 		return
 	}
 
 	if a.mailService != nil {
-		a.mailService.SendRenderedAsync(
-			ctx,
-			[]post.Address{{Address: user.Email}},
-			&console.RegistrationWelcomeEmail{
-				Username:  user.FullName,
-				LoginLink: fmt.Sprint(cnf.ClientOrigin, loginPageURL),
-			},
-		)
+		a.sendRegistrationWelcomeEmail(ctx, user.Email, user.FullName)
 	}
 
 	authed := console.WithUser(ctx, user)
@@ -2078,7 +2065,6 @@ func (a *Auth) completeGoogleBackupRegister(w http.ResponseWriter, r *http.Reque
 		ManagePassphrase: true,
 	})
 	if err != nil {
-		a.log.Error("Error in Default Project:", zap.Error(err))
 		a.writeGoogleBackupAuthError(w, "Error creating default project!")
 		return
 	}
@@ -2117,6 +2103,7 @@ func (a *Auth) completeGoogleBackupRegister(w http.ResponseWriter, r *http.Reque
 func (a *Auth) completeGoogleBackupLogin(w http.ResponseWriter, r *http.Request, ctx context.Context, user *console.User, googleuser *socialmedia.GoogleUserResult, tokens googleBackupOAuthTokens) {
 	sessionToken, err := a.issueSessionTokenForGoogleUser(ctx, googleuser.Email, "", w, r)
 	if err != nil {
+		a.writeGoogleBackupAuthError(w, "Error creating session token!")
 		return
 	}
 
@@ -2298,18 +2285,12 @@ func (a *Auth) registerUserByIDTokenFromGoogle(w http.ResponseWriter, r *http.Re
 
 	sessionToken, err := a.issueSessionTokenForGoogleUser(ctx, googleuser.Email, "", w, r)
 	if err != nil {
+		a.writeGoogleBackupAuthError(w, "Error creating session token!")
 		return
 	}
 
 	if a.mailService != nil {
-		a.mailService.SendRenderedAsync(
-			ctx,
-			[]post.Address{{Address: user.Email}},
-			&console.RegistrationWelcomeEmail{
-				Username:  user.FullName,
-				LoginLink: fmt.Sprint(cnf.ClientOrigin, loginPageURL),
-			},
-		)
+		a.sendRegistrationWelcomeEmail(ctx, user.Email, user.FullName)
 	}
 
 	authed := console.WithUser(ctx, user)
@@ -3094,14 +3075,7 @@ func (a *Auth) HandleLinkedInRegisterWithAuthToken(w http.ResponseWriter, r *htt
 	// login
 	a.TokenGoogleWrapper(ctx, LinkedinUserDetails.Email, body.Key, w, r)
 
-	a.mailService.SendRenderedAsync(
-		ctx,
-		[]post.Address{{Address: user.Email}},
-		&console.RegistrationWelcomeEmail{
-			Username:  user.FullName,
-			LoginLink: fmt.Sprint(cnf.ClientOrigin, loginPageURL),
-		},
-	)
+	a.sendRegistrationWelcomeEmail(ctx, user.Email, user.FullName)
 
 	a.SendResponse(w, r, "", fmt.Sprint(cnf.ClientOrigin, signupSuccessURL))
 }

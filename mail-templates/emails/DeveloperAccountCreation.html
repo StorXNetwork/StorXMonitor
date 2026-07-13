@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Welcome to StorX Developer Console</title>
+    <title>Welcome to {{ .BrandName }} Developer Console</title>
     <!--[if mso]>
     <style type="text/css">
         body, table, td {font-family: Arial, sans-serif !important;}
@@ -318,7 +318,7 @@
                             <td class="header" style="background-color: #fff; padding: 40px 30px; text-align: center;">
                                 <h1
                                     style="color: #333; font-size: 28px; font-weight: 700; margin: 0; line-height: 1.3;">
-                                    Welcome to StorX Developer Console!</h1>
+                                    Welcome to {{ .BrandName }} Developer Console!</h1>
                             </td>
                         </tr>
 
@@ -330,7 +330,7 @@
                                 </p>
 
                                 <p style="color: #333; font-size: 16px; margin-bottom: 20px; line-height: 1.6;">
-                                    Your developer account has been created successfully. You can now access the StorX
+                                    Your developer account has been created successfully. You can now access the {{ .BrandName }}
                                     Developer Console using the credentials below.
                                 </p>
 
@@ -373,7 +373,7 @@
                                     <tr>
                                         <td style="padding: 16px 20px;">
                                             <p style="margin: 0; color: #333; font-size: 15px;">
-                                                <strong style="color: #e04124;">Important:</strong> These are temporary
+                                                <strong color="{{ .PrimaryColor }}" style="color: #e04124;">Important:</strong> These are temporary
                                                 credentials. You will be required to set a new password on your first
                                                 login.
                                             </p>
@@ -390,10 +390,13 @@
                                     style="margin: 32px 0;">
                                     <tr>
                                         <td align="center" style="padding: 0;">
-                                            <a href="{{.ActivationLink}}" class="button"
-                                                style="display: inline-block; padding: 16px 40px; background-color: #e04124; color: #ffffff !important; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;">
-                                                Activate Account & Set Password
-                                            </a>
+                                            <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                                                <tr>
+                                                    <td align="center" bgcolor="{{ .PrimaryColor }}" style="border-radius: 8px;">
+                                                        <a href="{{.ActivationLink}}" style="display: inline-block; padding: 16px 40px; color: #ffffff !important; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;">Activate Account & Set Password</a>
+                                                    </td>
+                                                </tr>
+                                            </table>
                                         </td>
                                     </tr>
                                 </table>
@@ -451,7 +454,7 @@
                                 </p>
 
                                 <p style="color: #333; font-size: 16px; margin: 24px 0; line-height: 1.6;">
-                                    Thank you for joining StorX Developer Console!
+                                    Thank you for joining {{ .BrandName }} Developer Console!
                                 </p>
 
                                 <!-- Signature -->
@@ -461,7 +464,7 @@
                                         <td>
                                             <p style="color: #333; margin: 8px 0; font-size: 16px;">
                                                 Best regards,<br>
-                                                <strong style="color: #e04124; font-weight: 600;">The StorX
+                                                <strong color="{{ .PrimaryColor }}" style="color: #e04124; font-weight: 600;">The {{ .CompanyName }}
                                                     Team</strong>
                                             </p>
                                         </td>
@@ -475,7 +478,7 @@
                             <td class="footer"
                                 style="padding: 30px; background-color: #f8f9fa; border-top: 1px solid #e2e8f0; text-align: center;">
                                 <p style="color: #999; font-size: 13px; margin: 8px 0;">
-                                    &copy; 2025 StorX. All rights reserved.
+                                    &copy; {{ .CompanyName }}. All rights reserved.
                                 </p>
                                 <p style="color: #999; font-size: 13px; margin: 8px 0;">
                                     This is an automated email. Please do not reply to this message.

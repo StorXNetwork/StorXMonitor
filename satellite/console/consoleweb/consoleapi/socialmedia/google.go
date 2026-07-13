@@ -46,7 +46,13 @@ type GoogleUserResult struct {
 }
 
 func GetGoogleOauthToken(code string, mode string, zohoInsert bool) (*GoogleOauthToken, error) {
-	if mode != "signup" && mode != "signin" && mode != "connect" && mode != "googlebackup" {
+	return GetGoogleOauthTokenWithRedirect(code, mode, zohoInsert, "")
+}
+
+// GetGoogleOauthTokenWithRedirect exchanges a Google OAuth code using an optional redirect_uri override.
+// For googlebackup, redirectURIOverride is the frontend origin (same value used as authorized redirect URI).
+func GetGoogleOauthTokenWithRedirect(code string, mode string, zohoInsert bool, redirectURIOverride string) (*GoogleOauthToken, error) {
+	if mode != "signup" && mode != "signin" && mode != "connect" && mode != "googlebackup" && mode != "seller" {
 		return nil, errors.New("invalid mode")
 	}
 
@@ -64,9 +70,18 @@ func GetGoogleOauthToken(code string, mode string, zohoInsert bool) (*GoogleOaut
 	case "signup":
 		redirectURL = configVal.GoogleOAuthRedirectUrl_register
 	case "googlebackup":
-		redirectURL = configVal.GoogleOAuthRedirectUrl_googlebackup
+		redirectURL = strings.TrimSpace(redirectURIOverride)
+		if redirectURL == "" {
+			redirectURL = configVal.GoogleOAuthRedirectUrl_googlebackup
+		}
 		if redirectURL == "" {
 			return nil, errors.New("GOOGLE_OAUTH_REDIRECT_URL_GOOGLE_BACKUP is not configured")
+		}
+		redirectURL = strings.TrimRight(redirectURL, "/")
+	case "seller":
+		redirectURL = configVal.GoogleOAuthRedirectUrl_seller
+		if redirectURL == "" {
+			return nil, errors.New("GOOGLE_OAUTH_REDIRECT_URL_SELLER is not configured")
 		}
 	}
 

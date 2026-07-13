@@ -5082,6 +5082,152 @@ true, NOW(), NOW());`,
 					`ALTER TABLE user_notification_preferences DROP COLUMN IF EXISTS is_active`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add reseller tables for seller service",
+				Version:     377,
+				Action: migrate.SQL{
+					`CREATE TABLE resellers (
+						id bytea NOT NULL,
+						name text NOT NULL,
+						email text NOT NULL,
+						password_hash bytea NOT NULL,
+						company_name text,
+						status integer NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						updated_at timestamp with time zone NOT NULL,
+						deleted_at timestamp with time zone,
+						PRIMARY KEY ( id ),
+						UNIQUE ( email )
+					);`,
+					`CREATE TABLE reseller_configs (
+						id bytea NOT NULL,
+						reseller_id bytea NOT NULL,
+						config json NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						updated_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( id ),
+						UNIQUE ( reseller_id )
+					);`,
+					`CREATE TABLE reseller_domains (
+						id bytea NOT NULL,
+						reseller_id bytea NOT NULL,
+						domain text NOT NULL,
+						domain_type text NOT NULL,
+						status text NOT NULL,
+						verification_method text,
+						verification_status text NOT NULL,
+						ssl_status text NOT NULL,
+						dns_target text,
+						verified_at timestamp with time zone,
+						created_at timestamp with time zone NOT NULL,
+						updated_at timestamp with time zone NOT NULL,
+						deleted_at timestamp with time zone,
+						PRIMARY KEY ( id ),
+						UNIQUE ( reseller_id )
+					);`,
+					`CREATE INDEX reseller_email_status_index ON resellers ( email, status );`,
+					`CREATE INDEX reseller_domain_domain_index ON reseller_domains ( domain );`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add reseller auth sessions, reset tokens, and login fields",
+				Version:     378,
+				Action: migrate.SQL{
+					`ALTER TABLE resellers ADD COLUMN IF NOT EXISTS failed_login_count integer;`,
+					`ALTER TABLE resellers ADD COLUMN IF NOT EXISTS login_lockout_expiration timestamp with time zone;`,
+					`ALTER TABLE resellers ADD COLUMN IF NOT EXISTS activation_code text;`,
+					`ALTER TABLE resellers ADD COLUMN IF NOT EXISTS signup_id text;`,
+					`CREATE TABLE webapp_session_resellers (
+						id bytea NOT NULL,
+						reseller_id bytea NOT NULL,
+						ip_address text NOT NULL,
+						status integer NOT NULL,
+						expires_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( id )
+					);`,
+					`CREATE INDEX webapp_session_resellers_reseller_id_index ON webapp_session_resellers ( reseller_id );`,
+					`CREATE TABLE reset_password_token_resellers (
+						secret bytea NOT NULL,
+						owner_id bytea NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( secret ),
+						UNIQUE ( owner_id )
+					);`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add reseller MFA, email change, and delete request fields",
+				Version:     379,
+				Action: migrate.SQL{
+					`ALTER TABLE resellers ADD COLUMN IF NOT EXISTS new_unverified_email text;`,
+					`ALTER TABLE resellers ADD COLUMN IF NOT EXISTS email_change_verification_step integer NOT NULL DEFAULT 0;`,
+					`ALTER TABLE resellers ADD COLUMN IF NOT EXISTS mfa_enabled boolean NOT NULL DEFAULT false;`,
+					`ALTER TABLE resellers ADD COLUMN IF NOT EXISTS mfa_secret_key text;`,
+					`ALTER TABLE resellers ADD COLUMN IF NOT EXISTS mfa_recovery_codes text;`,
+					`CREATE TABLE reseller_delete_requests (
+						id bytea NOT NULL,
+						reseller_id bytea NOT NULL,
+						status text NOT NULL,
+						error text,
+						delete_at timestamp with time zone NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( id )
+					);`,
+					`CREATE INDEX reseller_delete_requests_reseller_id_index ON reseller_delete_requests ( reseller_id );`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add theme presets, reseller custom themes, and active theme on reseller_configs",
+				Version:     380,
+				Action: migrate.SQL{
+					`CREATE TABLE theme_presets (
+						id bytea NOT NULL,
+						slug text NOT NULL,
+						name text NOT NULL,
+						description text,
+						colors json NOT NULL,
+						is_default boolean NOT NULL DEFAULT false,
+						is_system boolean NOT NULL DEFAULT true,
+						created_at timestamp with time zone NOT NULL,
+						updated_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( id ),
+						UNIQUE ( slug )
+					);`,
+					`CREATE TABLE reseller_themes (
+						id bytea NOT NULL,
+						reseller_id bytea NOT NULL,
+						name text NOT NULL,
+						colors json NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						updated_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( id )
+					);`,
+					`CREATE INDEX reseller_theme_reseller_id_index ON reseller_themes ( reseller_id );`,
+					`ALTER TABLE reseller_configs ADD COLUMN IF NOT EXISTS active_theme_type text NOT NULL DEFAULT 'system';`,
+					`ALTER TABLE reseller_configs ADD COLUMN IF NOT EXISTS active_theme_id bytea;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add unique theme preset names and unique custom theme names per reseller",
+				Version:     381,
+				Action: migrate.SQL{
+					`CREATE UNIQUE INDEX IF NOT EXISTS theme_presets_name_unique ON theme_presets ( name );`,
+					`CREATE UNIQUE INDEX IF NOT EXISTS reseller_theme_reseller_id_name_unique ON reseller_themes ( reseller_id, name );`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop unused is_default from theme_presets",
+				Version:     382,
+				Action: migrate.SQL{
+					`ALTER TABLE theme_presets DROP COLUMN IF EXISTS is_default;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

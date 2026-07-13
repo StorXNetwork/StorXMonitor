@@ -471,6 +471,70 @@ CREATE TABLE reputations (
 	unknown_audit_reputation_alpha FLOAT64 NOT NULL DEFAULT (1),
 	unknown_audit_reputation_beta FLOAT64 NOT NULL DEFAULT (0)
 ) PRIMARY KEY ( id ) ;
+CREATE TABLE resellers (
+	id BYTES(MAX) NOT NULL,
+	name STRING(MAX) NOT NULL,
+	email STRING(MAX) NOT NULL,
+	password_hash BYTES(MAX) NOT NULL,
+	company_name STRING(MAX),
+	status INT64 NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	updated_at TIMESTAMP NOT NULL,
+	deleted_at TIMESTAMP,
+	failed_login_count INT64,
+	login_lockout_expiration TIMESTAMP,
+	activation_code STRING(MAX),
+	signup_id STRING(MAX),
+	new_unverified_email STRING(MAX),
+	email_change_verification_step INT64 NOT NULL DEFAULT (0),
+	mfa_enabled BOOL NOT NULL DEFAULT (false),
+	mfa_secret_key STRING(MAX),
+	mfa_recovery_codes STRING(MAX)
+) PRIMARY KEY ( id ) ;
+CREATE UNIQUE INDEX index_resellers_email ON resellers ( email ) ;
+CREATE TABLE reseller_configs (
+	id BYTES(MAX) NOT NULL,
+	reseller_id BYTES(MAX) NOT NULL,
+	config JSON NOT NULL,
+	active_theme_type STRING(MAX) NOT NULL DEFAULT ("system"),
+	active_theme_id BYTES(MAX),
+	created_at TIMESTAMP NOT NULL,
+	updated_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( id ) ;
+CREATE UNIQUE INDEX index_reseller_configs_reseller_id ON reseller_configs ( reseller_id ) ;
+CREATE TABLE reseller_delete_requests (
+	id BYTES(MAX) NOT NULL,
+	reseller_id BYTES(MAX) NOT NULL,
+	status STRING(MAX) NOT NULL,
+	error STRING(MAX),
+	delete_at TIMESTAMP NOT NULL,
+	created_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( id ) ;
+CREATE TABLE reseller_domains (
+	id BYTES(MAX) NOT NULL,
+	reseller_id BYTES(MAX) NOT NULL,
+	domain STRING(MAX) NOT NULL,
+	domain_type STRING(MAX) NOT NULL,
+	status STRING(MAX) NOT NULL,
+	verification_method STRING(MAX),
+	verification_status STRING(MAX) NOT NULL,
+	ssl_status STRING(MAX) NOT NULL,
+	dns_target STRING(MAX),
+	verified_at TIMESTAMP,
+	created_at TIMESTAMP NOT NULL,
+	updated_at TIMESTAMP NOT NULL,
+	deleted_at TIMESTAMP
+) PRIMARY KEY ( id ) ;
+CREATE UNIQUE INDEX index_reseller_domains_reseller_id ON reseller_domains ( reseller_id ) ;
+CREATE TABLE reseller_themes (
+	id BYTES(MAX) NOT NULL,
+	reseller_id BYTES(MAX) NOT NULL,
+	name STRING(MAX) NOT NULL,
+	colors JSON NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	updated_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( id ) ;
+CREATE UNIQUE INDEX index_reseller_themes_name_reseller_id ON reseller_themes ( name, reseller_id ) ;
 CREATE TABLE reset_password_tokens (
 	secret BYTES(MAX) NOT NULL,
 	owner_id BYTES(MAX) NOT NULL,
@@ -483,6 +547,12 @@ CREATE TABLE reset_password_token_developers (
 	created_at TIMESTAMP NOT NULL
 ) PRIMARY KEY ( secret ) ;
 CREATE UNIQUE INDEX index_reset_password_token_developers_owner_id ON reset_password_token_developers ( owner_id ) ;
+CREATE TABLE reset_password_token_resellers (
+	secret BYTES(MAX) NOT NULL,
+	owner_id BYTES(MAX) NOT NULL,
+	created_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( secret ) ;
+CREATE UNIQUE INDEX index_reset_password_token_resellers_owner_id ON reset_password_token_resellers ( owner_id ) ;
 CREATE TABLE retention_remainder_charges (
 	project_id BYTES(MAX) NOT NULL,
 	bucket_name BYTES(MAX) NOT NULL,
@@ -615,6 +685,18 @@ CREATE TABLE stripecoinpayments_tx_conversion_rates (
 	rate_numeric FLOAT64 NOT NULL,
 	created_at TIMESTAMP NOT NULL
 ) PRIMARY KEY ( tx_id ) ;
+CREATE TABLE theme_presets (
+	id BYTES(MAX) NOT NULL,
+	slug STRING(MAX) NOT NULL,
+	name STRING(MAX) NOT NULL,
+	description STRING(MAX),
+	colors JSON NOT NULL,
+	is_system BOOL NOT NULL DEFAULT (true),
+	created_at TIMESTAMP NOT NULL,
+	updated_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( id ) ;
+CREATE UNIQUE INDEX index_theme_presets_slug ON theme_presets ( slug ) ;
+CREATE UNIQUE INDEX index_theme_presets_name ON theme_presets ( name ) ;
 CREATE TABLE users (
 	id BYTES(MAX) NOT NULL,
 	external_id STRING(MAX),
@@ -726,6 +808,13 @@ CREATE TABLE webapp_sessions (
 CREATE TABLE webapp_session_developers (
 	id BYTES(MAX) NOT NULL,
 	developer_id BYTES(MAX) NOT NULL,
+	ip_address STRING(MAX) NOT NULL,
+	status INT64 NOT NULL,
+	expires_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( id ) ;
+CREATE TABLE webapp_session_resellers (
+	id BYTES(MAX) NOT NULL,
+	reseller_id BYTES(MAX) NOT NULL,
 	ip_address STRING(MAX) NOT NULL,
 	status INT64 NOT NULL,
 	expires_at TIMESTAMP NOT NULL
@@ -894,6 +983,10 @@ CREATE INDEX push_notifications_created_at_index ON push_notifications ( created
 CREATE INDEX repair_queue_updated_at_index ON repair_queue ( updated_at ) ;
 CREATE INDEX repair_queue_num_healthy_pieces_attempted_at_index ON repair_queue ( segment_health, attempted_at ) ;
 CREATE INDEX repair_queue_placement_index ON repair_queue ( placement ) ;
+CREATE INDEX reseller_email_status_index ON resellers ( email, status ) ;
+CREATE INDEX reseller_delete_requests_reseller_id_index ON reseller_delete_requests ( reseller_id ) ;
+CREATE INDEX reseller_domain_domain_index ON reseller_domains ( domain ) ;
+CREATE INDEX reseller_theme_reseller_id_index ON reseller_themes ( reseller_id ) ;
 CREATE INDEX retention_remainder_charges_project_id_deleted_at_billed_index ON retention_remainder_charges ( project_id, deleted_at, billed ) ;
 CREATE INDEX reverification_audits_inserted_at_index ON reverification_audits ( inserted_at ) ;
 CREATE INDEX storagenode_bandwidth_rollups_interval_start_index ON storagenode_bandwidth_rollups ( interval_start ) ;
@@ -913,6 +1006,7 @@ CREATE INDEX users_normalized_email_tenant_id_status_index ON users ( normalized
 CREATE INDEX user_delete_requests_user_id_index ON user_delete_requests ( user_id ) ;
 CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id ) ;
 CREATE INDEX webapp_session_developers_developer_id_index ON webapp_session_developers ( developer_id ) ;
+CREATE INDEX webapp_session_resellers_reseller_id_index ON webapp_session_resellers ( reseller_id ) ;
 CREATE INDEX bucket_migrations_state_created_at_index ON bucket_migrations ( state, created_at ) ;
 CREATE INDEX google_backup_credentials_user_id_index ON google_backup_credentials ( user_id ) ;
 CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id ) ;

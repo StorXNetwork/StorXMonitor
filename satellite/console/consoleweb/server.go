@@ -59,7 +59,7 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/paymentsconfig"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
-	"github.com/StorXNetwork/StorXMonitor/satellite/tenancy"
+	"github.com/StorXNetwork/StorXMonitor/satellite/seller"
 	"github.com/StorXNetwork/common/uuid"
 )
 
@@ -80,6 +80,7 @@ type Config struct {
 	Address                   string  `help:"server address of the http api gateway and frontend app" devDefault:"127.0.0.1:0" releaseDefault:":10100"`
 	FrontendAddress           string  `help:"server address of the front-end app" devDefault:"127.0.0.1:0" releaseDefault:":10200"`
 	DeveloperExternalAddress  string  `help:"external endpoint for developer service (falls back to ExternalAddress if not set)" default:""`
+	SellerExternalAddress     string  `help:"external endpoint for seller service (falls back to ExternalAddress if not set)" default:""`
 	ExternalAddress           string  `help:"external endpoint of the satellite if hosted" default:""`
 	FrontendEnable            bool    `help:"feature flag to toggle whether console back-end server should also serve front-end endpoints" default:"true"`
 	BackendReverseProxy       string  `help:"the target URL of console back-end reverse proxy for local development when running a UI server" default:""`
@@ -108,6 +109,7 @@ type Config struct {
 	GoogleSigupRedirectURLstring  string `help:"redirect url for google oauth register" default:""`
 	GoggleLoginRedirectURLstring  string `help:"redirect url for google oauth login" default:""`
 	GoogleBackupRedirectURLstring string `help:"redirect url for google oauth google-backup (GET /api/v0/auth/google-backup)" default:""`
+	GoogleSellerRedirectURLstring string `help:"redirect url for google oauth seller (GET /api/v0/seller/auth/google)" default:""`
 
 	FacebookClientID               string `help:"client id for facebook oauth" default:""`
 	FacebookClientSecret           string `help:"client secret for facebook oauth" default:""`
@@ -289,6 +291,8 @@ type Server struct {
 	entitlementsEnabled   bool
 	ssoEnabled            bool
 	productPriceSummaries []string
+
+	sellerDB seller.DB
 }
 
 // NewServer creates new instance of console server.
@@ -298,7 +302,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	stripePublicKey string, neededTokenPaymentConfirmations int, nodeURL storxnetwork.NodeURL,
 	analyticsConfig analytics.Config, notificationService *pushnotifications.Service, packagePlans paymentsconfig.PackagePlans, stripe *stripe.Service, developerService *developer.Service,
 	minimumChargeConfig paymentsconfig.MinimumChargeConfig, usagePrices payments.ProjectUsagePriceModel, pps ProductPriceSummaries,
-	entitlementsEnabled bool, ssoEnabled bool) *Server {
+	entitlementsEnabled bool, ssoEnabled bool, sellerDB seller.DB) *Server {
 	initAdditionalMimeTypes()
 
 	server := Server{
@@ -327,6 +331,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 		entitlementsEnabled:             entitlementsEnabled,
 		ssoEnabled:                      ssoEnabled,
 		productPriceSummaries:           pps,
+		sellerDB:                        sellerDB,
 	}
 
 	server.cookieAuth = consolewebauth.NewCookieAuth(consolewebauth.CookieSettings{
@@ -378,7 +383,8 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	// the earliest in the HTTP chain.
 	router.Use(newTraceRequestMiddleware(logger, router))
 
-	router.Use(tenancy.Middleware(config.WhiteLabel.HostNameIDLookup))
+	tenantResolver := NewTenantResolver(logger.Named("tenant-resolver"), sellerDB, &server)
+	router.Use(tenantResolver.Middleware)
 	router.Use(requestid.AddToContext)
 	// by default, set Cache-Control=no-store for all requests
 	// if requests should be cached (e.g. static assets), the cache control header can be overridden
@@ -455,6 +461,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	socialmedia.SetClientOrigin(config.ClientOrigin)
 	socialmedia.SetGoogleSocialMediaConfig(config.GoogleClientID, config.GoogleClientSecret, config.GoogleSigupRedirectURLstring, config.GoggleLoginRedirectURLstring)
 	socialmedia.SetGoogleBackupOAuthRedirectURL(config.GoogleBackupRedirectURLstring)
+	socialmedia.SetGoogleSellerOAuthRedirectURL(config.GoogleSellerRedirectURLstring)
 	socialmedia.SetFacebookSocialMediaConfig(config.FacebookClientID, config.FacebookClientSecret, config.FacebookSigupRedirectURLstring, config.FacebookLoginRedirectURLstring)
 	socialmedia.SetLinkedinSocialMediaConfig(config.LinkedinClientID, config.LinkedinClientSecret, config.LinkedinSigupRedirectURLstring, config.LinkedinLoginRedirectURLstring, config.LinkedinRegisterIdTokenRedirectURLstring, config.LinkedinLoginIdTokenRedirectURLstring)
 	socialmedia.SetUnstoppableDomainSocialMediaConfig(config.UnstoppableDomainClientID, config.UnstoppableDomainClientSecret, config.UnstoppableDomainSignupRedirectURLstring, config.UnstoppableDomainLoginRedirectURLstring)
@@ -473,7 +480,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 		valdiRouter.Handle("/api-keys/{project-id}", server.userIDRateLimiter.Limit(http.HandlerFunc(valdiController.GetAPIKey))).Methods(http.MethodGet, http.MethodOptions)
 	}
 
-	authController := consoleapi.NewAuth(logger, service, accountFreezeService, mailService, server.cookieAuth, server.analytics, ssoService, csrfService, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL, config.GeneralRequestURL, config.SignupActivationCodeEnabled, config.MemberAccountsEnabled, badPasswords, badPasswordsEncoded, config.ValidAnnouncementNames, config.WhiteLabel, config.SingleWhiteLabel)
+	authController := consoleapi.NewAuth(logger, service, accountFreezeService, mailService, server.cookieAuth, server.analytics, ssoService, csrfService, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL, config.GeneralRequestURL, config.SignupActivationCodeEnabled, config.MemberAccountsEnabled, badPasswords, badPasswordsEncoded, config.ValidAnnouncementNames)
 	authRouter := router.PathPrefix("/api/v0/auth").Subrouter()
 	authRouter.Use(server.withCORS)
 
@@ -1602,7 +1609,6 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		EgressMBCents:       server.usagePrices.EgressMBCents.String(),
 		SegmentMonthCents:   server.usagePrices.SegmentMonthCents.String(),
 	}
-
 	w.Header().Set(contentType, applicationJSON)
 
 	err = json.NewEncoder(w).Encode(&cfg)
@@ -1612,102 +1618,27 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 	}
 }
 
-// getBranding returns branding configuration based on tenant context.
+// getBranding returns reseller branding for custom domains, or empty branding for main console hosts.
 func (server *Server) getBranding(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
 
-	tenantCtx := tenancy.GetContext(ctx)
+	host := requestHost(r)
+	var branding BrandingConfig
 
-	// Default Storj branding.
-	branding := BrandingConfig{
-		Name: "Storj",
-		LogoURLs: map[string]string{
-			"full-light":  "/static/static/images/logo.svg",
-			"full-dark":   "/static/static/images/logo-dark.svg",
-			"small-light": "/static/static/images/logo-small.svg",
-			"small-dark":  "/static/static/images/logo-small.svg",
-		},
-		FaviconURLs: map[string]string{
-			"16x16":       "/static/static/images/favicons/favicon-16x16.png",
-			"32x32":       "/static/static/images/favicons/favicon-32x32.png",
-			"apple-touch": "/static/static/images/favicons/apple-touch-icon.png",
-		},
-		Colors: map[string]string{
-			"primary-light":      "#0052FF",
-			"primary-dark":       "#0052FF",
-			"on-primary-light":   "#FFFFFF",
-			"on-primary-dark":    "#FFFFFF",
-			"secondary-light":    "#091C45",
-			"secondary-dark":     "#537CFF",
-			"on-secondary-light": "#FFFFFF",
-			"on-secondary-dark":  "#FFFFFF",
-			"background-light":   "#FCFCFD",
-			"background-dark":    "#000A20",
-			"surface-light":      "#FFFFFF",
-			"surface-dark":       "#000B21",
-			"on-surface-light":   "#000000",
-			"on-surface-dark":    "#FFFFFF",
-			"success-light":      "#00B661",
-			"success-dark":       "#00E366",
-			"info-light":         "#0059D0",
-			"info-dark":          "#2196f3",
-			"warning-light":      "#FF7F00",
-			"warning-dark":       "#FF8A00",
-		},
-		SupportURL:        server.config.GeneralRequestURL,
-		DocsURL:           server.config.DocumentationURL,
-		HomepageURL:       server.config.HomepageURL,
-		GetInTouchURL:     server.config.ScheduleMeetingURL,
-		PrivacyPolicyURL:  server.config.HomepageURL + "/privacy-policy/",
-		TermsOfServiceURL: server.config.TermsAndConditionsURL,
+	if resellerBranding, ok, err := server.resellerBrandingForHost(ctx, host); err != nil {
+		server.log.Warn("failed to load reseller branding", zap.String("host", host), zap.Error(err))
+	} else if ok {
+		branding = resellerBranding
 	}
 
-	// Check single-brand white label first (takes precedence for dedicated deployments).
-	if server.config.SingleWhiteLabel.Enabled() {
-		wlConfig := server.config.SingleWhiteLabel.ToWhiteLabelConfig()
-		branding = brandingFromWhiteLabelConfig(wlConfig, server.config.HomepageURL, server.config.TermsAndConditionsURL)
-	} else if tenantCtx.TenantID != "" {
-		// Fall back to multi-tenant white label lookup.
-		if wlConfig, ok := server.config.WhiteLabel.Value[tenantCtx.TenantID]; ok {
-			branding = brandingFromWhiteLabelConfig(wlConfig, server.config.HomepageURL, server.config.TermsAndConditionsURL)
-		} else {
-			server.log.Warn("tenant white label config not found, falling back to default branding", zap.String("tenant_id", tenantCtx.TenantID))
-		}
-	}
-
-	w.Header().Set("Cache-Control", "public, max-age=3600")
+	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
+	w.Header().Set("Pragma", "no-cache")
 	w.Header().Set(contentType, applicationJSON)
 
 	if err := json.NewEncoder(w).Encode(&branding); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		server.log.Error("failed to write branding config", zap.Error(err))
-	}
-}
-
-// brandingFromWhiteLabelConfig converts a WhiteLabelConfig to BrandingConfig.
-func brandingFromWhiteLabelConfig(wlConfig console.WhiteLabelConfig, defaultHomepageURL, defaultTermsURL string) BrandingConfig {
-	privacyPolicyURL := wlConfig.PrivacyPolicyURL
-	if privacyPolicyURL == "" {
-		privacyPolicyURL = defaultHomepageURL + "/privacy-policy/"
-	}
-	termsOfServiceURL := wlConfig.TermsOfServiceURL
-	if termsOfServiceURL == "" {
-		termsOfServiceURL = defaultTermsURL
-	}
-
-	return BrandingConfig{
-		Name:              wlConfig.Name,
-		LogoURLs:          wlConfig.LogoURLs,
-		FaviconURLs:       wlConfig.FaviconURLs,
-		Colors:            wlConfig.Colors,
-		SupportURL:        wlConfig.SupportURL,
-		DocsURL:           wlConfig.DocsURL,
-		HomepageURL:       wlConfig.HomepageURL,
-		GetInTouchURL:     wlConfig.GetInTouchURL,
-		GatewayURL:        wlConfig.GatewayURL,
-		PrivacyPolicyURL:  privacyPolicyURL,
-		TermsOfServiceURL: termsOfServiceURL,
 	}
 }
 
@@ -1877,30 +1808,8 @@ func (server *Server) cancelPasswordRecoveryHandler(w http.ResponseWriter, r *ht
 }
 
 // getExternalAddress returns the external address for the current tenant context.
-// If a tenant-specific external address is configured, it returns that; otherwise, it falls back
-// to the global external address. The returned address always has a trailing slash.
 func (server *Server) getExternalAddress(ctx context.Context) string {
-	// Check single-brand mode first
-	if server.config.SingleWhiteLabel.Enabled() && server.config.SingleWhiteLabel.ExternalAddress != "" {
-		addr := server.config.SingleWhiteLabel.ExternalAddress
-		if !strings.HasSuffix(addr, "/") {
-			addr += "/"
-		}
-		return addr
-	}
-
-	// Multi-tenant lookup
-	tenantID := tenancy.TenantIDFromContext(ctx)
-	if tenantID != "" {
-		if wlConfig, ok := server.config.WhiteLabel.Value[tenantID]; ok && wlConfig.ExternalAddress != "" {
-			addr := wlConfig.ExternalAddress
-			if !strings.HasSuffix(addr, "/") {
-				addr += "/"
-			}
-			return addr
-		}
-	}
-	return server.config.ExternalAddress
+	return server.service.ExternalAddressForContext(ctx)
 }
 
 func (server *Server) handleInvited(w http.ResponseWriter, r *http.Request) {

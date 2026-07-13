@@ -2,7 +2,7 @@
 <!--[if IE]><html xmlns="http://www.w3.org/1999/xhtml" class="ie"><![endif]--><!--[if !IE]><!-->
 <html style="margin: 0;padding: 0;" xmlns="http://www.w3.org/1999/xhtml"><!--<![endif]--><head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <title>Thank You for Contacting Us - StorX Network</title>
+    <title>Thank You for Contacting Us - {{ .BrandName }}</title>
     <!--[if !mso]><!--><meta http-equiv="X-UA-Compatible" content="IE=edge" /><!--<![endif]-->
     <meta name="viewport" content="width=device-width" /><style type="text/css">
         @media only screen and (min-width: 620px) {
@@ -388,7 +388,7 @@
         }
     </style>
     <meta name="robots" content="noindex,nofollow" />
-    <meta property="og:title" content="Thank You for Contacting Us - StorX Network" />
+    <meta property="og:title" content="Thank You for Contacting Us - {{ .BrandName }}" />
     <meta property="og:description" content="We've received your message and will get back to you shortly" />
 </head>
 <!--[if mso]>
@@ -461,7 +461,7 @@
                                         <span>Dear {{ .Name }},</span>
                                     </p>
                                     <p style="Margin: 0 0 20px 0; font-family: Helvetica, sans-serif; font-weight: 400; font-size: 16px; color: #333; line-height: 24px;">
-                                        <span>Thank you for reaching out to StorX Network! We've successfully received your message and our team will review it shortly.</span>
+                                        <span>Thank you for reaching out to {{ .BrandName }}! We've successfully received your message and our team will review it shortly.</span>
                                     </p>
                                     <p style="Margin: 0 0 20px 0; font-family: Helvetica, sans-serif; font-weight: 400; font-size: 16px; color: #333; line-height: 24px;">
                                         <span>We typically respond within 24-48 hours. If your inquiry is urgent, please don't hesitate to contact us directly.</span>
@@ -498,8 +498,8 @@
                                     <div style="margin-bottom: 15px; padding: 12px; background-color: #ffffff; border-left: 4px solid #e04124; border-radius: 4px;">
                                         <p style="Margin: 0; font-family: Helvetica, sans-serif; font-weight: 600; font-size: 14px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center;">
                                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-right: 8px; flex-shrink: 0;">
-                                                <path d="M20 21V19C20 17.9391 19.5786 16.9217 18.8284 16.1716C18.0783 15.4214 17.0609 15 16 15H8C6.93913 15 5.92172 15.4214 5.17157 16.1716C4.42143 16.9217 4 17.9391 4 19V21" stroke="#e04124" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                                <circle cx="12" cy="7" r="4" stroke="#e04124" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                                <path d="M20 21V19C20 17.9391 19.5786 16.9217 18.8284 16.1716C18.0783 15.4214 17.0609 15 16 15H8C6.93913 15 5.92172 15.4214 5.17157 16.1716C4.42143 16.9217 4 17.9391 4 19V21" stroke="{{ .PrimaryColor }}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                                <circle cx="12" cy="7" r="4" stroke="{{ .PrimaryColor }}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                                             </svg>
                                             <span>Name</span>
                                         </p>
@@ -510,8 +510,8 @@
                                     <div style="margin-bottom: 15px; padding: 12px; background-color: #ffffff; border-left: 4px solid #e04124; border-radius: 4px;">
                                         <p style="Margin: 0; font-family: Helvetica, sans-serif; font-weight: 600; font-size: 14px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center;">
                                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-right: 8px; flex-shrink: 0;">
-                                                <path d="M4 4H20C21.1 4 22 4.9 22 6V18C22 19.1 21.1 20 20 20H4C2.9 20 2 19.1 2 18V6C2 4.9 2.9 4 4 4Z" stroke="#e04124" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                                <polyline points="22,6 12,13 2,6" stroke="#e04124" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                                <path d="M4 4H20C21.1 4 22 4.9 22 6V18C22 19.1 21.1 20 20 20H4C2.9 20 2 19.1 2 18V6C2 4.9 2.9 4 4 4Z" stroke="{{ .PrimaryColor }}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                                <polyline points="22,6 12,13 2,6" stroke="{{ .PrimaryColor }}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                                             </svg>
                                             <span>Email Address</span>
                                         </p>
@@ -522,7 +522,7 @@
                                     <div style="margin-bottom: 0; padding: 12px; background-color: #ffffff; border-left: 4px solid #e04124; border-radius: 4px;">
                                         <p style="Margin: 0; font-family: Helvetica, sans-serif; font-weight: 600; font-size: 14px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center;">
                                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-right: 8px; flex-shrink: 0;">
-                                                <path d="M21 15C21 15.5304 20.7893 16.0391 20.4142 16.4142C20.0391 16.7893 19.5304 17 19 17H7L3 21V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H19C19.5304 3 20.0391 3.21071 20.4142 3.58579C20.7893 3.96086 21 4.46957 21 5V15Z" stroke="#e04124" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                                <path d="M21 15C21 15.5304 20.7893 16.0391 20.4142 16.4142C20.0391 16.7893 19.5304 17 19 17H7L3 21V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H19C19.5304 3 20.0391 3.21071 20.4142 3.58579C20.7893 3.96086 21 4.46957 21 5V15Z" stroke="{{ .PrimaryColor }}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                                             </svg>
                                             <span>Message</span>
                                         </p>
@@ -580,11 +580,11 @@
                                         <span>Best regards,</span>
                                     </p>
                                     <p style="Margin: 0 0 15px 0;font-family: Helvetica, sans-serif;font-weight: 500;font-size: 16px;line-height: 24px; color: #333;">
-                                        <span>The StorX Network Team</span>
+                                        <span>The {{ .CompanyName }} Team</span>
                                     </p>
                                     <div style="border-top: 1px solid #e9ecef; padding-top: 15px; margin-top: 15px;">
                                         <p style="Margin: 0;font-family: Helvetica, sans-serif;font-weight: 400;font-size: 12px;line-height: 18px; color: #999;">
-                                            <span>© 2024 StorX Network. All rights reserved.</span>
+                                            <span>© 2024 {{ .BrandName }}. All rights reserved.</span>
                                         </p>
                                         <p style="Margin: 5px 0 0 0;font-family: Helvetica, sans-serif;font-weight: 400;font-size: 12px;line-height: 18px; color: #999;">
                                             <span>This is an automated confirmation email. Please do not reply to this email.</span>

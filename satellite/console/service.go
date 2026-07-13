@@ -290,7 +290,7 @@ type Service struct {
 
 	satelliteAddress        string
 	satelliteName           string
-	whiteLabelConfig        TenantWhiteLabelConfig
+	resellerTenantLookup    ResellerTenantLookup
 	pushNotificationService *pushnotifications.Service
 	auditLogService         *auditlog.Service
 
@@ -392,11 +392,13 @@ func (s *Service) SendPushNotificationByEventName(ctx context.Context, userID uu
 // This function handles context creation, error logging, and all the boilerplate
 // required for sending notifications without blocking the HTTP request.
 func (s *Service) SendNotificationAsync(userID uuid.UUID, email string, eventName string, category string, variables map[string]interface{}) {
-	go func() {
-		// Use background context to avoid cancellation when HTTP request completes
-		notifyCtx := context.Background()
+	s.SendNotificationAsyncWithContext(context.Background(), userID, email, eventName, category, variables)
+}
 
-		// Create a descriptive log message based on event name
+// SendNotificationAsyncWithContext sends a push notification asynchronously while preserving tenant context.
+func (s *Service) SendNotificationAsyncWithContext(ctx context.Context, userID uuid.UUID, email string, eventName string, category string, variables map[string]interface{}) {
+	notifyCtx := tenancy.DetachContext(ctx)
+	go func() {
 		eventDescription := strings.ReplaceAll(eventName, "_", " ")
 
 		if err := s.SendPushNotificationByEventName(notifyCtx, userID, eventName, category, variables); err != nil {
@@ -405,6 +407,7 @@ func (s *Service) SendNotificationAsync(userID uuid.UUID, email string, eventNam
 				zap.String("description", eventDescription),
 				zap.Stringer("user_id", userID),
 				zap.String("email", email),
+				zap.String("tenant_id", tenancy.TenantIDFromContext(notifyCtx)),
 				zap.Error(err))
 		}
 	}()
@@ -420,6 +423,7 @@ func (s *Service) buildNotificationFromEvent(ctx context.Context, userID uuid.UU
 
 	mergedVars := configs.MergeUserPreferences(templateData.DefaultVariables, nil, variables)
 	s.handleSpecialVariables(mergedVars)
+	s.injectResellerBrandVariables(ctx, mergedVars)
 
 	if err := configs.ValidateVariables(templateData, mergedVars); err != nil {
 		s.log.Warn("Failed to validate template variables",
@@ -498,6 +502,21 @@ func (s *Service) handleSpecialVariables(variables map[string]interface{}) {
 		if tsStr, ok := timestamp.(string); ok && tsStr == "now" {
 			variables["timestamp"] = time.Now().Format(time.RFC3339)
 		}
+	}
+}
+
+// injectResellerBrandVariables adds seller branding vars for tenant-scoped push notifications.
+func (s *Service) injectResellerBrandVariables(ctx context.Context, variables map[string]interface{}) {
+	branding, ok := s.ResellerMailBranding(ctx)
+	if !ok {
+		return
+	}
+	if branding.BrandName != "" {
+		variables["brand_name"] = branding.BrandName
+		variables["product_name"] = branding.BrandName
+	}
+	if branding.CompanyName != "" {
+		variables["company_name"] = branding.CompanyName
 	}
 }
 
@@ -888,7 +907,7 @@ type Payments struct {
 }
 
 // NewService returns new instance of Service.
-func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKeys restapikeys.Service, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets buckets.DB, attributions attribution.DB, accounts payments.Accounts, depositWallets payments.DepositWallets, billingDB billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, hubspotMailService *hubspotmails.Service, accountFreezeService *AccountFreezeService, emission *emission.Service, kmsService *kms.Service, valdiService *valdi.Service, ssoService *sso.Service, satelliteAddress string, satelliteNodeAddress string, satelliteName string, whiteLabelConfig TenantWhiteLabelConfig, maxProjectBuckets int, ssoEnabled bool, placements nodeselection.PlacementDefinitions, versioning VersioningConfig, config Config, skuEnabled bool, loginURL string, supportURL string, bucketEventing eventingconfig.Config, entitlementsService *entitlements.Service, entitlementsConfig entitlements.Config, placementProductMap map[int]int32, productConfigs map[int32]payments.ProductUsagePriceModel, minimumChargeAmount int64, minimumChargeDate *time.Time, packagePlans map[string]payments.PackagePlan, backupToolsURL string, socialShareHelper smartcontract.SocialShareHelper) (*Service, error) {
+func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKeys restapikeys.Service, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets buckets.DB, attributions attribution.DB, accounts payments.Accounts, depositWallets payments.DepositWallets, billingDB billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, hubspotMailService *hubspotmails.Service, accountFreezeService *AccountFreezeService, emission *emission.Service, kmsService *kms.Service, valdiService *valdi.Service, ssoService *sso.Service, satelliteAddress string, satelliteNodeAddress string, satelliteName string, maxProjectBuckets int, ssoEnabled bool, placements nodeselection.PlacementDefinitions, versioning VersioningConfig, config Config, skuEnabled bool, loginURL string, supportURL string, bucketEventing eventingconfig.Config, entitlementsService *entitlements.Service, entitlementsConfig entitlements.Config, placementProductMap map[int]int32, productConfigs map[int32]payments.ProductUsagePriceModel, minimumChargeAmount int64, minimumChargeDate *time.Time, packagePlans map[string]payments.PackagePlan, backupToolsURL string, socialShareHelper smartcontract.SocialShareHelper) (*Service, error) {
 	if store == nil {
 		return nil, errs.New("store can't be nil")
 	}
@@ -984,7 +1003,6 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 		satelliteAddress:           satelliteAddress,
 		SatelliteNodeAddress:       satelliteNodeAddress,
 		satelliteName:              satelliteName,
-		whiteLabelConfig:           whiteLabelConfig,
 		maxProjectBuckets:          maxProjectBuckets,
 		ssoEnabled:                 ssoEnabled,
 		pushNotificationService:    pushNotificationService,
@@ -1122,45 +1140,31 @@ func (s *Service) sendLoginNotificationEmail(ctx context.Context, user *User, ip
 		return
 	}
 
+	// Keep tenant/reseller branding after the HTTP request ends.
+	emailCtx := tenancy.DetachContext(ctx)
+	emailUserID := user.ID
+	emailUserEmail := user.Email
+	emailUserName := user.ShortName
+	if emailUserName == "" {
+		emailUserName = user.FullName
+	}
+	emailIPAddress := ipAddress
+	if emailIPAddress == "" {
+		emailIPAddress = "0.0.0.0"
+	}
+	emailUserAgent := userAgent
+
+	satelliteAddress := s.ExternalAddressForContext(emailCtx)
+	signInLink := satelliteAddress + "login"
+
 	go func() {
-		// Use background context to avoid cancellation when HTTP request completes
-		emailCtx := context.Background()
-		emailUserID := user.ID       // Capture user ID before closure
-		emailUserEmail := user.Email // Capture email before closure
-		emailUserName := user.ShortName
-		if emailUserName == "" {
-			emailUserName = user.FullName
-		}
-		emailIPAddress := ipAddress
-		if emailIPAddress == "" {
-			emailIPAddress = "0.0.0.0"
-		}
-		emailUserAgent := userAgent
-
-		// Parse device and browser information
 		device, browser := parseDeviceInfo(emailUserAgent)
-
-		// Get location from IP
 		location, state := getLocationFromIP(emailIPAddress)
 		locationStr := location
 		if state != "" {
 			locationStr = state + ", " + location
 		}
-
-		// Format login time
 		loginTime := time.Now().Format("January 2, 2006 at 3:04 PM MST")
-
-		// Prepare satellite address
-		satelliteAddress := s.satelliteAddress
-		if satelliteAddress == "" {
-			satelliteAddress = "https://storx.io/"
-		}
-		if !strings.HasSuffix(satelliteAddress, "/") {
-			satelliteAddress += "/"
-		}
-
-		signInLink := satelliteAddress + "login"
-		contactInfoURL := "https://forum.storx.io" // Default contact info URL
 
 		s.mailService.SendRenderedAsync(
 			emailCtx,
@@ -1174,26 +1178,19 @@ func (s *Service) sendLoginNotificationEmail(ctx context.Context, user *User, ip
 				IPAddress:      emailIPAddress,
 				LoginTime:      loginTime,
 				SignInLink:     signInLink,
-				ContactInfoURL: contactInfoURL,
+				ContactInfoURL: satelliteAddress,
 			},
 		)
 		s.auditLog(emailCtx, "login notification email sent", &emailUserID, emailUserEmail,
 			zap.String("device", device),
-			zap.String("location", locationStr))
+			zap.String("location", locationStr),
+			zap.String("tenant_id", tenancy.TenantIDFromContext(emailCtx)))
 	}()
 }
 
 // getSatelliteAddress returns the external satellite address for the current tenant context.
-// If a tenant-specific external address is configured, it returns that; otherwise, it falls back
-// to the global satellite address.
 func (s *Service) getSatelliteAddress(ctx context.Context) string {
-	tenantID := tenancy.TenantIDFromContext(ctx)
-	if tenantID != "" {
-		if wlConfig, ok := s.whiteLabelConfig.Value[tenantID]; ok && wlConfig.ExternalAddress != "" {
-			return wlConfig.ExternalAddress
-		}
-	}
-	return s.satelliteAddress
+	return s.ExternalAddressForContext(ctx)
 }
 
 func (s *Service) auditLog(ctx context.Context, operation string, userID *uuid.UUID, email string, extra ...zap.Field) {
@@ -2190,30 +2187,17 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	}
 
 	// verified, unverified, err := s.store.Users().GetByEmailWithUnverified(ctx, user.Email)
-	if !socialsign {
-		verified, unverified, err := s.store.Users().GetByEmailWithUnverified(ctx, user.Email)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-		if verified != nil {
-			mon.Counter("create_user_duplicate_verified").Inc(1) //mon:locked
-			return nil, ErrEmailUsed.New(emailUsedErrMsg)
-		} else if len(unverified) != 0 {
-			mon.Counter("create_user_duplicate_unverified").Inc(1) //mon:locked
-			return nil, ErrEmailUsed.New(emailUsedErrMsg)
-		}
-	} else {
-		verified, unverified, err := s.store.Users().GetByEmailWithUnverified_google(ctx, user.Email)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-		if verified != nil {
-			mon.Counter("create_user_duplicate_verified").Inc(1) //mon:locked
-			return nil, ErrEmailUsed.New(emailUsedErrMsg)
-		} else if len(unverified) != 0 {
-			mon.Counter("create_user_duplicate_unverified").Inc(1) //mon:locked
-			return nil, ErrEmailUsed.New(emailUsedErrMsg)
-		}
+	tenantID := tenantIDFromContext(ctx)
+	verified, unverified, err := s.store.Users().GetByEmailAndTenantWithUnverified(ctx, user.Email, tenantID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	if verified != nil {
+		mon.Counter("create_user_duplicate_verified").Inc(1) //mon:locked
+		return nil, ErrEmailUsed.New(emailUsedErrMsg)
+	} else if len(unverified) != 0 {
+		mon.Counter("create_user_duplicate_unverified").Inc(1) //mon:locked
+		return nil, ErrEmailUsed.New(emailUsedErrMsg)
 	}
 
 	// if err != nil {
@@ -2292,9 +2276,8 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		}
 
 		hasTenant := newUser.TenantID != nil && *newUser.TenantID != ""
-		if hasTenant {
-			newUser.ProjectLimit = s.config.UsageLimits.Project.Paid
-		} else if registrationToken != nil {
+		_ = hasTenant // all tenants (main and reseller) use free tier limits
+		if registrationToken != nil {
 			newUser.ProjectLimit = registrationToken.ProjectLimit
 		} else {
 			newUser.ProjectLimit = s.config.UsageLimits.Project.Free
@@ -2305,16 +2288,10 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			newUser.TrialExpiration = &expiration
 		}
 
-		if hasTenant {
-			newUser.ProjectStorageLimit = s.config.UsageLimits.Storage.Paid.Int64()
-			newUser.ProjectBandwidthLimit = s.config.UsageLimits.Bandwidth.Paid.Int64()
-			newUser.ProjectSegmentLimit = s.config.UsageLimits.Segment.Paid
-		} else {
-			// TODO: move the project limits into the registration token.
-			newUser.ProjectStorageLimit = s.config.UsageLimits.Storage.Free.Int64()
-			newUser.ProjectBandwidthLimit = s.config.UsageLimits.Bandwidth.Free.Int64()
-			newUser.ProjectSegmentLimit = s.config.UsageLimits.Segment.Free
-		}
+		// TODO: move the project limits into the registration token.
+		newUser.ProjectStorageLimit = s.config.UsageLimits.Storage.Free.Int64()
+		newUser.ProjectBandwidthLimit = s.config.UsageLimits.Bandwidth.Free.Int64()
+		newUser.ProjectSegmentLimit = s.config.UsageLimits.Segment.Free
 
 		u, err = tx.Users().Insert(ctx,
 			newUser,
@@ -2326,7 +2303,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		// Post-insert duplicate check only for non-social signup. For social signup we skip this
 		// so we don't treat the user we just inserted (Active) as a duplicate and delete them.
 		if !socialsign {
-			verified, unverified, err := tx.Users().GetByEmailWithUnverified(ctx, user.Email)
+			verified, unverified, err := tx.Users().GetByEmailAndTenantWithUnverified(ctx, user.Email, tenantID)
 			if err != nil {
 				return err
 			}
@@ -3478,7 +3455,7 @@ func (s *Service) TokenWithoutPassword(ctx context.Context, request AuthWithoutP
 		"ip_address": ipAddress,
 		"location":   location,
 	}
-	s.SendNotificationAsync(user.ID, user.Email, "logged_in_successfully", "account", variables)
+	s.SendNotificationAsyncWithContext(ctx, user.ID, user.Email, "logged_in_successfully", "account", variables)
 
 	// Send email notification for successful login
 	s.sendLoginNotificationEmail(ctx, user, request.IP, request.UserAgent)
@@ -3491,7 +3468,7 @@ func (s *Service) Token_google(ctx context.Context, request AuthUser) (response 
 
 	mon.Counter("login_attempt").Inc(1) //mon:locked
 
-	user, unverified, err := s.store.Users().GetByEmailWithUnverified_google(ctx, request.Email)
+	user, unverified, err := s.store.Users().GetByEmailAndTenantWithUnverified(ctx, request.Email, tenantIDFromContext(ctx))
 
 	if user == nil {
 		if len(unverified) > 0 {
@@ -3541,7 +3518,7 @@ func (s *Service) Token_google(ctx context.Context, request AuthUser) (response 
 		"ip_address": ipAddress,
 		"location":   location,
 	}
-	s.SendNotificationAsync(user.ID, user.Email, "logged_in_successfully", "account", variables)
+	s.SendNotificationAsyncWithContext(ctx, user.ID, user.Email, "logged_in_successfully", "account", variables)
 
 	// Send email notification for successful login
 	s.sendLoginNotificationEmail(ctx, user, request.IP, request.UserAgent)
@@ -3656,17 +3633,20 @@ func (s *Service) GetUserID(ctx context.Context) (id uuid.UUID, err error) {
 	return user.ID, nil
 }
 
-// GetUserByEmailWithUnverified returns Users by email.
+func tenantIDFromContext(ctx context.Context) *string {
+	tenantCtx := tenancy.GetContext(ctx)
+	if tenantCtx == nil || tenantCtx.TenantID == "" {
+		return nil
+	}
+	tenantID := tenantCtx.TenantID
+	return &tenantID
+}
+
+// GetUserByEmailWithUnverified returns Users by email scoped to the request tenant.
 func (s *Service) GetUserByEmailWithUnverified(ctx context.Context, email string) (verified *User, unverified []User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var tenantID *string
-	tenantCtx := tenancy.GetContext(ctx)
-	if tenantCtx != nil {
-		tenantID = &tenantCtx.TenantID
-	}
-
-	verified, unverified, err = s.store.Users().GetByEmailAndTenantWithUnverified(ctx, email, tenantID)
+	verified, unverified, err = s.store.Users().GetByEmailAndTenantWithUnverified(ctx, email, tenantIDFromContext(ctx))
 	if err != nil {
 		return verified, unverified, err
 	}
@@ -3679,13 +3659,17 @@ func (s *Service) GetUserByEmailWithUnverified(ctx context.Context, email string
 }
 
 func (s *Service) GetUserByEmailWithUnverified_google(ctx context.Context, email string) (verified *User, unverified []User, err error) {
+	return s.getUserByEmailWithUnverifiedForTenant(ctx, email)
+}
+
+func (s *Service) getUserByEmailWithUnverifiedForTenant(ctx context.Context, email string) (verified *User, unverified []User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if email == "" {
 		return nil, nil, ErrEmailNotFound.New("email is empty")
 	}
 
-	verified, unverified, err = s.store.Users().GetByEmailWithUnverified_google(ctx, email)
+	verified, unverified, err = s.store.Users().GetByEmailAndTenantWithUnverified(ctx, email, tenantIDFromContext(ctx))
 	if err != nil {
 		return verified, unverified, err
 	}

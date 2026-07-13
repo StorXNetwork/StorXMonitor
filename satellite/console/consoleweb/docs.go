@@ -120,6 +120,40 @@ package consoleweb
 // @tag.name static-api
 // @tag.description Public static content at server root (not under /api/v0): GET /resources-list, /blog-list, /guides, /user-guideline-for-app. Swagger may prefix paths with /api/v0 — use the host root path when calling.
 
+// @tag.name reseller
+// @tag.description Seller peer (reseller console): health and reseller management APIs under `/api/v0/seller/*`. Runs as `satellite run seller` (default sim port often `:10003`).
+
+// @tag.name reseller-auth
+// @tag.description Reseller authentication: Google OAuth, email register/login, activation, logout, and refresh under `/api/v0/seller/auth/*`. Session cookie = `_seller_tokenKey`.
+
+// @tag.name reseller-auth-password
+// @tag.description Reseller password recovery: `POST /seller/auth/forgot-password` and `POST /seller/auth/reset-password` (token from email link).
+
+// @tag.name reseller-account
+// @tag.description Logged-in reseller profile and password management: `GET/PATCH /seller/auth/account`, change/set password, change email, delete account.
+
+// @tag.name reseller-mfa
+// @tag.description Reseller MFA setup and recovery: `POST /seller/auth/mfa/*` (enable, disable, secret key, recovery codes).
+
+// @tag.name reseller-sessions
+// @tag.description Reseller active sessions: `GET /seller/auth/sessions`, `POST /seller/auth/invalidate-session/{id}`.
+
+// @tag.name reseller-branding
+// @tag.description Reseller branding: multipart upload for logos/favicon stored flat under `{branding-assets-dir}/reseller/`. Config: `brandName` (also used as page title), `supportEmail`, `theme`, `logo`, `favicon`.
+
+// @tag.name reseller-domain
+// @tag.description Reseller custom domain: `GET /seller/domain`, `POST /seller/domain/connect`, `PUT /seller/domain/update` (one custom domain per reseller, no DNS validation).
+
+// @securityDefinitions.apikey SellerCSRFAuth
+// @in header
+// @name X-CSRF-Token
+// @description When `seller.csrf-protection-enabled` is true: copy `csrfToken` from `GET /seller/config` and Authorize here. Must match `csrf_token` cookie (set by GET /seller/config). Required for `POST /seller/auth/token`, MFA routes, password change, and other CSRF-protected seller routes.
+
+// @securityDefinitions.apikey SellerCookieAuth
+// @in cookie
+// @name _seller_tokenKey
+// @description Session cookie after reseller Google login. **Swagger Authorize:** paste the token value only (from `GET /seller/auth/google` response `token` field). Seller peer cookie name is `_seller_tokenKey` (not console `_tokenKey`).
+
 // Common response models
 type ErrorResponse struct {
 	Error string `json:"error" example:"error message"`

@@ -465,7 +465,7 @@
                                         font-family: Helvetica, sans-serif; font-weight: 300; font-size: 17px;
                                         line-height: 26px;" lang="x-size-20">
                                                 <span>
-                                                    Thank you for your purchase! We're excited to confirm that your plan has been successfully activated on your StorX Network account.
+                                                    Thank you for your purchase! We're excited to confirm that your plan has been successfully activated on your {{ .BrandName }} account.
                                                 </span>
                                             </p>
                                             <p class="size-20" style="Margin-top: 5px;Margin-bottom: 0;
@@ -510,13 +510,13 @@
                             font-family: Helvetica, sans-serif; font-weight: 300;max-width: 600px;min-width: 320px;width: calc(28000% - 167400px);">
                                     <div style="margin: 12px 20px;">
                                         <div class="btn btn--flat btn--large" style="text-align: left;">
-                                            <a style="border-radius: 4px;display: inline-block;font-size: 14px;font-weight: bold;
-                                        line-height: 24px;padding: 12px 24px;text-align: center;
-                                        text-decoration: none !important;transition: opacity 0.1s ease-in;
-                                        color: #ffffff !important;background-color: #e04124;
-                                        font-family: Helvetica, sans-serif; font-weight: 500;"
-                                                href="{{ .SignInLink }}">Sign In to Your Account
-                                            </a>
+                                            <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                                                <tr>
+                                                    <td align="center" bgcolor="{{ .PrimaryColor }}" style="border-radius: 4px;">
+                                                        <a href="{{ .SignInLink }}" style="border-radius: 4px;display: inline-block;font-size: 14px;font-weight: bold; line-height: 24px;padding: 12px 24px;text-align: center; text-decoration: none !important;color: #ffffff !important;font-family: Helvetica, sans-serif; font-weight: 500;">Sign In to Your Account</a>
+                                                    </td>
+                                                </tr>
+                                            </table>
                                         </div>
                                     </div>
 
@@ -543,21 +543,21 @@
                                         font-family: Helvetica, sans-serif; font-weight: 300; font-size: 17px;
                                         line-height: 26px;" lang="x-size-20">
                                                 <span>
-                                                    If you have any questions about your plan or need assistance, please don't hesitate to contact us at <a href="{{ .ContactInfoURL }}" style="color: #e04124; text-decoration: none;">{{ .ContactInfoURL }}</a>.
+                                                    If you have any questions about your plan or need assistance, please don't hesitate to contact us at <a href="{{ .ContactInfoURL }}" color="{{ .PrimaryColor }}" style="color: #e04124; text-decoration: none;">{{ .ContactInfoURL }}</a>.
                                                 </span>
                                             </p>
                                             <p class="size-20" style="Margin-top: 5px;Margin-bottom: 0;
                                         font-family: Helvetica, sans-serif; font-weight: 300; font-size: 17px;
                                         line-height: 26px;" lang="x-size-20">
                                                 <span>
-                                                    By using StorX Network, you agree to our <a href="{{ .TermsAndConditionsURL }}" style="color: #56606D; text-decoration: underline;">Terms and Conditions</a>.
+                                                    By using {{ .BrandName }}, you agree to our <a href="{{ .TermsAndConditionsURL }}" style="color: #56606D; text-decoration: underline;">Terms and Conditions</a>.
                                                 </span>
                                             </p>
                                             <p class="size-20" style="Margin-top: 5px;Margin-bottom: 0;
                                         font-family: Helvetica, sans-serif; font-weight: 300; font-size: 17px;
                                         line-height: 26px;" lang="x-size-20">
                                                 <span>
-                                                    Thank you for choosing StorX Network!
+                                                    Thank you for choosing {{ .BrandName }}!
                                                 </span>
                                             </p>
                                         </div>

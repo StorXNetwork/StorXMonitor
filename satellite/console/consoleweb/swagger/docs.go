@@ -5150,6 +5150,1220 @@ const docTemplate = `{
                 }
             }
         },
+        "/seller/auth/account": {
+            "get": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `GET /api/v0/seller/auth/account` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-account"
+                ],
+                "summary": "Get reseller account",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAccountSwaggerResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    },
+                    {
+                        "SellerCSRFAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `DELETE /api/v0/seller/auth/account` + "`" + `. Requires admin verification password in body.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-account"
+                ],
+                "summary": "Delete account (admin)",
+                "parameters": [
+                    {
+                        "description": "Email and admin password",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerDeleteAccountSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    },
+                    {
+                        "SellerCSRFAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `PATCH /api/v0/seller/auth/account` + "`" + `",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-account"
+                ],
+                "summary": "Update reseller account",
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/auth/account/change-password": {
+            "post": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    },
+                    {
+                        "SellerCSRFAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `POST /api/v0/seller/auth/account/change-password` + "`" + `",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-account"
+                ],
+                "summary": "Change password",
+                "parameters": [
+                    {
+                        "description": "Current and new password",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerChangePasswordSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/auth/account/delete-request": {
+            "post": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `POST /api/v0/seller/auth/account/delete-request` + "`" + `. Sends confirmation email when self-serve delete is enabled.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-account"
+                ],
+                "summary": "Request account deletion",
+                "responses": {
+                    "202": {
+                        "description": "Accepted"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/auth/account/set-password": {
+            "post": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    },
+                    {
+                        "SellerCSRFAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `POST /api/v0/seller/auth/account/set-password` + "`" + `. Use when ` + "`" + `hasPassword` + "`" + ` is false.",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-account"
+                ],
+                "summary": "Set initial password",
+                "parameters": [
+                    {
+                        "description": "New password",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerSetPasswordSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/auth/bad-passwords": {
+            "get": {
+                "description": "**Route:** ` + "`" + `GET /api/v0/seller/auth/bad-passwords` + "`" + `",
+                "produces": [
+                    "text/plain"
+                ],
+                "tags": [
+                    "reseller-auth-password"
+                ],
+                "summary": "Get bad passwords list",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/auth/change-email": {
+            "post": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    },
+                    {
+                        "SellerCSRFAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `POST /api/v0/seller/auth/change-email` + "`" + `. Multi-step flow using ` + "`" + `step` + "`" + ` and ` + "`" + `data` + "`" + ` (same steps as console change email).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-account"
+                ],
+                "summary": "Change email",
+                "parameters": [
+                    {
+                        "description": "Step and payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAccountActionSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/auth/code-activation": {
+            "patch": {
+                "description": "**Route:** ` + "`" + `PATCH /api/v0/seller/auth/code-activation` + "`" + `",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-auth"
+                ],
+                "summary": "Activate reseller account",
+                "parameters": [
+                    {
+                        "description": "Email and activation code",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerActivateAccountSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthTokenSwaggerResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/auth/forgot-password": {
+            "post": {
+                "description": "**Route:** ` + "`" + `POST /api/v0/seller/auth/forgot-password` + "`" + `. Always returns HTTP 200 on valid captcha.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-auth-password"
+                ],
+                "summary": "Request password reset email",
+                "parameters": [
+                    {
+                        "description": "Email and captcha",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerForgotPasswordSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/auth/google": {
+            "get": {
+                "description": "**Route:** ` + "`" + `GET /api/v0/seller/auth/google` + "`" + `. Exchanges OAuth code (redirect_uri = GOOGLE_OAUTH_REDIRECT_URL_SELLER). If email exists as an active reseller, logs in; otherwise registers a reseller and empty ` + "`" + `reseller_configs` + "`" + `. Returns JSON with ` + "`" + `action` + "`" + ` and ` + "`" + `reseller` + "`" + `. Sets session cookie ` + "`" + `_seller_tokenKey` + "`" + `. Does not call Backup-Tools or console onboarding.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-auth"
+                ],
+                "summary": "Reseller Google auth (register or login)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Fresh Google OAuth code (single-use)",
+                        "name": "code",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "When true, appends zoho-insert to OAuth redirect URL",
+                        "name": "zoho-insert",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Set-Cookie: _seller_tokenKey",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerGoogleAuthSuccess"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerGoogleAuthError"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/auth/invalidate-session/{id}": {
+            "post": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    },
+                    {
+                        "SellerCSRFAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `POST /api/v0/seller/auth/invalidate-session/{id}` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-sessions"
+                ],
+                "summary": "Invalidate session",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/auth/logout": {
+            "post": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `POST /api/v0/seller/auth/logout` + "`" + `",
+                "tags": [
+                    "reseller-auth"
+                ],
+                "summary": "Logout reseller",
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/auth/mfa/disable": {
+            "post": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    },
+                    {
+                        "SellerCSRFAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `POST /api/v0/seller/auth/mfa/disable` + "`" + `",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-mfa"
+                ],
+                "summary": "Disable MFA",
+                "parameters": [
+                    {
+                        "description": "Passcode or recovery code",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerMFADisableSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/auth/mfa/enable": {
+            "post": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    },
+                    {
+                        "SellerCSRFAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `POST /api/v0/seller/auth/mfa/enable` + "`" + `. Verifies TOTP passcode, enables MFA, invalidates other sessions, returns new recovery codes.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-mfa"
+                ],
+                "summary": "Enable MFA",
+                "parameters": [
+                    {
+                        "description": "TOTP passcode",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerMFAEnableSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Recovery codes",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/auth/mfa/generate-recovery-codes": {
+            "post": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    },
+                    {
+                        "SellerCSRFAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `POST /api/v0/seller/auth/mfa/generate-recovery-codes` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-mfa"
+                ],
+                "summary": "Generate MFA recovery codes",
+                "responses": {
+                    "200": {
+                        "description": "Recovery codes",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/auth/mfa/generate-secret-key": {
+            "post": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    },
+                    {
+                        "SellerCSRFAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `POST /api/v0/seller/auth/mfa/generate-secret-key` + "`" + `. Returns TOTP secret for authenticator app setup (MFA must not already be enabled).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-mfa"
+                ],
+                "summary": "Generate MFA secret key",
+                "responses": {
+                    "200": {
+                        "description": "TOTP secret key string",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/auth/mfa/regenerate-recovery-codes": {
+            "post": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    },
+                    {
+                        "SellerCSRFAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `POST /api/v0/seller/auth/mfa/regenerate-recovery-codes` + "`" + `",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-mfa"
+                ],
+                "summary": "Regenerate MFA recovery codes",
+                "parameters": [
+                    {
+                        "description": "Passcode or recovery code",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerMFARegenerateRecoveryCodesSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "New recovery codes",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/auth/refresh-session": {
+            "post": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    },
+                    {
+                        "SellerCSRFAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `POST /api/v0/seller/auth/refresh-session` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-auth"
+                ],
+                "summary": "Refresh login session",
+                "responses": {
+                    "200": {
+                        "description": "New session expiresAt (RFC3339)",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/auth/register": {
+            "post": {
+                "description": "**Route:** ` + "`" + `POST /api/v0/seller/auth/register` + "`" + `. Sends activation email when signup activation code is enabled.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-auth"
+                ],
+                "summary": "Register reseller",
+                "parameters": [
+                    {
+                        "description": "Registration payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerRegisterSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/auth/resend-email": {
+            "post": {
+                "description": "**Route:** ` + "`" + `POST /api/v0/seller/auth/resend-email` + "`" + `",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-auth"
+                ],
+                "summary": "Resend activation or reset email",
+                "parameters": [
+                    {
+                        "description": "Email",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerResendEmailSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/seller/auth/reset-password": {
+            "post": {
+                "description": "**Route:** ` + "`" + `POST /api/v0/seller/auth/reset-password` + "`" + `. Clears session cookie on success.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-auth-password"
+                ],
+                "summary": "Reset password with recovery token",
+                "parameters": [
+                    {
+                        "description": "Recovery token and new password",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerResetPasswordSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/auth/sessions": {
+            "get": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `GET /api/v0/seller/auth/sessions` + "`" + `. Query params: ` + "`" + `limit` + "`" + `, ` + "`" + `page` + "`" + `, ` + "`" + `order` + "`" + `, ` + "`" + `orderDirection` + "`" + ` (all required).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-sessions"
+                ],
+                "summary": "List active sessions",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Page size",
+                        "name": "limit",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page number (1-based)",
+                        "name": "page",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Sort field",
+                        "name": "order",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Sort direction",
+                        "name": "orderDirection",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerWebappSessionsPageSwagger"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/auth/token": {
+            "post": {
+                "security": [
+                    {
+                        "SellerCSRFAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `POST /api/v0/seller/auth/token` + "`" + `. Sets ` + "`" + `_seller_tokenKey` + "`" + ` session cookie.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-auth"
+                ],
+                "summary": "Reseller email + password login",
+                "parameters": [
+                    {
+                        "description": "Email, password, captcha",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthTokenSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthTokenSwaggerResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/branding": {
+            "get": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `GET /api/v0/seller/branding` + "`" + `. Returns 404 until reseller creates branding config.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-branding"
+                ],
+                "summary": "Get reseller branding",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/seller.ResellerBrandingConfig"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/branding/create": {
+            "post": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    },
+                    {
+                        "SellerCSRFAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `POST /api/v0/seller/branding/create` + "`" + `. First-time setup only. Returns 409 if branding already exists.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-branding"
+                ],
+                "summary": "Create reseller branding",
+                "parameters": [
+                    {
+                        "description": "Branding configuration",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/seller.ResellerBrandingConfig"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/branding/delete": {
+            "delete": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    },
+                    {
+                        "SellerCSRFAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `DELETE /api/v0/seller/branding/delete` + "`" + `. Removes branding config so reseller can create again.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-branding"
+                ],
+                "summary": "Delete reseller branding",
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/branding/update": {
+            "put": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    },
+                    {
+                        "SellerCSRFAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `PUT /api/v0/seller/branding/update` + "`" + `. Updates existing branding config. Returns 404 if not created yet.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-branding"
+                ],
+                "summary": "Update reseller branding",
+                "parameters": [
+                    {
+                        "description": "Branding configuration",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/seller.ResellerBrandingConfig"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/config": {
+            "get": {
+                "description": "**Route:** ` + "`" + `GET /api/v0/seller/config` + "`" + `. Public bootstrap (no auth). Call before ` + "`" + `POST /seller/auth/token` + "`" + `: read ` + "`" + `captcha.login` + "`" + ` site keys, ` + "`" + `csrfProtectionEnabled` + "`" + `, and ` + "`" + `csrfToken` + "`" + ` (sets ` + "`" + `csrf_token` + "`" + ` cookie when enabled). Controlled by ` + "`" + `seller.csrf-protection-enabled` + "`" + ` (not console CSRF).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller"
+                ],
+                "summary": "Get seller frontend configuration",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerFrontendConfig"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/status": {
+            "get": {
+                "description": "**Route:** ` + "`" + `GET /api/v0/seller/status` + "`" + `. Public health check for the seller peer.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller"
+                ],
+                "summary": "Seller service status",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerStatusSwaggerResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/user-guideline-for-app": {
             "get": {
                 "description": "**Full route:** ` + "`" + `GET /user-guideline-for-app` + "`" + ` (server root, not under ` + "`" + `/api/v0` + "`" + `).",
@@ -9029,6 +10243,533 @@ const docTemplate = `{
                 "EiB"
             ]
         },
+        "seller.CaptchaConfig": {
+            "type": "object",
+            "properties": {
+                "login": {
+                    "$ref": "#/definitions/seller.MultiCaptchaConfig"
+                },
+                "registration": {
+                    "$ref": "#/definitions/seller.MultiCaptchaConfig"
+                }
+            }
+        },
+        "seller.MultiCaptchaConfig": {
+            "type": "object",
+            "properties": {
+                "hcaptcha": {
+                    "$ref": "#/definitions/seller.SingleCaptchaConfig"
+                },
+                "recaptcha": {
+                    "$ref": "#/definitions/seller.SingleCaptchaConfig"
+                }
+            }
+        },
+        "seller.ResellerBrandingConfig": {
+            "type": "object",
+            "properties": {
+                "brandName": {
+                    "type": "string"
+                },
+                "colors": {
+                    "description": "Colors contains theme colors.\nExample keys: \"primary\", \"secondary\", \"background\", \"surface\", \"text\".",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "favicon": {
+                    "description": "Favicon contains URLs for favicon variants.\nExample keys: \"16x16\", \"32x32\", \"appleTouch\".",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "links": {
+                    "description": "Links contains UI links (support, docs, terms).\nExample keys: \"support\", \"docs\", \"terms\", \"privacy\".",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "logo": {
+                    "description": "Logo contains URLs for logo variants.\nExample keys: \"fullLight\", \"fullDark\", \"smallLight\", \"smallDark\".",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "titles": {
+                    "description": "Titles contains UI text overrides (section headings, labels).\nExample keys: \"loginTitle\", \"registerTitle\", \"dashboardTitle\".",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "seller.SellerAccountActionSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "string",
+                    "example": "currentPassword123"
+                },
+                "step": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "seller.SellerAccountSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "companyName": {
+                    "type": "string",
+                    "example": "Acme Inc"
+                },
+                "email": {
+                    "type": "string",
+                    "example": "reseller@example.com"
+                },
+                "hasPassword": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "id": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000001"
+                },
+                "isMFAEnabled": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "mfaRecoveryCodeCount": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Acme Reseller"
+                },
+                "status": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "seller.SellerActivateAccountSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "example": "123456"
+                },
+                "email": {
+                    "type": "string",
+                    "example": "reseller@example.com"
+                },
+                "signupId": {
+                    "type": "string",
+                    "example": ""
+                }
+            }
+        },
+        "seller.SellerAuthErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": "authorization failed"
+                }
+            }
+        },
+        "seller.SellerAuthTokenSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "captchaResponse": {
+                    "type": "string",
+                    "example": ""
+                },
+                "email": {
+                    "type": "string",
+                    "example": "reseller@example.com"
+                },
+                "mfaPasscode": {
+                    "type": "string",
+                    "example": ""
+                },
+                "mfaRecoveryCode": {
+                    "type": "string",
+                    "example": ""
+                },
+                "password": {
+                    "type": "string",
+                    "example": "securePassword123"
+                },
+                "rememberForOneWeek": {
+                    "type": "boolean",
+                    "example": false
+                }
+            }
+        },
+        "seller.SellerAuthTokenSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "expiresAt": {
+                    "type": "string",
+                    "example": "2026-07-08T12:00:00Z"
+                },
+                "token": {
+                    "type": "string",
+                    "example": "\u003csession token\u003e"
+                }
+            }
+        },
+        "seller.SellerChangePasswordSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "newPassword": {
+                    "type": "string",
+                    "example": "newSecurePassword123"
+                },
+                "password": {
+                    "type": "string",
+                    "example": "currentPassword123"
+                }
+            }
+        },
+        "seller.SellerDeleteAccountSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "example": "reseller@example.com"
+                },
+                "password": {
+                    "type": "string",
+                    "example": "admin-verification-password"
+                }
+            }
+        },
+        "seller.SellerForgotPasswordSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "captchaResponse": {
+                    "type": "string",
+                    "example": ""
+                },
+                "email": {
+                    "type": "string",
+                    "example": "reseller@example.com"
+                }
+            }
+        },
+        "seller.SellerFrontendConfig": {
+            "type": "object",
+            "properties": {
+                "activeSessionsViewEnabled": {
+                    "type": "boolean"
+                },
+                "apiBaseURL": {
+                    "type": "string"
+                },
+                "captcha": {
+                    "$ref": "#/definitions/seller.CaptchaConfig"
+                },
+                "contactInfoURL": {
+                    "type": "string"
+                },
+                "csrfProtectionEnabled": {
+                    "type": "boolean"
+                },
+                "csrfToken": {
+                    "type": "string"
+                },
+                "emailChangeFlowEnabled": {
+                    "type": "boolean"
+                },
+                "externalAddress": {
+                    "type": "string"
+                },
+                "generalRequestURL": {
+                    "type": "string"
+                },
+                "inactivityTimerDuration": {
+                    "type": "integer"
+                },
+                "inactivityTimerEnabled": {
+                    "type": "boolean"
+                },
+                "liveCheckBadPasswords": {
+                    "type": "boolean"
+                },
+                "passwordMaximumLength": {
+                    "type": "integer"
+                },
+                "passwordMinimumLength": {
+                    "type": "integer"
+                },
+                "satelliteName": {
+                    "type": "string"
+                },
+                "selfServeAccountDeleteEnabled": {
+                    "type": "boolean"
+                },
+                "signupActivationCodeEnabled": {
+                    "type": "boolean"
+                },
+                "termsAndConditionsURL": {
+                    "type": "string"
+                }
+            }
+        },
+        "seller.SellerGoogleAuthError": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": "Error getting token from Google!"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": false
+                }
+            }
+        },
+        "seller.SellerGoogleAuthSuccess": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": [
+                        "registered",
+                        "logged_in"
+                    ],
+                    "example": "registered"
+                },
+                "reseller": {
+                    "$ref": "#/definitions/seller.SellerResellerSwagger"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "token": {
+                    "type": "string",
+                    "example": "\u003csession token\u003e"
+                }
+            }
+        },
+        "seller.SellerMFADisableSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "passcode": {
+                    "type": "string",
+                    "example": "123456"
+                },
+                "recoveryCode": {
+                    "type": "string",
+                    "example": ""
+                }
+            }
+        },
+        "seller.SellerMFAEnableSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "passcode": {
+                    "type": "string",
+                    "example": "123456"
+                }
+            }
+        },
+        "seller.SellerMFARegenerateRecoveryCodesSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "passcode": {
+                    "type": "string",
+                    "example": "123456"
+                },
+                "recoveryCode": {
+                    "type": "string",
+                    "example": ""
+                }
+            }
+        },
+        "seller.SellerRegisterSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "captchaResponse": {
+                    "type": "string",
+                    "example": ""
+                },
+                "companyName": {
+                    "type": "string",
+                    "example": "Acme Inc"
+                },
+                "email": {
+                    "type": "string",
+                    "example": "reseller@example.com"
+                },
+                "fullName": {
+                    "type": "string",
+                    "example": "Acme Reseller"
+                },
+                "password": {
+                    "type": "string",
+                    "example": "securePassword123"
+                }
+            }
+        },
+        "seller.SellerResellerSwagger": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "example": "reseller@example.com"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000001"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Acme Reseller"
+                }
+            }
+        },
+        "seller.SellerResendEmailSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "example": "reseller@example.com"
+                }
+            }
+        },
+        "seller.SellerResetPasswordSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "mfaPasscode": {
+                    "type": "string",
+                    "example": ""
+                },
+                "mfaRecoveryCode": {
+                    "type": "string",
+                    "example": ""
+                },
+                "password": {
+                    "type": "string",
+                    "example": "newSecurePassword123"
+                },
+                "token": {
+                    "type": "string",
+                    "example": "\u003crecovery token from email\u003e"
+                }
+            }
+        },
+        "seller.SellerSetPasswordSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "newPassword": {
+                    "type": "string",
+                    "example": "newSecurePassword123"
+                }
+            }
+        },
+        "seller.SellerStatusSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "service": {
+                    "type": "string",
+                    "example": "seller"
+                },
+                "status": {
+                    "type": "string",
+                    "example": "ok"
+                }
+            }
+        },
+        "seller.SellerWebappSessionSwagger": {
+            "type": "object",
+            "properties": {
+                "expiresAt": {
+                    "type": "string",
+                    "example": "2026-07-08T12:00:00Z"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000001"
+                },
+                "ip": {
+                    "type": "string",
+                    "example": "203.0.113.1"
+                },
+                "isRequesterCurrentSession": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "resellerId": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000002"
+                },
+                "status": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "seller.SellerWebappSessionsPageSwagger": {
+            "type": "object",
+            "properties": {
+                "currentPage": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "limit": {
+                    "type": "integer",
+                    "example": 10
+                },
+                "offset": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "order": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "orderDirection": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "pageCount": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "sessions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/seller.SellerWebappSessionSwagger"
+                    }
+                },
+                "totalCount": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "seller.SingleCaptchaConfig": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "siteKey": {
+                    "type": "string"
+                }
+            }
+        },
         "staticapi.StaticBlogItemSwagger": {
             "type": "object",
             "properties": {
@@ -9125,6 +10866,18 @@ const docTemplate = `{
             "description": "Session cookie after login. **Swagger Authorize:** paste the token value only (from ` + "`" + `POST /auth/token` + "`" + ` response ` + "`" + `token` + "`" + ` field). Do not prefix with ` + "`" + `Cookie:` + "`" + ` or ` + "`" + `_tokenKey=` + "`" + `. Copied curl uses ` + "`" + `-b '_tokenKey=...'` + "`" + ` (not a header). Login via Swagger auto-fills this.",
             "type": "apiKey",
             "name": "_tokenKey",
+            "in": "cookie"
+        },
+        "SellerCSRFAuth": {
+            "description": "When ` + "`" + `seller.csrf-protection-enabled` + "`" + ` is true: copy ` + "`" + `csrfToken` + "`" + ` from ` + "`" + `GET /seller/config` + "`" + ` and Authorize here. Must match ` + "`" + `csrf_token` + "`" + ` cookie (set by GET /seller/config). Required for ` + "`" + `POST /seller/auth/token` + "`" + `, MFA routes, password change, and other CSRF-protected seller routes.",
+            "type": "apiKey",
+            "name": "X-CSRF-Token",
+            "in": "header"
+        },
+        "SellerCookieAuth": {
+            "description": "Session cookie after reseller Google login. **Swagger Authorize:** paste the token value only (from ` + "`" + `GET /seller/auth/google` + "`" + ` response ` + "`" + `token` + "`" + ` field). Seller peer cookie name is ` + "`" + `_seller_tokenKey` + "`" + ` (not console ` + "`" + `_tokenKey` + "`" + `).",
+            "type": "apiKey",
+            "name": "_seller_tokenKey",
             "in": "cookie"
         }
     },
@@ -9248,6 +11001,34 @@ const docTemplate = `{
         {
             "description": "Public static content at server root (not under /api/v0): GET /resources-list, /blog-list, /guides, /user-guideline-for-app. Swagger may prefix paths with /api/v0 — use the host root path when calling.",
             "name": "static-api"
+        },
+        {
+            "description": "Seller peer (reseller console): health and reseller management APIs under ` + "`" + `/api/v0/seller/*` + "`" + `. Runs as ` + "`" + `satellite run seller` + "`" + ` (default sim port often ` + "`" + `:10003` + "`" + `).",
+            "name": "reseller"
+        },
+        {
+            "description": "Reseller authentication: Google OAuth, email register/login, activation, logout, and refresh under ` + "`" + `/api/v0/seller/auth/*` + "`" + `. Session cookie = ` + "`" + `_seller_tokenKey` + "`" + `.",
+            "name": "reseller-auth"
+        },
+        {
+            "description": "Reseller password recovery: ` + "`" + `POST /seller/auth/forgot-password` + "`" + ` and ` + "`" + `POST /seller/auth/reset-password` + "`" + ` (token from email link).",
+            "name": "reseller-auth-password"
+        },
+        {
+            "description": "Logged-in reseller profile and password management: ` + "`" + `GET/PATCH /seller/auth/account` + "`" + `, change/set password, change email, delete account.",
+            "name": "reseller-account"
+        },
+        {
+            "description": "Reseller MFA setup and recovery: ` + "`" + `POST /seller/auth/mfa/*` + "`" + ` (enable, disable, secret key, recovery codes).",
+            "name": "reseller-mfa"
+        },
+        {
+            "description": "Reseller active sessions: ` + "`" + `GET /seller/auth/sessions` + "`" + `, ` + "`" + `POST /seller/auth/invalidate-session/{id}` + "`" + `.",
+            "name": "reseller-sessions"
+        },
+        {
+            "description": "Reseller branding configuration: ` + "`" + `GET /seller/branding` + "`" + `, ` + "`" + `POST /seller/branding/create` + "`" + `, ` + "`" + `PUT /seller/branding/update` + "`" + `, ` + "`" + `DELETE /seller/branding/delete` + "`" + `.",
+            "name": "reseller-branding"
         }
     ]
 }`

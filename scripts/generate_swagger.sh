@@ -10,7 +10,7 @@ fi
 echo "Generating Swagger documentation..."
 swag init \
   -g docs.go \
-  -d satellite/console/consoleweb,satellite/console/consoleweb/consoleapi,satellite/console/consoleweb/staticapi \
+  -d satellite/console/consoleweb,satellite/console/consoleweb/consoleapi,satellite/console/consoleweb/staticapi,satellite/seller \
   -o satellite/console/consoleweb/swagger \
   --parseDependency \
   --parseInternal

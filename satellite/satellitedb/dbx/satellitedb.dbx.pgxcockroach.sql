@@ -510,6 +510,75 @@ CREATE TABLE reputations (
 	unknown_audit_reputation_beta double precision NOT NULL DEFAULT 0,
 	PRIMARY KEY ( id )
 ) ;
+CREATE TABLE resellers (
+	id bytea NOT NULL,
+	name text NOT NULL,
+	email text NOT NULL,
+	password_hash bytea NOT NULL,
+	company_name text,
+	status integer NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	deleted_at timestamp with time zone,
+	failed_login_count integer,
+	login_lockout_expiration timestamp with time zone,
+	activation_code text,
+	signup_id text,
+	new_unverified_email text,
+	email_change_verification_step integer NOT NULL DEFAULT 0,
+	mfa_enabled boolean NOT NULL DEFAULT false,
+	mfa_secret_key text,
+	mfa_recovery_codes text,
+	PRIMARY KEY ( id ),
+	UNIQUE ( email )
+) ;
+CREATE TABLE reseller_configs (
+	id bytea NOT NULL,
+	reseller_id bytea NOT NULL,
+	config jsonb NOT NULL,
+	active_theme_type text NOT NULL DEFAULT 'system',
+	active_theme_id bytea,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( reseller_id )
+) ;
+CREATE TABLE reseller_delete_requests (
+	id bytea NOT NULL,
+	reseller_id bytea NOT NULL,
+	status text NOT NULL,
+	error text,
+	delete_at timestamp with time zone NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+) ;
+CREATE TABLE reseller_domains (
+	id bytea NOT NULL,
+	reseller_id bytea NOT NULL,
+	domain text NOT NULL,
+	domain_type text NOT NULL,
+	status text NOT NULL,
+	verification_method text,
+	verification_status text NOT NULL,
+	ssl_status text NOT NULL,
+	dns_target text,
+	verified_at timestamp with time zone,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	deleted_at timestamp with time zone,
+	PRIMARY KEY ( id ),
+	UNIQUE ( reseller_id )
+) ;
+CREATE TABLE reseller_themes (
+	id bytea NOT NULL,
+	reseller_id bytea NOT NULL,
+	name text NOT NULL,
+	colors jsonb NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( name, reseller_id )
+) ;
 CREATE TABLE reset_password_tokens (
 	secret bytea NOT NULL,
 	owner_id bytea NOT NULL,
@@ -518,6 +587,13 @@ CREATE TABLE reset_password_tokens (
 	UNIQUE ( owner_id )
 ) ;
 CREATE TABLE reset_password_token_developers (
+	secret bytea NOT NULL,
+	owner_id bytea NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( secret ),
+	UNIQUE ( owner_id )
+) ;
+CREATE TABLE reset_password_token_resellers (
 	secret bytea NOT NULL,
 	owner_id bytea NOT NULL,
 	created_at timestamp with time zone NOT NULL,
@@ -669,6 +745,19 @@ CREATE TABLE stripecoinpayments_tx_conversion_rates (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( tx_id )
 ) ;
+CREATE TABLE theme_presets (
+	id bytea NOT NULL,
+	slug text NOT NULL,
+	name text NOT NULL,
+	description text,
+	colors jsonb NOT NULL,
+	is_system boolean NOT NULL DEFAULT true,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( slug ),
+	UNIQUE ( name )
+) ;
 CREATE TABLE users (
 	id bytea NOT NULL,
 	external_id text,
@@ -788,6 +877,14 @@ CREATE TABLE webapp_sessions (
 CREATE TABLE webapp_session_developers (
 	id bytea NOT NULL,
 	developer_id bytea NOT NULL,
+	ip_address text NOT NULL,
+	status integer NOT NULL,
+	expires_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+) ;
+CREATE TABLE webapp_session_resellers (
+	id bytea NOT NULL,
+	reseller_id bytea NOT NULL,
 	ip_address text NOT NULL,
 	status integer NOT NULL,
 	expires_at timestamp with time zone NOT NULL,
@@ -952,6 +1049,10 @@ CREATE INDEX push_notifications_created_at_index ON push_notifications ( created
 CREATE INDEX repair_queue_updated_at_index ON repair_queue ( updated_at ) ;
 CREATE INDEX repair_queue_num_healthy_pieces_attempted_at_index ON repair_queue ( segment_health, attempted_at ) ;
 CREATE INDEX repair_queue_placement_index ON repair_queue ( placement ) ;
+CREATE INDEX reseller_email_status_index ON resellers ( email, status ) ;
+CREATE INDEX reseller_delete_requests_reseller_id_index ON reseller_delete_requests ( reseller_id ) ;
+CREATE INDEX reseller_domain_domain_index ON reseller_domains ( domain ) ;
+CREATE INDEX reseller_theme_reseller_id_index ON reseller_themes ( reseller_id ) ;
 CREATE INDEX retention_remainder_charges_project_id_deleted_at_billed_index ON retention_remainder_charges ( project_id, deleted_at, billed ) ;
 CREATE INDEX reverification_audits_inserted_at_index ON reverification_audits ( inserted_at ) ;
 CREATE INDEX storagenode_bandwidth_rollups_interval_start_index ON storagenode_bandwidth_rollups ( interval_start ) ;
@@ -971,6 +1072,7 @@ CREATE INDEX users_normalized_email_tenant_id_status_index ON users ( normalized
 CREATE INDEX user_delete_requests_user_id_index ON user_delete_requests ( user_id ) ;
 CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id ) ;
 CREATE INDEX webapp_session_developers_developer_id_index ON webapp_session_developers ( developer_id ) ;
+CREATE INDEX webapp_session_resellers_reseller_id_index ON webapp_session_resellers ( reseller_id ) ;
 CREATE INDEX bucket_migrations_state_created_at_index ON bucket_migrations ( state, created_at ) ;
 CREATE INDEX google_backup_credentials_user_id_index ON google_backup_credentials ( user_id ) ;
 CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id ) ;

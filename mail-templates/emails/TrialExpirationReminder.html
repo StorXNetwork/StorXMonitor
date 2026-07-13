@@ -465,7 +465,7 @@
                                         font-family: Helvetica, sans-serif; font-weight: 300; font-size: 17px;
                                         line-height: 26px;" lang="x-size-20">
                                                 <span>
-                                                    This is a friendly reminder that your StorX Network trial period is expiring soon. We hope you've enjoyed exploring our platform and experiencing the benefits of decentralized storage.
+                                                    This is a friendly reminder that your {{ .BrandName }} trial period is expiring soon. We hope you've enjoyed exploring our platform and experiencing the benefits of decentralized storage.
                                                 </span>
                                             </p>
                                             <p class="size-20" style="Margin-top: 5px;Margin-bottom: 0;
@@ -479,7 +479,7 @@
                                         font-family: Helvetica, sans-serif; font-weight: 300; font-size: 17px;
                                         line-height: 26px;" lang="x-size-20">
                                                 <span>
-                                                    If you have any questions or would like to discuss your options, our team is here to help. You can reach us at <a href="{{ .ContactInfoURL }}" style="color: #e04124; text-decoration: none;">{{ .ContactInfoURL }}</a> or schedule a meeting with us.
+                                                    If you have any questions or would like to discuss your options, our team is here to help. You can reach us at <a href="{{ .ContactInfoURL }}" color="{{ .PrimaryColor }}" style="color: #e04124; text-decoration: none;">{{ .ContactInfoURL }}</a> or schedule a meeting with us.
                                                 </span>
                                             </p>
                                         </div>
@@ -503,13 +503,13 @@
                             font-family: Helvetica, sans-serif; font-weight: 300;max-width: 600px;min-width: 320px;width: calc(28000% - 167400px);">
                                     <div style="margin: 12px 20px;">
                                         <div class="btn btn--flat btn--large" style="text-align: left;">
-                                            <a style="border-radius: 4px;display: inline-block;font-size: 14px;font-weight: bold;
-                                        line-height: 24px;padding: 12px 24px;text-align: center;
-                                        text-decoration: none !important;transition: opacity 0.1s ease-in;
-                                        color: #ffffff !important;background-color: #e04124;
-                                        font-family: Helvetica, sans-serif; font-weight: 500;"
-                                                href="{{ .SignInLink }}">Sign In to Upgrade
-                                            </a>
+                                            <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                                                <tr>
+                                                    <td align="center" bgcolor="{{ .PrimaryColor }}" style="border-radius: 4px;">
+                                                        <a href="{{ .SignInLink }}" style="border-radius: 4px;display: inline-block;font-size: 14px;font-weight: bold; line-height: 24px;padding: 12px 24px;text-align: center; text-decoration: none !important;color: #ffffff !important;font-family: Helvetica, sans-serif; font-weight: 500;">Sign In to Upgrade</a>
+                                                    </td>
+                                                </tr>
+                                            </table>
                                             <p style="Margin-top: 20px;Margin-bottom: 0;">
                                                 <a href="{{ .ScheduleMeetingLink }}" style="color: #56606D; text-decoration: underline; font-size: 14px;">Schedule a Meeting</a>
                                             </p>
@@ -560,7 +560,7 @@
                                             <p class="size-12"
                                                 style="Margin-top: 0;Margin-bottom: 0;font-family: Helvetica, sans-serif; font-weight: 300; font-size: 12px;line-height: 19px;"
                                                 lang="x-size-12">
-                                                <span>Thank you for trying StorX Network. We look forward to continuing to serve you.<br />
+                                                <span>Thank you for trying {{ .BrandName }}. We look forward to continuing to serve you.<br />
                                                     If you have any questions, please contact us at <a href="{{ .ContactInfoURL }}" style="color: #56606D; text-decoration: underline;">{{ .ContactInfoURL }}</a>
                                                 </span>
                                             </p>

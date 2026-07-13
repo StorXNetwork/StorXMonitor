@@ -10,6 +10,7 @@ import (
 	htmltemplate "html/template"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 
@@ -135,6 +136,8 @@ type Service struct {
 
 	tenantConfig    TenantConfig
 	defaultBranding WhiteLabelConfig
+	brandingResolver func(context.Context) (WhiteLabelConfig, bool)
+	senderResolver   func(context.Context) (Sender, bool)
 
 	html *htmltemplate.Template
 	// TODO(yar): prepare plain text version
@@ -329,15 +332,22 @@ func (service *Service) SendRendered(ctx context.Context, to []post.Address, msg
 	return err
 }
 
+const defaultPrimaryColor = "#e04124"
+
 func (service *Service) getEmailVars(ctx context.Context) emailVars {
 	defer mon.Task()(&ctx)(nil)
 
 	defaultVars := emailVars{
-		WhiteLabelConfig: service.defaultBranding,
+		WhiteLabelConfig: withPrimaryColorFallback(service.defaultBranding, defaultPrimaryColor),
+	}
+
+	if service.brandingResolver != nil {
+		if branding, ok := service.brandingResolver(ctx); ok {
+			return emailVars{WhiteLabelConfig: withPrimaryColorFallback(branding, service.defaultBranding.PrimaryColor)}
+		}
 	}
 
 	if len(service.tenantConfig.WhiteLabelConfig) == 0 {
-		// No config provider - return Storj defaults
 		return defaultVars
 	}
 
@@ -348,8 +358,31 @@ func (service *Service) getEmailVars(ctx context.Context) emailVars {
 	}
 
 	return emailVars{
-		WhiteLabelConfig: wlCfg,
+		WhiteLabelConfig: withPrimaryColorFallback(wlCfg, service.defaultBranding.PrimaryColor),
 	}
+}
+
+func withPrimaryColorFallback(cfg WhiteLabelConfig, fallback string) WhiteLabelConfig {
+	if strings.TrimSpace(cfg.PrimaryColor) != "" {
+		return cfg
+	}
+	if strings.TrimSpace(fallback) != "" {
+		cfg.PrimaryColor = fallback
+		return cfg
+	}
+	cfg.PrimaryColor = defaultPrimaryColor
+	return cfg
+}
+
+// SetBrandingResolver sets a callback that supplies tenant-specific branding (e.g. reseller configs).
+func (service *Service) SetBrandingResolver(resolver func(context.Context) (WhiteLabelConfig, bool)) {
+	service.brandingResolver = resolver
+}
+
+// SetSenderResolver sets a callback that supplies tenant-specific SMTP senders (e.g. seller dashboard SMTP).
+// When the resolver returns false, the default satellite mail.* sender is used.
+func (service *Service) SetSenderResolver(resolver func(context.Context) (Sender, bool)) {
+	service.senderResolver = resolver
 }
 
 func (service *Service) getSenderForTenant(ctx context.Context) (Sender, error) {
@@ -363,7 +396,15 @@ func (service *Service) getSenderForTenant(ctx context.Context) (Sender, error) 
 	if sender, exists := service.tenantConfig.TenantSenderMap[tenantID]; exists {
 		return sender, nil
 	}
-	return nil, errs.New("sender not found for tenant ID %s", tenantID)
+
+	if service.senderResolver != nil {
+		if sender, ok := service.senderResolver(ctx); ok && sender != nil {
+			return sender, nil
+		}
+	}
+
+	// CyberLS / missing seller SMTP → satellite mail.* default.
+	return service.Sender, nil
 }
 
 // TestSetTenantSender sets tenant-specific sender for testing purposes.

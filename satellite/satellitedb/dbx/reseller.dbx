@@ -1,0 +1,317 @@
+//--- seller / reseller console ---//
+
+// reseller contains information about reseller accounts.
+model reseller (
+    key id
+
+    index (
+        name reseller_email_status_index
+        fields email status
+    )
+
+    unique email
+
+    // id is a UUID for the reseller.
+    field id            blob
+    // name is the reseller display name.
+    field name          text      ( updatable )
+    // email is the reseller login email.
+    field email         text      ( updatable )
+    // password_hash is the bcrypt hash.
+    field password_hash blob      ( updatable )
+    // company_name is the reseller company name.
+    field company_name  text      ( updatable, nullable )
+    // status indicates whether the reseller is inactive=0, active=1, or deleted=2.
+    field status        int       ( updatable, autoinsert )
+    // created_at indicates when the reseller was created.
+    field created_at    timestamp ( autoinsert )
+    // updated_at indicates when the reseller was last updated.
+    field updated_at    timestamp ( updatable )
+    // deleted_at indicates when the reseller was soft-deleted.
+    field deleted_at    timestamp ( updatable, nullable )
+
+    // failed_login_count keeps track on how many times login has failed.
+    field failed_login_count int ( updatable, nullable )
+    // login_lockout_expiration is used when the reseller has failed to login too many times.
+    field login_lockout_expiration timestamp ( updatable, nullable )
+
+    // activation_code is a code sent to a reseller's email on signup for account activation.
+    field activation_code text ( updatable, nullable )
+    // signup_id is the request ID associated to a sign up session, used to verify activation_code.
+    field signup_id text ( updatable, nullable )
+
+    // new_unverified_email is the reseller specified email to be verified and used instead of existing email.
+    field new_unverified_email text ( updatable, nullable )
+    // email_change_verification_step indicates how many email change verifications were completed.
+    field email_change_verification_step int ( updatable, default 0 )
+
+    // mfa_enabled indicates whether multi-factor authentication is enabled for this reseller.
+    field mfa_enabled bool ( updatable, default false )
+    // mfa_secret_key is the shared key between authenticator and the frontend.
+    field mfa_secret_key text ( updatable, nullable )
+    // mfa_recovery_codes is used for disabling multi-factor authentication.
+    field mfa_recovery_codes text ( updatable, nullable )
+)
+
+create reseller ( )
+update reseller ( where reseller.id = ? )
+delete reseller ( where reseller.id = ? )
+
+read all (
+    select reseller
+)
+
+read one (
+    select reseller
+    where reseller.id = ?
+)
+
+read one (
+    select reseller
+    where reseller.email = ?
+    where reseller.status != 0
+)
+
+read one (
+    select reseller
+    where reseller.email = ?
+)
+
+// reseller_config stores branding and profile configuration for a reseller.
+model reseller_config (
+    key id
+
+    unique reseller_id
+
+    field id          blob
+    field reseller_id blob
+    // config stores branding/profile settings as JSON.
+    field config      json      ( updatable )
+    // active_theme_type is system (theme_presets) or custom (reseller_themes).
+    field active_theme_type text      ( updatable, default "system" )
+    // active_theme_id references theme_presets.id or reseller_themes.id.
+    field active_theme_id   blob      ( updatable, nullable )
+    field created_at  timestamp ( autoinsert )
+    field updated_at  timestamp ( updatable )
+)
+
+create reseller_config ( )
+update reseller_config ( where reseller_config.id = ? )
+update reseller_config ( where reseller_config.reseller_id = ? )
+delete reseller_config ( where reseller_config.id = ? )
+
+read one (
+    select reseller_config
+    where reseller_config.id = ?
+)
+
+read one (
+    select reseller_config
+    where reseller_config.reseller_id = ?
+)
+
+// reseller_domain stores the single active domain for a reseller.
+model reseller_domain (
+    key id
+
+    unique reseller_id
+
+    index (
+        name reseller_domain_domain_index
+        fields domain
+    )
+
+    field id                  blob
+    field reseller_id         blob
+    // domain is the active subdomain or custom domain.
+    field domain              text      ( updatable )
+    // domain_type is subdomain or custom.
+    field domain_type         text      ( updatable )
+    // status is pending, active, failed, or disabled.
+    field status              text      ( updatable )
+    // verification_method is CNAME, A_RECORD, or TXT.
+    field verification_method text      ( updatable, nullable )
+    // verification_status is pending, verified, or failed.
+    field verification_status text      ( updatable )
+    // ssl_status is pending, issued, failed, or expired.
+    field ssl_status          text      ( updatable )
+    // dns_target is the DNS target used for verification/routing.
+    field dns_target          text      ( updatable, nullable )
+    field verified_at         timestamp ( updatable, nullable )
+    field created_at          timestamp ( autoinsert )
+    field updated_at          timestamp ( updatable )
+    field deleted_at          timestamp ( updatable, nullable )
+)
+
+create reseller_domain ( )
+update reseller_domain ( where reseller_domain.id = ? )
+update reseller_domain ( where reseller_domain.reseller_id = ? )
+delete reseller_domain ( where reseller_domain.id = ? )
+
+read one (
+    select reseller_domain
+    where reseller_domain.id = ?
+)
+
+read one (
+    select reseller_domain
+    where reseller_domain.reseller_id = ?
+)
+
+read one (
+    select reseller_domain
+    where reseller_domain.domain = ?
+)
+
+model webapp_session_reseller (
+    key id
+    index ( fields reseller_id )
+
+    field id          blob
+    field reseller_id blob
+    field ip_address  text
+    field status      int       ( updatable, autoinsert )
+    field expires_at  timestamp ( updatable )
+)
+
+create webapp_session_reseller ( )
+update webapp_session_reseller ( where webapp_session_reseller.id = ? )
+delete webapp_session_reseller ( where webapp_session_reseller.id = ? )
+delete webapp_session_reseller ( where webapp_session_reseller.reseller_id = ? )
+delete webapp_session_reseller (
+    where webapp_session_reseller.reseller_id = ?
+    where webapp_session_reseller.id != ?
+)
+
+read all (
+    select webapp_session_reseller
+    where webapp_session_reseller.reseller_id = ?
+)
+read one (
+    select webapp_session_reseller
+    where webapp_session_reseller.id = ?
+)
+
+// reset_password_token_reseller is a token that is used when resetting password.
+model reset_password_token_reseller (
+    key    secret
+    unique owner_id
+
+    field secret     blob
+    field owner_id   blob
+    field created_at timestamp ( autoinsert )
+)
+
+create reset_password_token_reseller ( )
+read one (
+    select reset_password_token_reseller
+    where reset_password_token_reseller.secret = ?
+)
+read one (
+    select reset_password_token_reseller
+    where reset_password_token_reseller.owner_id = ?
+)
+delete reset_password_token_reseller ( where reset_password_token_reseller.secret = ? )
+
+model reseller_delete_request (
+    key id
+    index ( fields reseller_id )
+
+    field id          blob
+    field reseller_id blob
+    field status      text      ( updatable )
+    field error       text      ( updatable, nullable )
+    field delete_at   timestamp ( updatable )
+    field created_at  timestamp ( autoinsert )
+)
+
+create reseller_delete_request ( )
+
+read one (
+    select reseller_delete_request
+    where reseller_delete_request.reseller_id = ?
+)
+
+// theme_preset stores system-wide theme presets (seeded on seller server startup).
+model theme_preset (
+    key id
+
+    unique slug
+    unique name
+
+    field id          blob
+    field slug        text
+    field name        text
+    field description text      ( updatable, nullable )
+    field colors      json
+    field is_system   bool      ( updatable, default true )
+    field created_at  timestamp ( autoinsert )
+    field updated_at  timestamp ( updatable )
+)
+
+create theme_preset ( )
+update theme_preset ( where theme_preset.id = ? )
+
+read all (
+    select theme_preset
+)
+
+read one (
+    select theme_preset
+    where theme_preset.id = ?
+)
+
+read one (
+    select theme_preset
+    where theme_preset.slug = ?
+)
+
+read one (
+    select theme_preset
+    where theme_preset.name = ?
+)
+
+// reseller_theme stores custom themes created by a reseller (max 5 per reseller).
+model reseller_theme (
+    key id
+
+    unique name reseller_id
+
+    index (
+        name reseller_theme_reseller_id_index
+        fields reseller_id
+    )
+
+    field id          blob
+    field reseller_id blob
+    field name        text      ( updatable )
+    field colors      json      ( updatable )
+    field created_at  timestamp ( autoinsert )
+    field updated_at  timestamp ( updatable )
+)
+
+create reseller_theme ( )
+update reseller_theme ( where reseller_theme.id = ? )
+delete reseller_theme ( where reseller_theme.id = ? )
+
+read all (
+    select reseller_theme
+    where reseller_theme.reseller_id = ?
+)
+
+read one (
+    select reseller_theme
+    where reseller_theme.id = ?
+)
+
+read one (
+    select reseller_theme
+    where reseller_theme.id = ?
+    where reseller_theme.reseller_id = ?
+)
+
+read one (
+    select reseller_theme
+    where reseller_theme.reseller_id = ?
+    where reseller_theme.name = ?
+)

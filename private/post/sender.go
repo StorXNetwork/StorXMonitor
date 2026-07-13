@@ -37,32 +37,92 @@ func (sender *SMTPSender) FromAddress() Address {
 func (sender *SMTPSender) SendEmail(ctx context.Context, msg *Message) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	client, err := smtp.Dial(sender.ServerAddress)
+	client, implicitTLS, err := sender.dialSMTP()
 	if err != nil {
 		return err
 	}
 
-	if err = sender.communicate(ctx, client, msg); err != nil {
+	if err = sender.communicate(ctx, client, implicitTLS, msg); err != nil {
 		return errs.Combine(err, client.Close())
 	}
 
 	return nil
 }
 
+// Verify checks SMTP host reachability, TLS, and auth without sending a message.
+// Port 465 uses implicit SSL; other ports (e.g. 587) use STARTTLS.
+func (sender *SMTPSender) Verify(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	client, implicitTLS, err := sender.dialSMTP()
+	if err != nil {
+		return errs.New("SMTP dial failed: %v", err)
+	}
+	defer func() { _ = client.Close() }()
+
+	host, _, _ := net.SplitHostPort(sender.ServerAddress)
+	if sender.Auth != nil {
+		if !implicitTLS {
+			if err = client.StartTLS(&tls.Config{ServerName: host}); err != nil {
+				return errs.New("SMTP STARTTLS failed: %v", err)
+			}
+		}
+		if err = client.Auth(sender.Auth); err != nil {
+			return errs.New("SMTP authentication failed: %v", err)
+		}
+	}
+
+	if err = client.Quit(); err != nil {
+		return errs.New("SMTP quit failed: %v", err)
+	}
+	return nil
+}
+
+// dialSMTP connects to the SMTP server.
+// Port 465 (SMTPS) uses an implicit TLS connection; otherwise a plain dial is used
+// and STARTTLS is applied later in communicate/Verify.
+func (sender *SMTPSender) dialSMTP() (client *smtp.Client, implicitTLS bool, err error) {
+	host, port, err := net.SplitHostPort(sender.ServerAddress)
+	if err != nil {
+		return nil, false, err
+	}
+
+	if port == "465" {
+		conn, dialErr := tls.Dial("tcp", sender.ServerAddress, &tls.Config{ServerName: host})
+		if dialErr != nil {
+			return nil, false, dialErr
+		}
+		client, err = smtp.NewClient(conn, host)
+		if err != nil {
+			_ = conn.Close()
+			return nil, false, err
+		}
+		return client, true, nil
+	}
+
+	client, err = smtp.Dial(sender.ServerAddress)
+	if err != nil {
+		return nil, false, err
+	}
+	return client, false, nil
+}
+
 // communicate sends mail via SMTP using provided client and message.
-func (sender *SMTPSender) communicate(ctx context.Context, client *smtp.Client, msg *Message) error {
+func (sender *SMTPSender) communicate(ctx context.Context, client *smtp.Client, implicitTLS bool, msg *Message) error {
 	// suppress error because address should be validated
 	// before creating SMTPSender
 	host, _, _ := net.SplitHostPort(sender.ServerAddress)
 
 	if sender.Auth != nil {
-		// send smtp hello or ehlo msg and establish connection over tls
-		err := client.StartTLS(&tls.Config{ServerName: host})
-		if err != nil {
-			return err
+		if !implicitTLS {
+			// Port 587 / submission: upgrade with STARTTLS first.
+			err := client.StartTLS(&tls.Config{ServerName: host})
+			if err != nil {
+				return err
+			}
 		}
 
-		err = client.Auth(sender.Auth)
+		err := client.Auth(sender.Auth)
 		if err != nil {
 			return err
 		}

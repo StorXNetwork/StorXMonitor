@@ -2655,6 +2655,383 @@ definitions:
     - TiB
     - PiB
     - EiB
+  seller.CaptchaConfig:
+    properties:
+      login:
+        $ref: '#/definitions/seller.MultiCaptchaConfig'
+      registration:
+        $ref: '#/definitions/seller.MultiCaptchaConfig'
+    type: object
+  seller.MultiCaptchaConfig:
+    properties:
+      hcaptcha:
+        $ref: '#/definitions/seller.SingleCaptchaConfig'
+      recaptcha:
+        $ref: '#/definitions/seller.SingleCaptchaConfig'
+    type: object
+  seller.ResellerBrandingConfig:
+    properties:
+      brandName:
+        type: string
+      colors:
+        additionalProperties:
+          type: string
+        description: |-
+          Colors contains theme colors.
+          Example keys: "primary", "secondary", "background", "surface", "text".
+        type: object
+      favicon:
+        additionalProperties:
+          type: string
+        description: |-
+          Favicon contains URLs for favicon variants.
+          Example keys: "16x16", "32x32", "appleTouch".
+        type: object
+      links:
+        additionalProperties:
+          type: string
+        description: |-
+          Links contains UI links (support, docs, terms).
+          Example keys: "support", "docs", "terms", "privacy".
+        type: object
+      logo:
+        additionalProperties:
+          type: string
+        description: |-
+          Logo contains URLs for logo variants.
+          Example keys: "fullLight", "fullDark", "smallLight", "smallDark".
+        type: object
+      titles:
+        additionalProperties:
+          type: string
+        description: |-
+          Titles contains UI text overrides (section headings, labels).
+          Example keys: "loginTitle", "registerTitle", "dashboardTitle".
+        type: object
+    type: object
+  seller.SellerAccountActionSwaggerRequest:
+    properties:
+      data:
+        example: currentPassword123
+        type: string
+      step:
+        example: 1
+        type: integer
+    type: object
+  seller.SellerAccountSwaggerResponse:
+    properties:
+      companyName:
+        example: Acme Inc
+        type: string
+      email:
+        example: reseller@example.com
+        type: string
+      hasPassword:
+        example: true
+        type: boolean
+      id:
+        example: 00000000-0000-0000-0000-000000000001
+        type: string
+      isMFAEnabled:
+        example: false
+        type: boolean
+      mfaRecoveryCodeCount:
+        example: 0
+        type: integer
+      name:
+        example: Acme Reseller
+        type: string
+      status:
+        example: 1
+        type: integer
+    type: object
+  seller.SellerActivateAccountSwaggerRequest:
+    properties:
+      code:
+        example: "123456"
+        type: string
+      email:
+        example: reseller@example.com
+        type: string
+      signupId:
+        example: ""
+        type: string
+    type: object
+  seller.SellerAuthErrorResponse:
+    properties:
+      error:
+        example: authorization failed
+        type: string
+    type: object
+  seller.SellerAuthTokenSwaggerRequest:
+    properties:
+      captchaResponse:
+        example: ""
+        type: string
+      email:
+        example: reseller@example.com
+        type: string
+      mfaPasscode:
+        example: ""
+        type: string
+      mfaRecoveryCode:
+        example: ""
+        type: string
+      password:
+        example: securePassword123
+        type: string
+      rememberForOneWeek:
+        example: false
+        type: boolean
+    type: object
+  seller.SellerAuthTokenSwaggerResponse:
+    properties:
+      expiresAt:
+        example: "2026-07-08T12:00:00Z"
+        type: string
+      token:
+        example: <session token>
+        type: string
+    type: object
+  seller.SellerChangePasswordSwaggerRequest:
+    properties:
+      newPassword:
+        example: newSecurePassword123
+        type: string
+      password:
+        example: currentPassword123
+        type: string
+    type: object
+  seller.SellerDeleteAccountSwaggerRequest:
+    properties:
+      email:
+        example: reseller@example.com
+        type: string
+      password:
+        example: admin-verification-password
+        type: string
+    type: object
+  seller.SellerForgotPasswordSwaggerRequest:
+    properties:
+      captchaResponse:
+        example: ""
+        type: string
+      email:
+        example: reseller@example.com
+        type: string
+    type: object
+  seller.SellerFrontendConfig:
+    properties:
+      activeSessionsViewEnabled:
+        type: boolean
+      apiBaseURL:
+        type: string
+      captcha:
+        $ref: '#/definitions/seller.CaptchaConfig'
+      contactInfoURL:
+        type: string
+      csrfProtectionEnabled:
+        type: boolean
+      csrfToken:
+        type: string
+      emailChangeFlowEnabled:
+        type: boolean
+      externalAddress:
+        type: string
+      generalRequestURL:
+        type: string
+      inactivityTimerDuration:
+        type: integer
+      inactivityTimerEnabled:
+        type: boolean
+      liveCheckBadPasswords:
+        type: boolean
+      passwordMaximumLength:
+        type: integer
+      passwordMinimumLength:
+        type: integer
+      satelliteName:
+        type: string
+      selfServeAccountDeleteEnabled:
+        type: boolean
+      signupActivationCodeEnabled:
+        type: boolean
+      termsAndConditionsURL:
+        type: string
+    type: object
+  seller.SellerGoogleAuthError:
+    properties:
+      error:
+        example: Error getting token from Google!
+        type: string
+      success:
+        example: false
+        type: boolean
+    type: object
+  seller.SellerGoogleAuthSuccess:
+    properties:
+      action:
+        enum:
+        - registered
+        - logged_in
+        example: registered
+        type: string
+      reseller:
+        $ref: '#/definitions/seller.SellerResellerSwagger'
+      success:
+        example: true
+        type: boolean
+      token:
+        example: <session token>
+        type: string
+    type: object
+  seller.SellerMFADisableSwaggerRequest:
+    properties:
+      passcode:
+        example: "123456"
+        type: string
+      recoveryCode:
+        example: ""
+        type: string
+    type: object
+  seller.SellerMFAEnableSwaggerRequest:
+    properties:
+      passcode:
+        example: "123456"
+        type: string
+    type: object
+  seller.SellerMFARegenerateRecoveryCodesSwaggerRequest:
+    properties:
+      passcode:
+        example: "123456"
+        type: string
+      recoveryCode:
+        example: ""
+        type: string
+    type: object
+  seller.SellerRegisterSwaggerRequest:
+    properties:
+      captchaResponse:
+        example: ""
+        type: string
+      companyName:
+        example: Acme Inc
+        type: string
+      email:
+        example: reseller@example.com
+        type: string
+      fullName:
+        example: Acme Reseller
+        type: string
+      password:
+        example: securePassword123
+        type: string
+    type: object
+  seller.SellerResellerSwagger:
+    properties:
+      email:
+        example: reseller@example.com
+        type: string
+      id:
+        example: 00000000-0000-0000-0000-000000000001
+        type: string
+      name:
+        example: Acme Reseller
+        type: string
+    type: object
+  seller.SellerResendEmailSwaggerRequest:
+    properties:
+      email:
+        example: reseller@example.com
+        type: string
+    type: object
+  seller.SellerResetPasswordSwaggerRequest:
+    properties:
+      mfaPasscode:
+        example: ""
+        type: string
+      mfaRecoveryCode:
+        example: ""
+        type: string
+      password:
+        example: newSecurePassword123
+        type: string
+      token:
+        example: <recovery token from email>
+        type: string
+    type: object
+  seller.SellerSetPasswordSwaggerRequest:
+    properties:
+      newPassword:
+        example: newSecurePassword123
+        type: string
+    type: object
+  seller.SellerStatusSwaggerResponse:
+    properties:
+      service:
+        example: seller
+        type: string
+      status:
+        example: ok
+        type: string
+    type: object
+  seller.SellerWebappSessionSwagger:
+    properties:
+      expiresAt:
+        example: "2026-07-08T12:00:00Z"
+        type: string
+      id:
+        example: 00000000-0000-0000-0000-000000000001
+        type: string
+      ip:
+        example: 203.0.113.1
+        type: string
+      isRequesterCurrentSession:
+        example: true
+        type: boolean
+      resellerId:
+        example: 00000000-0000-0000-0000-000000000002
+        type: string
+      status:
+        example: 1
+        type: integer
+    type: object
+  seller.SellerWebappSessionsPageSwagger:
+    properties:
+      currentPage:
+        example: 1
+        type: integer
+      limit:
+        example: 10
+        type: integer
+      offset:
+        example: 0
+        type: integer
+      order:
+        example: 0
+        type: integer
+      orderDirection:
+        example: 0
+        type: integer
+      pageCount:
+        example: 1
+        type: integer
+      sessions:
+        items:
+          $ref: '#/definitions/seller.SellerWebappSessionSwagger'
+        type: array
+      totalCount:
+        example: 1
+        type: integer
+    type: object
+  seller.SingleCaptchaConfig:
+    properties:
+      enabled:
+        default: false
+        type: boolean
+      siteKey:
+        type: string
+    type: object
   staticapi.StaticBlogItemSwagger:
     properties:
       by:
@@ -6057,6 +6434,782 @@ paths:
       summary: List help resources
       tags:
       - static-api
+  /seller/auth/account:
+    delete:
+      consumes:
+      - application/json
+      description: '**Route:** `DELETE /api/v0/seller/auth/account`. Requires admin
+        verification password in body.'
+      parameters:
+      - description: Email and admin password
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/seller.SellerDeleteAccountSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+      security:
+      - SellerCookieAuth: []
+      - SellerCSRFAuth: []
+      summary: Delete account (admin)
+      tags:
+      - reseller-account
+    get:
+      description: '**Route:** `GET /api/v0/seller/auth/account`'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/seller.SellerAccountSwaggerResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+      security:
+      - SellerCookieAuth: []
+      summary: Get reseller account
+      tags:
+      - reseller-account
+    patch:
+      consumes:
+      - application/json
+      description: '**Route:** `PATCH /api/v0/seller/auth/account`'
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+      security:
+      - SellerCookieAuth: []
+      - SellerCSRFAuth: []
+      summary: Update reseller account
+      tags:
+      - reseller-account
+  /seller/auth/account/change-password:
+    post:
+      consumes:
+      - application/json
+      description: '**Route:** `POST /api/v0/seller/auth/account/change-password`'
+      parameters:
+      - description: Current and new password
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/seller.SellerChangePasswordSwaggerRequest'
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+      security:
+      - SellerCookieAuth: []
+      - SellerCSRFAuth: []
+      summary: Change password
+      tags:
+      - reseller-account
+  /seller/auth/account/delete-request:
+    post:
+      description: '**Route:** `POST /api/v0/seller/auth/account/delete-request`.
+        Sends confirmation email when self-serve delete is enabled.'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+      security:
+      - SellerCookieAuth: []
+      summary: Request account deletion
+      tags:
+      - reseller-account
+  /seller/auth/account/set-password:
+    post:
+      consumes:
+      - application/json
+      description: '**Route:** `POST /api/v0/seller/auth/account/set-password`. Use
+        when `hasPassword` is false.'
+      parameters:
+      - description: New password
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/seller.SellerSetPasswordSwaggerRequest'
+      responses:
+        "200":
+          description: OK
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+      security:
+      - SellerCookieAuth: []
+      - SellerCSRFAuth: []
+      summary: Set initial password
+      tags:
+      - reseller-account
+  /seller/auth/bad-passwords:
+    get:
+      description: '**Route:** `GET /api/v0/seller/auth/bad-passwords`'
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: Get bad passwords list
+      tags:
+      - reseller-auth-password
+  /seller/auth/change-email:
+    post:
+      consumes:
+      - application/json
+      description: '**Route:** `POST /api/v0/seller/auth/change-email`. Multi-step
+        flow using `step` and `data` (same steps as console change email).'
+      parameters:
+      - description: Step and payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/seller.SellerAccountActionSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+      security:
+      - SellerCookieAuth: []
+      - SellerCSRFAuth: []
+      summary: Change email
+      tags:
+      - reseller-account
+  /seller/auth/code-activation:
+    patch:
+      consumes:
+      - application/json
+      description: '**Route:** `PATCH /api/v0/seller/auth/code-activation`'
+      parameters:
+      - description: Email and activation code
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/seller.SellerActivateAccountSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/seller.SellerAuthTokenSwaggerResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+      summary: Activate reseller account
+      tags:
+      - reseller-auth
+  /seller/auth/forgot-password:
+    post:
+      consumes:
+      - application/json
+      description: '**Route:** `POST /api/v0/seller/auth/forgot-password`. Always
+        returns HTTP 200 on valid captcha.'
+      parameters:
+      - description: Email and captcha
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/seller.SellerForgotPasswordSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+      summary: Request password reset email
+      tags:
+      - reseller-auth-password
+  /seller/auth/google:
+    get:
+      description: '**Route:** `GET /api/v0/seller/auth/google`. Exchanges OAuth code
+        (redirect_uri = GOOGLE_OAUTH_REDIRECT_URL_SELLER). If email exists as an active
+        reseller, logs in; otherwise registers a reseller and empty `reseller_configs`.
+        Returns JSON with `action` and `reseller`. Sets session cookie `_seller_tokenKey`.
+        Does not call Backup-Tools or console onboarding.'
+      parameters:
+      - description: Fresh Google OAuth code (single-use)
+        in: query
+        name: code
+        required: true
+        type: string
+      - description: When true, appends zoho-insert to OAuth redirect URL
+        in: query
+        name: zoho-insert
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'Set-Cookie: _seller_tokenKey'
+          schema:
+            $ref: '#/definitions/seller.SellerGoogleAuthSuccess'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/seller.SellerGoogleAuthError'
+      summary: Reseller Google auth (register or login)
+      tags:
+      - reseller-auth
+  /seller/auth/invalidate-session/{id}:
+    post:
+      description: '**Route:** `POST /api/v0/seller/auth/invalidate-session/{id}`'
+      parameters:
+      - description: Session ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+      security:
+      - SellerCookieAuth: []
+      - SellerCSRFAuth: []
+      summary: Invalidate session
+      tags:
+      - reseller-sessions
+  /seller/auth/logout:
+    post:
+      description: '**Route:** `POST /api/v0/seller/auth/logout`'
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+      security:
+      - SellerCookieAuth: []
+      summary: Logout reseller
+      tags:
+      - reseller-auth
+  /seller/auth/mfa/disable:
+    post:
+      consumes:
+      - application/json
+      description: '**Route:** `POST /api/v0/seller/auth/mfa/disable`'
+      parameters:
+      - description: Passcode or recovery code
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/seller.SellerMFADisableSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+      security:
+      - SellerCookieAuth: []
+      - SellerCSRFAuth: []
+      summary: Disable MFA
+      tags:
+      - reseller-mfa
+  /seller/auth/mfa/enable:
+    post:
+      consumes:
+      - application/json
+      description: '**Route:** `POST /api/v0/seller/auth/mfa/enable`. Verifies TOTP
+        passcode, enables MFA, invalidates other sessions, returns new recovery codes.'
+      parameters:
+      - description: TOTP passcode
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/seller.SellerMFAEnableSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Recovery codes
+          schema:
+            items:
+              type: string
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+      security:
+      - SellerCookieAuth: []
+      - SellerCSRFAuth: []
+      summary: Enable MFA
+      tags:
+      - reseller-mfa
+  /seller/auth/mfa/generate-recovery-codes:
+    post:
+      description: '**Route:** `POST /api/v0/seller/auth/mfa/generate-recovery-codes`'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Recovery codes
+          schema:
+            items:
+              type: string
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+      security:
+      - SellerCookieAuth: []
+      - SellerCSRFAuth: []
+      summary: Generate MFA recovery codes
+      tags:
+      - reseller-mfa
+  /seller/auth/mfa/generate-secret-key:
+    post:
+      description: '**Route:** `POST /api/v0/seller/auth/mfa/generate-secret-key`.
+        Returns TOTP secret for authenticator app setup (MFA must not already be enabled).'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: TOTP secret key string
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+      security:
+      - SellerCookieAuth: []
+      - SellerCSRFAuth: []
+      summary: Generate MFA secret key
+      tags:
+      - reseller-mfa
+  /seller/auth/mfa/regenerate-recovery-codes:
+    post:
+      consumes:
+      - application/json
+      description: '**Route:** `POST /api/v0/seller/auth/mfa/regenerate-recovery-codes`'
+      parameters:
+      - description: Passcode or recovery code
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/seller.SellerMFARegenerateRecoveryCodesSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: New recovery codes
+          schema:
+            items:
+              type: string
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+      security:
+      - SellerCookieAuth: []
+      - SellerCSRFAuth: []
+      summary: Regenerate MFA recovery codes
+      tags:
+      - reseller-mfa
+  /seller/auth/refresh-session:
+    post:
+      description: '**Route:** `POST /api/v0/seller/auth/refresh-session`'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: New session expiresAt (RFC3339)
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+      security:
+      - SellerCookieAuth: []
+      - SellerCSRFAuth: []
+      summary: Refresh login session
+      tags:
+      - reseller-auth
+  /seller/auth/register:
+    post:
+      consumes:
+      - application/json
+      description: '**Route:** `POST /api/v0/seller/auth/register`. Sends activation
+        email when signup activation code is enabled.'
+      parameters:
+      - description: Registration payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/seller.SellerRegisterSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+      summary: Register reseller
+      tags:
+      - reseller-auth
+  /seller/auth/resend-email:
+    post:
+      consumes:
+      - application/json
+      description: '**Route:** `POST /api/v0/seller/auth/resend-email`'
+      parameters:
+      - description: Email
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/seller.SellerResendEmailSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Resend activation or reset email
+      tags:
+      - reseller-auth
+  /seller/auth/reset-password:
+    post:
+      consumes:
+      - application/json
+      description: '**Route:** `POST /api/v0/seller/auth/reset-password`. Clears session
+        cookie on success.'
+      parameters:
+      - description: Recovery token and new password
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/seller.SellerResetPasswordSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+      summary: Reset password with recovery token
+      tags:
+      - reseller-auth-password
+  /seller/auth/sessions:
+    get:
+      description: '**Route:** `GET /api/v0/seller/auth/sessions`. Query params: `limit`,
+        `page`, `order`, `orderDirection` (all required).'
+      parameters:
+      - description: Page size
+        in: query
+        name: limit
+        required: true
+        type: integer
+      - description: Page number (1-based)
+        in: query
+        name: page
+        required: true
+        type: integer
+      - description: Sort field
+        in: query
+        name: order
+        required: true
+        type: integer
+      - description: Sort direction
+        in: query
+        name: orderDirection
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/seller.SellerWebappSessionsPageSwagger'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+      security:
+      - SellerCookieAuth: []
+      summary: List active sessions
+      tags:
+      - reseller-sessions
+  /seller/auth/token:
+    post:
+      consumes:
+      - application/json
+      description: '**Route:** `POST /api/v0/seller/auth/token`. Sets `_seller_tokenKey`
+        session cookie.'
+      parameters:
+      - description: Email, password, captcha
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/seller.SellerAuthTokenSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/seller.SellerAuthTokenSwaggerResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+      security:
+      - SellerCSRFAuth: []
+      summary: Reseller email + password login
+      tags:
+      - reseller-auth
+  /seller/branding:
+    get:
+      description: '**Route:** `GET /api/v0/seller/branding`. Returns 404 until reseller
+        creates branding config.'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/seller.ResellerBrandingConfig'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+      security:
+      - SellerCookieAuth: []
+      summary: Get reseller branding
+      tags:
+      - reseller-branding
+  /seller/branding/create:
+    post:
+      consumes:
+      - application/json
+      description: '**Route:** `POST /api/v0/seller/branding/create`. First-time setup
+        only. Returns 409 if branding already exists.'
+      parameters:
+      - description: Branding configuration
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/seller.ResellerBrandingConfig'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+      security:
+      - SellerCookieAuth: []
+      - SellerCSRFAuth: []
+      summary: Create reseller branding
+      tags:
+      - reseller-branding
+  /seller/branding/delete:
+    delete:
+      description: '**Route:** `DELETE /api/v0/seller/branding/delete`. Removes branding
+        config so reseller can create again.'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+      security:
+      - SellerCookieAuth: []
+      - SellerCSRFAuth: []
+      summary: Delete reseller branding
+      tags:
+      - reseller-branding
+  /seller/branding/update:
+    put:
+      consumes:
+      - application/json
+      description: '**Route:** `PUT /api/v0/seller/branding/update`. Updates existing
+        branding config. Returns 404 if not created yet.'
+      parameters:
+      - description: Branding configuration
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/seller.ResellerBrandingConfig'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+      security:
+      - SellerCookieAuth: []
+      - SellerCSRFAuth: []
+      summary: Update reseller branding
+      tags:
+      - reseller-branding
+  /seller/config:
+    get:
+      description: '**Route:** `GET /api/v0/seller/config`. Public bootstrap (no auth).
+        Call before `POST /seller/auth/token`: read `captcha.login` site keys, `csrfProtectionEnabled`,
+        and `csrfToken` (sets `csrf_token` cookie when enabled). Controlled by `seller.csrf-protection-enabled`
+        (not console CSRF).'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/seller.SellerFrontendConfig'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+      summary: Get seller frontend configuration
+      tags:
+      - reseller
+  /seller/status:
+    get:
+      description: '**Route:** `GET /api/v0/seller/status`. Public health check for
+        the seller peer.'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/seller.SellerStatusSwaggerResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+      summary: Seller service status
+      tags:
+      - reseller
   /user-guideline-for-app:
     get:
       description: '**Full route:** `GET /user-guideline-for-app` (server root, not
@@ -6192,6 +7345,21 @@ securityDefinitions:
     in: cookie
     name: _tokenKey
     type: apiKey
+  SellerCSRFAuth:
+    description: 'When `seller.csrf-protection-enabled` is true: copy `csrfToken`
+      from `GET /seller/config` and Authorize here. Must match `csrf_token` cookie
+      (set by GET /seller/config). Required for `POST /seller/auth/token`, MFA routes,
+      password change, and other CSRF-protected seller routes.'
+    in: header
+    name: X-CSRF-Token
+    type: apiKey
+  SellerCookieAuth:
+    description: Session cookie after reseller Google login. **Swagger Authorize:**
+      paste the token value only (from `GET /seller/auth/google` response `token`
+      field). Seller peer cookie name is `_seller_tokenKey` (not console `_tokenKey`).
+    in: cookie
+    name: _seller_tokenKey
+    type: apiKey
 swagger: "2.0"
 tags:
 - description: 'Project management: invitations, members, usage, and project CRUD'
@@ -6305,3 +7473,24 @@ tags:
     /blog-list, /guides, /user-guideline-for-app. Swagger may prefix paths with /api/v0
     — use the host root path when calling.'
   name: static-api
+- description: 'Seller peer (reseller console): health and reseller management APIs
+    under `/api/v0/seller/*`. Runs as `satellite run seller` (default sim port often
+    `:10003`).'
+  name: reseller
+- description: 'Reseller authentication: Google OAuth, email register/login, activation,
+    logout, and refresh under `/api/v0/seller/auth/*`. Session cookie = `_seller_tokenKey`.'
+  name: reseller-auth
+- description: 'Reseller password recovery: `POST /seller/auth/forgot-password` and
+    `POST /seller/auth/reset-password` (token from email link).'
+  name: reseller-auth-password
+- description: 'Logged-in reseller profile and password management: `GET/PATCH /seller/auth/account`,
+    change/set password, change email, delete account.'
+  name: reseller-account
+- description: 'Reseller MFA setup and recovery: `POST /seller/auth/mfa/*` (enable,
+    disable, secret key, recovery codes).'
+  name: reseller-mfa
+- description: 'Reseller active sessions: `GET /seller/auth/sessions`, `POST /seller/auth/invalidate-session/{id}`.'
+  name: reseller-sessions
+- description: 'Reseller branding configuration: `GET /seller/branding`, `POST /seller/branding/create`,
+    `PUT /seller/branding/update`, `DELETE /seller/branding/delete`.'
+  name: reseller-branding

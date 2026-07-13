@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consoleapi/socialmedia"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consolewebauth"
 )
 
@@ -288,7 +289,7 @@ func (g *GoogleBackup) GetAutoSyncJob(w http.ResponseWriter, r *http.Request) {
 // @Summary      Update Google Backup jobs by project
 // @Description  **Full route:** `PUT /api/v0/google-backup/auto-sync/jobs/project`
 //
-// Account-level update (refresh_token, storx_token, active). Schedule and retention use PUT .../auto-sync/policy/{policy_id}. Send `code` to re-auth: Satellite exchanges OAuth code using `GOOGLE_OAUTH_REDIRECT_URL_GOOGLE_BACKUP`, updates google_backup_credentials, then forwards refresh_token to Backup-Tools (never forwards code).
+// Account-level update (refresh_token, storx_token, active). Schedule and retention use PUT .../auto-sync/policy/{policy_id}. Send `code` to re-auth: Satellite exchanges OAuth code using Host-derived redirect_uri, updates google_backup_credentials, then forwards refresh_token to Backup-Tools (never forwards code).
 // @Tags         google-backup
 // @Accept       json
 // @Produce      json
@@ -321,7 +322,7 @@ func (g *GoogleBackup) UpdateAutoSyncJobsByProject(w http.ResponseWriter, r *htt
 		return
 	}
 
-	respBody, status, err := g.service.UpdateGoogleBackupAutoSyncJobsByProject(ctx, tokenKey, req)
+	respBody, status, err := g.service.UpdateGoogleBackupAutoSyncJobsByProject(ctx, tokenKey, req, socialmedia.ResolveRequestOrigin(r))
 	g.service.RecordUserAuditHTTP(ctx, "GB_JOB_UPDATE", "Auto-sync project", "Auto-sync project updated", status, respBody, err)
 	if err != nil {
 		g.serveJSONError(ctx, w, err)
@@ -457,7 +458,7 @@ func (g *GoogleBackup) GetDomainUsers(w http.ResponseWriter, r *http.Request) {
 // ConnectGoogle exchanges an OAuth code and upserts google_backup_credentials for the logged-in user.
 //
 // @Summary      Connect Google account for backup
-// @Description  **Route:** `POST /api/v0/google-backup/connect`. Body: Google OAuth `code` (`redirect_uri` = `GOOGLE_OAUTH_REDIRECT_URL_GOOGLE_BACKUP`, same as `GET /auth/google-backup`). Returns scopes metadata. Tokens stored server-side only.
+// @Description  **Route:** `POST /api/v0/google-backup/connect`. Body: Google OAuth `code` only; `redirect_uri` is derived server-side from request Host. Returns scopes metadata. Tokens stored server-side only.
 // @Tags         google-backup
 // @Accept       json
 // @Produce      json
@@ -489,7 +490,8 @@ func (g *GoogleBackup) ConnectGoogle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	connectResult, err := g.service.ConnectGoogleBackupCredential(ctx, body.Code)
+	redirectURI := socialmedia.ResolveRequestOrigin(r)
+	connectResult, err := g.service.ConnectGoogleBackupCredential(ctx, body.Code, redirectURI)
 	g.service.RecordUserAudit(ctx, "GB_CONNECT", "Google account", "Google account connected", err)
 	if err != nil {
 		g.serveJSONError(ctx, w, err)

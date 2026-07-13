@@ -49,7 +49,7 @@ type UpdateGoogleBackupAutoSyncJobSwaggerRequest struct {
 
 // UpdateGoogleBackupAutoSyncJobsByProjectSwaggerRequest is the UI body for PUT .../auto-sync/jobs/project.
 // Requires project_id and google_email. Send code OR refresh_token for token updates.
-// `code` must come from Google OAuth with redirect_uri = GOOGLE_OAUTH_REDIRECT_URL_GOOGLE_BACKUP (Satellite exchanges code; Backup-Tools never receives code).
+// `code` must come from Google OAuth with redirect_uri equal to the UI origin (Satellite exchanges code; Backup-Tools never receives code).
 type UpdateGoogleBackupAutoSyncJobsByProjectSwaggerRequest struct {
 	ProjectID    string `json:"project_id" binding:"required" example:"00000000-0000-0000-0000-000000000000"`
 	GoogleEmail  string `json:"google_email" binding:"required" example:"user@gmail.com"`

@@ -142,7 +142,7 @@ func (*PasswordChangedEmail) Template() string { return "PasswordChanged" }
 
 // Subject gets email subject.
 func (email *ProjectInvitationEmail) Subject() string {
-	return "You were invited to join a project on StorX"
+	return "You were invited to join a project"
 }
 func (*PasswordChangedEmail) Subject() string { return "Your password changed" }
 
@@ -191,7 +191,7 @@ func (*ExistingUserProjectInvitationEmail) Template() string { return "ExistingU
 
 // Subject gets email subject.
 func (email *ExistingUserProjectInvitationEmail) Subject() string {
-	return "You were invited to join a project on StorX"
+	return "You were invited to join a project"
 }
 
 // UnverifiedUserProjectInvitationEmail is mailservice template for project invitation email for unverified users.
@@ -206,7 +206,7 @@ func (*UnverifiedUserProjectInvitationEmail) Template() string { return "Unverif
 
 // Subject gets email subject.
 func (email *UnverifiedUserProjectInvitationEmail) Subject() string {
-	return "You were invited to join a project on StorX"
+	return "You were invited to join a project"
 }
 
 // NewUserProjectInvitationEmail is mailservice template for project invitation email for new users.
@@ -221,7 +221,7 @@ func (*NewUserProjectInvitationEmail) Template() string { return "NewUserInvite"
 
 // Subject gets email subject.
 func (email *NewUserProjectInvitationEmail) Subject() string {
-	return "You were invited to join a project on StorX"
+	return "You were invited to join a project"
 }
 
 // UnknownResetPasswordEmail is mailservice template with unknown password reset data.
@@ -270,7 +270,7 @@ func (*RegistrationWelcomeEmail) Template() string { return "RegistrationWelcome
 
 // Subject gets email subject.
 func (*RegistrationWelcomeEmail) Subject() string {
-	return "Welcome to StorX"
+	return "Welcome"
 }
 
 // AccountAlreadyExistsEmail is mailservice template for email where user tries to create account, but one already exists.
@@ -300,7 +300,7 @@ func (*ContactUsSubmittedEmail) Template() string { return "ContactUsSubmitted" 
 
 // Subject gets email subject.
 func (*ContactUsSubmittedEmail) Subject() string {
-	return "Thank you for contacting us - StorX"
+	return "Thank you for contacting us"
 }
 
 // LockAccountActivityType is an auth activity type which led to account lock.
@@ -358,7 +358,7 @@ func (*UpgradeExpiredEmail) Template() string { return "UpgradeExpired" }
 
 // Subject gets email subject.
 func (*UpgradeExpiredEmail) Subject() string {
-	return "Your StorX Account Expired / Your Account Downgraded Automatically"
+	return "Your Account Expired / Your Account Downgraded Automatically"
 }
 
 type UpgradeExpiringEmail struct {
@@ -372,7 +372,7 @@ func (*UpgradeExpiringEmail) Template() string { return "UpgradeExpiring" }
 
 // Subject gets email subject.
 func (*UpgradeExpiringEmail) Subject() string {
-	return "Your StorX Account Due For Renewal, Kindly Renew Urgently"
+	return "Your Account Due For Renewal, Kindly Renew Urgently"
 }
 
 type UpgradeSuccessfullEmail struct {
@@ -387,7 +387,7 @@ func (*UpgradeSuccessfullEmail) Template() string { return "UpgradeSuccessfull" 
 
 // Subject gets email subject.
 func (*UpgradeSuccessfullEmail) Subject() string {
-	return "Payment Receipt Confirmation for Your StorX Account"
+	return "Payment Receipt Confirmation for Your Account"
 }
 
 // DeveloperAccountCreationEmail is mailservice template for developer account creation with JWT token link.
@@ -459,7 +459,7 @@ func (*LoginNotificationEmail) Template() string { return "LoginNotification" }
 
 // Subject gets email subject.
 func (*LoginNotificationEmail) Subject() string {
-	return "New Login to Your StorX Account"
+	return "New Login Detected"
 }
 
 // WelcomeEmail is mailservice template for user registration welcome email.
@@ -476,7 +476,7 @@ func (*WelcomeEmail) Template() string { return "Welcome" }
 
 // Subject gets email subject.
 func (*WelcomeEmail) Subject() string {
-	return "Welcome to StorX"
+	return "Welcome"
 }
 
 // PlanPurchasedEmail is mailservice template for plan purchase confirmation.
@@ -496,7 +496,7 @@ func (*PlanPurchasedEmail) Template() string { return "PlanPurchased" }
 
 // Subject gets email subject.
 func (*PlanPurchasedEmail) Subject() string {
-	return "Plan Purchase Confirmation - StorX"
+	return "Plan Purchase Confirmation"
 }
 
 // BillingWarningEmail is an email sent to notify users of billing warning event.
