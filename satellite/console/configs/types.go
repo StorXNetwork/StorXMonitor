@@ -210,5 +210,6 @@ type CreateUserPreferenceRequest struct {
 
 // UpdateUserPreferenceRequest represents a request to update user preferences.
 type UpdateUserPreferenceRequest struct {
+	Category    *string
 	Preferences *map[string]interface{}
 }

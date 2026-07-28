@@ -37,7 +37,8 @@ func NewDashboard(log *zap.Logger, service *console.Service, cookieAuth *console
 	}
 }
 
-// GetDashboardStats returns dashboard cards data (autoSync, vault, access, billing) for the authenticated user.
+// GetDashboardStats returns dashboard cards data (vault, access) for the authenticated user.
+// AutoSync and Billing cards are disabled / not returned.
 func (d *Dashboard) GetDashboardStats(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error

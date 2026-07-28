@@ -20,6 +20,9 @@ var appResources []byte
 //go:embed user-guideline-for-app.html
 var userGuidelineforApp []byte
 
+// Google/Microsoft/Corporate mail backup guides are hidden from Resources for now
+// (kept embedded so they can be re-enabled without removing files).
+//
 //go:embed google-backup-guide.html
 var googleBackupGuide []byte
 
@@ -31,6 +34,9 @@ var corporateMailBackupGuide []byte
 
 //go:embed signup-guide.html
 var signupGuide []byte
+
+// Prevent unused-var build errors while guides are hidden from Resources.
+var _ = [][]byte{googleBackupGuide, microsoftBackupGuide, corporateMailBackupGuide}
 
 func HandleResources(w http.ResponseWriter, r *http.Request) {
 
@@ -65,14 +71,13 @@ func HandleGuides(w http.ResponseWriter, r *http.Request) {
 	case "usage-guideline":
 		w.Write(userGuideline)
 
-	case "google-backup":
-		w.Write(googleBackupGuide)
-
-	case "microsoft-backup":
-		w.Write(microsoftBackupGuide)
-
-	case "corporate-mail-backup":
-		w.Write(corporateMailBackupGuide)
+	// Hidden for binary update: Google / Microsoft / Corporate mail backup guides.
+	// case "google-backup":
+	// 	w.Write(googleBackupGuide)
+	// case "microsoft-backup":
+	// 	w.Write(microsoftBackupGuide)
+	// case "corporate-mail-backup":
+	// 	w.Write(corporateMailBackupGuide)
 
 	case "signup":
 		w.Write(signupGuide)

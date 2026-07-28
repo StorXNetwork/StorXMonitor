@@ -9313,10 +9313,11 @@ type BaseCard struct {
 }
 
 type DashboardCardsResponse struct {
-	AutoSync BaseCard `json:"autoSync"`
+	// AutoSync / Billing hidden for binary update; keep fields for config JSON compat.
+	AutoSync BaseCard `json:"autoSync,omitempty"`
 	Vault    BaseCard `json:"vault"`
 	Access   BaseCard `json:"access"`
-	Billing  BaseCard `json:"billing"`
+	Billing  BaseCard `json:"billing,omitempty"`
 }
 
 type AutoSyncStats struct {
@@ -9342,7 +9343,10 @@ func (s *Service) GetDashboardStats(ctx context.Context, userID uuid.UUID, token
 
 	response := s.loadDashboardCardConfig(ctx)
 
-	s.enrichBillingCard(ctx, &response.Billing, user)
+	// Billing card disabled for binary update — do not enrich or return it.
+	// s.enrichBillingCard(ctx, &response.Billing, user)
+	_ = user
+	response.Billing = BaseCard{}
 
 	if len(projects) > 0 {
 		projectID := projects[0].ID
@@ -9350,15 +9354,17 @@ func (s *Service) GetDashboardStats(ctx context.Context, userID uuid.UUID, token
 		s.enrichAccessCard(ctx, &response.Access, projectID)
 	}
 
-	if s.backupToolsURL != "" && tokenGetter != nil {
-		s.enrichAutoSyncCard(ctx, &response.AutoSync, tokenGetter)
-	}
+	// AutoSync card disabled for binary update — do not enrich or return it.
+	// if s.backupToolsURL != "" && tokenGetter != nil {
+	// 	s.enrichAutoSyncCard(ctx, &response.AutoSync, tokenGetter)
+	// }
+	response.AutoSync = BaseCard{}
 
 	result := []interface{}{
-		response.AutoSync,
+		// response.AutoSync,
 		response.Vault,
 		response.Access,
-		response.Billing,
+		// response.Billing,
 	}
 
 	return result, nil

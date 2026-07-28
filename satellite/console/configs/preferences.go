@@ -5,10 +5,14 @@ package configs
 
 import (
 	"context"
+	"database/sql"
 	"strconv"
+	"strings"
 
+	pgxerrcode "github.com/jackc/pgerrcode"
 	"github.com/zeebo/errs"
 
+	"github.com/StorXNetwork/StorXMonitor/shared/dbutil/pgutil/pgerrcode"
 	"github.com/StorXNetwork/common/uuid"
 )
 
@@ -35,25 +39,34 @@ func (p *PreferenceService) GetUserPreferences(ctx context.Context, userID uuid.
 }
 
 // GetUserPreferenceByCategory retrieves a category-level preference.
+// If no preference exists yet, returns an empty default preference for the category.
 func (p *PreferenceService) GetUserPreferenceByCategory(ctx context.Context, userID uuid.UUID, category string) (UserNotificationPreference, error) {
-	return p.db.GetUserPreferenceByCategory(ctx, userID, category)
+	pref, err := p.db.GetUserPreferenceByCategory(ctx, userID, category)
+	if err != nil {
+		if errs.Is(err, sql.ErrNoRows) {
+			return UserNotificationPreference{
+				UserID:      userID,
+				Category:    category,
+				Preferences: map[string]interface{}{},
+			}, nil
+		}
+		return UserNotificationPreference{}, ErrPreferences.Wrap(err)
+	}
+	return pref, nil
 }
 
 // SetUserPreference creates or updates a user preference.
 func (p *PreferenceService) SetUserPreference(ctx context.Context, request CreateUserPreferenceRequest) (UserNotificationPreference, error) {
 	// Check if preference already exists
 	pref, err := p.db.GetUserPreferenceByCategory(ctx, request.UserID, request.Category)
-	var existingPreference *UserNotificationPreference
 	if err == nil {
-		existingPreference = &pref
-	}
-
-	if existingPreference != nil {
-		// Update existing preference
 		update := UpdateUserPreferenceRequest{
 			Preferences: &request.Preferences,
 		}
-		return p.db.UpdateUserPreference(ctx, existingPreference.ID, update)
+		return p.db.UpdateUserPreference(ctx, pref.ID, update)
+	}
+	if !errs.Is(err, sql.ErrNoRows) {
+		return UserNotificationPreference{}, ErrPreferences.Wrap(err)
 	}
 
 	// Create new preference
@@ -82,43 +95,82 @@ func (p *PreferenceService) UpdateUserPreference(ctx context.Context, id uuid.UU
 // Otherwise, it creates a new preference.
 // Returns the preference and a boolean indicating if it was an update (true) or create (false).
 func (p *PreferenceService) UpsertUserPreference(ctx context.Context, userID uuid.UUID, category string, preferences map[string]interface{}) (UserNotificationPreference, bool, error) {
-	// Check if preference already exists
 	pref, err := p.db.GetUserPreferenceByCategory(ctx, userID, category)
-	var existingPreference *UserNotificationPreference
 	if err == nil {
-		existingPreference = &pref
+		return p.updateExistingPreference(ctx, pref.ID, category, preferences)
 	}
-	if existingPreference != nil {
-		// Update existing preference
-		update := UpdateUserPreferenceRequest{
-			Preferences: &preferences,
-		}
-		preference, err := p.db.UpdateUserPreference(ctx, existingPreference.ID, update)
-		if err != nil {
-			return UserNotificationPreference{}, false, ErrPreferences.Wrap(err)
-		}
-		return preference, true, nil
+	if !errs.Is(err, sql.ErrNoRows) {
+		return UserNotificationPreference{}, false, ErrPreferences.Wrap(err)
 	}
 
-	// Create new preference
+	// Category lookup missed — reuse an existing row when the DB only allows one
+	// row per user (unique on user_id) or when category was previously NULL.
+	existing, err := p.db.GetUserPreferences(ctx, userID)
+	if err != nil {
+		return UserNotificationPreference{}, false, ErrPreferences.Wrap(err)
+	}
+	if reusable := findReusablePreference(existing, category); reusable != nil {
+		return p.updateExistingPreference(ctx, reusable.ID, category, preferences)
+	}
+
 	preferenceID, err := uuid.New()
 	if err != nil {
 		return UserNotificationPreference{}, false, ErrPreferences.Wrap(err)
 	}
 
-	preference := UserNotificationPreference{
+	createdPreference, err := p.db.InsertUserPreference(ctx, UserNotificationPreference{
 		ID:          preferenceID,
 		UserID:      userID,
 		Category:    category,
 		Preferences: preferences,
-	}
-
-	createdPreference, err := p.db.InsertUserPreference(ctx, preference)
+	})
 	if err != nil {
+		// Concurrent insert or unique(user_id): fall back to updating the existing row.
+		if pgerrcode.FromError(err) == pgxerrcode.UniqueViolation ||
+			strings.Contains(strings.ToLower(err.Error()), "duplicate key") {
+			existing, listErr := p.db.GetUserPreferences(ctx, userID)
+			if listErr != nil {
+				return UserNotificationPreference{}, false, ErrPreferences.Wrap(listErr)
+			}
+			if reusable := findReusablePreference(existing, category); reusable != nil {
+				return p.updateExistingPreference(ctx, reusable.ID, category, preferences)
+			}
+			if len(existing) > 0 {
+				return p.updateExistingPreference(ctx, existing[0].ID, category, preferences)
+			}
+		}
 		return UserNotificationPreference{}, false, ErrPreferences.Wrap(err)
 	}
 
 	return createdPreference, false, nil
+}
+
+func (p *PreferenceService) updateExistingPreference(ctx context.Context, id uuid.UUID, category string, preferences map[string]interface{}) (UserNotificationPreference, bool, error) {
+	categoryCopy := category
+	update := UpdateUserPreferenceRequest{
+		Category:    &categoryCopy,
+		Preferences: &preferences,
+	}
+	preference, err := p.db.UpdateUserPreference(ctx, id, update)
+	if err != nil {
+		return UserNotificationPreference{}, false, ErrPreferences.Wrap(err)
+	}
+	return preference, true, nil
+}
+
+// findReusablePreference picks an existing row to update when inserting a new
+// category row is not possible or the prior row had a null/empty category.
+func findReusablePreference(existing []UserNotificationPreference, category string) *UserNotificationPreference {
+	for i := range existing {
+		if existing[i].Category == category || existing[i].Category == "" {
+			return &existing[i]
+		}
+	}
+	// Legacy schema with UNIQUE(user_id): only one row can exist for the user.
+	if len(existing) == 1 {
+		return &existing[0]
+	}
+	return nil
 }
 
 // GetConfigLevel extracts the level from config data.
@@ -155,8 +207,11 @@ func (p *PreferenceService) ShouldSendNotification(ctx context.Context, userID u
 	// Get user preference for category
 	preference, err := p.db.GetUserPreferenceByCategory(ctx, userID, category)
 	if err != nil {
-		// If no preference exists, allow by default
-		return true, nil
+		if errs.Is(err, sql.ErrNoRows) {
+			// If no preference exists, allow by default
+			return true, nil
+		}
+		return false, ErrPreferences.Wrap(err)
 	}
 
 	// Check if user has preference for notificationType (push/email/sms)

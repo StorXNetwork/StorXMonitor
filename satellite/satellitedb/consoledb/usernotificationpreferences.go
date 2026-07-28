@@ -98,6 +98,9 @@ func (u *userNotificationPreferencesDB) GetUserPreferenceByCategory(ctx context.
 		dbx.UserNotificationPreference_UserId(userID[:]),
 		dbx.UserNotificationPreference_Category(category))
 	if err != nil {
+		if errs.Is(err, sql.ErrNoRows) {
+			return configs.UserNotificationPreference{}, sql.ErrNoRows
+		}
 		return configs.UserNotificationPreference{}, ErrUserNotificationPreferences.Wrap(err)
 	}
 
@@ -109,6 +112,10 @@ func (u *userNotificationPreferencesDB) UpdateUserPreference(ctx context.Context
 	defer mon.Task()(&ctx)(&err)
 
 	var updateFields dbx.UserNotificationPreference_Update_Fields
+
+	if update.Category != nil {
+		updateFields.Category = dbx.UserNotificationPreference_Category(*update.Category)
+	}
 
 	if update.Preferences != nil {
 		preferencesJSON, err := json.Marshal(*update.Preferences)
@@ -148,16 +155,23 @@ func userPreferenceFromDBX(dbxPreference *dbx.UserNotificationPreference) (confi
 			return configs.UserNotificationPreference{}, ErrUserNotificationPreferences.Wrap(err)
 		}
 	}
+	if preferences == nil {
+		preferences = map[string]interface{}{}
+	}
+
+	category := ""
+	if dbxPreference.Category != nil {
+		category = *dbxPreference.Category
+	}
 
 	preference := configs.UserNotificationPreference{
 		ID:          id,
 		UserID:      userID,
-		Category:    *dbxPreference.Category,
+		Category:    category,
 		Preferences: preferences,
 		CreatedAt:   dbxPreference.CreatedAt,
 		UpdatedAt:   dbxPreference.UpdatedAt,
 	}
 
 	return preference, nil
-
 }
