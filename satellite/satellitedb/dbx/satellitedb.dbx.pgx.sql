@@ -255,6 +255,37 @@ CREATE TABLE key_versions (
 	version text NOT NULL,
 	PRIMARY KEY ( key_id )
 ) ;
+CREATE TABLE mail_export_jobs (
+	id text NOT NULL,
+	user_id text NOT NULL,
+	project_id text NOT NULL,
+	access_key_id text NOT NULL,
+	bucket text NOT NULL,
+	format text NOT NULL,
+	mode text NOT NULL,
+	prefix text,
+	keys_json jsonb,
+	access_grant text,
+	status text NOT NULL,
+	retry_count integer NOT NULL,
+	progress integer NOT NULL,
+	processed_files bigint NOT NULL,
+	total_files bigint NOT NULL,
+	processed_bytes bigint NOT NULL,
+	total_bytes bigint NOT NULL,
+	current_object text,
+	archive_bucket text,
+	archive_key text,
+	archive_name text,
+	error_message text,
+	last_download_charge_id text,
+	last_download_charged_bytes bigint,
+	created_at timestamp with time zone NOT NULL,
+	started_at timestamp with time zone,
+	completed_at timestamp with time zone,
+	expires_at timestamp with time zone,
+	PRIMARY KEY ( id )
+) ;
 CREATE TABLE nodes (
 	id bytea NOT NULL,
 	address text NOT NULL DEFAULT '',
@@ -1030,6 +1061,9 @@ CREATE INDEX developer_user_mappings_developer_id_user_id_index ON developer_use
 CREATE INDEX fcm_tokens_user_id_index ON fcm_tokens ( user_id ) ;
 CREATE INDEX fcm_tokens_token_index ON fcm_tokens ( token ) ;
 CREATE INDEX fcm_tokens_user_active_index ON fcm_tokens ( user_id, is_active ) ;
+CREATE INDEX mail_export_jobs_status_created_at_index ON mail_export_jobs ( status, created_at ) ;
+CREATE INDEX mail_export_jobs_status_expires_at_index ON mail_export_jobs ( status, expires_at ) ;
+CREATE INDEX mail_export_jobs_status_started_at_index ON mail_export_jobs ( status, started_at ) ;
 CREATE INDEX node_events_email_event_created_at_index ON node_events ( email, event, created_at ) WHERE node_events.email_sent is NULL ;
 CREATE INDEX node_smart_contract_updates_wallet_index ON node_smart_contract_updates ( wallet ) ;
 CREATE INDEX oauth2_requests_client_id_index ON oauth2_requests ( client_id ) ;

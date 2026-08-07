@@ -103,6 +103,7 @@ type Config struct {
 
 	BackupToolsURL    string `help:"Backup-Tools service URL for AutoSync stats (e.g., http://localhost:8000)" default:""`
 	BackupToolsAPIKey string `help:"shared API key for Backup-Tools internal routes (X-API-Key on POST /api/v0/internal/storx-token/refresh and /api/v0/internal/google-token/clear)" default:""`
+	MailExportServiceToken string `help:"Bearer token for gateway-mt mail-export internal APIs under /api/v0/internal/mail-export-jobs and /api/v0/internal/bandwidth-quota" default:""`
 
 	GoogleClientID                string `help:"client id for google oauth" default:""`
 	GoogleClientSecret            string `help:"client secret for google oauth" default:""`
@@ -417,9 +418,19 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	publicProjectsRouter.Handle("/project-id-from-access-grant", http.HandlerFunc(projectsController.GetProjectIDFromAccessGrant)).Methods(http.MethodPost, http.MethodOptions)
 
 	internalStorxTokenController := consoleapi.NewInternalStorxToken(logger, service, config.BackupToolsAPIKey)
+	mailExportController := consoleapi.NewMailExportJobs(logger, service, config.MailExportServiceToken)
 	internalRouter := router.PathPrefix("/api/v0/internal").Subrouter()
 	internalRouter.Handle("/storx-token/refresh", http.HandlerFunc(internalStorxTokenController.RefreshStorxToken)).Methods(http.MethodPost)
 	internalRouter.Handle("/google-token/clear", http.HandlerFunc(internalStorxTokenController.ClearGoogleToken)).Methods(http.MethodPost)
+	internalRouter.Handle("/mail-export-jobs", http.HandlerFunc(mailExportController.Create)).Methods(http.MethodPost)
+	internalRouter.Handle("/mail-export-jobs/claim", http.HandlerFunc(mailExportController.Claim)).Methods(http.MethodPost)
+	internalRouter.Handle("/mail-export-jobs/expire", http.HandlerFunc(mailExportController.Expire)).Methods(http.MethodPost)
+	internalRouter.Handle("/mail-export-jobs/requeue-stale", http.HandlerFunc(mailExportController.RequeueStale)).Methods(http.MethodPost)
+	internalRouter.Handle("/mail-export-jobs/{id}", http.HandlerFunc(mailExportController.Get)).Methods(http.MethodGet)
+	internalRouter.Handle("/mail-export-jobs/{id}", http.HandlerFunc(mailExportController.Patch)).Methods(http.MethodPatch)
+	internalRouter.Handle("/mail-export-jobs/{id}/cancel", http.HandlerFunc(mailExportController.Cancel)).Methods(http.MethodPost)
+	internalRouter.Handle("/bandwidth-quota", http.HandlerFunc(mailExportController.BandwidthQuota)).Methods(http.MethodGet, http.MethodPost)
+	internalRouter.Handle("/bandwidth-usage", http.HandlerFunc(mailExportController.BandwidthUsage)).Methods(http.MethodPost)
 
 	// Authenticated routes
 	projectsRouter := router.PathPrefix("/api/v0/projects").Subrouter()

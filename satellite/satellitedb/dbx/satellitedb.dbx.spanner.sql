@@ -233,6 +233,36 @@ CREATE TABLE key_versions (
 	key_id BYTES(MAX) NOT NULL,
 	version STRING(MAX) NOT NULL
 ) PRIMARY KEY ( key_id ) ;
+CREATE TABLE mail_export_jobs (
+	id STRING(MAX) NOT NULL,
+	user_id STRING(MAX) NOT NULL,
+	project_id STRING(MAX) NOT NULL,
+	access_key_id STRING(MAX) NOT NULL,
+	bucket STRING(MAX) NOT NULL,
+	format STRING(MAX) NOT NULL,
+	mode STRING(MAX) NOT NULL,
+	prefix STRING(MAX),
+	keys_json JSON,
+	access_grant STRING(MAX),
+	status STRING(MAX) NOT NULL,
+	retry_count INT64 NOT NULL,
+	progress INT64 NOT NULL,
+	processed_files INT64 NOT NULL,
+	total_files INT64 NOT NULL,
+	processed_bytes INT64 NOT NULL,
+	total_bytes INT64 NOT NULL,
+	current_object STRING(MAX),
+	archive_bucket STRING(MAX),
+	archive_key STRING(MAX),
+	archive_name STRING(MAX),
+	error_message STRING(MAX),
+	last_download_charge_id STRING(MAX),
+	last_download_charged_bytes INT64,
+	created_at TIMESTAMP NOT NULL,
+	started_at TIMESTAMP,
+	completed_at TIMESTAMP,
+	expires_at TIMESTAMP
+) PRIMARY KEY ( id ) ;
 CREATE TABLE nodes (
 	id BYTES(MAX) NOT NULL,
 	address STRING(MAX) NOT NULL DEFAULT (""),
@@ -964,6 +994,9 @@ CREATE INDEX developer_user_mappings_developer_id_user_id_index ON developer_use
 CREATE INDEX fcm_tokens_user_id_index ON fcm_tokens ( user_id ) ;
 CREATE INDEX fcm_tokens_token_index ON fcm_tokens ( token ) ;
 CREATE INDEX fcm_tokens_user_active_index ON fcm_tokens ( user_id, is_active ) ;
+CREATE INDEX mail_export_jobs_status_created_at_index ON mail_export_jobs ( status, created_at ) ;
+CREATE INDEX mail_export_jobs_status_expires_at_index ON mail_export_jobs ( status, expires_at ) ;
+CREATE INDEX mail_export_jobs_status_started_at_index ON mail_export_jobs ( status, started_at ) ;
 CREATE INDEX node_events_email_event_created_at_index ON node_events ( email, event, created_at ) ;
 CREATE INDEX node_smart_contract_updates_wallet_index ON node_smart_contract_updates ( wallet ) ;
 CREATE INDEX oauth2_requests_client_id_index ON oauth2_requests ( client_id ) ;

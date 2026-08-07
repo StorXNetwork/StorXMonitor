@@ -314,12 +314,9 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 
 		storagenodeSettled[int32(orderLimit.Action)] += order.Amount
 
-		// user can do only two actions which are important for bucket bandwidth usage
-		userAction := orderLimit.Action == pb.PieceAction_PUT || orderLimit.Action == pb.PieceAction_GET
-
-		// don't store anything else than user actions in bucket_bandwidth_rollups table. amounts for other
-		// actions will be stored in storagenode_bandwidth_rollups.
-		if !userAction {
+		// user can do only two actions which are important for bucket bandwidth usage.
+		// GET_INTERNAL (and repair/audit/etc.) must not settle into user bucket bandwidth.
+		if !IsUserBandwidthAction(orderLimit.Action) {
 			continue
 		}
 

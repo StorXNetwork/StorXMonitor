@@ -636,6 +636,38 @@ func (obj *pgxDB) Schema() []string {
 	PRIMARY KEY ( key_id )
 )`,
 
+		`CREATE TABLE mail_export_jobs (
+	id text NOT NULL,
+	user_id text NOT NULL,
+	project_id text NOT NULL,
+	access_key_id text NOT NULL,
+	bucket text NOT NULL,
+	format text NOT NULL,
+	mode text NOT NULL,
+	prefix text,
+	keys_json jsonb,
+	access_grant text,
+	status text NOT NULL,
+	retry_count integer NOT NULL,
+	progress integer NOT NULL,
+	processed_files bigint NOT NULL,
+	total_files bigint NOT NULL,
+	processed_bytes bigint NOT NULL,
+	total_bytes bigint NOT NULL,
+	current_object text,
+	archive_bucket text,
+	archive_key text,
+	archive_name text,
+	error_message text,
+	last_download_charge_id text,
+	last_download_charged_bytes bigint,
+	created_at timestamp with time zone NOT NULL,
+	started_at timestamp with time zone,
+	completed_at timestamp with time zone,
+	expires_at timestamp with time zone,
+	PRIMARY KEY ( id )
+)`,
+
 		`CREATE TABLE nodes (
 	id bytea NOT NULL,
 	address text NOT NULL DEFAULT '',
@@ -1495,6 +1527,12 @@ func (obj *pgxDB) Schema() []string {
 
 		`CREATE INDEX fcm_tokens_user_active_index ON fcm_tokens ( user_id, is_active )`,
 
+		`CREATE INDEX mail_export_jobs_status_created_at_index ON mail_export_jobs ( status, created_at )`,
+
+		`CREATE INDEX mail_export_jobs_status_expires_at_index ON mail_export_jobs ( status, expires_at )`,
+
+		`CREATE INDEX mail_export_jobs_status_started_at_index ON mail_export_jobs ( status, started_at )`,
+
 		`CREATE INDEX node_events_email_event_created_at_index ON node_events ( email, event, created_at ) WHERE node_events.email_sent is NULL`,
 
 		`CREATE INDEX node_smart_contract_updates_wallet_index ON node_smart_contract_updates ( wallet )`,
@@ -1721,6 +1759,8 @@ func (obj *pgxDB) DropSchema() []string {
 		`DROP TABLE IF EXISTS node_api_versions`,
 
 		`DROP TABLE IF EXISTS nodes`,
+
+		`DROP TABLE IF EXISTS mail_export_jobs`,
 
 		`DROP TABLE IF EXISTS key_versions`,
 
@@ -2147,6 +2187,38 @@ func (obj *pgxcockroachDB) Schema() []string {
 	PRIMARY KEY ( key_id )
 )`,
 
+		`CREATE TABLE mail_export_jobs (
+	id text NOT NULL,
+	user_id text NOT NULL,
+	project_id text NOT NULL,
+	access_key_id text NOT NULL,
+	bucket text NOT NULL,
+	format text NOT NULL,
+	mode text NOT NULL,
+	prefix text,
+	keys_json jsonb,
+	access_grant text,
+	status text NOT NULL,
+	retry_count integer NOT NULL,
+	progress integer NOT NULL,
+	processed_files bigint NOT NULL,
+	total_files bigint NOT NULL,
+	processed_bytes bigint NOT NULL,
+	total_bytes bigint NOT NULL,
+	current_object text,
+	archive_bucket text,
+	archive_key text,
+	archive_name text,
+	error_message text,
+	last_download_charge_id text,
+	last_download_charged_bytes bigint,
+	created_at timestamp with time zone NOT NULL,
+	started_at timestamp with time zone,
+	completed_at timestamp with time zone,
+	expires_at timestamp with time zone,
+	PRIMARY KEY ( id )
+)`,
+
 		`CREATE TABLE nodes (
 	id bytea NOT NULL,
 	address text NOT NULL DEFAULT '',
@@ -3006,6 +3078,12 @@ func (obj *pgxcockroachDB) Schema() []string {
 
 		`CREATE INDEX fcm_tokens_user_active_index ON fcm_tokens ( user_id, is_active )`,
 
+		`CREATE INDEX mail_export_jobs_status_created_at_index ON mail_export_jobs ( status, created_at )`,
+
+		`CREATE INDEX mail_export_jobs_status_expires_at_index ON mail_export_jobs ( status, expires_at )`,
+
+		`CREATE INDEX mail_export_jobs_status_started_at_index ON mail_export_jobs ( status, started_at )`,
+
 		`CREATE INDEX node_events_email_event_created_at_index ON node_events ( email, event, created_at ) WHERE node_events.email_sent is NULL`,
 
 		`CREATE INDEX node_smart_contract_updates_wallet_index ON node_smart_contract_updates ( wallet )`,
@@ -3232,6 +3310,8 @@ func (obj *pgxcockroachDB) DropSchema() []string {
 		`DROP TABLE IF EXISTS node_api_versions`,
 
 		`DROP TABLE IF EXISTS nodes`,
+
+		`DROP TABLE IF EXISTS mail_export_jobs`,
 
 		`DROP TABLE IF EXISTS key_versions`,
 
@@ -3637,6 +3717,37 @@ func (obj *spannerDB) Schema() []string {
 	key_id BYTES(MAX) NOT NULL,
 	version STRING(MAX) NOT NULL
 ) PRIMARY KEY ( key_id )`,
+
+		`CREATE TABLE mail_export_jobs (
+	id STRING(MAX) NOT NULL,
+	user_id STRING(MAX) NOT NULL,
+	project_id STRING(MAX) NOT NULL,
+	access_key_id STRING(MAX) NOT NULL,
+	bucket STRING(MAX) NOT NULL,
+	format STRING(MAX) NOT NULL,
+	mode STRING(MAX) NOT NULL,
+	prefix STRING(MAX),
+	keys_json JSON,
+	access_grant STRING(MAX),
+	status STRING(MAX) NOT NULL,
+	retry_count INT64 NOT NULL,
+	progress INT64 NOT NULL,
+	processed_files INT64 NOT NULL,
+	total_files INT64 NOT NULL,
+	processed_bytes INT64 NOT NULL,
+	total_bytes INT64 NOT NULL,
+	current_object STRING(MAX),
+	archive_bucket STRING(MAX),
+	archive_key STRING(MAX),
+	archive_name STRING(MAX),
+	error_message STRING(MAX),
+	last_download_charge_id STRING(MAX),
+	last_download_charged_bytes INT64,
+	created_at TIMESTAMP NOT NULL,
+	started_at TIMESTAMP,
+	completed_at TIMESTAMP,
+	expires_at TIMESTAMP
+) PRIMARY KEY ( id )`,
 
 		`CREATE TABLE nodes (
 	id BYTES(MAX) NOT NULL,
@@ -4473,6 +4584,12 @@ func (obj *spannerDB) Schema() []string {
 
 		`CREATE INDEX fcm_tokens_user_active_index ON fcm_tokens ( user_id, is_active )`,
 
+		`CREATE INDEX mail_export_jobs_status_created_at_index ON mail_export_jobs ( status, created_at )`,
+
+		`CREATE INDEX mail_export_jobs_status_expires_at_index ON mail_export_jobs ( status, expires_at )`,
+
+		`CREATE INDEX mail_export_jobs_status_started_at_index ON mail_export_jobs ( status, started_at )`,
+
 		`CREATE INDEX node_events_email_event_created_at_index ON node_events ( email, event, created_at )`,
 
 		`CREATE INDEX node_smart_contract_updates_wallet_index ON node_smart_contract_updates ( wallet )`,
@@ -4691,6 +4808,12 @@ func (obj *spannerDB) DropSchema() []string {
 		`DROP INDEX IF EXISTS fcm_tokens_token_index`,
 
 		`DROP INDEX IF EXISTS fcm_tokens_user_active_index`,
+
+		`DROP INDEX IF EXISTS mail_export_jobs_status_created_at_index`,
+
+		`DROP INDEX IF EXISTS mail_export_jobs_status_expires_at_index`,
+
+		`DROP INDEX IF EXISTS mail_export_jobs_status_started_at_index`,
 
 		`DROP INDEX IF EXISTS node_events_email_event_created_at_index`,
 
@@ -5249,6 +5372,12 @@ func (obj *spannerDB) DropSchema() []string {
 		`DROP SEQUENCE IF EXISTS nodes_id`,
 
 		`DROP TABLE IF EXISTS nodes`,
+
+		`ALTER TABLE  mail_export_jobs ALTER id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS mail_export_jobs_id`,
+
+		`DROP TABLE IF EXISTS mail_export_jobs`,
 
 		`ALTER TABLE  key_versions ALTER key_id SET DEFAULT (null)`,
 
@@ -9583,6 +9712,731 @@ func KeyVersion_Version(v string) KeyVersion_Version_Field {
 }
 
 func (f KeyVersion_Version_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob struct {
+	Id                       string
+	UserId                   string
+	ProjectId                string
+	AccessKeyId              string
+	Bucket                   string
+	Format                   string
+	Mode                     string
+	Prefix                   *string
+	KeysJson                 []byte
+	AccessGrant              *string
+	Status                   string
+	RetryCount               int
+	Progress                 int
+	ProcessedFiles           int64
+	TotalFiles               int64
+	ProcessedBytes           int64
+	TotalBytes               int64
+	CurrentObject            *string
+	ArchiveBucket            *string
+	ArchiveKey               *string
+	ArchiveName              *string
+	ErrorMessage             *string
+	LastDownloadChargeId     *string
+	LastDownloadChargedBytes *int64
+	CreatedAt                time.Time
+	StartedAt                *time.Time
+	CompletedAt              *time.Time
+	ExpiresAt                *time.Time
+}
+
+func (MailExportJob) _Table() string { return "mail_export_jobs" }
+
+type MailExportJob_Create_Fields struct {
+	Prefix                   MailExportJob_Prefix_Field
+	KeysJson                 MailExportJob_KeysJson_Field
+	AccessGrant              MailExportJob_AccessGrant_Field
+	CurrentObject            MailExportJob_CurrentObject_Field
+	ArchiveBucket            MailExportJob_ArchiveBucket_Field
+	ArchiveKey               MailExportJob_ArchiveKey_Field
+	ArchiveName              MailExportJob_ArchiveName_Field
+	ErrorMessage             MailExportJob_ErrorMessage_Field
+	LastDownloadChargeId     MailExportJob_LastDownloadChargeId_Field
+	LastDownloadChargedBytes MailExportJob_LastDownloadChargedBytes_Field
+	StartedAt                MailExportJob_StartedAt_Field
+	CompletedAt              MailExportJob_CompletedAt_Field
+	ExpiresAt                MailExportJob_ExpiresAt_Field
+}
+
+type MailExportJob_Update_Fields struct {
+	Prefix                   MailExportJob_Prefix_Field
+	KeysJson                 MailExportJob_KeysJson_Field
+	AccessGrant              MailExportJob_AccessGrant_Field
+	Status                   MailExportJob_Status_Field
+	RetryCount               MailExportJob_RetryCount_Field
+	Progress                 MailExportJob_Progress_Field
+	ProcessedFiles           MailExportJob_ProcessedFiles_Field
+	TotalFiles               MailExportJob_TotalFiles_Field
+	ProcessedBytes           MailExportJob_ProcessedBytes_Field
+	TotalBytes               MailExportJob_TotalBytes_Field
+	CurrentObject            MailExportJob_CurrentObject_Field
+	ArchiveBucket            MailExportJob_ArchiveBucket_Field
+	ArchiveKey               MailExportJob_ArchiveKey_Field
+	ArchiveName              MailExportJob_ArchiveName_Field
+	ErrorMessage             MailExportJob_ErrorMessage_Field
+	LastDownloadChargeId     MailExportJob_LastDownloadChargeId_Field
+	LastDownloadChargedBytes MailExportJob_LastDownloadChargedBytes_Field
+	StartedAt                MailExportJob_StartedAt_Field
+	CompletedAt              MailExportJob_CompletedAt_Field
+	ExpiresAt                MailExportJob_ExpiresAt_Field
+}
+
+type MailExportJob_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func MailExportJob_Id(v string) MailExportJob_Id_Field {
+	return MailExportJob_Id_Field{_set: true, _value: v}
+}
+
+func (f MailExportJob_Id_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob_UserId_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func MailExportJob_UserId(v string) MailExportJob_UserId_Field {
+	return MailExportJob_UserId_Field{_set: true, _value: v}
+}
+
+func (f MailExportJob_UserId_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob_ProjectId_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func MailExportJob_ProjectId(v string) MailExportJob_ProjectId_Field {
+	return MailExportJob_ProjectId_Field{_set: true, _value: v}
+}
+
+func (f MailExportJob_ProjectId_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob_AccessKeyId_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func MailExportJob_AccessKeyId(v string) MailExportJob_AccessKeyId_Field {
+	return MailExportJob_AccessKeyId_Field{_set: true, _value: v}
+}
+
+func (f MailExportJob_AccessKeyId_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob_Bucket_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func MailExportJob_Bucket(v string) MailExportJob_Bucket_Field {
+	return MailExportJob_Bucket_Field{_set: true, _value: v}
+}
+
+func (f MailExportJob_Bucket_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob_Format_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func MailExportJob_Format(v string) MailExportJob_Format_Field {
+	return MailExportJob_Format_Field{_set: true, _value: v}
+}
+
+func (f MailExportJob_Format_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob_Mode_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func MailExportJob_Mode(v string) MailExportJob_Mode_Field {
+	return MailExportJob_Mode_Field{_set: true, _value: v}
+}
+
+func (f MailExportJob_Mode_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob_Prefix_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func MailExportJob_Prefix(v string) MailExportJob_Prefix_Field {
+	return MailExportJob_Prefix_Field{_set: true, _value: &v}
+}
+
+func MailExportJob_Prefix_Raw(v *string) MailExportJob_Prefix_Field {
+	if v == nil {
+		return MailExportJob_Prefix_Null()
+	}
+	return MailExportJob_Prefix(*v)
+}
+
+func MailExportJob_Prefix_Null() MailExportJob_Prefix_Field {
+	return MailExportJob_Prefix_Field{_set: true, _null: true}
+}
+
+func (f MailExportJob_Prefix_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f MailExportJob_Prefix_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob_KeysJson_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func MailExportJob_KeysJson(v []byte) MailExportJob_KeysJson_Field {
+	return MailExportJob_KeysJson_Field{_set: true, _value: v}
+}
+
+func MailExportJob_KeysJson_Raw(v []byte) MailExportJob_KeysJson_Field {
+	if v == nil {
+		return MailExportJob_KeysJson_Null()
+	}
+	return MailExportJob_KeysJson(v)
+}
+
+func MailExportJob_KeysJson_Null() MailExportJob_KeysJson_Field {
+	return MailExportJob_KeysJson_Field{_set: true, _null: true}
+}
+
+func (f MailExportJob_KeysJson_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f MailExportJob_KeysJson_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob_AccessGrant_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func MailExportJob_AccessGrant(v string) MailExportJob_AccessGrant_Field {
+	return MailExportJob_AccessGrant_Field{_set: true, _value: &v}
+}
+
+func MailExportJob_AccessGrant_Raw(v *string) MailExportJob_AccessGrant_Field {
+	if v == nil {
+		return MailExportJob_AccessGrant_Null()
+	}
+	return MailExportJob_AccessGrant(*v)
+}
+
+func MailExportJob_AccessGrant_Null() MailExportJob_AccessGrant_Field {
+	return MailExportJob_AccessGrant_Field{_set: true, _null: true}
+}
+
+func (f MailExportJob_AccessGrant_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f MailExportJob_AccessGrant_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob_Status_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func MailExportJob_Status(v string) MailExportJob_Status_Field {
+	return MailExportJob_Status_Field{_set: true, _value: v}
+}
+
+func (f MailExportJob_Status_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob_RetryCount_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func MailExportJob_RetryCount(v int) MailExportJob_RetryCount_Field {
+	return MailExportJob_RetryCount_Field{_set: true, _value: v}
+}
+
+func (f MailExportJob_RetryCount_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob_Progress_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func MailExportJob_Progress(v int) MailExportJob_Progress_Field {
+	return MailExportJob_Progress_Field{_set: true, _value: v}
+}
+
+func (f MailExportJob_Progress_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob_ProcessedFiles_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func MailExportJob_ProcessedFiles(v int64) MailExportJob_ProcessedFiles_Field {
+	return MailExportJob_ProcessedFiles_Field{_set: true, _value: v}
+}
+
+func (f MailExportJob_ProcessedFiles_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob_TotalFiles_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func MailExportJob_TotalFiles(v int64) MailExportJob_TotalFiles_Field {
+	return MailExportJob_TotalFiles_Field{_set: true, _value: v}
+}
+
+func (f MailExportJob_TotalFiles_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob_ProcessedBytes_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func MailExportJob_ProcessedBytes(v int64) MailExportJob_ProcessedBytes_Field {
+	return MailExportJob_ProcessedBytes_Field{_set: true, _value: v}
+}
+
+func (f MailExportJob_ProcessedBytes_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob_TotalBytes_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func MailExportJob_TotalBytes(v int64) MailExportJob_TotalBytes_Field {
+	return MailExportJob_TotalBytes_Field{_set: true, _value: v}
+}
+
+func (f MailExportJob_TotalBytes_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob_CurrentObject_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func MailExportJob_CurrentObject(v string) MailExportJob_CurrentObject_Field {
+	return MailExportJob_CurrentObject_Field{_set: true, _value: &v}
+}
+
+func MailExportJob_CurrentObject_Raw(v *string) MailExportJob_CurrentObject_Field {
+	if v == nil {
+		return MailExportJob_CurrentObject_Null()
+	}
+	return MailExportJob_CurrentObject(*v)
+}
+
+func MailExportJob_CurrentObject_Null() MailExportJob_CurrentObject_Field {
+	return MailExportJob_CurrentObject_Field{_set: true, _null: true}
+}
+
+func (f MailExportJob_CurrentObject_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f MailExportJob_CurrentObject_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob_ArchiveBucket_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func MailExportJob_ArchiveBucket(v string) MailExportJob_ArchiveBucket_Field {
+	return MailExportJob_ArchiveBucket_Field{_set: true, _value: &v}
+}
+
+func MailExportJob_ArchiveBucket_Raw(v *string) MailExportJob_ArchiveBucket_Field {
+	if v == nil {
+		return MailExportJob_ArchiveBucket_Null()
+	}
+	return MailExportJob_ArchiveBucket(*v)
+}
+
+func MailExportJob_ArchiveBucket_Null() MailExportJob_ArchiveBucket_Field {
+	return MailExportJob_ArchiveBucket_Field{_set: true, _null: true}
+}
+
+func (f MailExportJob_ArchiveBucket_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f MailExportJob_ArchiveBucket_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob_ArchiveKey_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func MailExportJob_ArchiveKey(v string) MailExportJob_ArchiveKey_Field {
+	return MailExportJob_ArchiveKey_Field{_set: true, _value: &v}
+}
+
+func MailExportJob_ArchiveKey_Raw(v *string) MailExportJob_ArchiveKey_Field {
+	if v == nil {
+		return MailExportJob_ArchiveKey_Null()
+	}
+	return MailExportJob_ArchiveKey(*v)
+}
+
+func MailExportJob_ArchiveKey_Null() MailExportJob_ArchiveKey_Field {
+	return MailExportJob_ArchiveKey_Field{_set: true, _null: true}
+}
+
+func (f MailExportJob_ArchiveKey_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f MailExportJob_ArchiveKey_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob_ArchiveName_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func MailExportJob_ArchiveName(v string) MailExportJob_ArchiveName_Field {
+	return MailExportJob_ArchiveName_Field{_set: true, _value: &v}
+}
+
+func MailExportJob_ArchiveName_Raw(v *string) MailExportJob_ArchiveName_Field {
+	if v == nil {
+		return MailExportJob_ArchiveName_Null()
+	}
+	return MailExportJob_ArchiveName(*v)
+}
+
+func MailExportJob_ArchiveName_Null() MailExportJob_ArchiveName_Field {
+	return MailExportJob_ArchiveName_Field{_set: true, _null: true}
+}
+
+func (f MailExportJob_ArchiveName_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f MailExportJob_ArchiveName_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob_ErrorMessage_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func MailExportJob_ErrorMessage(v string) MailExportJob_ErrorMessage_Field {
+	return MailExportJob_ErrorMessage_Field{_set: true, _value: &v}
+}
+
+func MailExportJob_ErrorMessage_Raw(v *string) MailExportJob_ErrorMessage_Field {
+	if v == nil {
+		return MailExportJob_ErrorMessage_Null()
+	}
+	return MailExportJob_ErrorMessage(*v)
+}
+
+func MailExportJob_ErrorMessage_Null() MailExportJob_ErrorMessage_Field {
+	return MailExportJob_ErrorMessage_Field{_set: true, _null: true}
+}
+
+func (f MailExportJob_ErrorMessage_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f MailExportJob_ErrorMessage_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob_LastDownloadChargeId_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func MailExportJob_LastDownloadChargeId(v string) MailExportJob_LastDownloadChargeId_Field {
+	return MailExportJob_LastDownloadChargeId_Field{_set: true, _value: &v}
+}
+
+func MailExportJob_LastDownloadChargeId_Raw(v *string) MailExportJob_LastDownloadChargeId_Field {
+	if v == nil {
+		return MailExportJob_LastDownloadChargeId_Null()
+	}
+	return MailExportJob_LastDownloadChargeId(*v)
+}
+
+func MailExportJob_LastDownloadChargeId_Null() MailExportJob_LastDownloadChargeId_Field {
+	return MailExportJob_LastDownloadChargeId_Field{_set: true, _null: true}
+}
+
+func (f MailExportJob_LastDownloadChargeId_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f MailExportJob_LastDownloadChargeId_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob_LastDownloadChargedBytes_Field struct {
+	_set   bool
+	_null  bool
+	_value *int64
+}
+
+func MailExportJob_LastDownloadChargedBytes(v int64) MailExportJob_LastDownloadChargedBytes_Field {
+	return MailExportJob_LastDownloadChargedBytes_Field{_set: true, _value: &v}
+}
+
+func MailExportJob_LastDownloadChargedBytes_Raw(v *int64) MailExportJob_LastDownloadChargedBytes_Field {
+	if v == nil {
+		return MailExportJob_LastDownloadChargedBytes_Null()
+	}
+	return MailExportJob_LastDownloadChargedBytes(*v)
+}
+
+func MailExportJob_LastDownloadChargedBytes_Null() MailExportJob_LastDownloadChargedBytes_Field {
+	return MailExportJob_LastDownloadChargedBytes_Field{_set: true, _null: true}
+}
+
+func (f MailExportJob_LastDownloadChargedBytes_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f MailExportJob_LastDownloadChargedBytes_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func MailExportJob_CreatedAt(v time.Time) MailExportJob_CreatedAt_Field {
+	return MailExportJob_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f MailExportJob_CreatedAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob_StartedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func MailExportJob_StartedAt(v time.Time) MailExportJob_StartedAt_Field {
+	return MailExportJob_StartedAt_Field{_set: true, _value: &v}
+}
+
+func MailExportJob_StartedAt_Raw(v *time.Time) MailExportJob_StartedAt_Field {
+	if v == nil {
+		return MailExportJob_StartedAt_Null()
+	}
+	return MailExportJob_StartedAt(*v)
+}
+
+func MailExportJob_StartedAt_Null() MailExportJob_StartedAt_Field {
+	return MailExportJob_StartedAt_Field{_set: true, _null: true}
+}
+
+func (f MailExportJob_StartedAt_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f MailExportJob_StartedAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob_CompletedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func MailExportJob_CompletedAt(v time.Time) MailExportJob_CompletedAt_Field {
+	return MailExportJob_CompletedAt_Field{_set: true, _value: &v}
+}
+
+func MailExportJob_CompletedAt_Raw(v *time.Time) MailExportJob_CompletedAt_Field {
+	if v == nil {
+		return MailExportJob_CompletedAt_Null()
+	}
+	return MailExportJob_CompletedAt(*v)
+}
+
+func MailExportJob_CompletedAt_Null() MailExportJob_CompletedAt_Field {
+	return MailExportJob_CompletedAt_Field{_set: true, _null: true}
+}
+
+func (f MailExportJob_CompletedAt_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f MailExportJob_CompletedAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob_ExpiresAt_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func MailExportJob_ExpiresAt(v time.Time) MailExportJob_ExpiresAt_Field {
+	return MailExportJob_ExpiresAt_Field{_set: true, _value: &v}
+}
+
+func MailExportJob_ExpiresAt_Raw(v *time.Time) MailExportJob_ExpiresAt_Field {
+	if v == nil {
+		return MailExportJob_ExpiresAt_Null()
+	}
+	return MailExportJob_ExpiresAt(*v)
+}
+
+func MailExportJob_ExpiresAt_Null() MailExportJob_ExpiresAt_Field {
+	return MailExportJob_ExpiresAt_Field{_set: true, _null: true}
+}
+
+func (f MailExportJob_ExpiresAt_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f MailExportJob_ExpiresAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -24410,6 +25264,75 @@ func (obj *pgxImpl) CreateNoReturn_Revocation(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) Create_MailExportJob(ctx context.Context,
+	mail_export_job_id MailExportJob_Id_Field,
+	mail_export_job_user_id MailExportJob_UserId_Field,
+	mail_export_job_project_id MailExportJob_ProjectId_Field,
+	mail_export_job_access_key_id MailExportJob_AccessKeyId_Field,
+	mail_export_job_bucket MailExportJob_Bucket_Field,
+	mail_export_job_format MailExportJob_Format_Field,
+	mail_export_job_mode MailExportJob_Mode_Field,
+	mail_export_job_status MailExportJob_Status_Field,
+	mail_export_job_retry_count MailExportJob_RetryCount_Field,
+	mail_export_job_progress MailExportJob_Progress_Field,
+	mail_export_job_processed_files MailExportJob_ProcessedFiles_Field,
+	mail_export_job_total_files MailExportJob_TotalFiles_Field,
+	mail_export_job_processed_bytes MailExportJob_ProcessedBytes_Field,
+	mail_export_job_total_bytes MailExportJob_TotalBytes_Field,
+	optional MailExportJob_Create_Fields) (
+	mail_export_job *MailExportJob, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := mail_export_job_id.value()
+	__user_id_val := mail_export_job_user_id.value()
+	__project_id_val := mail_export_job_project_id.value()
+	__access_key_id_val := mail_export_job_access_key_id.value()
+	__bucket_val := mail_export_job_bucket.value()
+	__format_val := mail_export_job_format.value()
+	__mode_val := mail_export_job_mode.value()
+	__prefix_val := optional.Prefix.value()
+	__keys_json_val := optional.KeysJson.value()
+	__access_grant_val := optional.AccessGrant.value()
+	__status_val := mail_export_job_status.value()
+	__retry_count_val := mail_export_job_retry_count.value()
+	__progress_val := mail_export_job_progress.value()
+	__processed_files_val := mail_export_job_processed_files.value()
+	__total_files_val := mail_export_job_total_files.value()
+	__processed_bytes_val := mail_export_job_processed_bytes.value()
+	__total_bytes_val := mail_export_job_total_bytes.value()
+	__current_object_val := optional.CurrentObject.value()
+	__archive_bucket_val := optional.ArchiveBucket.value()
+	__archive_key_val := optional.ArchiveKey.value()
+	__archive_name_val := optional.ArchiveName.value()
+	__error_message_val := optional.ErrorMessage.value()
+	__last_download_charge_id_val := optional.LastDownloadChargeId.value()
+	__last_download_charged_bytes_val := optional.LastDownloadChargedBytes.value()
+	__created_at_val := __now
+	__started_at_val := optional.StartedAt.value()
+	__completed_at_val := optional.CompletedAt.value()
+	__expires_at_val := optional.ExpiresAt.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO mail_export_jobs ( id, user_id, project_id, access_key_id, bucket, format, mode, prefix, keys_json, access_grant, status, retry_count, progress, processed_files, total_files, processed_bytes, total_bytes, current_object, archive_bucket, archive_key, archive_name, error_message, last_download_charge_id, last_download_charged_bytes, created_at, started_at, completed_at, expires_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING mail_export_jobs.id, mail_export_jobs.user_id, mail_export_jobs.project_id, mail_export_jobs.access_key_id, mail_export_jobs.bucket, mail_export_jobs.format, mail_export_jobs.mode, mail_export_jobs.prefix, mail_export_jobs.keys_json, mail_export_jobs.access_grant, mail_export_jobs.status, mail_export_jobs.retry_count, mail_export_jobs.progress, mail_export_jobs.processed_files, mail_export_jobs.total_files, mail_export_jobs.processed_bytes, mail_export_jobs.total_bytes, mail_export_jobs.current_object, mail_export_jobs.archive_bucket, mail_export_jobs.archive_key, mail_export_jobs.archive_name, mail_export_jobs.error_message, mail_export_jobs.last_download_charge_id, mail_export_jobs.last_download_charged_bytes, mail_export_jobs.created_at, mail_export_jobs.started_at, mail_export_jobs.completed_at, mail_export_jobs.expires_at")
+
+	var __values []any
+	__values = append(__values, __id_val, __user_id_val, __project_id_val, __access_key_id_val, __bucket_val, __format_val, __mode_val, __prefix_val, __keys_json_val, __access_grant_val, __status_val, __retry_count_val, __progress_val, __processed_files_val, __total_files_val, __processed_bytes_val, __total_bytes_val, __current_object_val, __archive_bucket_val, __archive_key_val, __archive_name_val, __error_message_val, __last_download_charge_id_val, __last_download_charged_bytes_val, __created_at_val, __started_at_val, __completed_at_val, __expires_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	mail_export_job = &MailExportJob{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&mail_export_job.Id, &mail_export_job.UserId, &mail_export_job.ProjectId, &mail_export_job.AccessKeyId, &mail_export_job.Bucket, &mail_export_job.Format, &mail_export_job.Mode, &mail_export_job.Prefix, &mail_export_job.KeysJson, &mail_export_job.AccessGrant, &mail_export_job.Status, &mail_export_job.RetryCount, &mail_export_job.Progress, &mail_export_job.ProcessedFiles, &mail_export_job.TotalFiles, &mail_export_job.ProcessedBytes, &mail_export_job.TotalBytes, &mail_export_job.CurrentObject, &mail_export_job.ArchiveBucket, &mail_export_job.ArchiveKey, &mail_export_job.ArchiveName, &mail_export_job.ErrorMessage, &mail_export_job.LastDownloadChargeId, &mail_export_job.LastDownloadChargedBytes, &mail_export_job.CreatedAt, &mail_export_job.StartedAt, &mail_export_job.CompletedAt, &mail_export_job.ExpiresAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return mail_export_job, nil
+
+}
+
 func (obj *pgxImpl) ReplaceNoReturn_NodeApiVersion(ctx context.Context,
 	node_api_version_id NodeApiVersion_Id_Field,
 	node_api_version_api_version NodeApiVersion_ApiVersion_Field) (
@@ -29633,6 +30556,31 @@ func (obj *pgxImpl) Get_PeerIdentity_LeafSerialNumber_By_NodeId(ctx context.Cont
 		return (*LeafSerialNumber_Row)(nil), obj.makeErr(err)
 	}
 	return row, nil
+
+}
+
+func (obj *pgxImpl) Get_MailExportJob_By_Id(ctx context.Context,
+	mail_export_job_id MailExportJob_Id_Field) (
+	mail_export_job *MailExportJob, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT mail_export_jobs.id, mail_export_jobs.user_id, mail_export_jobs.project_id, mail_export_jobs.access_key_id, mail_export_jobs.bucket, mail_export_jobs.format, mail_export_jobs.mode, mail_export_jobs.prefix, mail_export_jobs.keys_json, mail_export_jobs.access_grant, mail_export_jobs.status, mail_export_jobs.retry_count, mail_export_jobs.progress, mail_export_jobs.processed_files, mail_export_jobs.total_files, mail_export_jobs.processed_bytes, mail_export_jobs.total_bytes, mail_export_jobs.current_object, mail_export_jobs.archive_bucket, mail_export_jobs.archive_key, mail_export_jobs.archive_name, mail_export_jobs.error_message, mail_export_jobs.last_download_charge_id, mail_export_jobs.last_download_charged_bytes, mail_export_jobs.created_at, mail_export_jobs.started_at, mail_export_jobs.completed_at, mail_export_jobs.expires_at FROM mail_export_jobs WHERE mail_export_jobs.id = ?")
+
+	var __values []any
+	__values = append(__values, mail_export_job_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	mail_export_job = &MailExportJob{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&mail_export_job.Id, &mail_export_job.UserId, &mail_export_job.ProjectId, &mail_export_job.AccessKeyId, &mail_export_job.Bucket, &mail_export_job.Format, &mail_export_job.Mode, &mail_export_job.Prefix, &mail_export_job.KeysJson, &mail_export_job.AccessGrant, &mail_export_job.Status, &mail_export_job.RetryCount, &mail_export_job.Progress, &mail_export_job.ProcessedFiles, &mail_export_job.TotalFiles, &mail_export_job.ProcessedBytes, &mail_export_job.TotalBytes, &mail_export_job.CurrentObject, &mail_export_job.ArchiveBucket, &mail_export_job.ArchiveKey, &mail_export_job.ArchiveName, &mail_export_job.ErrorMessage, &mail_export_job.LastDownloadChargeId, &mail_export_job.LastDownloadChargedBytes, &mail_export_job.CreatedAt, &mail_export_job.StartedAt, &mail_export_job.CompletedAt, &mail_export_job.ExpiresAt)
+	if err != nil {
+		return (*MailExportJob)(nil), obj.makeErr(err)
+	}
+	return mail_export_job, nil
 
 }
 
@@ -35792,6 +36740,146 @@ func (obj *pgxImpl) UpdateNoReturn_PeerIdentity_By_NodeId(ctx context.Context,
 	return nil
 }
 
+func (obj *pgxImpl) Update_MailExportJob_By_Id(ctx context.Context,
+	mail_export_job_id MailExportJob_Id_Field,
+	update MailExportJob_Update_Fields) (
+	mail_export_job *MailExportJob, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE mail_export_jobs SET "), __sets, __sqlbundle_Literal(" WHERE mail_export_jobs.id = ? RETURNING mail_export_jobs.id, mail_export_jobs.user_id, mail_export_jobs.project_id, mail_export_jobs.access_key_id, mail_export_jobs.bucket, mail_export_jobs.format, mail_export_jobs.mode, mail_export_jobs.prefix, mail_export_jobs.keys_json, mail_export_jobs.access_grant, mail_export_jobs.status, mail_export_jobs.retry_count, mail_export_jobs.progress, mail_export_jobs.processed_files, mail_export_jobs.total_files, mail_export_jobs.processed_bytes, mail_export_jobs.total_bytes, mail_export_jobs.current_object, mail_export_jobs.archive_bucket, mail_export_jobs.archive_key, mail_export_jobs.archive_name, mail_export_jobs.error_message, mail_export_jobs.last_download_charge_id, mail_export_jobs.last_download_charged_bytes, mail_export_jobs.created_at, mail_export_jobs.started_at, mail_export_jobs.completed_at, mail_export_jobs.expires_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.Prefix._set {
+		__values = append(__values, update.Prefix.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("prefix = ?"))
+	}
+
+	if update.KeysJson._set {
+		__values = append(__values, update.KeysJson.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("keys_json = ?"))
+	}
+
+	if update.AccessGrant._set {
+		__values = append(__values, update.AccessGrant.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("access_grant = ?"))
+	}
+
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+
+	if update.RetryCount._set {
+		__values = append(__values, update.RetryCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("retry_count = ?"))
+	}
+
+	if update.Progress._set {
+		__values = append(__values, update.Progress.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("progress = ?"))
+	}
+
+	if update.ProcessedFiles._set {
+		__values = append(__values, update.ProcessedFiles.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("processed_files = ?"))
+	}
+
+	if update.TotalFiles._set {
+		__values = append(__values, update.TotalFiles.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("total_files = ?"))
+	}
+
+	if update.ProcessedBytes._set {
+		__values = append(__values, update.ProcessedBytes.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("processed_bytes = ?"))
+	}
+
+	if update.TotalBytes._set {
+		__values = append(__values, update.TotalBytes.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("total_bytes = ?"))
+	}
+
+	if update.CurrentObject._set {
+		__values = append(__values, update.CurrentObject.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("current_object = ?"))
+	}
+
+	if update.ArchiveBucket._set {
+		__values = append(__values, update.ArchiveBucket.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("archive_bucket = ?"))
+	}
+
+	if update.ArchiveKey._set {
+		__values = append(__values, update.ArchiveKey.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("archive_key = ?"))
+	}
+
+	if update.ArchiveName._set {
+		__values = append(__values, update.ArchiveName.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("archive_name = ?"))
+	}
+
+	if update.ErrorMessage._set {
+		__values = append(__values, update.ErrorMessage.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("error_message = ?"))
+	}
+
+	if update.LastDownloadChargeId._set {
+		__values = append(__values, update.LastDownloadChargeId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_download_charge_id = ?"))
+	}
+
+	if update.LastDownloadChargedBytes._set {
+		__values = append(__values, update.LastDownloadChargedBytes.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_download_charged_bytes = ?"))
+	}
+
+	if update.StartedAt._set {
+		__values = append(__values, update.StartedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("started_at = ?"))
+	}
+
+	if update.CompletedAt._set {
+		__values = append(__values, update.CompletedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("completed_at = ?"))
+	}
+
+	if update.ExpiresAt._set {
+		__values = append(__values, update.ExpiresAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("expires_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, mail_export_job_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	mail_export_job = &MailExportJob{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&mail_export_job.Id, &mail_export_job.UserId, &mail_export_job.ProjectId, &mail_export_job.AccessKeyId, &mail_export_job.Bucket, &mail_export_job.Format, &mail_export_job.Mode, &mail_export_job.Prefix, &mail_export_job.KeysJson, &mail_export_job.AccessGrant, &mail_export_job.Status, &mail_export_job.RetryCount, &mail_export_job.Progress, &mail_export_job.ProcessedFiles, &mail_export_job.TotalFiles, &mail_export_job.ProcessedBytes, &mail_export_job.TotalBytes, &mail_export_job.CurrentObject, &mail_export_job.ArchiveBucket, &mail_export_job.ArchiveKey, &mail_export_job.ArchiveName, &mail_export_job.ErrorMessage, &mail_export_job.LastDownloadChargeId, &mail_export_job.LastDownloadChargedBytes, &mail_export_job.CreatedAt, &mail_export_job.StartedAt, &mail_export_job.CompletedAt, &mail_export_job.ExpiresAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return mail_export_job, nil
+}
+
 func (obj *pgxImpl) Update_Node_By_Id(ctx context.Context,
 	node_id Node_Id_Field,
 	update Node_Update_Fields) (
@@ -41816,6 +42904,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM mail_export_jobs;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM key_versions;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -43197,6 +44295,75 @@ func (obj *pgxcockroachImpl) CreateNoReturn_Revocation(ctx context.Context,
 		return obj.makeErr(err)
 	}
 	return nil
+
+}
+
+func (obj *pgxcockroachImpl) Create_MailExportJob(ctx context.Context,
+	mail_export_job_id MailExportJob_Id_Field,
+	mail_export_job_user_id MailExportJob_UserId_Field,
+	mail_export_job_project_id MailExportJob_ProjectId_Field,
+	mail_export_job_access_key_id MailExportJob_AccessKeyId_Field,
+	mail_export_job_bucket MailExportJob_Bucket_Field,
+	mail_export_job_format MailExportJob_Format_Field,
+	mail_export_job_mode MailExportJob_Mode_Field,
+	mail_export_job_status MailExportJob_Status_Field,
+	mail_export_job_retry_count MailExportJob_RetryCount_Field,
+	mail_export_job_progress MailExportJob_Progress_Field,
+	mail_export_job_processed_files MailExportJob_ProcessedFiles_Field,
+	mail_export_job_total_files MailExportJob_TotalFiles_Field,
+	mail_export_job_processed_bytes MailExportJob_ProcessedBytes_Field,
+	mail_export_job_total_bytes MailExportJob_TotalBytes_Field,
+	optional MailExportJob_Create_Fields) (
+	mail_export_job *MailExportJob, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := mail_export_job_id.value()
+	__user_id_val := mail_export_job_user_id.value()
+	__project_id_val := mail_export_job_project_id.value()
+	__access_key_id_val := mail_export_job_access_key_id.value()
+	__bucket_val := mail_export_job_bucket.value()
+	__format_val := mail_export_job_format.value()
+	__mode_val := mail_export_job_mode.value()
+	__prefix_val := optional.Prefix.value()
+	__keys_json_val := optional.KeysJson.value()
+	__access_grant_val := optional.AccessGrant.value()
+	__status_val := mail_export_job_status.value()
+	__retry_count_val := mail_export_job_retry_count.value()
+	__progress_val := mail_export_job_progress.value()
+	__processed_files_val := mail_export_job_processed_files.value()
+	__total_files_val := mail_export_job_total_files.value()
+	__processed_bytes_val := mail_export_job_processed_bytes.value()
+	__total_bytes_val := mail_export_job_total_bytes.value()
+	__current_object_val := optional.CurrentObject.value()
+	__archive_bucket_val := optional.ArchiveBucket.value()
+	__archive_key_val := optional.ArchiveKey.value()
+	__archive_name_val := optional.ArchiveName.value()
+	__error_message_val := optional.ErrorMessage.value()
+	__last_download_charge_id_val := optional.LastDownloadChargeId.value()
+	__last_download_charged_bytes_val := optional.LastDownloadChargedBytes.value()
+	__created_at_val := __now
+	__started_at_val := optional.StartedAt.value()
+	__completed_at_val := optional.CompletedAt.value()
+	__expires_at_val := optional.ExpiresAt.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO mail_export_jobs ( id, user_id, project_id, access_key_id, bucket, format, mode, prefix, keys_json, access_grant, status, retry_count, progress, processed_files, total_files, processed_bytes, total_bytes, current_object, archive_bucket, archive_key, archive_name, error_message, last_download_charge_id, last_download_charged_bytes, created_at, started_at, completed_at, expires_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING mail_export_jobs.id, mail_export_jobs.user_id, mail_export_jobs.project_id, mail_export_jobs.access_key_id, mail_export_jobs.bucket, mail_export_jobs.format, mail_export_jobs.mode, mail_export_jobs.prefix, mail_export_jobs.keys_json, mail_export_jobs.access_grant, mail_export_jobs.status, mail_export_jobs.retry_count, mail_export_jobs.progress, mail_export_jobs.processed_files, mail_export_jobs.total_files, mail_export_jobs.processed_bytes, mail_export_jobs.total_bytes, mail_export_jobs.current_object, mail_export_jobs.archive_bucket, mail_export_jobs.archive_key, mail_export_jobs.archive_name, mail_export_jobs.error_message, mail_export_jobs.last_download_charge_id, mail_export_jobs.last_download_charged_bytes, mail_export_jobs.created_at, mail_export_jobs.started_at, mail_export_jobs.completed_at, mail_export_jobs.expires_at")
+
+	var __values []any
+	__values = append(__values, __id_val, __user_id_val, __project_id_val, __access_key_id_val, __bucket_val, __format_val, __mode_val, __prefix_val, __keys_json_val, __access_grant_val, __status_val, __retry_count_val, __progress_val, __processed_files_val, __total_files_val, __processed_bytes_val, __total_bytes_val, __current_object_val, __archive_bucket_val, __archive_key_val, __archive_name_val, __error_message_val, __last_download_charge_id_val, __last_download_charged_bytes_val, __created_at_val, __started_at_val, __completed_at_val, __expires_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	mail_export_job = &MailExportJob{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&mail_export_job.Id, &mail_export_job.UserId, &mail_export_job.ProjectId, &mail_export_job.AccessKeyId, &mail_export_job.Bucket, &mail_export_job.Format, &mail_export_job.Mode, &mail_export_job.Prefix, &mail_export_job.KeysJson, &mail_export_job.AccessGrant, &mail_export_job.Status, &mail_export_job.RetryCount, &mail_export_job.Progress, &mail_export_job.ProcessedFiles, &mail_export_job.TotalFiles, &mail_export_job.ProcessedBytes, &mail_export_job.TotalBytes, &mail_export_job.CurrentObject, &mail_export_job.ArchiveBucket, &mail_export_job.ArchiveKey, &mail_export_job.ArchiveName, &mail_export_job.ErrorMessage, &mail_export_job.LastDownloadChargeId, &mail_export_job.LastDownloadChargedBytes, &mail_export_job.CreatedAt, &mail_export_job.StartedAt, &mail_export_job.CompletedAt, &mail_export_job.ExpiresAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return mail_export_job, nil
 
 }
 
@@ -48423,6 +49590,31 @@ func (obj *pgxcockroachImpl) Get_PeerIdentity_LeafSerialNumber_By_NodeId(ctx con
 		return (*LeafSerialNumber_Row)(nil), obj.makeErr(err)
 	}
 	return row, nil
+
+}
+
+func (obj *pgxcockroachImpl) Get_MailExportJob_By_Id(ctx context.Context,
+	mail_export_job_id MailExportJob_Id_Field) (
+	mail_export_job *MailExportJob, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT mail_export_jobs.id, mail_export_jobs.user_id, mail_export_jobs.project_id, mail_export_jobs.access_key_id, mail_export_jobs.bucket, mail_export_jobs.format, mail_export_jobs.mode, mail_export_jobs.prefix, mail_export_jobs.keys_json, mail_export_jobs.access_grant, mail_export_jobs.status, mail_export_jobs.retry_count, mail_export_jobs.progress, mail_export_jobs.processed_files, mail_export_jobs.total_files, mail_export_jobs.processed_bytes, mail_export_jobs.total_bytes, mail_export_jobs.current_object, mail_export_jobs.archive_bucket, mail_export_jobs.archive_key, mail_export_jobs.archive_name, mail_export_jobs.error_message, mail_export_jobs.last_download_charge_id, mail_export_jobs.last_download_charged_bytes, mail_export_jobs.created_at, mail_export_jobs.started_at, mail_export_jobs.completed_at, mail_export_jobs.expires_at FROM mail_export_jobs WHERE mail_export_jobs.id = ?")
+
+	var __values []any
+	__values = append(__values, mail_export_job_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	mail_export_job = &MailExportJob{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&mail_export_job.Id, &mail_export_job.UserId, &mail_export_job.ProjectId, &mail_export_job.AccessKeyId, &mail_export_job.Bucket, &mail_export_job.Format, &mail_export_job.Mode, &mail_export_job.Prefix, &mail_export_job.KeysJson, &mail_export_job.AccessGrant, &mail_export_job.Status, &mail_export_job.RetryCount, &mail_export_job.Progress, &mail_export_job.ProcessedFiles, &mail_export_job.TotalFiles, &mail_export_job.ProcessedBytes, &mail_export_job.TotalBytes, &mail_export_job.CurrentObject, &mail_export_job.ArchiveBucket, &mail_export_job.ArchiveKey, &mail_export_job.ArchiveName, &mail_export_job.ErrorMessage, &mail_export_job.LastDownloadChargeId, &mail_export_job.LastDownloadChargedBytes, &mail_export_job.CreatedAt, &mail_export_job.StartedAt, &mail_export_job.CompletedAt, &mail_export_job.ExpiresAt)
+	if err != nil {
+		return (*MailExportJob)(nil), obj.makeErr(err)
+	}
+	return mail_export_job, nil
 
 }
 
@@ -54582,6 +55774,146 @@ func (obj *pgxcockroachImpl) UpdateNoReturn_PeerIdentity_By_NodeId(ctx context.C
 	return nil
 }
 
+func (obj *pgxcockroachImpl) Update_MailExportJob_By_Id(ctx context.Context,
+	mail_export_job_id MailExportJob_Id_Field,
+	update MailExportJob_Update_Fields) (
+	mail_export_job *MailExportJob, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE mail_export_jobs SET "), __sets, __sqlbundle_Literal(" WHERE mail_export_jobs.id = ? RETURNING mail_export_jobs.id, mail_export_jobs.user_id, mail_export_jobs.project_id, mail_export_jobs.access_key_id, mail_export_jobs.bucket, mail_export_jobs.format, mail_export_jobs.mode, mail_export_jobs.prefix, mail_export_jobs.keys_json, mail_export_jobs.access_grant, mail_export_jobs.status, mail_export_jobs.retry_count, mail_export_jobs.progress, mail_export_jobs.processed_files, mail_export_jobs.total_files, mail_export_jobs.processed_bytes, mail_export_jobs.total_bytes, mail_export_jobs.current_object, mail_export_jobs.archive_bucket, mail_export_jobs.archive_key, mail_export_jobs.archive_name, mail_export_jobs.error_message, mail_export_jobs.last_download_charge_id, mail_export_jobs.last_download_charged_bytes, mail_export_jobs.created_at, mail_export_jobs.started_at, mail_export_jobs.completed_at, mail_export_jobs.expires_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.Prefix._set {
+		__values = append(__values, update.Prefix.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("prefix = ?"))
+	}
+
+	if update.KeysJson._set {
+		__values = append(__values, update.KeysJson.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("keys_json = ?"))
+	}
+
+	if update.AccessGrant._set {
+		__values = append(__values, update.AccessGrant.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("access_grant = ?"))
+	}
+
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+
+	if update.RetryCount._set {
+		__values = append(__values, update.RetryCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("retry_count = ?"))
+	}
+
+	if update.Progress._set {
+		__values = append(__values, update.Progress.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("progress = ?"))
+	}
+
+	if update.ProcessedFiles._set {
+		__values = append(__values, update.ProcessedFiles.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("processed_files = ?"))
+	}
+
+	if update.TotalFiles._set {
+		__values = append(__values, update.TotalFiles.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("total_files = ?"))
+	}
+
+	if update.ProcessedBytes._set {
+		__values = append(__values, update.ProcessedBytes.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("processed_bytes = ?"))
+	}
+
+	if update.TotalBytes._set {
+		__values = append(__values, update.TotalBytes.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("total_bytes = ?"))
+	}
+
+	if update.CurrentObject._set {
+		__values = append(__values, update.CurrentObject.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("current_object = ?"))
+	}
+
+	if update.ArchiveBucket._set {
+		__values = append(__values, update.ArchiveBucket.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("archive_bucket = ?"))
+	}
+
+	if update.ArchiveKey._set {
+		__values = append(__values, update.ArchiveKey.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("archive_key = ?"))
+	}
+
+	if update.ArchiveName._set {
+		__values = append(__values, update.ArchiveName.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("archive_name = ?"))
+	}
+
+	if update.ErrorMessage._set {
+		__values = append(__values, update.ErrorMessage.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("error_message = ?"))
+	}
+
+	if update.LastDownloadChargeId._set {
+		__values = append(__values, update.LastDownloadChargeId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_download_charge_id = ?"))
+	}
+
+	if update.LastDownloadChargedBytes._set {
+		__values = append(__values, update.LastDownloadChargedBytes.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_download_charged_bytes = ?"))
+	}
+
+	if update.StartedAt._set {
+		__values = append(__values, update.StartedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("started_at = ?"))
+	}
+
+	if update.CompletedAt._set {
+		__values = append(__values, update.CompletedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("completed_at = ?"))
+	}
+
+	if update.ExpiresAt._set {
+		__values = append(__values, update.ExpiresAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("expires_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, mail_export_job_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	mail_export_job = &MailExportJob{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&mail_export_job.Id, &mail_export_job.UserId, &mail_export_job.ProjectId, &mail_export_job.AccessKeyId, &mail_export_job.Bucket, &mail_export_job.Format, &mail_export_job.Mode, &mail_export_job.Prefix, &mail_export_job.KeysJson, &mail_export_job.AccessGrant, &mail_export_job.Status, &mail_export_job.RetryCount, &mail_export_job.Progress, &mail_export_job.ProcessedFiles, &mail_export_job.TotalFiles, &mail_export_job.ProcessedBytes, &mail_export_job.TotalBytes, &mail_export_job.CurrentObject, &mail_export_job.ArchiveBucket, &mail_export_job.ArchiveKey, &mail_export_job.ArchiveName, &mail_export_job.ErrorMessage, &mail_export_job.LastDownloadChargeId, &mail_export_job.LastDownloadChargedBytes, &mail_export_job.CreatedAt, &mail_export_job.StartedAt, &mail_export_job.CompletedAt, &mail_export_job.ExpiresAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return mail_export_job, nil
+}
+
 func (obj *pgxcockroachImpl) Update_Node_By_Id(ctx context.Context,
 	node_id Node_Id_Field,
 	update Node_Update_Fields) (
@@ -60606,6 +61938,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM mail_export_jobs;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM key_versions;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -62138,6 +63480,81 @@ func (obj *spannerImpl) CreateNoReturn_Revocation(ctx context.Context,
 		return obj.makeErr(err)
 	}
 	return nil
+
+}
+
+func (obj *spannerImpl) Create_MailExportJob(ctx context.Context,
+	mail_export_job_id MailExportJob_Id_Field,
+	mail_export_job_user_id MailExportJob_UserId_Field,
+	mail_export_job_project_id MailExportJob_ProjectId_Field,
+	mail_export_job_access_key_id MailExportJob_AccessKeyId_Field,
+	mail_export_job_bucket MailExportJob_Bucket_Field,
+	mail_export_job_format MailExportJob_Format_Field,
+	mail_export_job_mode MailExportJob_Mode_Field,
+	mail_export_job_status MailExportJob_Status_Field,
+	mail_export_job_retry_count MailExportJob_RetryCount_Field,
+	mail_export_job_progress MailExportJob_Progress_Field,
+	mail_export_job_processed_files MailExportJob_ProcessedFiles_Field,
+	mail_export_job_total_files MailExportJob_TotalFiles_Field,
+	mail_export_job_processed_bytes MailExportJob_ProcessedBytes_Field,
+	mail_export_job_total_bytes MailExportJob_TotalBytes_Field,
+	optional MailExportJob_Create_Fields) (
+	mail_export_job *MailExportJob, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := mail_export_job_id.value()
+	__user_id_val := mail_export_job_user_id.value()
+	__project_id_val := mail_export_job_project_id.value()
+	__access_key_id_val := mail_export_job_access_key_id.value()
+	__bucket_val := mail_export_job_bucket.value()
+	__format_val := mail_export_job_format.value()
+	__mode_val := mail_export_job_mode.value()
+	__prefix_val := optional.Prefix.value()
+	__keys_json_val := spannerConvertJSON(optional.KeysJson.value())
+	__access_grant_val := optional.AccessGrant.value()
+	__status_val := mail_export_job_status.value()
+	__retry_count_val := mail_export_job_retry_count.value()
+	__progress_val := mail_export_job_progress.value()
+	__processed_files_val := mail_export_job_processed_files.value()
+	__total_files_val := mail_export_job_total_files.value()
+	__processed_bytes_val := mail_export_job_processed_bytes.value()
+	__total_bytes_val := mail_export_job_total_bytes.value()
+	__current_object_val := optional.CurrentObject.value()
+	__archive_bucket_val := optional.ArchiveBucket.value()
+	__archive_key_val := optional.ArchiveKey.value()
+	__archive_name_val := optional.ArchiveName.value()
+	__error_message_val := optional.ErrorMessage.value()
+	__last_download_charge_id_val := optional.LastDownloadChargeId.value()
+	__last_download_charged_bytes_val := optional.LastDownloadChargedBytes.value()
+	__created_at_val := __now
+	__started_at_val := optional.StartedAt.value()
+	__completed_at_val := optional.CompletedAt.value()
+	__expires_at_val := optional.ExpiresAt.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO mail_export_jobs ( id, user_id, project_id, access_key_id, bucket, format, mode, prefix, keys_json, access_grant, status, retry_count, progress, processed_files, total_files, processed_bytes, total_bytes, current_object, archive_bucket, archive_key, archive_name, error_message, last_download_charge_id, last_download_charged_bytes, created_at, started_at, completed_at, expires_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) THEN RETURN mail_export_jobs.id, mail_export_jobs.user_id, mail_export_jobs.project_id, mail_export_jobs.access_key_id, mail_export_jobs.bucket, mail_export_jobs.format, mail_export_jobs.mode, mail_export_jobs.prefix, mail_export_jobs.keys_json, mail_export_jobs.access_grant, mail_export_jobs.status, mail_export_jobs.retry_count, mail_export_jobs.progress, mail_export_jobs.processed_files, mail_export_jobs.total_files, mail_export_jobs.processed_bytes, mail_export_jobs.total_bytes, mail_export_jobs.current_object, mail_export_jobs.archive_bucket, mail_export_jobs.archive_key, mail_export_jobs.archive_name, mail_export_jobs.error_message, mail_export_jobs.last_download_charge_id, mail_export_jobs.last_download_charged_bytes, mail_export_jobs.created_at, mail_export_jobs.started_at, mail_export_jobs.completed_at, mail_export_jobs.expires_at")
+
+	var __values []any
+	__values = append(__values, __id_val, __user_id_val, __project_id_val, __access_key_id_val, __bucket_val, __format_val, __mode_val, __prefix_val, __keys_json_val, __access_grant_val, __status_val, __retry_count_val, __progress_val, __processed_files_val, __total_files_val, __processed_bytes_val, __total_bytes_val, __current_object_val, __archive_bucket_val, __archive_key_val, __archive_name_val, __error_message_val, __last_download_charge_id_val, __last_download_charged_bytes_val, __created_at_val, __started_at_val, __completed_at_val, __expires_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	mail_export_job = &MailExportJob{}
+	if !obj.txn {
+		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&mail_export_job.Id, &mail_export_job.UserId, &mail_export_job.ProjectId, &mail_export_job.AccessKeyId, &mail_export_job.Bucket, &mail_export_job.Format, &mail_export_job.Mode, &mail_export_job.Prefix, spannerConvertJSON(&mail_export_job.KeysJson), &mail_export_job.AccessGrant, &mail_export_job.Status, &mail_export_job.RetryCount, &mail_export_job.Progress, &mail_export_job.ProcessedFiles, &mail_export_job.TotalFiles, &mail_export_job.ProcessedBytes, &mail_export_job.TotalBytes, &mail_export_job.CurrentObject, &mail_export_job.ArchiveBucket, &mail_export_job.ArchiveKey, &mail_export_job.ArchiveName, &mail_export_job.ErrorMessage, &mail_export_job.LastDownloadChargeId, &mail_export_job.LastDownloadChargedBytes, &mail_export_job.CreatedAt, &mail_export_job.StartedAt, &mail_export_job.CompletedAt, &mail_export_job.ExpiresAt)
+		})
+	} else {
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&mail_export_job.Id, &mail_export_job.UserId, &mail_export_job.ProjectId, &mail_export_job.AccessKeyId, &mail_export_job.Bucket, &mail_export_job.Format, &mail_export_job.Mode, &mail_export_job.Prefix, spannerConvertJSON(&mail_export_job.KeysJson), &mail_export_job.AccessGrant, &mail_export_job.Status, &mail_export_job.RetryCount, &mail_export_job.Progress, &mail_export_job.ProcessedFiles, &mail_export_job.TotalFiles, &mail_export_job.ProcessedBytes, &mail_export_job.TotalBytes, &mail_export_job.CurrentObject, &mail_export_job.ArchiveBucket, &mail_export_job.ArchiveKey, &mail_export_job.ArchiveName, &mail_export_job.ErrorMessage, &mail_export_job.LastDownloadChargeId, &mail_export_job.LastDownloadChargedBytes, &mail_export_job.CreatedAt, &mail_export_job.StartedAt, &mail_export_job.CompletedAt, &mail_export_job.ExpiresAt)
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return mail_export_job, nil
 
 }
 
@@ -67707,6 +69124,31 @@ func (obj *spannerImpl) Get_PeerIdentity_LeafSerialNumber_By_NodeId(ctx context.
 		return (*LeafSerialNumber_Row)(nil), obj.makeErr(err)
 	}
 	return row, nil
+
+}
+
+func (obj *spannerImpl) Get_MailExportJob_By_Id(ctx context.Context,
+	mail_export_job_id MailExportJob_Id_Field) (
+	mail_export_job *MailExportJob, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT mail_export_jobs.id, mail_export_jobs.user_id, mail_export_jobs.project_id, mail_export_jobs.access_key_id, mail_export_jobs.bucket, mail_export_jobs.format, mail_export_jobs.mode, mail_export_jobs.prefix, mail_export_jobs.keys_json, mail_export_jobs.access_grant, mail_export_jobs.status, mail_export_jobs.retry_count, mail_export_jobs.progress, mail_export_jobs.processed_files, mail_export_jobs.total_files, mail_export_jobs.processed_bytes, mail_export_jobs.total_bytes, mail_export_jobs.current_object, mail_export_jobs.archive_bucket, mail_export_jobs.archive_key, mail_export_jobs.archive_name, mail_export_jobs.error_message, mail_export_jobs.last_download_charge_id, mail_export_jobs.last_download_charged_bytes, mail_export_jobs.created_at, mail_export_jobs.started_at, mail_export_jobs.completed_at, mail_export_jobs.expires_at FROM mail_export_jobs WHERE mail_export_jobs.id = ?")
+
+	var __values []any
+	__values = append(__values, mail_export_job_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	mail_export_job = &MailExportJob{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&mail_export_job.Id, &mail_export_job.UserId, &mail_export_job.ProjectId, &mail_export_job.AccessKeyId, &mail_export_job.Bucket, &mail_export_job.Format, &mail_export_job.Mode, &mail_export_job.Prefix, spannerConvertJSON(&mail_export_job.KeysJson), &mail_export_job.AccessGrant, &mail_export_job.Status, &mail_export_job.RetryCount, &mail_export_job.Progress, &mail_export_job.ProcessedFiles, &mail_export_job.TotalFiles, &mail_export_job.ProcessedBytes, &mail_export_job.TotalBytes, &mail_export_job.CurrentObject, &mail_export_job.ArchiveBucket, &mail_export_job.ArchiveKey, &mail_export_job.ArchiveName, &mail_export_job.ErrorMessage, &mail_export_job.LastDownloadChargeId, &mail_export_job.LastDownloadChargedBytes, &mail_export_job.CreatedAt, &mail_export_job.StartedAt, &mail_export_job.CompletedAt, &mail_export_job.ExpiresAt)
+	if err != nil {
+		return (*MailExportJob)(nil), obj.makeErr(err)
+	}
+	return mail_export_job, nil
 
 }
 
@@ -73841,6 +75283,127 @@ func (obj *spannerImpl) UpdateNoReturn_PeerIdentity_By_NodeId(ctx context.Contex
 	return nil
 }
 
+func (obj *spannerImpl) Update_MailExportJob_By_Id(ctx context.Context,
+	mail_export_job_id MailExportJob_Id_Field,
+	update MailExportJob_Update_Fields) (
+	mail_export_job *MailExportJob, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE mail_export_jobs SET "), __sets, __sqlbundle_Literal(" WHERE mail_export_jobs.id = ? THEN RETURN mail_export_jobs.id, mail_export_jobs.user_id, mail_export_jobs.project_id, mail_export_jobs.access_key_id, mail_export_jobs.bucket, mail_export_jobs.format, mail_export_jobs.mode, mail_export_jobs.prefix, mail_export_jobs.keys_json, mail_export_jobs.access_grant, mail_export_jobs.status, mail_export_jobs.retry_count, mail_export_jobs.progress, mail_export_jobs.processed_files, mail_export_jobs.total_files, mail_export_jobs.processed_bytes, mail_export_jobs.total_bytes, mail_export_jobs.current_object, mail_export_jobs.archive_bucket, mail_export_jobs.archive_key, mail_export_jobs.archive_name, mail_export_jobs.error_message, mail_export_jobs.last_download_charge_id, mail_export_jobs.last_download_charged_bytes, mail_export_jobs.created_at, mail_export_jobs.started_at, mail_export_jobs.completed_at, mail_export_jobs.expires_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.Prefix._set {
+		__values = append(__values, update.Prefix.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("prefix = ?"))
+	}
+	if update.KeysJson._set {
+		__values = append(__values, spannerConvertJSON(update.KeysJson.value()))
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("keys_json = ?"))
+	}
+	if update.AccessGrant._set {
+		__values = append(__values, update.AccessGrant.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("access_grant = ?"))
+	}
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+	if update.RetryCount._set {
+		__values = append(__values, update.RetryCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("retry_count = ?"))
+	}
+	if update.Progress._set {
+		__values = append(__values, update.Progress.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("progress = ?"))
+	}
+	if update.ProcessedFiles._set {
+		__values = append(__values, update.ProcessedFiles.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("processed_files = ?"))
+	}
+	if update.TotalFiles._set {
+		__values = append(__values, update.TotalFiles.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("total_files = ?"))
+	}
+	if update.ProcessedBytes._set {
+		__values = append(__values, update.ProcessedBytes.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("processed_bytes = ?"))
+	}
+	if update.TotalBytes._set {
+		__values = append(__values, update.TotalBytes.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("total_bytes = ?"))
+	}
+	if update.CurrentObject._set {
+		__values = append(__values, update.CurrentObject.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("current_object = ?"))
+	}
+	if update.ArchiveBucket._set {
+		__values = append(__values, update.ArchiveBucket.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("archive_bucket = ?"))
+	}
+	if update.ArchiveKey._set {
+		__values = append(__values, update.ArchiveKey.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("archive_key = ?"))
+	}
+	if update.ArchiveName._set {
+		__values = append(__values, update.ArchiveName.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("archive_name = ?"))
+	}
+	if update.ErrorMessage._set {
+		__values = append(__values, update.ErrorMessage.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("error_message = ?"))
+	}
+	if update.LastDownloadChargeId._set {
+		__values = append(__values, update.LastDownloadChargeId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_download_charge_id = ?"))
+	}
+	if update.LastDownloadChargedBytes._set {
+		__values = append(__values, update.LastDownloadChargedBytes.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_download_charged_bytes = ?"))
+	}
+	if update.StartedAt._set {
+		__values = append(__values, update.StartedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("started_at = ?"))
+	}
+	if update.CompletedAt._set {
+		__values = append(__values, update.CompletedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("completed_at = ?"))
+	}
+	if update.ExpiresAt._set {
+		__values = append(__values, update.ExpiresAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("expires_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, mail_export_job_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	mail_export_job = &MailExportJob{}
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&mail_export_job.Id, &mail_export_job.UserId, &mail_export_job.ProjectId, &mail_export_job.AccessKeyId, &mail_export_job.Bucket, &mail_export_job.Format, &mail_export_job.Mode, &mail_export_job.Prefix, spannerConvertJSON(&mail_export_job.KeysJson), &mail_export_job.AccessGrant, &mail_export_job.Status, &mail_export_job.RetryCount, &mail_export_job.Progress, &mail_export_job.ProcessedFiles, &mail_export_job.TotalFiles, &mail_export_job.ProcessedBytes, &mail_export_job.TotalBytes, &mail_export_job.CurrentObject, &mail_export_job.ArchiveBucket, &mail_export_job.ArchiveKey, &mail_export_job.ArchiveName, &mail_export_job.ErrorMessage, &mail_export_job.LastDownloadChargeId, &mail_export_job.LastDownloadChargedBytes, &mail_export_job.CreatedAt, &mail_export_job.StartedAt, &mail_export_job.CompletedAt, &mail_export_job.ExpiresAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return mail_export_job, nil
+}
+
 func (obj *spannerImpl) Update_Node_By_Id(ctx context.Context,
 	node_id Node_Id_Field,
 	update Node_Update_Fields) (
@@ -79479,6 +81042,16 @@ func (obj *spannerImpl) deleteAll(ctx context.Context) (count int64, err error) 
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM mail_export_jobs;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM key_versions;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -80301,6 +81874,24 @@ type Methods interface {
 		optional GoogleBackupCredentials_Create_Fields) (
 		google_backup_credentials *GoogleBackupCredentials, err error)
 
+	Create_MailExportJob(ctx context.Context,
+		mail_export_job_id MailExportJob_Id_Field,
+		mail_export_job_user_id MailExportJob_UserId_Field,
+		mail_export_job_project_id MailExportJob_ProjectId_Field,
+		mail_export_job_access_key_id MailExportJob_AccessKeyId_Field,
+		mail_export_job_bucket MailExportJob_Bucket_Field,
+		mail_export_job_format MailExportJob_Format_Field,
+		mail_export_job_mode MailExportJob_Mode_Field,
+		mail_export_job_status MailExportJob_Status_Field,
+		mail_export_job_retry_count MailExportJob_RetryCount_Field,
+		mail_export_job_progress MailExportJob_Progress_Field,
+		mail_export_job_processed_files MailExportJob_ProcessedFiles_Field,
+		mail_export_job_total_files MailExportJob_TotalFiles_Field,
+		mail_export_job_processed_bytes MailExportJob_ProcessedBytes_Field,
+		mail_export_job_total_bytes MailExportJob_TotalBytes_Field,
+		optional MailExportJob_Create_Fields) (
+		mail_export_job *MailExportJob, err error)
+
 	Create_NodeEvent(ctx context.Context,
 		node_event_id NodeEvent_Id_Field,
 		node_event_email NodeEvent_Email_Field,
@@ -80954,6 +82545,10 @@ type Methods interface {
 	Get_KeyVersion_Version_By_KeyId(ctx context.Context,
 		key_version_key_id KeyVersion_KeyId_Field) (
 		row *Version_Row, err error)
+
+	Get_MailExportJob_By_Id(ctx context.Context,
+		mail_export_job_id MailExportJob_Id_Field) (
+		mail_export_job *MailExportJob, err error)
 
 	Get_NodeEvent_By_Id(ctx context.Context,
 		node_event_id NodeEvent_Id_Field) (
@@ -81650,6 +83245,11 @@ type Methods interface {
 		key_version_key_id KeyVersion_KeyId_Field,
 		update KeyVersion_Update_Fields) (
 		key_version *KeyVersion, err error)
+
+	Update_MailExportJob_By_Id(ctx context.Context,
+		mail_export_job_id MailExportJob_Id_Field,
+		update MailExportJob_Update_Fields) (
+		mail_export_job *MailExportJob, err error)
 
 	Update_Node_By_Id(ctx context.Context,
 		node_id Node_Id_Field,

@@ -322,6 +322,8 @@ type Service struct {
 	socialShareHelper smartcontract.SocialShareHelper
 	backupToolsURL    string
 
+	mailExportOrdersDB MailExportOrdersDB
+
 	loginURL   string
 	supportURL string
 	skuEnabled bool
@@ -875,6 +877,170 @@ func (s *Service) ClearGoogleBackupTokensForBackupTools(ctx context.Context, req
 		return Error.Wrap(err)
 	}
 	return nil
+}
+
+// CreateMailExportJob inserts a QUEUED mail export job. Caller must authenticate (Bearer token).
+func (s *Service) CreateMailExportJob(ctx context.Context, job CreateMailExportJob) (_ *MailExportJob, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if strings.TrimSpace(job.ID) == "" || strings.TrimSpace(job.UserID) == "" ||
+		strings.TrimSpace(job.ProjectID) == "" || strings.TrimSpace(job.Bucket) == "" ||
+		strings.TrimSpace(job.Format) == "" || strings.TrimSpace(job.Mode) == "" {
+		return nil, ErrValidation.New("id, userId, projectId, bucket, format, and mode are required")
+	}
+	created, err := s.store.MailExportJobs().Create(ctx, job)
+	return created, Error.Wrap(err)
+}
+
+// GetMailExportJob returns a mail export job by id. Caller must authenticate (Bearer token).
+func (s *Service) GetMailExportJob(ctx context.Context, id string) (_ *MailExportJob, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if strings.TrimSpace(id) == "" {
+		return nil, ErrValidation.New("id is required")
+	}
+	job, err := s.store.MailExportJobs().Get(ctx, id)
+	if err != nil {
+		if ErrMailExportJobNotFound.Has(err) {
+			return nil, err
+		}
+		return nil, Error.Wrap(err)
+	}
+	return job, nil
+}
+
+// ClaimMailExportJob atomically claims one QUEUED job. Caller must authenticate (Bearer token).
+func (s *Service) ClaimMailExportJob(ctx context.Context) (_ *MailExportJob, err error) {
+	defer mon.Task()(&ctx)(&err)
+	job, err := s.store.MailExportJobs().Claim(ctx)
+	if err != nil {
+		if ErrMailExportJobNotFound.Has(err) {
+			return nil, err
+		}
+		return nil, Error.Wrap(err)
+	}
+	return job, nil
+}
+
+// PatchMailExportJob updates job progress/status. Caller must authenticate (Bearer token).
+func (s *Service) PatchMailExportJob(ctx context.Context, id string, patch PatchMailExportJob) (_ *MailExportJob, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if strings.TrimSpace(id) == "" {
+		return nil, ErrValidation.New("id is required")
+	}
+	job, err := s.store.MailExportJobs().Patch(ctx, id, patch)
+	if err != nil {
+		if ErrMailExportJobNotFound.Has(err) {
+			return nil, err
+		}
+		return nil, Error.Wrap(err)
+	}
+	return job, nil
+}
+
+// CancelMailExportJob cancels a QUEUED/PROCESSING job. Caller must authenticate (Bearer token).
+func (s *Service) CancelMailExportJob(ctx context.Context, id string) (_ *MailExportJob, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if strings.TrimSpace(id) == "" {
+		return nil, ErrValidation.New("id is required")
+	}
+	job, err := s.store.MailExportJobs().Cancel(ctx, id)
+	if err != nil {
+		if ErrMailExportJobNotFound.Has(err) {
+			return nil, err
+		}
+		return nil, Error.Wrap(err)
+	}
+	return job, nil
+}
+
+// ExpireMailExportJobs marks past-expires SUCCEEDED jobs as EXPIRED. Caller must authenticate (Bearer token).
+func (s *Service) ExpireMailExportJobs(ctx context.Context) (_ []MailExportJob, err error) {
+	defer mon.Task()(&ctx)(&err)
+	jobs, err := s.store.MailExportJobs().Expire(ctx)
+	return jobs, Error.Wrap(err)
+}
+
+// RequeueStaleMailExportJobs returns PROCESSING jobs older than olderThan to QUEUED.
+// Caller must authenticate (Bearer token).
+func (s *Service) RequeueStaleMailExportJobs(ctx context.Context, olderThan time.Duration) (count int, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if olderThan <= 0 {
+		return 0, ErrValidation.New("olderThan must be positive")
+	}
+	count, err = s.store.MailExportJobs().RequeueStale(ctx, olderThan)
+	return count, Error.Wrap(err)
+}
+
+// GetAvailableBandwidthForMailExport returns remaining project bandwidth bytes for GMT quota checks.
+// Caller must authenticate (Bearer token). Prefer accessGrant (resolves real project via API key head).
+// projectID is only used when it is a real Satellite UUID (public or internal).
+func (s *Service) GetAvailableBandwidthForMailExport(ctx context.Context, userID, projectID, accessKeyID, accessGrant string) (available int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	_ = userID
+	_ = accessKeyID
+
+	project, err := s.resolveProjectForMailExportQuota(ctx, projectID, accessGrant)
+	if err != nil {
+		return 0, err
+	}
+
+	limits, err := s.getProjectUsageLimits(ctx, project.ID, false)
+	if err != nil {
+		return 0, Error.Wrap(err)
+	}
+
+	return AvailableBandwidthBytes(limits.BandwidthLimit, limits.BandwidthUsed), nil
+}
+
+func (s *Service) resolveProjectForMailExportQuota(ctx context.Context, projectID, accessGrant string) (*Project, error) {
+	accessGrant = strings.TrimSpace(accessGrant)
+	if accessGrant != "" {
+		access, err := grant.ParseAccess(accessGrant)
+		if err != nil {
+			return nil, ErrValidation.New("invalid accessGrant")
+		}
+		apiKeyInfo, err := s.store.APIKeys().GetByHead(ctx, access.APIKey.Head())
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, ErrMailExportJobNotFound.New("api key not found for accessGrant")
+			}
+			return nil, Error.Wrap(err)
+		}
+		project, err := s.GetProjectNoAuth(ctx, apiKeyInfo.ProjectID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, ErrMailExportJobNotFound.New("project not found for accessGrant")
+			}
+			return nil, Error.Wrap(err)
+		}
+		return project, nil
+	}
+
+	projectID = strings.TrimSpace(projectID)
+	if projectID == "" {
+		return nil, ErrValidation.New("accessGrant or projectId is required")
+	}
+	projectUUID, err := uuid.FromString(projectID)
+	if err != nil {
+		// GMT may send opaque identity hashes — those are not Satellite UUIDs.
+		return nil, ErrValidation.New("projectId is not a Satellite UUID; send accessGrant instead")
+	}
+	project, err := s.GetProjectNoAuth(ctx, projectUUID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrMailExportJobNotFound.New("project not found")
+		}
+		return nil, Error.Wrap(err)
+	}
+	return project, nil
+}
+
+// AvailableBandwidthBytes returns remaining bandwidth floored at zero.
+func AvailableBandwidthBytes(limit, used int64) int64 {
+	available := limit - used
+	if available < 0 {
+		return 0
+	}
+	return available
 }
 
 func init() {

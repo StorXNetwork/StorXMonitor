@@ -850,6 +850,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			return nil, errs.Combine(err, peer.Close())
 		}
 		peer.Console.Service.SetResellerTenantLookup(consoleweb.NewResellerTenantResolver(peer.DB.Seller(), consoleConfig.SellerExternalAddress))
+		peer.Console.Service.SetMailExportOrdersDB(peer.Orders.DB)
 		if peer.Mail.Service != nil {
 			peer.Mail.Service.SetBrandingResolver(peer.Console.Service.ResellerMailBranding)
 			peer.Mail.Service.SetSenderResolver(peer.Console.Service.ResellerMailSender)
@@ -1275,6 +1276,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				return nil, errs.Combine(err, peer.Close())
 			}
 			peer.Console.Service.SetResellerTenantLookup(consoleweb.NewResellerTenantResolver(peer.DB.Seller(), consoleConfig.SellerExternalAddress))
+			peer.Console.Service.SetMailExportOrdersDB(peer.Orders.DB)
 			if peer.Mail.Service != nil {
 				peer.Mail.Service.SetBrandingResolver(peer.Console.Service.ResellerMailBranding)
 				peer.Mail.Service.SetSenderResolver(peer.Console.Service.ResellerMailSender)

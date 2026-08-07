@@ -772,8 +772,12 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		return nil, err
 	}
 
-	if err := endpoint.checkDownloadLimits(ctx, keyInfo); err != nil {
-		return nil, err
+	internalDownload := endpoint.useInternalGetDownload(trusted, req.Header.UserAgent)
+
+	if !internalDownload {
+		if err := endpoint.checkDownloadLimits(ctx, keyInfo); err != nil {
+			return nil, err
+		}
 	}
 
 	id, err := uuid.FromBytes(streamID.StreamId)
@@ -808,20 +812,22 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	}
 
 	// Update the current bandwidth cache value incrementing the SegmentSize.
-	err = endpoint.projectUsage.UpdateProjectBandwidthUsage(ctx, keyInfoToLimits(keyInfo), int64(segment.EncryptedSize))
-	if err != nil {
-		// don't log errors if it was user cancellation
-		if errors.Is(ctx.Err(), context.Canceled) {
-			return nil, rpcstatus.Wrap(rpcstatus.Canceled, err)
-		}
+	if !internalDownload {
+		err = endpoint.projectUsage.UpdateProjectBandwidthUsage(ctx, keyInfoToLimits(keyInfo), int64(segment.EncryptedSize))
+		if err != nil {
+			// don't log errors if it was user cancellation
+			if errors.Is(ctx.Err(), context.Canceled) {
+				return nil, rpcstatus.Wrap(rpcstatus.Canceled, err)
+			}
 
-		// log it and continue. it's most likely our own fault that we couldn't
-		// track it, and the only thing that will be affected is our per-project
-		// bandwidth limits.
-		endpoint.log.Error("Could not track the new project's bandwidth usage when downloading a segment",
-			zap.Stringer("public_id", keyInfo.ProjectPublicID),
-			zap.Error(err),
-		)
+			// log it and continue. it's most likely our own fault that we couldn't
+			// track it, and the only thing that will be affected is our per-project
+			// bandwidth limits.
+			endpoint.log.Error("Could not track the new project's bandwidth usage when downloading a segment",
+				zap.Stringer("public_id", keyInfo.ProjectPublicID),
+				zap.Error(err),
+			)
+		}
 	}
 
 	encryptedKeyNonce, err := storxnetwork.NonceFromBytes(segment.EncryptedKeyNonce)
@@ -832,8 +838,8 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	bucket := metabase.BucketLocation{ProjectID: keyInfo.ProjectID, BucketName: metabase.BucketName(streamID.Bucket)}
 
 	if segment.Inline() {
-		// skip egress tracking for server-side copy operation
-		if !req.ServerSideCopy {
+		// skip egress tracking for server-side copy and internal mail-export downloads
+		if !req.ServerSideCopy && !internalDownload {
 			if err := endpoint.orders.UpdateGetInlineOrder(ctx, bucket, int64(len(segment.InlineData))); err != nil {
 				return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to update GET inline order")
 			}
@@ -866,7 +872,15 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	}
 
 	// Remote segment
-	limits, privateKey, err := endpoint.orders.CreateGetOrderLimits(ctx, peer, bucket, segment, req.GetDesiredNodes(), 0)
+	var (
+		limits     []*pb.AddressedOrderLimit
+		privateKey storxnetwork.PiecePrivateKey
+	)
+	if internalDownload {
+		limits, privateKey, err = endpoint.orders.CreateInternalGetOrderLimits(ctx, peer, bucket, segment, req.GetDesiredNodes(), 0)
+	} else {
+		limits, privateKey, err = endpoint.orders.CreateGetOrderLimits(ctx, peer, bucket, segment, req.GetDesiredNodes(), 0)
+	}
 	if err != nil {
 		if orders.ErrDownloadFailedNotEnoughPieces.Has(err) {
 			endpoint.log.Error("Unable to create order limits.",

@@ -79,6 +79,9 @@ type DB interface {
 	// AuditLogs is a getter for audit log records.
 	AuditLogs() auditlog.DB
 
+	// MailExportJobs is a getter for mail export jobs.
+	MailExportJobs() MailExportJobs
+
 	// WithTx is a method for executing transactions with retrying as necessary.
 	WithTx(ctx context.Context, fn func(ctx context.Context, tx DBTx) error) error
 }

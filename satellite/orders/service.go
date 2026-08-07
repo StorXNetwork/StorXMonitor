@@ -141,6 +141,11 @@ func (service *Service) updateBandwidth(ctx context.Context, bucket metabase.Buc
 		}
 	}
 
+	// Only user billable actions reserve project/bucket bandwidth.
+	if action != pb.PieceAction_GET && action != pb.PieceAction_PUT {
+		return nil
+	}
+
 	now := time.Now().UTC()
 	intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
 
@@ -149,6 +154,12 @@ func (service *Service) updateBandwidth(ctx context.Context, bucket metabase.Buc
 	}
 
 	return nil
+}
+
+// IsUserBandwidthAction reports whether the piece action counts toward user
+// bucket/project bandwidth (live allocation and settled usage).
+func IsUserBandwidthAction(action pb.PieceAction) bool {
+	return action == pb.PieceAction_PUT || action == pb.PieceAction_GET
 }
 
 // DownloadNodes calculates the number of nodes needed to download in the
@@ -179,15 +190,23 @@ func (service *Service) DownloadNodes(scheme storxnetwork.RedundancyScheme) int3
 
 // CreateGetOrderLimits creates the order limits for downloading the pieces of a segment.
 func (service *Service) CreateGetOrderLimits(ctx context.Context, peer *identity.PeerIdentity, bucket metabase.BucketLocation, segment metabase.Segment, desiredNodes int32, overrideLimit int64) (_ []*pb.AddressedOrderLimit, privateKey storxnetwork.PiecePrivateKey, err error) {
-	return service.createGetOrderLimits(ctx, peer, bucket, segment, desiredNodes, overrideLimit, false)
+	return service.createGetOrderLimits(ctx, peer, bucket, segment, desiredNodes, overrideLimit, false, pb.PieceAction_GET, true)
 }
 
 // CreateLiteGetOrderLimits creates the order limits for downloading the pieces of a segment. Orders are unsigned.
 func (service *Service) CreateLiteGetOrderLimits(ctx context.Context, peer *identity.PeerIdentity, bucket metabase.BucketLocation, segment metabase.Segment, desiredNodes int32, overrideLimit int64) (_ []*pb.AddressedOrderLimit, privateKey storxnetwork.PiecePrivateKey, err error) {
-	return service.createGetOrderLimits(ctx, peer, bucket, segment, desiredNodes, overrideLimit, true)
+	return service.createGetOrderLimits(ctx, peer, bucket, segment, desiredNodes, overrideLimit, true, pb.PieceAction_GET, true)
 }
 
-func (service *Service) createGetOrderLimits(ctx context.Context, peer *identity.PeerIdentity, bucket metabase.BucketLocation, segment metabase.Segment, desiredNodes int32, overrideLimit int64, lite bool) (_ []*pb.AddressedOrderLimit, privateKey storxnetwork.PiecePrivateKey, err error) {
+// CreateInternalGetOrderLimits creates order limits for internal (non-billable) downloads.
+// Limits use PieceAction_GET_INTERNAL and do not increment live/reserved user bandwidth.
+// Callers must authenticate a trusted internal service before invoking this; clients must
+// never choose the piece action themselves.
+func (service *Service) CreateInternalGetOrderLimits(ctx context.Context, peer *identity.PeerIdentity, bucket metabase.BucketLocation, segment metabase.Segment, desiredNodes int32, overrideLimit int64) (_ []*pb.AddressedOrderLimit, privateKey storxnetwork.PiecePrivateKey, err error) {
+	return service.createGetOrderLimits(ctx, peer, bucket, segment, desiredNodes, overrideLimit, false, pb.PieceAction_GET_INTERNAL, false)
+}
+
+func (service *Service) createGetOrderLimits(ctx context.Context, peer *identity.PeerIdentity, bucket metabase.BucketLocation, segment metabase.Segment, desiredNodes int32, overrideLimit int64, lite bool, action pb.PieceAction, trackUserBandwidth bool) (_ []*pb.AddressedOrderLimit, privateKey storxnetwork.PiecePrivateKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	orderLimit := segment.PieceSize()
@@ -223,7 +242,7 @@ func (service *Service) createGetOrderLimits(ctx context.Context, peer *identity
 		return nil, storxnetwork.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
-	signer, err := NewSignerGet(service, segment.RootPieceID, time.Now(), orderLimit, bucket)
+	signer, err := NewSigner(service, segment.RootPieceID, time.Time{}, time.Now(), orderLimit, action, bucket)
 	if err != nil {
 		return nil, storxnetwork.PiecePrivateKey{}, Error.Wrap(err)
 	}
@@ -254,8 +273,10 @@ func (service *Service) createGetOrderLimits(ctx context.Context, peer *identity
 		return nil, storxnetwork.PiecePrivateKey{}, ErrDownloadFailedNotEnoughPieces.New("not enough orderlimits: got %d, required %d", len(signer.AddressedLimits), segment.Redundancy.RequiredShares)
 	}
 
-	if err := service.updateBandwidth(ctx, bucket, signer.AddressedLimits...); err != nil {
-		return nil, storxnetwork.PiecePrivateKey{}, Error.Wrap(err)
+	if trackUserBandwidth {
+		if err := service.updateBandwidth(ctx, bucket, signer.AddressedLimits...); err != nil {
+			return nil, storxnetwork.PiecePrivateKey{}, Error.Wrap(err)
+		}
 	}
 
 	signer.AddressedLimits, err = sortLimits(signer.AddressedLimits, segment)

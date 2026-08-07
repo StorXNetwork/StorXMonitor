@@ -12,10 +12,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/StorXNetwork/common/memory"
-	"github.com/StorXNetwork/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/common/memory"
+	"github.com/StorXNetwork/common/uuid"
 	"github.com/StorXNetwork/uplink/private/eestream"
 )
 
@@ -284,6 +284,15 @@ type Config struct {
 	MetabaseCompression string `help:"Compression type to be used in spanner client for gRPC calls, disabled by default (gzip)" default:"" devDefault:"gzip"`
 
 	CreateRemainderChargeOnObjectDelete bool `help:"whether to create a remainder charge when an object is deleted before minimum retention" default:"false"`
+
+	// MailExport configures non-billable internal downloads for mail-export build fetches.
+	MailExport MailExportConfig
+}
+
+// MailExportConfig gates non-billable GET_INTERNAL downloads for trusted mail-export workers.
+type MailExportConfig struct {
+	NonBillableBuildDownloads bool   `help:"when true, trusted uplinks identifying as the mail-export worker may download without counting user bandwidth (GET_INTERNAL)" default:"false"`
+	InternalDownloadUserAgent string `help:"user-agent product that identifies mail-export worker downloads for non-billable build fetches" default:"StorX-MailExport"`
 }
 
 // Metabase constructs Metabase configuration based on Metainfo configuration with specific application name.

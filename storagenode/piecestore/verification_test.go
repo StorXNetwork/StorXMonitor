@@ -229,7 +229,7 @@ func TestOrderLimitGetValidation(t *testing.T) {
 				pieceExpiration: oneWeek,
 				orderExpiration: oneWeek,
 				limit:           10 * memory.KiB.Int64(),
-				err:             "expected get or get repair or audit action got PUT",
+				err:             "expected get or get repair or audit or get internal action got PUT",
 			},
 		} {
 			func() {
