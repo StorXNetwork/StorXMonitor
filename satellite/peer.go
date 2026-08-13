@@ -328,7 +328,7 @@ func setupMailService(log *zap.Logger, mailConfig mailservice.Config, consoleCon
 		SourceCodeURL:     "https://github.com/StorXNetwork",
 		SocialURL:         "https://twitter.com/storxnetwork",
 		BlogURL:           "https://storxnetwork.io/blog",
-		PrimaryColor:      "#0052FF",
+		PrimaryColor:      "#e04124",
 		CompanyName:       "CyberLS",
 		AddressLine1:      "1870 The Exchange SE Ste 220, PMB 75268",
 		AddressLine2:      "Atlanta, GA 30339-2171, United States",

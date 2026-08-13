@@ -18,7 +18,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"github.com/StorXNetwork/StorXMonitor/mail-templates"
+	mailtemplates "github.com/StorXNetwork/StorXMonitor/mail-templates"
 	"github.com/StorXNetwork/StorXMonitor/private/post"
 	"github.com/StorXNetwork/StorXMonitor/satellite/tenancy"
 	"github.com/StorXNetwork/common/context2"
@@ -92,32 +92,40 @@ type emailVars struct {
 type flattenedEmailVars struct {
 	emailVars
 	// Message fields flattened to root for templates that use .Username, .LoginLink, etc.
-	Username              string
-	UserName              string
-	LoginLink             string
-	FullName              string
-	Email                 string
-	Password              string
-	ActivationLink        string
-	Origin                string
-	Device                string
-	Browser               string
-	Location              string
-	State                 string
-	IPAddress             string
-	LoginTime             string
-	SignInLink            string
-	ResetPasswordLink     string
-	ResetLink             string
+	Username                   string
+	UserName                   string
+	LoginLink                  string
+	FullName                   string
+	Email                      string
+	Password                   string
+	ActivationLink             string
+	Origin                     string
+	Device                     string
+	Browser                    string
+	Location                   string
+	State                      string
+	IPAddress                  string
+	LoginTime                  string
+	SignInLink                 string
+	ResetPasswordLink          string
+	ResetLink                  string
 	CancelPasswordRecoveryLink string
-	DoubleCheckLink       string
-	CreateAccountLink     string
-	SupportTeamLink       string
-	SatelliteName         string
-	ContactInfoURL        string
-	TermsAndConditionsURL string
-	Name                  string
-	Message               string
+	DoubleCheckLink            string
+	CreateAccountLink          string
+	SupportTeamLink            string
+	SatelliteName              string
+	ContactInfoURL             string
+	TermsAndConditionsURL      string
+	Name                       string
+	Message                    string
+	InviterEmail               string
+	SignUpLink                 string
+	Region                     string
+	ProjectName                string
+	SupportURL                 string
+	ScheduleMeetingLink        string
+	LockoutDuration            string
+	ActivationCode             string
 }
 
 // copyStringField sets dst to the string value of v.FieldByName(fieldName) if the field exists and is a string.
@@ -134,8 +142,8 @@ type Service struct {
 	log    *zap.Logger
 	Sender Sender
 
-	tenantConfig    TenantConfig
-	defaultBranding WhiteLabelConfig
+	tenantConfig     TenantConfig
+	defaultBranding  WhiteLabelConfig
 	brandingResolver func(context.Context) (WhiteLabelConfig, bool)
 	senderResolver   func(context.Context) (Sender, bool)
 
@@ -222,7 +230,7 @@ func (service *Service) SendRenderedAsync(ctx context.Context, to []post.Address
 	go func() {
 		defer service.sending.Done()
 
-		ctx, cancel := context.WithTimeout(context2.WithoutCancellation(ctx), 5*time.Second)
+		ctx, cancel := context.WithTimeout(context2.WithoutCancellation(ctx), 60*time.Second)
 		defer cancel()
 
 		err := service.SendRendered(ctx, to, msg)
@@ -287,6 +295,14 @@ func (service *Service) SendRendered(ctx context.Context, to []post.Address, msg
 			copyStringField(&flatVars.TermsAndConditionsURL, v, "TermsAndConditionsURL")
 			copyStringField(&flatVars.Name, v, "Name")
 			copyStringField(&flatVars.Message, v, "Message")
+			copyStringField(&flatVars.InviterEmail, v, "InviterEmail")
+			copyStringField(&flatVars.SignUpLink, v, "SignUpLink")
+			copyStringField(&flatVars.Region, v, "Region")
+			copyStringField(&flatVars.ProjectName, v, "ProjectName")
+			copyStringField(&flatVars.SupportURL, v, "SupportURL")
+			copyStringField(&flatVars.ScheduleMeetingLink, v, "ScheduleMeetingLink")
+			copyStringField(&flatVars.LockoutDuration, v, "LockoutDuration")
+			copyStringField(&flatVars.ActivationCode, v, "ActivationCode")
 		}
 	}
 	templateData := &flatVars

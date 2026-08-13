@@ -972,7 +972,7 @@ const docTemplate = `{
         },
         "/auth/google-backup": {
             "get": {
-                "description": "**Route:** ` + "`" + `GET /api/v0/auth/google-backup` + "`" + `. Exchanges OAuth code (redirect_uri = GOOGLE_OAUTH_REDIRECT_URL_GOOGLE_BACKUP). If email exists, logs in; otherwise registers. Returns JSON with ` + "`" + `action` + "`" + `, ` + "`" + `onboarding` + "`" + `, and ` + "`" + `google_backup` + "`" + `. Sets session cookie.",
+                "description": "**Route:** ` + "`" + `GET /api/v0/auth/google-backup` + "`" + `. Exchanges OAuth code; ` + "`" + `redirect_uri` + "`" + ` is derived server-side from request Host (e.g. ` + "`" + `https://cyberls.com` + "`" + ` or ` + "`" + `http://localhost:3000` + "`" + ` via config fallback). If email exists, logs in; otherwise registers. Returns JSON with ` + "`" + `action` + "`" + `, ` + "`" + `onboarding` + "`" + `, and ` + "`" + `google_backup` + "`" + `. Sets session cookie.",
                 "produces": [
                     "application/json"
                 ],
@@ -2855,7 +2855,7 @@ const docTemplate = `{
                         "CookieAuth": []
                     }
                 ],
-                "description": "**Route:** ` + "`" + `POST /api/v0/google-backup/connect` + "`" + `. Body: Google OAuth ` + "`" + `code` + "`" + ` (` + "`" + `redirect_uri` + "`" + ` = ` + "`" + `GOOGLE_OAUTH_REDIRECT_URL_GOOGLE_BACKUP` + "`" + `, same as ` + "`" + `GET /auth/google-backup` + "`" + `). Returns scopes metadata. Tokens stored server-side only.",
+                "description": "**Route:** ` + "`" + `POST /api/v0/google-backup/connect` + "`" + `. Body: Google OAuth ` + "`" + `code` + "`" + ` only; ` + "`" + `redirect_uri` + "`" + ` is derived server-side from request Host. Returns scopes metadata. Tokens stored server-side only.",
                 "consumes": [
                     "application/json"
                 ],
@@ -4633,9 +4633,9 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "projects"
+                    "member-bucket-restriction"
                 ],
-                "summary": "List my pending project invitations",
+                "summary": "[6] List my pending invitations (invitee)",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -4666,6 +4666,9 @@ const docTemplate = `{
                 "security": [
                     {
                         "CookieAuth": []
+                    },
+                    {
+                        "CSRFAuth": []
                     }
                 ],
                 "description": "**Full route:** ` + "`" + `POST /api/v0/projects/invitations/{id}/respond` + "`" + `",
@@ -4676,9 +4679,9 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "projects"
+                    "member-bucket-restriction"
                 ],
-                "summary": "Accept or decline a project invitation",
+                "summary": "[6] Accept or decline invitation (invitee)",
                 "parameters": [
                     {
                         "type": "string",
@@ -4965,6 +4968,865 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{id}/invite-link": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/projects/{id}/invite-link?email=` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "member-bucket-restriction"
+                ],
+                "summary": "[8] Get invite link",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Invitee email",
+                        "name": "email",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Invite URL",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{id}/invite/{email}": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "CSRFAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `POST /api/v0/projects/{id}/invite/{email}` + "`" + `",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "member-bucket-restriction"
+                ],
+                "summary": "[4] Invite member (optional folder grants)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Invitee email",
+                        "name": "email",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Optional grants (omit for defaults)",
+                        "name": "body",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.InviteProjectMemberWithGrantsSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "402": {
+                        "description": "Payment Required",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{id}/member-acl-buckets": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/projects/{id}/member-acl-buckets` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "member-bucket-restriction"
+                ],
+                "summary": "[3] List ACL bucket registry",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/consoleapi.ProjectMemberACLBucketSwaggerItem"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "CSRFAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `POST /api/v0/projects/{id}/member-acl-buckets` + "`" + `",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "member-bucket-restriction"
+                ],
+                "summary": "[3] Register bucket for Member ACL",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Bucket to register",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.AddProjectMemberACLBucketSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.ProjectMemberACLBucketSwaggerItem"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{id}/member-acl-buckets/{bucket}": {
+            "delete": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "CSRFAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `DELETE /api/v0/projects/{id}/member-acl-buckets/{bucket}` + "`" + `",
+                "tags": [
+                    "member-bucket-restriction"
+                ],
+                "summary": "[3] Unregister ACL bucket",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Bucket name",
+                        "name": "bucket",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{id}/members": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/projects/{id}/members` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "member-bucket-restriction"
+                ],
+                "summary": "[5] List project members and pending invites",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "default": 100,
+                        "description": "Page size",
+                        "name": "limit",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page number (1-based)",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search by name/email",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Sort field: 1=name, 2=email, 3=created",
+                        "name": "order",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "1=asc, 2=desc",
+                        "name": "order-direction",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.ProjectMembersPageSwaggerResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "CSRFAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `DELETE /api/v0/projects/{id}/members` + "`" + `",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "member-bucket-restriction"
+                ],
+                "summary": "[8] Remove members / cancel invites",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Emails to remove",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.DeleteMembersAndInvitationsSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{id}/members/{memberID}": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/projects/{id}/members/{memberID}` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "member-bucket-restriction"
+                ],
+                "summary": "[8] Get one project member",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Member user UUID",
+                        "name": "memberID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.ProjectMemberDetailSwaggerResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "CSRFAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `PATCH /api/v0/projects/{id}/members/{memberID}` + "`" + `",
+                "consumes": [
+                    "text/plain"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "member-bucket-restriction"
+                ],
+                "summary": "[8] Update member role (Admin/Member)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Member user UUID",
+                        "name": "memberID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "example": 1,
+                        "description": "Role: 0=Admin, 1=Member",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.ProjectMemberSwaggerItem"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{id}/members/{memberID}/bucket-grants": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/projects/{id}/members/{memberID}/bucket-grants` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "member-bucket-restriction"
+                ],
+                "summary": "[7] Get Member folder grants",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Member user UUID",
+                        "name": "memberID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/consoleapi.MemberBucketGrantSwaggerItem"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "CSRFAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `PUT /api/v0/projects/{id}/members/{memberID}/bucket-grants` + "`" + `",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "member-bucket-restriction"
+                ],
+                "summary": "[7] Replace Member folder grants",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Member user UUID",
+                        "name": "memberID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Full grant set (empty clears access)",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.PutMemberBucketGrantsSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/consoleapi.MemberBucketGrantSwaggerItem"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{id}/reinvite": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "CSRFAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `POST /api/v0/projects/{id}/reinvite` + "`" + `",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "member-bucket-restriction"
+                ],
+                "summary": "[8] Reinvite expired members",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Emails to reinvite",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.ReinviteProjectMembersSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "402": {
+                        "description": "Payment Required",
                         "schema": {
                             "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
                         }
@@ -6131,7 +6993,7 @@ const docTemplate = `{
                         "SellerCookieAuth": []
                     }
                 ],
-                "description": "**Route:** ` + "`" + `GET /api/v0/seller/branding` + "`" + `. Returns 404 until reseller creates branding config.",
+                "description": "**Route:** ` + "`" + `GET /api/v0/seller/branding` + "`" + `. Logo/favicon fields are public asset URLs.",
                 "produces": [
                     "application/json"
                 ],
@@ -6161,6 +7023,63 @@ const docTemplate = `{
                 }
             }
         },
+        "/seller/branding/active-theme": {
+            "put": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    },
+                    {
+                        "SellerCSRFAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `PUT /api/v0/seller/branding/active-theme` + "`" + `. Body: ` + "`" + `{ \"type\": \"system\"|\"custom\", \"id\": \"uuid\" }` + "`" + `",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-branding"
+                ],
+                "summary": "Set active theme",
+                "parameters": [
+                    {
+                        "description": "Active theme",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/seller.SetActiveThemeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/seller/branding/create": {
             "post": {
                 "security": [
@@ -6171,8 +7090,9 @@ const docTemplate = `{
                         "SellerCSRFAuth": []
                     }
                 ],
-                "description": "**Route:** ` + "`" + `POST /api/v0/seller/branding/create` + "`" + `. First-time setup only. Returns 409 if branding already exists.",
+                "description": "**Route:** ` + "`" + `POST /api/v0/seller/branding/create` + "`" + `. Requires complete SMTP mail settings first (` + "`" + `POST /seller/mail-settings/test` + "`" + ` or ` + "`" + `PUT /seller/mail-settings` + "`" + `). Multipart: ` + "`" + `brandName` + "`" + `, ` + "`" + `supportEmail` + "`" + `, ` + "`" + `theme` + "`" + ` (JSON or individual ` + "`" + `themePrimary` + "`" + `, ` + "`" + `themeSecondary` + "`" + `, ` + "`" + `themeBackground` + "`" + `, ` + "`" + `themeSidebar` + "`" + `), files ` + "`" + `logoMain` + "`" + `, ` + "`" + `logoSmall` + "`" + `, ` + "`" + `favicon` + "`" + `. Page title uses ` + "`" + `brandName` + "`" + `. Assets stored locally; GET returns public URLs under ` + "`" + `/api/v0/seller/branding/assets/{resellerId}/{file}` + "`" + `.",
                 "consumes": [
+                    "multipart/form-data",
                     "application/json"
                 ],
                 "produces": [
@@ -6182,20 +7102,12 @@ const docTemplate = `{
                     "reseller-branding"
                 ],
                 "summary": "Create reseller branding",
-                "parameters": [
-                    {
-                        "description": "Branding configuration",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
+                "responses": {
+                    "201": {
+                        "description": "Created",
                         "schema": {
                             "$ref": "#/definitions/seller.ResellerBrandingConfig"
                         }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created"
                     },
                     "400": {
                         "description": "Bad Request",
@@ -6228,7 +7140,7 @@ const docTemplate = `{
                         "SellerCSRFAuth": []
                     }
                 ],
-                "description": "**Route:** ` + "`" + `DELETE /api/v0/seller/branding/delete` + "`" + `. Removes branding config so reseller can create again.",
+                "description": "**Route:** ` + "`" + `DELETE /api/v0/seller/branding/delete` + "`" + `. Removes config and local logo/favicon files.",
                 "produces": [
                     "application/json"
                 ],
@@ -6265,8 +7177,9 @@ const docTemplate = `{
                         "SellerCSRFAuth": []
                     }
                 ],
-                "description": "**Route:** ` + "`" + `PUT /api/v0/seller/branding/update` + "`" + `. Updates existing branding config. Returns 404 if not created yet.",
+                "description": "**Route:** ` + "`" + `PUT /api/v0/seller/branding/update` + "`" + `. Requires complete SMTP mail settings. Same multipart fields as create. Omit file fields to keep existing assets.",
                 "consumes": [
+                    "multipart/form-data",
                     "application/json"
                 ],
                 "produces": [
@@ -6276,20 +7189,12 @@ const docTemplate = `{
                     "reseller-branding"
                 ],
                 "summary": "Update reseller branding",
-                "parameters": [
-                    {
-                        "description": "Branding configuration",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
+                "responses": {
+                    "200": {
+                        "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/seller.ResellerBrandingConfig"
                         }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK"
                     },
                     "400": {
                         "description": "Bad Request",
@@ -6338,6 +7243,340 @@ const docTemplate = `{
                 }
             }
         },
+        "/seller/domain": {
+            "get": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `GET /api/v0/seller/domain` + "`" + `. Returns 404 if no domain is connected yet.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-domain"
+                ],
+                "summary": "Get reseller domain",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/seller.ResellerDomainResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/domain/connect": {
+            "post": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    },
+                    {
+                        "SellerCSRFAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `POST /api/v0/seller/domain/connect` + "`" + `. Creates reseller_domains row with status active, verification verified, and SSL issued. No DNS validation (manual ops).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-domain"
+                ],
+                "summary": "Connect custom domain",
+                "parameters": [
+                    {
+                        "description": "Custom domain hostname",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/seller.ConnectDomainRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/seller.ResellerDomainResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/domain/update": {
+            "put": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    },
+                    {
+                        "SellerCSRFAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `PUT /api/v0/seller/domain/update` + "`" + `. Updates the single custom domain row. Sets status active, verification verified, and SSL issued. No DNS validation (manual ops).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-domain"
+                ],
+                "summary": "Update reseller domain",
+                "parameters": [
+                    {
+                        "description": "Custom domain hostname",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/seller.UpdateDomainRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/seller.ResellerDomainResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/mail-settings": {
+            "get": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `GET /api/v0/seller/mail-settings` + "`" + `. Returns seller-configured SMTP used for emails on that reseller's custom domain. Auth is login only. CyberLS/main console continues using satellite mail.* config. Password is never returned; passwordSet/configured indicate whether SMTP is stored and usable.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-mail"
+                ],
+                "summary": "Get reseller mail SMTP settings",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/seller.ResellerMailSettingsView"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    },
+                    {
+                        "SellerCSRFAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `PUT /api/v0/seller/mail-settings` + "`" + `. Body: from, smtpServerAddress, authType (login), login, password. Omit password to keep the existing one. When complete, emails on this reseller's domain use these credentials.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-mail"
+                ],
+                "summary": "Update reseller mail SMTP settings",
+                "parameters": [
+                    {
+                        "description": "SMTP settings",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/seller.UpdateResellerMailSettingsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/seller.ResellerMailSettingsView"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/mail-settings/check-host": {
+            "post": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    },
+                    {
+                        "SellerCSRFAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `POST /api/v0/seller/mail-settings/check-host` + "`" + `. Body may include smtp fields (same as PUT) to test unsaved form values; omitted password reuses saved password. Does not send an email and does not persist settings.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-mail"
+                ],
+                "summary": "Check reseller SMTP host",
+                "parameters": [
+                    {
+                        "description": "Optional SMTP overrides",
+                        "name": "body",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/seller.TestMailSMTPRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/seller.MailSMTPActionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/mail-settings/test": {
+            "post": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    },
+                    {
+                        "SellerCSRFAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `POST /api/v0/seller/mail-settings/test` + "`" + `. Body may include smtp fields plus optional ` + "`" + `to` + "`" + ` (defaults to reseller login email). On success, the SMTP settings are saved and used for reseller-domain mail.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-mail"
+                ],
+                "summary": "Send reseller SMTP test email",
+                "parameters": [
+                    {
+                        "description": "Optional SMTP overrides and recipient",
+                        "name": "body",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/seller.TestMailSMTPRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/seller.MailSMTPActionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/seller/status": {
             "get": {
                 "description": "**Route:** ` + "`" + `GET /api/v0/seller/status` + "`" + `. Public health check for the seller peer.",
@@ -6357,6 +7596,249 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/themes/custom": {
+            "get": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `GET /api/v0/seller/themes/custom` + "`" + `. Max 5 per reseller.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-branding"
+                ],
+                "summary": "List custom themes",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/seller.CustomThemeSummary"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    },
+                    {
+                        "SellerCSRFAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `POST /api/v0/seller/themes/custom` + "`" + `. Body colors: primary, secondary, background, sidebar only. Max 5 custom themes per reseller.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-branding"
+                ],
+                "summary": "Create custom theme",
+                "parameters": [
+                    {
+                        "description": "Custom theme",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/seller.CreateCustomThemeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/seller.ResellerCustomTheme"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/themes/custom/{id}": {
+            "put": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    },
+                    {
+                        "SellerCSRFAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `PUT /api/v0/seller/themes/custom/{id}` + "`" + `",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-branding"
+                ],
+                "summary": "Update custom theme",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Theme ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Custom theme",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/seller.UpdateCustomThemeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/seller.ResellerCustomTheme"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    },
+                    {
+                        "SellerCSRFAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `DELETE /api/v0/seller/themes/custom/{id}` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-branding"
+                ],
+                "summary": "Delete custom theme",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Theme ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/themes/presets": {
+            "get": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `GET /api/v0/seller/themes/presets` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-branding"
+                ],
+                "summary": "List system theme presets",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/seller.ThemePresetSummary"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
                             "$ref": "#/definitions/seller.SellerAuthErrorResponse"
                         }
@@ -6661,6 +8143,15 @@ const docTemplate = `{
                 "totalCount": {
                     "type": "integer",
                     "example": 3
+                }
+            }
+        },
+        "consoleapi.AddProjectMemberACLBucketSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "bucketName": {
+                    "type": "string",
+                    "example": "gmail"
                 }
             }
         },
@@ -7679,6 +9170,25 @@ const docTemplate = `{
                 }
             }
         },
+        "consoleapi.DeleteMembersAndInvitationsSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "emails": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "member@example.com",
+                        "pending@example.com"
+                    ]
+                },
+                "removeAccesses": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
         "consoleapi.DeleteProjectSwaggerRequest": {
             "type": "object",
             "properties": {
@@ -8292,6 +9802,17 @@ const docTemplate = `{
                 }
             }
         },
+        "consoleapi.InviteProjectMemberWithGrantsSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "grants": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.MemberBucketGrantInputSwagger"
+                    }
+                }
+            }
+        },
         "consoleapi.MFADisableSwaggerRequest": {
             "type": "object",
             "properties": {
@@ -8324,6 +9845,86 @@ const docTemplate = `{
                 "recoveryCode": {
                     "type": "string",
                     "example": ""
+                }
+            }
+        },
+        "consoleapi.MemberBucketGrantInputSwagger": {
+            "type": "object",
+            "properties": {
+                "allowDelete": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "allowDownload": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "allowList": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "allowUpload": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "bucket": {
+                    "type": "string",
+                    "example": "gmail"
+                },
+                "prefix": {
+                    "type": "string",
+                    "example": "member@example.com/"
+                }
+            }
+        },
+        "consoleapi.MemberBucketGrantSwaggerItem": {
+            "type": "object",
+            "properties": {
+                "allowDelete": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "allowDownload": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "allowList": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "allowUpload": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "bucket": {
+                    "type": "string",
+                    "example": "gmail"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
+                },
+                "inviteEmail": {
+                    "type": "string",
+                    "example": "member@example.com"
+                },
+                "memberId": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000001"
+                },
+                "prefix": {
+                    "type": "string",
+                    "example": "member@example.com/"
+                },
+                "projectId": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
+                },
+                "updatedAt": {
+                    "type": "string"
                 }
             }
         },
@@ -8785,6 +10386,135 @@ const docTemplate = `{
                 }
             }
         },
+        "consoleapi.ProjectInvitationSwaggerItem": {
+            "type": "object",
+            "properties": {
+                "createdAt": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string",
+                    "example": "invitee@example.com"
+                },
+                "expired": {
+                    "type": "boolean",
+                    "example": false
+                }
+            }
+        },
+        "consoleapi.ProjectMemberACLBucketSwaggerItem": {
+            "type": "object",
+            "properties": {
+                "bucketName": {
+                    "type": "string",
+                    "example": "gmail"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "projectId": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
+                }
+            }
+        },
+        "consoleapi.ProjectMemberDetailSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000001"
+                },
+                "joinedAt": {
+                    "type": "string"
+                },
+                "projectID": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
+                },
+                "role": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "consoleapi.ProjectMemberSwaggerItem": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "example": "jane@example.com"
+                },
+                "fullName": {
+                    "type": "string",
+                    "example": "Jane Doe"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000001"
+                },
+                "joinedAt": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "shortName": {
+                    "type": "string",
+                    "example": "Jane"
+                }
+            }
+        },
+        "consoleapi.ProjectMembersPageSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "currentPage": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "limit": {
+                    "type": "integer",
+                    "example": 100
+                },
+                "offset": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "order": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "orderDirection": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "pageCount": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "projectInvitations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.ProjectInvitationSwaggerItem"
+                    }
+                },
+                "projectMembers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.ProjectMemberSwaggerItem"
+                    }
+                },
+                "search": {
+                    "type": "string",
+                    "example": ""
+                },
+                "totalCount": {
+                    "type": "integer",
+                    "example": 3
+                }
+            }
+        },
         "consoleapi.ProjectUsageByDayItem": {
             "type": "object",
             "properties": {
@@ -8857,6 +10587,17 @@ const docTemplate = `{
                 }
             }
         },
+        "consoleapi.PutMemberBucketGrantsSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "grants": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.MemberBucketGrantInputSwagger"
+                    }
+                }
+            }
+        },
         "consoleapi.RegisterFCMTokenSwaggerRequest": {
             "type": "object",
             "required": [
@@ -8899,6 +10640,21 @@ const docTemplate = `{
                 "userAgent": {
                     "type": "string",
                     "example": "Mozilla/5.0 ..."
+                }
+            }
+        },
+        "consoleapi.ReinviteProjectMembersSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "emails": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "invitee@example.com",
+                        "other@example.com"
+                    ]
                 }
             }
         },
@@ -10070,6 +11826,9 @@ const docTemplate = `{
                 "maxNameCharacters": {
                     "type": "integer"
                 },
+                "memberBucketGrantsEnabled": {
+                    "type": "boolean"
+                },
                 "minAddFundsAmount": {
                     "type": "integer"
                 },
@@ -10254,6 +12013,53 @@ const docTemplate = `{
                 }
             }
         },
+        "seller.ConnectDomainRequest": {
+            "type": "object",
+            "properties": {
+                "domain": {
+                    "type": "string",
+                    "example": "portal.acme.com"
+                }
+            }
+        },
+        "seller.CreateCustomThemeRequest": {
+            "type": "object",
+            "properties": {
+                "colors": {
+                    "$ref": "#/definitions/seller.ResellerBrandingTheme"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "seller.CustomThemeSummary": {
+            "type": "object",
+            "properties": {
+                "colors": {
+                    "$ref": "#/definitions/seller.ResellerBrandingTheme"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "seller.MailSMTPActionResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string",
+                    "example": "SMTP host check succeeded"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
         "seller.MultiCaptchaConfig": {
             "type": "object",
             "properties": {
@@ -10271,40 +12077,132 @@ const docTemplate = `{
                 "brandName": {
                     "type": "string"
                 },
-                "colors": {
-                    "description": "Colors contains theme colors.\nExample keys: \"primary\", \"secondary\", \"background\", \"surface\", \"text\".",
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
-                },
                 "favicon": {
-                    "description": "Favicon contains URLs for favicon variants.\nExample keys: \"16x16\", \"32x32\", \"appleTouch\".",
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
-                },
-                "links": {
-                    "description": "Links contains UI links (support, docs, terms).\nExample keys: \"support\", \"docs\", \"terms\", \"privacy\".",
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
+                    "type": "string"
                 },
                 "logo": {
-                    "description": "Logo contains URLs for logo variants.\nExample keys: \"fullLight\", \"fullDark\", \"smallLight\", \"smallDark\".",
                     "type": "object",
                     "additionalProperties": {
                         "type": "string"
                     }
                 },
-                "titles": {
-                    "description": "Titles contains UI text overrides (section headings, labels).\nExample keys: \"loginTitle\", \"registerTitle\", \"dashboardTitle\".",
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
+                "mail": {
+                    "$ref": "#/definitions/seller.ResellerMailSettings"
+                },
+                "supportEmail": {
+                    "type": "string"
+                },
+                "theme": {
+                    "$ref": "#/definitions/seller.ResellerBrandingTheme"
+                }
+            }
+        },
+        "seller.ResellerBrandingTheme": {
+            "type": "object",
+            "properties": {
+                "background": {
+                    "type": "string"
+                },
+                "primary": {
+                    "type": "string"
+                },
+                "secondary": {
+                    "type": "string"
+                },
+                "sidebar": {
+                    "type": "string"
+                }
+            }
+        },
+        "seller.ResellerCustomTheme": {
+            "type": "object",
+            "properties": {
+                "colors": {
+                    "$ref": "#/definitions/seller.ResellerBrandingTheme"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "resellerID": {
+                    "type": "string"
+                }
+            }
+        },
+        "seller.ResellerDomainResponse": {
+            "type": "object",
+            "properties": {
+                "createdAt": {
+                    "type": "string"
+                },
+                "domain": {
+                    "type": "string"
+                },
+                "domainType": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "sslStatus": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                },
+                "verificationStatus": {
+                    "type": "string"
+                },
+                "verifiedAt": {
+                    "type": "string"
+                }
+            }
+        },
+        "seller.ResellerMailSettings": {
+            "type": "object",
+            "properties": {
+                "authType": {
+                    "type": "string"
+                },
+                "from": {
+                    "type": "string"
+                },
+                "login": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "smtpServerAddress": {
+                    "type": "string"
+                }
+            }
+        },
+        "seller.ResellerMailSettingsView": {
+            "type": "object",
+            "properties": {
+                "authType": {
+                    "type": "string"
+                },
+                "configured": {
+                    "type": "boolean"
+                },
+                "from": {
+                    "type": "string"
+                },
+                "login": {
+                    "type": "string"
+                },
+                "passwordSet": {
+                    "type": "boolean"
+                },
+                "smtpServerAddress": {
+                    "type": "string"
                 }
             }
         },
@@ -10758,6 +12656,17 @@ const docTemplate = `{
                 }
             }
         },
+        "seller.SetActiveThemeRequest": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
         "seller.SingleCaptchaConfig": {
             "type": "object",
             "properties": {
@@ -10766,6 +12675,90 @@ const docTemplate = `{
                     "default": false
                 },
                 "siteKey": {
+                    "type": "string"
+                }
+            }
+        },
+        "seller.TestMailSMTPRequest": {
+            "type": "object",
+            "properties": {
+                "authType": {
+                    "type": "string"
+                },
+                "from": {
+                    "type": "string"
+                },
+                "login": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "smtpServerAddress": {
+                    "type": "string"
+                },
+                "to": {
+                    "description": "required for test-mail; defaults to reseller email when empty",
+                    "type": "string"
+                }
+            }
+        },
+        "seller.ThemePresetSummary": {
+            "type": "object",
+            "properties": {
+                "colors": {
+                    "$ref": "#/definitions/seller.ResellerBrandingTheme"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "slug": {
+                    "type": "string"
+                }
+            }
+        },
+        "seller.UpdateCustomThemeRequest": {
+            "type": "object",
+            "properties": {
+                "colors": {
+                    "$ref": "#/definitions/seller.ResellerBrandingTheme"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "seller.UpdateDomainRequest": {
+            "type": "object",
+            "properties": {
+                "domain": {
+                    "type": "string",
+                    "example": "portal.acme.com"
+                }
+            }
+        },
+        "seller.UpdateResellerMailSettingsRequest": {
+            "type": "object",
+            "properties": {
+                "authType": {
+                    "type": "string"
+                },
+                "from": {
+                    "type": "string"
+                },
+                "login": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "smtpServerAddress": {
                     "type": "string"
                 }
             }
@@ -10883,8 +12876,12 @@ const docTemplate = `{
     },
     "tags": [
         {
-            "description": "Project management: invitations, members, usage, and project CRUD",
+            "description": "Project management: CRUD, salt, usage, config. Team invite + Member bucket restriction APIs are under tag **member-bucket-restriction**.",
             "name": "projects"
+        },
+        {
+            "description": "Member bucket \u0026 folder restriction — ALL invite/member/ACL APIs in one place. Flag: console.member-bucket-grants-enabled (default OFF). OFF = existing one-user/project access unchanged. ON = Owner/Admin full access; Member only grant rows (bucket+prefix+perms). Test order: (1) CookieAuth+CSRF (2) create/ensure bucket (3) POST member-acl-buckets (4) POST invite/{email} (omit body = defaults email/ List+Download) (5) GET members (6) invitee GET invitations + POST respond response=1 (7) GET/PUT members/{id}/bucket-grants (8) PATCH role / DELETE / reinvite / invite-link. Prefix must end with /. PUT grants:[] clears Member access + invalidates keys.",
+            "name": "member-bucket-restriction"
         },
         {
             "description": "Storage \u0026 bandwidth trends: GET /api/v0/projects/{id}/daily-usage — daily storageUsage and settledBandwidthUsage (bytes per day) for charts",
@@ -11027,8 +13024,12 @@ const docTemplate = `{
             "name": "reseller-sessions"
         },
         {
-            "description": "Reseller branding configuration: ` + "`" + `GET /seller/branding` + "`" + `, ` + "`" + `POST /seller/branding/create` + "`" + `, ` + "`" + `PUT /seller/branding/update` + "`" + `, ` + "`" + `DELETE /seller/branding/delete` + "`" + `.",
+            "description": "Reseller branding: multipart upload for logos/favicon stored flat under ` + "`" + `{branding-assets-dir}/reseller/` + "`" + `. Config: ` + "`" + `brandName` + "`" + ` (also used as page title), ` + "`" + `supportEmail` + "`" + `, ` + "`" + `theme` + "`" + `, ` + "`" + `logo` + "`" + `, ` + "`" + `favicon` + "`" + `.",
             "name": "reseller-branding"
+        },
+        {
+            "description": "Reseller custom domain: ` + "`" + `GET /seller/domain` + "`" + `, ` + "`" + `POST /seller/domain/connect` + "`" + `, ` + "`" + `PUT /seller/domain/update` + "`" + ` (one custom domain per reseller, no DNS validation).",
+            "name": "reseller-domain"
         }
     ]
 }`

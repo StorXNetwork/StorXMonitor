@@ -404,6 +404,25 @@ func (p *Projects) CreateProject(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetMembersAndInvitations returns the project's members and invitees.
+//
+// @Summary      [5] List project members and pending invites
+// @Description  **Full route:** `GET /api/v0/projects/{id}/members`
+//
+// Step in Member bucket restriction flow: after invite, list members + pending invitations. Query `order`: 1=name, 2=email, 3=created. `order-direction`: 1=asc, 2=desc. Member `role`: 0=Admin, 1=Member.
+// @Tags         member-bucket-restriction
+// @Produce      json
+// @Param        id               path   string  true   "Project UUID"
+// @Param        limit            query  int     true   "Page size" default(100)
+// @Param        page             query  int     false  "Page number (1-based)" default(1)
+// @Param        search           query  string  false  "Search by name/email"
+// @Param        order            query  int     false  "Sort field: 1=name, 2=email, 3=created" default(1)
+// @Param        order-direction  query  int     false  "1=asc, 2=desc" default(1)
+// @Success      200  {object}  ProjectMembersPageSwaggerResponse
+// @Failure      400  {object}  SwaggerErrorResponse
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Failure      500  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /projects/{id}/members [get]
 func (p *Projects) GetMembersAndInvitations(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -530,6 +549,26 @@ func (p *Projects) GetMembersAndInvitations(w http.ResponseWriter, r *http.Reque
 }
 
 // UpdateMemberRole updates project member role.
+//
+// @Summary      [8] Update member role (Admin/Member)
+// @Description  **Full route:** `PATCH /api/v0/projects/{id}/members/{memberID}`
+//
+// Body is a raw integer (not JSON object): `0` = Admin, `1` = Member. Promote→Admin keeps ACL rows but skips enforcement. Demote→Member reuses ACL or creates email defaults from registry. CSRF required when enabled.
+// @Tags         member-bucket-restriction
+// @Accept       plain
+// @Produce      json
+// @Param        id        path  string  true  "Project UUID"
+// @Param        memberID  path  string  true  "Member user UUID"
+// @Param        body      body  int     true  "Role: 0=Admin, 1=Member" example(1)
+// @Success      200  {object}  ProjectMemberSwaggerItem
+// @Failure      400  {object}  SwaggerErrorResponse
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Failure      403  {object}  SwaggerErrorResponse
+// @Failure      409  {object}  SwaggerErrorResponse
+// @Failure      500  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Security     CSRFAuth
+// @Router       /projects/{id}/members/{memberID} [patch]
 func (p *Projects) UpdateMemberRole(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -623,6 +662,21 @@ func (p *Projects) UpdateMemberRole(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetMember returns project member.
+//
+// @Summary      [8] Get one project member
+// @Description  **Full route:** `GET /api/v0/projects/{id}/members/{memberID}`
+//
+// Returns member id, projectID, role (0=Admin, 1=Member), and joinedAt. Use memberID for bucket-grants APIs.
+// @Tags         member-bucket-restriction
+// @Produce      json
+// @Param        id        path  string  true  "Project UUID"
+// @Param        memberID  path  string  true  "Member user UUID"
+// @Success      200  {object}  ProjectMemberDetailSwaggerResponse
+// @Failure      400  {object}  SwaggerErrorResponse
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Failure      500  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /projects/{id}/members/{memberID} [get]
 func (p *Projects) GetMember(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -861,6 +915,26 @@ func (p *Projects) MigratePricing(w http.ResponseWriter, r *http.Request) {
 }
 
 // InviteUser sends a project invitation to a user.
+//
+// @Summary      [4] Invite member (optional folder grants)
+// @Description  **Full route:** `POST /api/v0/projects/{id}/invite/{email}`
+//
+// Invite by email. Optional body `grants`: omit → defaults from optional ACL registry (`{inviteEmail}/` List+Download); empty registry → no defaults; custom grants for any bucket that exists on the project. Only List+Download are honored (Upload/Delete ignored). Creates pending member_bucket_grants. CSRF required when enabled. Flag: `console.member-bucket-grants-enabled`.
+// @Tags         member-bucket-restriction
+// @Accept       json
+// @Produce      json
+// @Param        id     path  string  true  "Project UUID"
+// @Param        email  path  string  true  "Invitee email"
+// @Param        body   body  InviteProjectMemberWithGrantsSwaggerRequest  false  "Optional grants (omit for defaults)"
+// @Success      200    "OK"
+// @Failure      400    {object}  SwaggerErrorResponse
+// @Failure      401    {object}  SwaggerErrorResponse
+// @Failure      402    {object}  SwaggerErrorResponse
+// @Failure      403    {object}  SwaggerErrorResponse
+// @Failure      500    {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Security     CSRFAuth
+// @Router       /projects/{id}/invite/{email} [post]
 func (p *Projects) InviteUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -889,7 +963,22 @@ func (p *Projects) InviteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = p.service.InviteNewProjectMember(ctx, id, email)
+	var grants []console.MemberBucketGrantInput
+	if r.Body != nil && r.ContentLength != 0 {
+		var body struct {
+			Grants []console.MemberBucketGrantInput `json:"grants"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil && err != io.EOF {
+			p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+			return
+		}
+		// Distinguish omitted grants (nil → defaults) from explicit empty array.
+		if body.Grants != nil {
+			grants = body.Grants
+		}
+	}
+
+	_, err = p.service.InviteNewProjectMember(ctx, id, email, grants)
 	p.service.RecordUserAudit(ctx, "PROJECT_INVITE", "Project member", "Project member invited", err)
 	if err != nil {
 		status := http.StatusInternalServerError
@@ -897,12 +986,123 @@ func (p *Projects) InviteUser(w http.ResponseWriter, r *http.Request) {
 			status = http.StatusUnauthorized
 		} else if console.ErrNotPaidTier.Has(err) {
 			status = http.StatusPaymentRequired
+		} else if console.ErrValidation.Has(err) || console.ErrMemberBucketGrant.Has(err) {
+			status = http.StatusBadRequest
+		} else if console.ErrForbidden.Has(err) {
+			status = http.StatusForbidden
 		}
 		p.serveJSONError(ctx, w, status, err)
 	}
 }
 
+// InviteUsers sends project invitations to multiple users one-by-one (same as single invite + vaults).
+//
+// @Summary      [4] Invite multiple members (one-by-one)
+// @Description  **Full route:** `POST /api/v0/projects/{id}/invites`
+//
+// Body: `{ "invites": [ { "email":"a@x.com", "vaults":["gmail","google-drive"] } ] }`.
+// Same as single invite: each email gets List+Download on `{email}/` under the given vault names.
+// Vault buckets must exist on the project (no separate ACL registration). Omit `vaults` → optional registry defaults. `vaults:[]` → no folder access. Max 50. Returns per-email ok/error.
+// CSRF required when enabled.
+// @Tags         member-bucket-restriction
+// @Accept       json
+// @Produce      json
+// @Param        id    path  string  true  "Project UUID"
+// @Param        body  body  BulkInviteProjectMembersSwaggerRequest  true  "Invites with vaults"
+// @Success      200   {object}  BulkInviteProjectMembersSwaggerResponse
+// @Failure      400   {object}  SwaggerErrorResponse
+// @Failure      401   {object}  SwaggerErrorResponse
+// @Failure      403   {object}  SwaggerErrorResponse
+// @Failure      500   {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Security     CSRFAuth
+// @Router       /projects/{id}/invites [post]
+func (p *Projects) InviteUsers(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	idParam, ok := mux.Vars(r)["id"]
+	if !ok {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing project id route param"))
+		return
+	}
+	id, err := uuid.FromString(idParam)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	var body struct {
+		Invites []struct {
+			Email  string    `json:"email"`
+			Vaults *[]string `json:"vaults"`
+		} `json:"invites"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	requests := make([]console.ProjectMemberInviteRequest, 0, len(body.Invites))
+	for _, item := range body.Invites {
+		email := strings.TrimSpace(item.Email)
+		if email == "" {
+			continue
+		}
+		if !utils.ValidateEmail(email) {
+			p.serveJSONError(ctx, w, http.StatusBadRequest, console.ErrValidation.Wrap(errs.New("Invalid email: %s", email)))
+			return
+		}
+		requests = append(requests, console.ProjectMemberInviteRequest{
+			Email:  email,
+			Vaults: item.Vaults,
+		})
+	}
+
+	results, err := p.service.InviteNewProjectMembers(ctx, id, requests)
+	p.service.RecordUserAudit(ctx, "PROJECT_INVITE_BULK", "Project member", "Project members invited", err)
+	if err != nil {
+		status := http.StatusInternalServerError
+		switch {
+		case console.ErrUnauthorized.Has(err), console.ErrNoMembership.Has(err):
+			status = http.StatusUnauthorized
+		case console.ErrForbidden.Has(err):
+			status = http.StatusForbidden
+		case console.ErrValidation.Has(err), console.ErrMemberBucketGrant.Has(err):
+			status = http.StatusBadRequest
+		case console.ErrNotPaidTier.Has(err):
+			status = http.StatusPaymentRequired
+		}
+		p.serveJSONError(ctx, w, status, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{"results": results}); err != nil {
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+	}
+}
+
 // ReinviteUsers resends expired project invitations.
+//
+// @Summary      [8] Reinvite expired members
+// @Description  **Full route:** `POST /api/v0/projects/{id}/reinvite`
+//
+// Resend invites for emails. Does not overwrite Admin-customized pending folder grants. CSRF required when enabled.
+// @Tags         member-bucket-restriction
+// @Accept       json
+// @Produce      json
+// @Param        id    path  string  true  "Project UUID"
+// @Param        body  body  ReinviteProjectMembersSwaggerRequest  true  "Emails to reinvite"
+// @Success      200   "OK"
+// @Failure      400   {object}  SwaggerErrorResponse
+// @Failure      401   {object}  SwaggerErrorResponse
+// @Failure      402   {object}  SwaggerErrorResponse
+// @Failure      500   {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Security     CSRFAuth
+// @Router       /projects/{id}/reinvite [post]
 func (p *Projects) ReinviteUsers(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -946,6 +1146,22 @@ func (p *Projects) ReinviteUsers(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetInviteLink returns a link to an invitation given project ID and invitee's email.
+//
+// @Summary      [8] Get invite link
+// @Description  **Full route:** `GET /api/v0/projects/{id}/invite-link?email=`
+//
+// Returns invite URL JSON string for sharing / checking an invitation.
+// @Tags         member-bucket-restriction
+// @Produce      json
+// @Param        id     path   string  true  "Project UUID"
+// @Param        email  query  string  true  "Invitee email"
+// @Success      200    {string}  string  "Invite URL"
+// @Failure      400    {object}  SwaggerErrorResponse
+// @Failure      401    {object}  SwaggerErrorResponse
+// @Failure      403    {object}  SwaggerErrorResponse
+// @Failure      500    {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /projects/{id}/invite-link [get]
 func (p *Projects) GetInviteLink(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -989,11 +1205,11 @@ func (p *Projects) GetInviteLink(w http.ResponseWriter, r *http.Request) {
 
 // GetUserInvitations returns the user's pending project member invitations.
 //
-// @Summary      List my pending project invitations
+// @Summary      [6] List my pending invitations (invitee)
 // @Description  **Full route:** `GET /api/v0/projects/invitations`
 //
-// Returns project invitations for the authenticated user (project name, description, inviter email, createdAt).
-// @Tags         projects
+// Call as the invitee user. Returns pending invites (project name, inviter email, createdAt). Then accept via respond.
+// @Tags         member-bucket-restriction
 // @Produce      json
 // @Success      200  {array}   UserProjectInvitationSwaggerItem
 // @Failure      401  {object}  SwaggerErrorResponse
@@ -1057,11 +1273,11 @@ func (p *Projects) GetUserInvitations(w http.ResponseWriter, r *http.Request) {
 
 // RespondToInvitation handles accepting or declining a user's project member invitation.
 //
-// @Summary      Accept or decline a project invitation
+// @Summary      [6] Accept or decline invitation (invitee)
 // @Description  **Full route:** `POST /api/v0/projects/invitations/{id}/respond`
 //
-// Path `id` is the project public UUID. Body `response`: `0` = decline, `1` = accept.
-// @Tags         projects
+// Path `id` = project public UUID. Body `response`: `0`=decline, `1`=accept. Accept binds pending folder grants to member_id and invalidates member API keys. Decline deletes pending grants. CSRF required when enabled.
+// @Tags         member-bucket-restriction
 // @Accept       json
 // @Produce      json
 // @Param        id    path  string  true  "Project public UUID"
@@ -1073,6 +1289,7 @@ func (p *Projects) GetUserInvitations(w http.ResponseWriter, r *http.Request) {
 // @Failure      404   {object}  SwaggerErrorResponse
 // @Failure      409   {object}  SwaggerErrorResponse
 // @Security     CookieAuth
+// @Security     CSRFAuth
 // @Router       /projects/invitations/{id}/respond [post]
 func (p *Projects) RespondToInvitation(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -1124,6 +1341,23 @@ func (p *Projects) RespondToInvitation(w http.ResponseWriter, r *http.Request) {
 }
 
 // DeleteMembersAndInvitations deletes members and invitations from a project.
+//
+// @Summary      [8] Remove members / cancel invites
+// @Description  **Full route:** `DELETE /api/v0/projects/{id}/members`
+//
+// Body: emails + optional removeAccesses. Removes members and/or pending invites; cleans ACL rows; can revoke member API keys. CSRF required when enabled.
+// @Tags         member-bucket-restriction
+// @Accept       json
+// @Produce      json
+// @Param        id    path  string  true  "Project UUID"
+// @Param        body  body  DeleteMembersAndInvitationsSwaggerRequest  true  "Emails to remove"
+// @Success      200   "OK"
+// @Failure      400   {object}  SwaggerErrorResponse
+// @Failure      401   {object}  SwaggerErrorResponse
+// @Failure      500   {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Security     CSRFAuth
+// @Router       /projects/{id}/members [delete]
 func (p *Projects) DeleteMembersAndInvitations(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error

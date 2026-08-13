@@ -184,6 +184,9 @@ func (*AutoBackupFailureEmail) Subject() string { return "Auto Backup Failure" }
 type ExistingUserProjectInvitationEmail struct {
 	InviterEmail string
 	SignInLink   string
+	// FullName and Email identify the invitee (already registered).
+	FullName string
+	Email    string
 }
 
 // Template returns email template name.

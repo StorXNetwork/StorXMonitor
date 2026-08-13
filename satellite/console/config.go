@@ -63,6 +63,7 @@ type Config struct {
 	ShowNewPricingTiers                       bool                      `help:"whether to show new pricing tiers in the UI" default:"false"`
 	NewPricingStartDate                       string                    `help:"the date (YYYY-MM-DD) when new pricing tiers will be enabled" default:"2025-11-01"`
 	MemberAccountsEnabled                     bool                      `help:"whether member accounts are enabled" default:"false"`
+	MemberBucketGrantsEnabled                 bool                      `help:"whether Member bucket prefix ACL grants are enforced" default:"false"`
 	CollectBillingInfoOnOnboarding            bool                      `help:"whether to collect billing information during onboarding" default:"false"`
 	RequireBillingAddress                     bool                      `help:"whether to require billing address during account upgrades and package purchases" default:"false"`
 	HideUplinkBehavior                        bool                      `help:"whether to hide uplink behavior in the UI" default:"false"`

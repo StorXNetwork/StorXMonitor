@@ -94,6 +94,12 @@ definitions:
         example: 3
         type: integer
     type: object
+  consoleapi.AddProjectMemberACLBucketSwaggerRequest:
+    properties:
+      bucketName:
+        example: gmail
+        type: string
+    type: object
   consoleapi.AuditLogActionsSwaggerResponse:
     properties:
       actions:
@@ -827,6 +833,19 @@ definitions:
         example: admin-verification-password
         type: string
     type: object
+  consoleapi.DeleteMembersAndInvitationsSwaggerRequest:
+    properties:
+      emails:
+        example:
+        - member@example.com
+        - pending@example.com
+        items:
+          type: string
+        type: array
+      removeAccesses:
+        example: true
+        type: boolean
+    type: object
   consoleapi.DeleteProjectSwaggerRequest:
     properties:
       data:
@@ -1262,6 +1281,13 @@ definitions:
     - active
     - job_ids
     type: object
+  consoleapi.InviteProjectMemberWithGrantsSwaggerRequest:
+    properties:
+      grants:
+        items:
+          $ref: '#/definitions/consoleapi.MemberBucketGrantInputSwagger'
+        type: array
+    type: object
   consoleapi.MFADisableSwaggerRequest:
     properties:
       passcode:
@@ -1284,6 +1310,64 @@ definitions:
         type: string
       recoveryCode:
         example: ""
+        type: string
+    type: object
+  consoleapi.MemberBucketGrantInputSwagger:
+    properties:
+      allowDelete:
+        example: false
+        type: boolean
+      allowDownload:
+        example: true
+        type: boolean
+      allowList:
+        example: true
+        type: boolean
+      allowUpload:
+        example: false
+        type: boolean
+      bucket:
+        example: gmail
+        type: string
+      prefix:
+        example: member@example.com/
+        type: string
+    type: object
+  consoleapi.MemberBucketGrantSwaggerItem:
+    properties:
+      allowDelete:
+        example: false
+        type: boolean
+      allowDownload:
+        example: true
+        type: boolean
+      allowList:
+        example: true
+        type: boolean
+      allowUpload:
+        example: false
+        type: boolean
+      bucket:
+        example: gmail
+        type: string
+      createdAt:
+        type: string
+      id:
+        example: 00000000-0000-0000-0000-000000000000
+        type: string
+      inviteEmail:
+        example: member@example.com
+        type: string
+      memberId:
+        example: 00000000-0000-0000-0000-000000000001
+        type: string
+      prefix:
+        example: member@example.com/
+        type: string
+      projectId:
+        example: 00000000-0000-0000-0000-000000000000
+        type: string
+      updatedAt:
         type: string
     type: object
   consoleapi.MergeGoogleBackupAutoSyncPoliciesSwaggerRequest:
@@ -1613,6 +1697,97 @@ definitions:
         example: 1
         type: integer
     type: object
+  consoleapi.ProjectInvitationSwaggerItem:
+    properties:
+      createdAt:
+        type: string
+      email:
+        example: invitee@example.com
+        type: string
+      expired:
+        example: false
+        type: boolean
+    type: object
+  consoleapi.ProjectMemberACLBucketSwaggerItem:
+    properties:
+      bucketName:
+        example: gmail
+        type: string
+      createdAt:
+        type: string
+      projectId:
+        example: 00000000-0000-0000-0000-000000000000
+        type: string
+    type: object
+  consoleapi.ProjectMemberDetailSwaggerResponse:
+    properties:
+      id:
+        example: 00000000-0000-0000-0000-000000000001
+        type: string
+      joinedAt:
+        type: string
+      projectID:
+        example: 00000000-0000-0000-0000-000000000000
+        type: string
+      role:
+        example: 1
+        type: integer
+    type: object
+  consoleapi.ProjectMemberSwaggerItem:
+    properties:
+      email:
+        example: jane@example.com
+        type: string
+      fullName:
+        example: Jane Doe
+        type: string
+      id:
+        example: 00000000-0000-0000-0000-000000000001
+        type: string
+      joinedAt:
+        type: string
+      role:
+        example: 1
+        type: integer
+      shortName:
+        example: Jane
+        type: string
+    type: object
+  consoleapi.ProjectMembersPageSwaggerResponse:
+    properties:
+      currentPage:
+        example: 1
+        type: integer
+      limit:
+        example: 100
+        type: integer
+      offset:
+        example: 0
+        type: integer
+      order:
+        example: 1
+        type: integer
+      orderDirection:
+        example: 1
+        type: integer
+      pageCount:
+        example: 1
+        type: integer
+      projectInvitations:
+        items:
+          $ref: '#/definitions/consoleapi.ProjectInvitationSwaggerItem'
+        type: array
+      projectMembers:
+        items:
+          $ref: '#/definitions/consoleapi.ProjectMemberSwaggerItem'
+        type: array
+      search:
+        example: ""
+        type: string
+      totalCount:
+        example: 3
+        type: integer
+    type: object
   consoleapi.ProjectUsageByDayItem:
     properties:
       date:
@@ -1665,6 +1840,13 @@ definitions:
       userSetStorageLimit:
         type: integer
     type: object
+  consoleapi.PutMemberBucketGrantsSwaggerRequest:
+    properties:
+      grants:
+        items:
+          $ref: '#/definitions/consoleapi.MemberBucketGrantInputSwagger'
+        type: array
+    type: object
   consoleapi.RegisterFCMTokenSwaggerRequest:
     properties:
       appVersion:
@@ -1697,6 +1879,16 @@ definitions:
         type: string
     required:
     - token
+    type: object
+  consoleapi.ReinviteProjectMembersSwaggerRequest:
+    properties:
+      emails:
+        example:
+        - invitee@example.com
+        - other@example.com
+        items:
+          type: string
+        type: array
     type: object
   consoleapi.ReservedBucketUsageItem:
     properties:
@@ -2536,6 +2728,8 @@ definitions:
         type: integer
       maxNameCharacters:
         type: integer
+      memberBucketGrantsEnabled:
+        type: boolean
       minAddFundsAmount:
         type: integer
       minimumCharge:
@@ -2662,6 +2856,37 @@ definitions:
       registration:
         $ref: '#/definitions/seller.MultiCaptchaConfig'
     type: object
+  seller.ConnectDomainRequest:
+    properties:
+      domain:
+        example: portal.acme.com
+        type: string
+    type: object
+  seller.CreateCustomThemeRequest:
+    properties:
+      colors:
+        $ref: '#/definitions/seller.ResellerBrandingTheme'
+      name:
+        type: string
+    type: object
+  seller.CustomThemeSummary:
+    properties:
+      colors:
+        $ref: '#/definitions/seller.ResellerBrandingTheme'
+      id:
+        type: string
+      name:
+        type: string
+    type: object
+  seller.MailSMTPActionResponse:
+    properties:
+      message:
+        example: SMTP host check succeeded
+        type: string
+      success:
+        example: true
+        type: boolean
+    type: object
   seller.MultiCaptchaConfig:
     properties:
       hcaptcha:
@@ -2673,41 +2898,89 @@ definitions:
     properties:
       brandName:
         type: string
-      colors:
-        additionalProperties:
-          type: string
-        description: |-
-          Colors contains theme colors.
-          Example keys: "primary", "secondary", "background", "surface", "text".
-        type: object
       favicon:
-        additionalProperties:
-          type: string
-        description: |-
-          Favicon contains URLs for favicon variants.
-          Example keys: "16x16", "32x32", "appleTouch".
-        type: object
-      links:
-        additionalProperties:
-          type: string
-        description: |-
-          Links contains UI links (support, docs, terms).
-          Example keys: "support", "docs", "terms", "privacy".
-        type: object
+        type: string
       logo:
         additionalProperties:
           type: string
-        description: |-
-          Logo contains URLs for logo variants.
-          Example keys: "fullLight", "fullDark", "smallLight", "smallDark".
         type: object
-      titles:
-        additionalProperties:
-          type: string
-        description: |-
-          Titles contains UI text overrides (section headings, labels).
-          Example keys: "loginTitle", "registerTitle", "dashboardTitle".
-        type: object
+      mail:
+        $ref: '#/definitions/seller.ResellerMailSettings'
+      supportEmail:
+        type: string
+      theme:
+        $ref: '#/definitions/seller.ResellerBrandingTheme'
+    type: object
+  seller.ResellerBrandingTheme:
+    properties:
+      background:
+        type: string
+      primary:
+        type: string
+      secondary:
+        type: string
+      sidebar:
+        type: string
+    type: object
+  seller.ResellerCustomTheme:
+    properties:
+      colors:
+        $ref: '#/definitions/seller.ResellerBrandingTheme'
+      id:
+        type: string
+      name:
+        type: string
+      resellerID:
+        type: string
+    type: object
+  seller.ResellerDomainResponse:
+    properties:
+      createdAt:
+        type: string
+      domain:
+        type: string
+      domainType:
+        type: string
+      id:
+        type: string
+      sslStatus:
+        type: string
+      status:
+        type: string
+      updatedAt:
+        type: string
+      verificationStatus:
+        type: string
+      verifiedAt:
+        type: string
+    type: object
+  seller.ResellerMailSettings:
+    properties:
+      authType:
+        type: string
+      from:
+        type: string
+      login:
+        type: string
+      password:
+        type: string
+      smtpServerAddress:
+        type: string
+    type: object
+  seller.ResellerMailSettingsView:
+    properties:
+      authType:
+        type: string
+      configured:
+        type: boolean
+      from:
+        type: string
+      login:
+        type: string
+      passwordSet:
+        type: boolean
+      smtpServerAddress:
+        type: string
     type: object
   seller.SellerAccountActionSwaggerRequest:
     properties:
@@ -3024,12 +3297,74 @@ definitions:
         example: 1
         type: integer
     type: object
+  seller.SetActiveThemeRequest:
+    properties:
+      id:
+        type: string
+      type:
+        type: string
+    type: object
   seller.SingleCaptchaConfig:
     properties:
       enabled:
         default: false
         type: boolean
       siteKey:
+        type: string
+    type: object
+  seller.TestMailSMTPRequest:
+    properties:
+      authType:
+        type: string
+      from:
+        type: string
+      login:
+        type: string
+      password:
+        type: string
+      smtpServerAddress:
+        type: string
+      to:
+        description: required for test-mail; defaults to reseller email when empty
+        type: string
+    type: object
+  seller.ThemePresetSummary:
+    properties:
+      colors:
+        $ref: '#/definitions/seller.ResellerBrandingTheme'
+      description:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      slug:
+        type: string
+    type: object
+  seller.UpdateCustomThemeRequest:
+    properties:
+      colors:
+        $ref: '#/definitions/seller.ResellerBrandingTheme'
+      name:
+        type: string
+    type: object
+  seller.UpdateDomainRequest:
+    properties:
+      domain:
+        example: portal.acme.com
+        type: string
+    type: object
+  seller.UpdateResellerMailSettingsRequest:
+    properties:
+      authType:
+        type: string
+      from:
+        type: string
+      login:
+        type: string
+      password:
+        type: string
+      smtpServerAddress:
         type: string
     type: object
   staticapi.StaticBlogItemSwagger:
@@ -3715,10 +4050,11 @@ paths:
       - auth-password-recovery
   /auth/google-backup:
     get:
-      description: '**Route:** `GET /api/v0/auth/google-backup`. Exchanges OAuth code
-        (redirect_uri = GOOGLE_OAUTH_REDIRECT_URL_GOOGLE_BACKUP). If email exists,
-        logs in; otherwise registers. Returns JSON with `action`, `onboarding`, and
-        `google_backup`. Sets session cookie.'
+      description: '**Route:** `GET /api/v0/auth/google-backup`. Exchanges OAuth code;
+        `redirect_uri` is derived server-side from request Host (e.g. `https://cyberls.com`
+        or `http://localhost:3000` via config fallback). If email exists, logs in;
+        otherwise registers. Returns JSON with `action`, `onboarding`, and `google_backup`.
+        Sets session cookie.'
       parameters:
       - description: Fresh Google OAuth code (single-use)
         in: query
@@ -4943,9 +5279,8 @@ paths:
       consumes:
       - application/json
       description: '**Route:** `POST /api/v0/google-backup/connect`. Body: Google
-        OAuth `code` (`redirect_uri` = `GOOGLE_OAUTH_REDIRECT_URL_GOOGLE_BACKUP`,
-        same as `GET /auth/google-backup`). Returns scopes metadata. Tokens stored
-        server-side only.'
+        OAuth `code` only; `redirect_uri` is derived server-side from request Host.
+        Returns scopes metadata. Tokens stored server-side only.'
       parameters:
       - description: OAuth authorization code
         in: body
@@ -6250,6 +6585,557 @@ paths:
       summary: Project daily storage and bandwidth usage
       tags:
       - projects-daily-usage
+  /projects/{id}/invite-link:
+    get:
+      description: '**Full route:** `GET /api/v0/projects/{id}/invite-link?email=`'
+      parameters:
+      - description: Project UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Invitee email
+        in: query
+        name: email
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Invite URL
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: '[8] Get invite link'
+      tags:
+      - member-bucket-restriction
+  /projects/{id}/invite/{email}:
+    post:
+      consumes:
+      - application/json
+      description: '**Full route:** `POST /api/v0/projects/{id}/invite/{email}`'
+      parameters:
+      - description: Project UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Invitee email
+        in: path
+        name: email
+        required: true
+        type: string
+      - description: Optional grants (omit for defaults)
+        in: body
+        name: body
+        schema:
+          $ref: '#/definitions/consoleapi.InviteProjectMemberWithGrantsSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "402":
+          description: Payment Required
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      - CSRFAuth: []
+      summary: '[4] Invite member (optional folder grants)'
+      tags:
+      - member-bucket-restriction
+  /projects/{id}/member-acl-buckets:
+    get:
+      description: '**Full route:** `GET /api/v0/projects/{id}/member-acl-buckets`'
+      parameters:
+      - description: Project UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/consoleapi.ProjectMemberACLBucketSwaggerItem'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: '[3] List ACL bucket registry'
+      tags:
+      - member-bucket-restriction
+    post:
+      consumes:
+      - application/json
+      description: '**Full route:** `POST /api/v0/projects/{id}/member-acl-buckets`'
+      parameters:
+      - description: Project UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Bucket to register
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.AddProjectMemberACLBucketSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/consoleapi.ProjectMemberACLBucketSwaggerItem'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      - CSRFAuth: []
+      summary: '[3] Register bucket for Member ACL'
+      tags:
+      - member-bucket-restriction
+  /projects/{id}/member-acl-buckets/{bucket}:
+    delete:
+      description: '**Full route:** `DELETE /api/v0/projects/{id}/member-acl-buckets/{bucket}`'
+      parameters:
+      - description: Project UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Bucket name
+        in: path
+        name: bucket
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      - CSRFAuth: []
+      summary: '[3] Unregister ACL bucket'
+      tags:
+      - member-bucket-restriction
+  /projects/{id}/members:
+    delete:
+      consumes:
+      - application/json
+      description: '**Full route:** `DELETE /api/v0/projects/{id}/members`'
+      parameters:
+      - description: Project UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Emails to remove
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.DeleteMembersAndInvitationsSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      - CSRFAuth: []
+      summary: '[8] Remove members / cancel invites'
+      tags:
+      - member-bucket-restriction
+    get:
+      description: '**Full route:** `GET /api/v0/projects/{id}/members`'
+      parameters:
+      - description: Project UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - default: 100
+        description: Page size
+        in: query
+        name: limit
+        required: true
+        type: integer
+      - default: 1
+        description: Page number (1-based)
+        in: query
+        name: page
+        type: integer
+      - description: Search by name/email
+        in: query
+        name: search
+        type: string
+      - default: 1
+        description: 'Sort field: 1=name, 2=email, 3=created'
+        in: query
+        name: order
+        type: integer
+      - default: 1
+        description: 1=asc, 2=desc
+        in: query
+        name: order-direction
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.ProjectMembersPageSwaggerResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: '[5] List project members and pending invites'
+      tags:
+      - member-bucket-restriction
+  /projects/{id}/members/{memberID}:
+    get:
+      description: '**Full route:** `GET /api/v0/projects/{id}/members/{memberID}`'
+      parameters:
+      - description: Project UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Member user UUID
+        in: path
+        name: memberID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.ProjectMemberDetailSwaggerResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: '[8] Get one project member'
+      tags:
+      - member-bucket-restriction
+    patch:
+      consumes:
+      - text/plain
+      description: '**Full route:** `PATCH /api/v0/projects/{id}/members/{memberID}`'
+      parameters:
+      - description: Project UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Member user UUID
+        in: path
+        name: memberID
+        required: true
+        type: string
+      - description: 'Role: 0=Admin, 1=Member'
+        example: 1
+        in: body
+        name: body
+        required: true
+        schema:
+          type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.ProjectMemberSwaggerItem'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      - CSRFAuth: []
+      summary: '[8] Update member role (Admin/Member)'
+      tags:
+      - member-bucket-restriction
+  /projects/{id}/members/{memberID}/bucket-grants:
+    get:
+      description: '**Full route:** `GET /api/v0/projects/{id}/members/{memberID}/bucket-grants`'
+      parameters:
+      - description: Project UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Member user UUID
+        in: path
+        name: memberID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/consoleapi.MemberBucketGrantSwaggerItem'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: '[7] Get Member folder grants'
+      tags:
+      - member-bucket-restriction
+    put:
+      consumes:
+      - application/json
+      description: '**Full route:** `PUT /api/v0/projects/{id}/members/{memberID}/bucket-grants`'
+      parameters:
+      - description: Project UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Member user UUID
+        in: path
+        name: memberID
+        required: true
+        type: string
+      - description: Full grant set (empty clears access)
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.PutMemberBucketGrantsSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/consoleapi.MemberBucketGrantSwaggerItem'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      - CSRFAuth: []
+      summary: '[7] Replace Member folder grants'
+      tags:
+      - member-bucket-restriction
+  /projects/{id}/reinvite:
+    post:
+      consumes:
+      - application/json
+      description: '**Full route:** `POST /api/v0/projects/{id}/reinvite`'
+      parameters:
+      - description: Project UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Emails to reinvite
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.ReinviteProjectMembersSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "402":
+          description: Payment Required
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      - CSRFAuth: []
+      summary: '[8] Reinvite expired members'
+      tags:
+      - member-bucket-restriction
   /projects/{id}/salt:
     get:
       description: '**Full route:** `GET /api/v0/projects/{id}/salt`'
@@ -6338,9 +7224,9 @@ paths:
             $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
       security:
       - CookieAuth: []
-      summary: List my pending project invitations
+      summary: '[6] List my pending invitations (invitee)'
       tags:
-      - projects
+      - member-bucket-restriction
   /projects/invitations/{id}/respond:
     post:
       consumes:
@@ -6385,9 +7271,10 @@ paths:
             $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
       security:
       - CookieAuth: []
-      summary: Accept or decline a project invitation
+      - CSRFAuth: []
+      summary: '[6] Accept or decline invitation (invitee)'
       tags:
-      - projects
+      - member-bucket-restriction
   /push-notifications/test:
     post:
       description: '**Full route:** `POST /api/v0/push-notifications/test`. Sends
@@ -7055,8 +7942,8 @@ paths:
       - reseller-auth
   /seller/branding:
     get:
-      description: '**Route:** `GET /api/v0/seller/branding`. Returns 404 until reseller
-        creates branding config.'
+      description: '**Route:** `GET /api/v0/seller/branding`. Logo/favicon fields
+        are public asset URLs.'
       produces:
       - application/json
       responses:
@@ -7077,24 +7964,60 @@ paths:
       summary: Get reseller branding
       tags:
       - reseller-branding
-  /seller/branding/create:
-    post:
+  /seller/branding/active-theme:
+    put:
       consumes:
       - application/json
-      description: '**Route:** `POST /api/v0/seller/branding/create`. First-time setup
-        only. Returns 409 if branding already exists.'
+      description: '**Route:** `PUT /api/v0/seller/branding/active-theme`. Body: `{
+        "type": "system"|"custom", "id": "uuid" }`'
       parameters:
-      - description: Branding configuration
+      - description: Active theme
         in: body
         name: body
         required: true
         schema:
-          $ref: '#/definitions/seller.ResellerBrandingConfig'
+          $ref: '#/definitions/seller.SetActiveThemeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+      security:
+      - SellerCookieAuth: []
+      - SellerCSRFAuth: []
+      summary: Set active theme
+      tags:
+      - reseller-branding
+  /seller/branding/create:
+    post:
+      consumes:
+      - multipart/form-data
+      - application/json
+      description: '**Route:** `POST /api/v0/seller/branding/create`. Requires complete
+        SMTP mail settings first (`POST /seller/mail-settings/test` or `PUT /seller/mail-settings`).
+        Multipart: `brandName`, `supportEmail`, `theme` (JSON or individual `themePrimary`,
+        `themeSecondary`, `themeBackground`, `themeSidebar`), files `logoMain`, `logoSmall`,
+        `favicon`. Page title uses `brandName`. Assets stored locally; GET returns
+        public URLs under `/api/v0/seller/branding/assets/{resellerId}/{file}`.'
       produces:
       - application/json
       responses:
         "201":
           description: Created
+          schema:
+            $ref: '#/definitions/seller.ResellerBrandingConfig'
         "400":
           description: Bad Request
           schema:
@@ -7115,8 +8038,8 @@ paths:
       - reseller-branding
   /seller/branding/delete:
     delete:
-      description: '**Route:** `DELETE /api/v0/seller/branding/delete`. Removes branding
-        config so reseller can create again.'
+      description: '**Route:** `DELETE /api/v0/seller/branding/delete`. Removes config
+        and local logo/favicon files.'
       produces:
       - application/json
       responses:
@@ -7139,21 +8062,18 @@ paths:
   /seller/branding/update:
     put:
       consumes:
+      - multipart/form-data
       - application/json
-      description: '**Route:** `PUT /api/v0/seller/branding/update`. Updates existing
-        branding config. Returns 404 if not created yet.'
-      parameters:
-      - description: Branding configuration
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/seller.ResellerBrandingConfig'
+      description: '**Route:** `PUT /api/v0/seller/branding/update`. Requires complete
+        SMTP mail settings. Same multipart fields as create. Omit file fields to keep
+        existing assets.'
       produces:
       - application/json
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/seller.ResellerBrandingConfig'
         "400":
           description: Bad Request
           schema:
@@ -7192,6 +8112,226 @@ paths:
       summary: Get seller frontend configuration
       tags:
       - reseller
+  /seller/domain:
+    get:
+      description: '**Route:** `GET /api/v0/seller/domain`. Returns 404 if no domain
+        is connected yet.'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/seller.ResellerDomainResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+      security:
+      - SellerCookieAuth: []
+      summary: Get reseller domain
+      tags:
+      - reseller-domain
+  /seller/domain/connect:
+    post:
+      consumes:
+      - application/json
+      description: '**Route:** `POST /api/v0/seller/domain/connect`. Creates reseller_domains
+        row with status active, verification verified, and SSL issued. No DNS validation
+        (manual ops).'
+      parameters:
+      - description: Custom domain hostname
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/seller.ConnectDomainRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/seller.ResellerDomainResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+      security:
+      - SellerCookieAuth: []
+      - SellerCSRFAuth: []
+      summary: Connect custom domain
+      tags:
+      - reseller-domain
+  /seller/domain/update:
+    put:
+      consumes:
+      - application/json
+      description: '**Route:** `PUT /api/v0/seller/domain/update`. Updates the single
+        custom domain row. Sets status active, verification verified, and SSL issued.
+        No DNS validation (manual ops).'
+      parameters:
+      - description: Custom domain hostname
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/seller.UpdateDomainRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/seller.ResellerDomainResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+      security:
+      - SellerCookieAuth: []
+      - SellerCSRFAuth: []
+      summary: Update reseller domain
+      tags:
+      - reseller-domain
+  /seller/mail-settings:
+    get:
+      description: '**Route:** `GET /api/v0/seller/mail-settings`. Returns seller-configured
+        SMTP used for emails on that reseller''s custom domain. Auth is login only.
+        CyberLS/main console continues using satellite mail.* config. Password is
+        never returned; passwordSet/configured indicate whether SMTP is stored and
+        usable.'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/seller.ResellerMailSettingsView'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+      security:
+      - SellerCookieAuth: []
+      summary: Get reseller mail SMTP settings
+      tags:
+      - reseller-mail
+    put:
+      consumes:
+      - application/json
+      description: '**Route:** `PUT /api/v0/seller/mail-settings`. Body: from, smtpServerAddress,
+        authType (login), login, password. Omit password to keep the existing one.
+        When complete, emails on this reseller''s domain use these credentials.'
+      parameters:
+      - description: SMTP settings
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/seller.UpdateResellerMailSettingsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/seller.ResellerMailSettingsView'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+      security:
+      - SellerCookieAuth: []
+      - SellerCSRFAuth: []
+      summary: Update reseller mail SMTP settings
+      tags:
+      - reseller-mail
+  /seller/mail-settings/check-host:
+    post:
+      consumes:
+      - application/json
+      description: '**Route:** `POST /api/v0/seller/mail-settings/check-host`. Body
+        may include smtp fields (same as PUT) to test unsaved form values; omitted
+        password reuses saved password. Does not send an email and does not persist
+        settings.'
+      parameters:
+      - description: Optional SMTP overrides
+        in: body
+        name: body
+        schema:
+          $ref: '#/definitions/seller.TestMailSMTPRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/seller.MailSMTPActionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+      security:
+      - SellerCookieAuth: []
+      - SellerCSRFAuth: []
+      summary: Check reseller SMTP host
+      tags:
+      - reseller-mail
+  /seller/mail-settings/test:
+    post:
+      consumes:
+      - application/json
+      description: '**Route:** `POST /api/v0/seller/mail-settings/test`. Body may
+        include smtp fields plus optional `to` (defaults to reseller login email).
+        On success, the SMTP settings are saved and used for reseller-domain mail.'
+      parameters:
+      - description: Optional SMTP overrides and recipient
+        in: body
+        name: body
+        schema:
+          $ref: '#/definitions/seller.TestMailSMTPRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/seller.MailSMTPActionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+      security:
+      - SellerCookieAuth: []
+      - SellerCSRFAuth: []
+      summary: Send reseller SMTP test email
+      tags:
+      - reseller-mail
   /seller/status:
     get:
       description: '**Route:** `GET /api/v0/seller/status`. Public health check for
@@ -7210,6 +8350,158 @@ paths:
       summary: Seller service status
       tags:
       - reseller
+  /seller/themes/custom:
+    get:
+      description: '**Route:** `GET /api/v0/seller/themes/custom`. Max 5 per reseller.'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/seller.CustomThemeSummary'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+      security:
+      - SellerCookieAuth: []
+      summary: List custom themes
+      tags:
+      - reseller-branding
+    post:
+      consumes:
+      - application/json
+      description: '**Route:** `POST /api/v0/seller/themes/custom`. Body colors: primary,
+        secondary, background, sidebar only. Max 5 custom themes per reseller.'
+      parameters:
+      - description: Custom theme
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/seller.CreateCustomThemeRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/seller.ResellerCustomTheme'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+      security:
+      - SellerCookieAuth: []
+      - SellerCSRFAuth: []
+      summary: Create custom theme
+      tags:
+      - reseller-branding
+  /seller/themes/custom/{id}:
+    delete:
+      description: '**Route:** `DELETE /api/v0/seller/themes/custom/{id}`'
+      parameters:
+      - description: Theme ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+      security:
+      - SellerCookieAuth: []
+      - SellerCSRFAuth: []
+      summary: Delete custom theme
+      tags:
+      - reseller-branding
+    put:
+      consumes:
+      - application/json
+      description: '**Route:** `PUT /api/v0/seller/themes/custom/{id}`'
+      parameters:
+      - description: Theme ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Custom theme
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/seller.UpdateCustomThemeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/seller.ResellerCustomTheme'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+      security:
+      - SellerCookieAuth: []
+      - SellerCSRFAuth: []
+      summary: Update custom theme
+      tags:
+      - reseller-branding
+  /seller/themes/presets:
+    get:
+      description: '**Route:** `GET /api/v0/seller/themes/presets`'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/seller.ThemePresetSummary'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/seller.SellerAuthErrorResponse'
+      security:
+      - SellerCookieAuth: []
+      summary: List system theme presets
+      tags:
+      - reseller-branding
   /user-guideline-for-app:
     get:
       description: '**Full route:** `GET /user-guideline-for-app` (server root, not
@@ -7362,8 +8654,19 @@ securityDefinitions:
     type: apiKey
 swagger: "2.0"
 tags:
-- description: 'Project management: invitations, members, usage, and project CRUD'
+- description: 'Project management: CRUD, salt, usage, config. Team invite + Member
+    bucket restriction APIs are under tag **member-bucket-restriction**.'
   name: projects
+- description: 'Member bucket & folder restriction — ALL invite/member/ACL APIs in
+    one place. Flag: console.member-bucket-grants-enabled (default OFF). OFF = existing
+    one-user/project access unchanged. ON = Owner/Admin full access; Member only grant
+    rows (bucket+prefix+perms). Test order: (1) CookieAuth+CSRF (2) create/ensure
+    bucket (3) POST member-acl-buckets (4) POST invite/{email} (omit body = defaults
+    email/ List+Download) (5) GET members (6) invitee GET invitations + POST respond
+    response=1 (7) GET/PUT members/{id}/bucket-grants (8) PATCH role / DELETE / reinvite
+    / invite-link. Prefix must end with /. PUT grants:[] clears Member access + invalidates
+    keys.'
+  name: member-bucket-restriction
 - description: 'Storage & bandwidth trends: GET /api/v0/projects/{id}/daily-usage
     — daily storageUsage and settledBandwidthUsage (bytes per day) for charts'
   name: projects-daily-usage
@@ -7491,6 +8794,10 @@ tags:
   name: reseller-mfa
 - description: 'Reseller active sessions: `GET /seller/auth/sessions`, `POST /seller/auth/invalidate-session/{id}`.'
   name: reseller-sessions
-- description: 'Reseller branding configuration: `GET /seller/branding`, `POST /seller/branding/create`,
-    `PUT /seller/branding/update`, `DELETE /seller/branding/delete`.'
+- description: 'Reseller branding: multipart upload for logos/favicon stored flat
+    under `{branding-assets-dir}/reseller/`. Config: `brandName` (also used as page
+    title), `supportEmail`, `theme`, `logo`, `favicon`.'
   name: reseller-branding
+- description: 'Reseller custom domain: `GET /seller/domain`, `POST /seller/domain/connect`,
+    `PUT /seller/domain/update` (one custom domain per reseller, no DNS validation).'
+  name: reseller-domain

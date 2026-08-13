@@ -1283,6 +1283,39 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 					`ALTER TABLE mail_export_jobs ADD COLUMN last_download_charged_bytes INT64`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add project_member_acl_buckets and member_bucket_grants",
+				Version:     135,
+				Action: migrate.SQL{
+					`CREATE TABLE project_member_acl_buckets (
+						project_id BYTES(MAX) NOT NULL,
+						bucket_name STRING(MAX) NOT NULL,
+						created_at TIMESTAMP NOT NULL,
+						CONSTRAINT project_member_acl_buckets_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE
+					) PRIMARY KEY ( project_id, bucket_name )`,
+					`CREATE INDEX project_member_acl_buckets_project_id_index ON project_member_acl_buckets ( project_id )`,
+					`CREATE TABLE member_bucket_grants (
+						id BYTES(MAX) NOT NULL,
+						project_id BYTES(MAX) NOT NULL,
+						member_id BYTES(MAX),
+						invite_email STRING(MAX) NOT NULL,
+						bucket STRING(MAX) NOT NULL,
+						prefix STRING(MAX) NOT NULL,
+						allow_list BOOL NOT NULL,
+						allow_download BOOL NOT NULL,
+						allow_upload BOOL NOT NULL,
+						allow_delete BOOL NOT NULL,
+						created_at TIMESTAMP NOT NULL,
+						updated_at TIMESTAMP NOT NULL,
+						CONSTRAINT member_bucket_grants_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE,
+						CONSTRAINT member_bucket_grants_member_id_fkey FOREIGN KEY (member_id) REFERENCES users (id) ON DELETE CASCADE
+					) PRIMARY KEY ( id )`,
+					`CREATE UNIQUE INDEX index_member_bucket_grants_project_id_invite_email_bucket_prefix ON member_bucket_grants ( project_id, invite_email, bucket, prefix )`,
+					`CREATE INDEX member_bucket_grants_project_id_member_id_index ON member_bucket_grants ( project_id, member_id )`,
+					`CREATE INDEX member_bucket_grants_project_id_invite_email_index ON member_bucket_grants ( project_id, invite_email )`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
@@ -5321,6 +5354,38 @@ true, NOW(), NOW());`,
 				Action: migrate.SQL{
 					`ALTER TABLE mail_export_jobs ADD COLUMN IF NOT EXISTS last_download_charge_id text;`,
 					`ALTER TABLE mail_export_jobs ADD COLUMN IF NOT EXISTS last_download_charged_bytes bigint;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add project_member_acl_buckets and member_bucket_grants",
+				Version:     385,
+				Action: migrate.SQL{
+					`CREATE TABLE IF NOT EXISTS project_member_acl_buckets (
+						project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+						bucket_name text NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( project_id, bucket_name )
+					);`,
+					`CREATE INDEX IF NOT EXISTS project_member_acl_buckets_project_id_index ON project_member_acl_buckets ( project_id );`,
+					`CREATE TABLE IF NOT EXISTS member_bucket_grants (
+						id bytea NOT NULL,
+						project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+						member_id bytea REFERENCES users( id ) ON DELETE CASCADE,
+						invite_email text NOT NULL,
+						bucket text NOT NULL,
+						prefix text NOT NULL,
+						allow_list boolean NOT NULL,
+						allow_download boolean NOT NULL,
+						allow_upload boolean NOT NULL,
+						allow_delete boolean NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						updated_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( id ),
+						UNIQUE ( project_id, invite_email, bucket, prefix )
+					);`,
+					`CREATE INDEX IF NOT EXISTS member_bucket_grants_project_id_member_id_index ON member_bucket_grants ( project_id, member_id );`,
+					`CREATE INDEX IF NOT EXISTS member_bucket_grants_project_id_invite_email_index ON member_bucket_grants ( project_id, invite_email );`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run

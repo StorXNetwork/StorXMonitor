@@ -77,6 +77,7 @@ type FrontendConfig struct {
 	AltObjBrowserPagingEnabled        bool                        `json:"altObjBrowserPagingEnabled"`
 	AltObjBrowserPagingThreshold      int                         `json:"altObjBrowserPagingThreshold"`
 	DomainsPageEnabled                bool                        `json:"domainsPageEnabled"`
+	MemberBucketGrantsEnabled         bool                        `json:"memberBucketGrantsEnabled"`
 	ActiveSessionsViewEnabled         bool                        `json:"activeSessionsViewEnabled"`
 	VersioningUIEnabled               bool                        `json:"versioningUIEnabled"`
 	ObjectLockUIEnabled               bool                        `json:"objectLockUIEnabled"`

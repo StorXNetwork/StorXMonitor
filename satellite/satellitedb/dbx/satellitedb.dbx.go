@@ -1438,6 +1438,23 @@ func (obj *pgxDB) Schema() []string {
 	UNIQUE ( user_id, google_email )
 )`,
 
+		`CREATE TABLE member_bucket_grants (
+	id bytea NOT NULL,
+	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+	member_id bytea REFERENCES users( id ) ON DELETE CASCADE,
+	invite_email text NOT NULL,
+	bucket text NOT NULL,
+	prefix text NOT NULL,
+	allow_list boolean NOT NULL,
+	allow_download boolean NOT NULL,
+	allow_upload boolean NOT NULL,
+	allow_delete boolean NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( project_id, invite_email, bucket, prefix )
+)`,
+
 		`CREATE TABLE project_invitations (
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
 	email text NOT NULL,
@@ -1452,6 +1469,13 @@ func (obj *pgxDB) Schema() []string {
 	role integer NOT NULL DEFAULT 0,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( member_id, project_id )
+)`,
+
+		`CREATE TABLE project_member_acl_buckets (
+	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+	bucket_name text NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( project_id, bucket_name )
 )`,
 
 		`CREATE TABLE rest_api_keys (
@@ -1623,11 +1647,17 @@ func (obj *pgxDB) Schema() []string {
 
 		`CREATE INDEX google_backup_credentials_user_id_index ON google_backup_credentials ( user_id )`,
 
+		`CREATE INDEX member_bucket_grants_project_id_member_id_index ON member_bucket_grants ( project_id, member_id )`,
+
+		`CREATE INDEX member_bucket_grants_project_id_invite_email_index ON member_bucket_grants ( project_id, invite_email )`,
+
 		`CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id )`,
 
 		`CREATE INDEX project_invitations_email_index ON project_invitations ( email )`,
 
 		`CREATE INDEX project_members_project_id_index ON project_members ( project_id )`,
+
+		`CREATE INDEX project_member_acl_buckets_project_id_index ON project_member_acl_buckets ( project_id )`,
 
 		`CREATE INDEX rest_api_keys_user_id_index ON rest_api_keys ( user_id )`,
 
@@ -1644,9 +1674,13 @@ func (obj *pgxDB) DropSchema() []string {
 
 		`DROP TABLE IF EXISTS rest_api_keys`,
 
+		`DROP TABLE IF EXISTS project_member_acl_buckets`,
+
 		`DROP TABLE IF EXISTS project_members`,
 
 		`DROP TABLE IF EXISTS project_invitations`,
+
+		`DROP TABLE IF EXISTS member_bucket_grants`,
 
 		`DROP TABLE IF EXISTS google_backup_credentials`,
 
@@ -2989,6 +3023,23 @@ func (obj *pgxcockroachDB) Schema() []string {
 	UNIQUE ( user_id, google_email )
 )`,
 
+		`CREATE TABLE member_bucket_grants (
+	id bytea NOT NULL,
+	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+	member_id bytea REFERENCES users( id ) ON DELETE CASCADE,
+	invite_email text NOT NULL,
+	bucket text NOT NULL,
+	prefix text NOT NULL,
+	allow_list boolean NOT NULL,
+	allow_download boolean NOT NULL,
+	allow_upload boolean NOT NULL,
+	allow_delete boolean NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( project_id, invite_email, bucket, prefix )
+)`,
+
 		`CREATE TABLE project_invitations (
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
 	email text NOT NULL,
@@ -3003,6 +3054,13 @@ func (obj *pgxcockroachDB) Schema() []string {
 	role integer NOT NULL DEFAULT 0,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( member_id, project_id )
+)`,
+
+		`CREATE TABLE project_member_acl_buckets (
+	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+	bucket_name text NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( project_id, bucket_name )
 )`,
 
 		`CREATE TABLE rest_api_keys (
@@ -3174,11 +3232,17 @@ func (obj *pgxcockroachDB) Schema() []string {
 
 		`CREATE INDEX google_backup_credentials_user_id_index ON google_backup_credentials ( user_id )`,
 
+		`CREATE INDEX member_bucket_grants_project_id_member_id_index ON member_bucket_grants ( project_id, member_id )`,
+
+		`CREATE INDEX member_bucket_grants_project_id_invite_email_index ON member_bucket_grants ( project_id, invite_email )`,
+
 		`CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id )`,
 
 		`CREATE INDEX project_invitations_email_index ON project_invitations ( email )`,
 
 		`CREATE INDEX project_members_project_id_index ON project_members ( project_id )`,
+
+		`CREATE INDEX project_member_acl_buckets_project_id_index ON project_member_acl_buckets ( project_id )`,
 
 		`CREATE INDEX rest_api_keys_user_id_index ON rest_api_keys ( user_id )`,
 
@@ -3195,9 +3259,13 @@ func (obj *pgxcockroachDB) DropSchema() []string {
 
 		`DROP TABLE IF EXISTS rest_api_keys`,
 
+		`DROP TABLE IF EXISTS project_member_acl_buckets`,
+
 		`DROP TABLE IF EXISTS project_members`,
 
 		`DROP TABLE IF EXISTS project_invitations`,
+
+		`DROP TABLE IF EXISTS member_bucket_grants`,
 
 		`DROP TABLE IF EXISTS google_backup_credentials`,
 
@@ -4492,6 +4560,25 @@ func (obj *spannerDB) Schema() []string {
 
 		`CREATE UNIQUE INDEX index_google_backup_credentials_user_id_google_email ON google_backup_credentials ( user_id, google_email )`,
 
+		`CREATE TABLE member_bucket_grants (
+	id BYTES(MAX) NOT NULL,
+	project_id BYTES(MAX) NOT NULL,
+	member_id BYTES(MAX),
+	invite_email STRING(MAX) NOT NULL,
+	bucket STRING(MAX) NOT NULL,
+	prefix STRING(MAX) NOT NULL,
+	allow_list BOOL NOT NULL,
+	allow_download BOOL NOT NULL,
+	allow_upload BOOL NOT NULL,
+	allow_delete BOOL NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	updated_at TIMESTAMP NOT NULL,
+	CONSTRAINT member_bucket_grants_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE ,
+	CONSTRAINT member_bucket_grants_member_id_fkey FOREIGN KEY (member_id) REFERENCES users (id) ON DELETE CASCADE 
+) PRIMARY KEY ( id )`,
+
+		`CREATE UNIQUE INDEX index_member_bucket_grants_project_id_invite_email_bucket_prefix ON member_bucket_grants ( project_id, invite_email, bucket, prefix )`,
+
 		`CREATE TABLE project_invitations (
 	project_id BYTES(MAX) NOT NULL,
 	email STRING(MAX) NOT NULL,
@@ -4509,6 +4596,13 @@ func (obj *spannerDB) Schema() []string {
 	CONSTRAINT project_members_member_id_fkey FOREIGN KEY (member_id) REFERENCES users (id) ON DELETE CASCADE ,
 	CONSTRAINT project_members_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE 
 ) PRIMARY KEY ( member_id, project_id )`,
+
+		`CREATE TABLE project_member_acl_buckets (
+	project_id BYTES(MAX) NOT NULL,
+	bucket_name STRING(MAX) NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	CONSTRAINT project_member_acl_buckets_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE 
+) PRIMARY KEY ( project_id, bucket_name )`,
 
 		`CREATE TABLE rest_api_keys (
 	id BYTES(MAX) NOT NULL,
@@ -4680,11 +4774,17 @@ func (obj *spannerDB) Schema() []string {
 
 		`CREATE INDEX google_backup_credentials_user_id_index ON google_backup_credentials ( user_id )`,
 
+		`CREATE INDEX member_bucket_grants_project_id_member_id_index ON member_bucket_grants ( project_id, member_id )`,
+
+		`CREATE INDEX member_bucket_grants_project_id_invite_email_index ON member_bucket_grants ( project_id, invite_email )`,
+
 		`CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id )`,
 
 		`CREATE INDEX project_invitations_email_index ON project_invitations ( email )`,
 
 		`CREATE INDEX project_members_project_id_index ON project_members ( project_id )`,
+
+		`CREATE INDEX project_member_acl_buckets_project_id_index ON project_member_acl_buckets ( project_id )`,
 
 		`CREATE INDEX rest_api_keys_user_id_index ON rest_api_keys ( user_id )`,
 
@@ -4703,6 +4803,8 @@ func (obj *spannerDB) DropSchema() []string {
 
 		`DROP INDEX IF EXISTS index_rest_api_keys_token`,
 
+		`ALTER TABLE project_member_acl_buckets DROP CONSTRAINT project_member_acl_buckets_project_id_fkey`,
+
 		`ALTER TABLE project_members DROP CONSTRAINT project_members_member_id_fkey`,
 
 		`ALTER TABLE project_members DROP CONSTRAINT project_members_project_id_fkey`,
@@ -4710,6 +4812,12 @@ func (obj *spannerDB) DropSchema() []string {
 		`ALTER TABLE project_invitations DROP CONSTRAINT project_invitations_project_id_fkey`,
 
 		`ALTER TABLE project_invitations DROP CONSTRAINT project_invitations_inviter_id_fkey`,
+
+		`ALTER TABLE member_bucket_grants DROP CONSTRAINT member_bucket_grants_project_id_fkey`,
+
+		`ALTER TABLE member_bucket_grants DROP CONSTRAINT member_bucket_grants_member_id_fkey`,
+
+		`DROP INDEX IF EXISTS index_member_bucket_grants_project_id_invite_email_bucket_prefix`,
 
 		`ALTER TABLE google_backup_credentials DROP CONSTRAINT google_backup_credentials_user_id_fkey`,
 
@@ -4905,11 +5013,17 @@ func (obj *spannerDB) DropSchema() []string {
 
 		`DROP INDEX IF EXISTS google_backup_credentials_user_id_index`,
 
+		`DROP INDEX IF EXISTS member_bucket_grants_project_id_member_id_index`,
+
+		`DROP INDEX IF EXISTS member_bucket_grants_project_id_invite_email_index`,
+
 		`DROP INDEX IF EXISTS project_invitations_project_id_index`,
 
 		`DROP INDEX IF EXISTS project_invitations_email_index`,
 
 		`DROP INDEX IF EXISTS project_members_project_id_index`,
+
+		`DROP INDEX IF EXISTS project_member_acl_buckets_project_id_index`,
 
 		`DROP INDEX IF EXISTS rest_api_keys_user_id_index`,
 
@@ -4933,6 +5047,16 @@ func (obj *spannerDB) DropSchema() []string {
 
 		`DROP TABLE IF EXISTS rest_api_keys`,
 
+		`ALTER TABLE  project_member_acl_buckets ALTER project_id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS project_member_acl_buckets_project_id`,
+
+		`ALTER TABLE  project_member_acl_buckets ALTER bucket_name SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS project_member_acl_buckets_bucket_name`,
+
+		`DROP TABLE IF EXISTS project_member_acl_buckets`,
+
 		`ALTER TABLE  project_members ALTER member_id SET DEFAULT (null)`,
 
 		`DROP SEQUENCE IF EXISTS project_members_member_id`,
@@ -4952,6 +5076,12 @@ func (obj *spannerDB) DropSchema() []string {
 		`DROP SEQUENCE IF EXISTS project_invitations_email`,
 
 		`DROP TABLE IF EXISTS project_invitations`,
+
+		`ALTER TABLE  member_bucket_grants ALTER id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS member_bucket_grants_id`,
+
+		`DROP TABLE IF EXISTS member_bucket_grants`,
 
 		`ALTER TABLE  google_backup_credentials ALTER id SET DEFAULT (null)`,
 
@@ -23001,6 +23131,252 @@ func (f GoogleBackupCredentials_UpdatedAt_Field) value() any {
 	return f._value
 }
 
+type MemberBucketGrant struct {
+	Id            []byte
+	ProjectId     []byte
+	MemberId      []byte
+	InviteEmail   string
+	Bucket        string
+	Prefix        string
+	AllowList     bool
+	AllowDownload bool
+	AllowUpload   bool
+	AllowDelete   bool
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+}
+
+func (MemberBucketGrant) _Table() string { return "member_bucket_grants" }
+
+type MemberBucketGrant_Create_Fields struct {
+	MemberId MemberBucketGrant_MemberId_Field
+}
+
+type MemberBucketGrant_Update_Fields struct {
+	MemberId      MemberBucketGrant_MemberId_Field
+	AllowList     MemberBucketGrant_AllowList_Field
+	AllowDownload MemberBucketGrant_AllowDownload_Field
+	AllowUpload   MemberBucketGrant_AllowUpload_Field
+	AllowDelete   MemberBucketGrant_AllowDelete_Field
+}
+
+type MemberBucketGrant_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func MemberBucketGrant_Id(v []byte) MemberBucketGrant_Id_Field {
+	return MemberBucketGrant_Id_Field{_set: true, _value: v}
+}
+
+func (f MemberBucketGrant_Id_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MemberBucketGrant_ProjectId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func MemberBucketGrant_ProjectId(v []byte) MemberBucketGrant_ProjectId_Field {
+	return MemberBucketGrant_ProjectId_Field{_set: true, _value: v}
+}
+
+func (f MemberBucketGrant_ProjectId_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MemberBucketGrant_MemberId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func MemberBucketGrant_MemberId(v []byte) MemberBucketGrant_MemberId_Field {
+	return MemberBucketGrant_MemberId_Field{_set: true, _value: v}
+}
+
+func MemberBucketGrant_MemberId_Raw(v []byte) MemberBucketGrant_MemberId_Field {
+	if v == nil {
+		return MemberBucketGrant_MemberId_Null()
+	}
+	return MemberBucketGrant_MemberId(v)
+}
+
+func MemberBucketGrant_MemberId_Null() MemberBucketGrant_MemberId_Field {
+	return MemberBucketGrant_MemberId_Field{_set: true, _null: true}
+}
+
+func (f MemberBucketGrant_MemberId_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f MemberBucketGrant_MemberId_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MemberBucketGrant_InviteEmail_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func MemberBucketGrant_InviteEmail(v string) MemberBucketGrant_InviteEmail_Field {
+	return MemberBucketGrant_InviteEmail_Field{_set: true, _value: v}
+}
+
+func (f MemberBucketGrant_InviteEmail_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MemberBucketGrant_Bucket_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func MemberBucketGrant_Bucket(v string) MemberBucketGrant_Bucket_Field {
+	return MemberBucketGrant_Bucket_Field{_set: true, _value: v}
+}
+
+func (f MemberBucketGrant_Bucket_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MemberBucketGrant_Prefix_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func MemberBucketGrant_Prefix(v string) MemberBucketGrant_Prefix_Field {
+	return MemberBucketGrant_Prefix_Field{_set: true, _value: v}
+}
+
+func (f MemberBucketGrant_Prefix_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MemberBucketGrant_AllowList_Field struct {
+	_set   bool
+	_null  bool
+	_value bool
+}
+
+func MemberBucketGrant_AllowList(v bool) MemberBucketGrant_AllowList_Field {
+	return MemberBucketGrant_AllowList_Field{_set: true, _value: v}
+}
+
+func (f MemberBucketGrant_AllowList_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MemberBucketGrant_AllowDownload_Field struct {
+	_set   bool
+	_null  bool
+	_value bool
+}
+
+func MemberBucketGrant_AllowDownload(v bool) MemberBucketGrant_AllowDownload_Field {
+	return MemberBucketGrant_AllowDownload_Field{_set: true, _value: v}
+}
+
+func (f MemberBucketGrant_AllowDownload_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MemberBucketGrant_AllowUpload_Field struct {
+	_set   bool
+	_null  bool
+	_value bool
+}
+
+func MemberBucketGrant_AllowUpload(v bool) MemberBucketGrant_AllowUpload_Field {
+	return MemberBucketGrant_AllowUpload_Field{_set: true, _value: v}
+}
+
+func (f MemberBucketGrant_AllowUpload_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MemberBucketGrant_AllowDelete_Field struct {
+	_set   bool
+	_null  bool
+	_value bool
+}
+
+func MemberBucketGrant_AllowDelete(v bool) MemberBucketGrant_AllowDelete_Field {
+	return MemberBucketGrant_AllowDelete_Field{_set: true, _value: v}
+}
+
+func (f MemberBucketGrant_AllowDelete_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MemberBucketGrant_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func MemberBucketGrant_CreatedAt(v time.Time) MemberBucketGrant_CreatedAt_Field {
+	return MemberBucketGrant_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f MemberBucketGrant_CreatedAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MemberBucketGrant_UpdatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func MemberBucketGrant_UpdatedAt(v time.Time) MemberBucketGrant_UpdatedAt_Field {
+	return MemberBucketGrant_UpdatedAt_Field{_set: true, _value: v}
+}
+
+func (f MemberBucketGrant_UpdatedAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
 type ProjectInvitation struct {
 	ProjectId []byte
 	Email     string
@@ -23181,6 +23557,68 @@ func ProjectMember_CreatedAt(v time.Time) ProjectMember_CreatedAt_Field {
 }
 
 func (f ProjectMember_CreatedAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ProjectMemberAclBucket struct {
+	ProjectId  []byte
+	BucketName string
+	CreatedAt  time.Time
+}
+
+func (ProjectMemberAclBucket) _Table() string { return "project_member_acl_buckets" }
+
+type ProjectMemberAclBucket_Update_Fields struct {
+}
+
+type ProjectMemberAclBucket_ProjectId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func ProjectMemberAclBucket_ProjectId(v []byte) ProjectMemberAclBucket_ProjectId_Field {
+	return ProjectMemberAclBucket_ProjectId_Field{_set: true, _value: v}
+}
+
+func (f ProjectMemberAclBucket_ProjectId_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ProjectMemberAclBucket_BucketName_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func ProjectMemberAclBucket_BucketName(v string) ProjectMemberAclBucket_BucketName_Field {
+	return ProjectMemberAclBucket_BucketName_Field{_set: true, _value: v}
+}
+
+func (f ProjectMemberAclBucket_BucketName_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ProjectMemberAclBucket_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func ProjectMemberAclBucket_CreatedAt(v time.Time) ProjectMemberAclBucket_CreatedAt_Field {
+	return ProjectMemberAclBucket_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f ProjectMemberAclBucket_CreatedAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -26288,6 +26726,85 @@ func (obj *pgxImpl) Replace_ApiKeyTail(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return api_key_tail, nil
+
+}
+
+func (obj *pgxImpl) Create_ProjectMemberAclBucket(ctx context.Context,
+	project_member_acl_bucket_project_id ProjectMemberAclBucket_ProjectId_Field,
+	project_member_acl_bucket_bucket_name ProjectMemberAclBucket_BucketName_Field) (
+	project_member_acl_bucket *ProjectMemberAclBucket, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__project_id_val := project_member_acl_bucket_project_id.value()
+	__bucket_name_val := project_member_acl_bucket_bucket_name.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO project_member_acl_buckets ( project_id, bucket_name, created_at ) VALUES ( ?, ?, ? ) RETURNING project_member_acl_buckets.project_id, project_member_acl_buckets.bucket_name, project_member_acl_buckets.created_at")
+
+	var __values []any
+	__values = append(__values, __project_id_val, __bucket_name_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	project_member_acl_bucket = &ProjectMemberAclBucket{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_member_acl_bucket.ProjectId, &project_member_acl_bucket.BucketName, &project_member_acl_bucket.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return project_member_acl_bucket, nil
+
+}
+
+func (obj *pgxImpl) Create_MemberBucketGrant(ctx context.Context,
+	member_bucket_grant_id MemberBucketGrant_Id_Field,
+	member_bucket_grant_project_id MemberBucketGrant_ProjectId_Field,
+	member_bucket_grant_invite_email MemberBucketGrant_InviteEmail_Field,
+	member_bucket_grant_bucket MemberBucketGrant_Bucket_Field,
+	member_bucket_grant_prefix MemberBucketGrant_Prefix_Field,
+	member_bucket_grant_allow_list MemberBucketGrant_AllowList_Field,
+	member_bucket_grant_allow_download MemberBucketGrant_AllowDownload_Field,
+	member_bucket_grant_allow_upload MemberBucketGrant_AllowUpload_Field,
+	member_bucket_grant_allow_delete MemberBucketGrant_AllowDelete_Field,
+	optional MemberBucketGrant_Create_Fields) (
+	member_bucket_grant *MemberBucketGrant, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := member_bucket_grant_id.value()
+	__project_id_val := member_bucket_grant_project_id.value()
+	__member_id_val := optional.MemberId.value()
+	__invite_email_val := member_bucket_grant_invite_email.value()
+	__bucket_val := member_bucket_grant_bucket.value()
+	__prefix_val := member_bucket_grant_prefix.value()
+	__allow_list_val := member_bucket_grant_allow_list.value()
+	__allow_download_val := member_bucket_grant_allow_download.value()
+	__allow_upload_val := member_bucket_grant_allow_upload.value()
+	__allow_delete_val := member_bucket_grant_allow_delete.value()
+	__created_at_val := __now
+	__updated_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO member_bucket_grants ( id, project_id, member_id, invite_email, bucket, prefix, allow_list, allow_download, allow_upload, allow_delete, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at")
+
+	var __values []any
+	__values = append(__values, __id_val, __project_id_val, __member_id_val, __invite_email_val, __bucket_val, __prefix_val, __allow_list_val, __allow_download_val, __allow_upload_val, __allow_delete_val, __created_at_val, __updated_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	member_bucket_grant = &MemberBucketGrant{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return member_bucket_grant, nil
 
 }
 
@@ -33125,6 +33642,200 @@ func (obj *pgxImpl) Get_ApiKeyTail_By_Tail(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) All_ProjectMemberAclBucket_By_ProjectId(ctx context.Context,
+	project_member_acl_bucket_project_id ProjectMemberAclBucket_ProjectId_Field) (
+	rows []*ProjectMemberAclBucket, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_member_acl_buckets.project_id, project_member_acl_buckets.bucket_name, project_member_acl_buckets.created_at FROM project_member_acl_buckets WHERE project_member_acl_buckets.project_id = ?")
+
+	var __values []any
+	__values = append(__values, project_member_acl_bucket_project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*ProjectMemberAclBucket, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				project_member_acl_bucket := &ProjectMemberAclBucket{}
+				err = __rows.Scan(&project_member_acl_bucket.ProjectId, &project_member_acl_bucket.BucketName, &project_member_acl_bucket.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, project_member_acl_bucket)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) Get_ProjectMemberAclBucket_By_ProjectId_And_BucketName(ctx context.Context,
+	project_member_acl_bucket_project_id ProjectMemberAclBucket_ProjectId_Field,
+	project_member_acl_bucket_bucket_name ProjectMemberAclBucket_BucketName_Field) (
+	project_member_acl_bucket *ProjectMemberAclBucket, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_member_acl_buckets.project_id, project_member_acl_buckets.bucket_name, project_member_acl_buckets.created_at FROM project_member_acl_buckets WHERE project_member_acl_buckets.project_id = ? AND project_member_acl_buckets.bucket_name = ?")
+
+	var __values []any
+	__values = append(__values, project_member_acl_bucket_project_id.value(), project_member_acl_bucket_bucket_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	project_member_acl_bucket = &ProjectMemberAclBucket{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_member_acl_bucket.ProjectId, &project_member_acl_bucket.BucketName, &project_member_acl_bucket.CreatedAt)
+	if err != nil {
+		return (*ProjectMemberAclBucket)(nil), obj.makeErr(err)
+	}
+	return project_member_acl_bucket, nil
+
+}
+
+func (obj *pgxImpl) All_MemberBucketGrant_By_ProjectId_And_MemberId(ctx context.Context,
+	member_bucket_grant_project_id MemberBucketGrant_ProjectId_Field,
+	member_bucket_grant_member_id MemberBucketGrant_MemberId_Field) (
+	rows []*MemberBucketGrant, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "member_bucket_grants.member_id", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at FROM member_bucket_grants WHERE member_bucket_grants.project_id = ? AND "), __cond_0}}
+
+	var __values []any
+	__values = append(__values, member_bucket_grant_project_id.value())
+	if !member_bucket_grant_member_id.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, member_bucket_grant_member_id.value())
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*MemberBucketGrant, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				member_bucket_grant := &MemberBucketGrant{}
+				err = __rows.Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, member_bucket_grant)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) All_MemberBucketGrant_By_ProjectId_And_InviteEmail(ctx context.Context,
+	member_bucket_grant_project_id MemberBucketGrant_ProjectId_Field,
+	member_bucket_grant_invite_email MemberBucketGrant_InviteEmail_Field) (
+	rows []*MemberBucketGrant, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at FROM member_bucket_grants WHERE member_bucket_grants.project_id = ? AND member_bucket_grants.invite_email = ?")
+
+	var __values []any
+	__values = append(__values, member_bucket_grant_project_id.value(), member_bucket_grant_invite_email.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*MemberBucketGrant, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				member_bucket_grant := &MemberBucketGrant{}
+				err = __rows.Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, member_bucket_grant)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) Get_MemberBucketGrant_By_Id(ctx context.Context,
+	member_bucket_grant_id MemberBucketGrant_Id_Field) (
+	member_bucket_grant *MemberBucketGrant, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at FROM member_bucket_grants WHERE member_bucket_grants.id = ?")
+
+	var __values []any
+	__values = append(__values, member_bucket_grant_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	member_bucket_grant = &MemberBucketGrant{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt)
+	if err != nil {
+		return (*MemberBucketGrant)(nil), obj.makeErr(err)
+	}
+	return member_bucket_grant, nil
+
+}
+
 func (obj *pgxImpl) Get_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
 	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 	bucket_metainfo_name BucketMetainfo_Name_Field) (
@@ -38711,6 +39422,72 @@ func (obj *pgxImpl) UpdateNoReturn_ApiKey_By_Id(ctx context.Context,
 	return nil
 }
 
+func (obj *pgxImpl) Update_MemberBucketGrant_By_Id(ctx context.Context,
+	member_bucket_grant_id MemberBucketGrant_Id_Field,
+	update MemberBucketGrant_Update_Fields) (
+	member_bucket_grant *MemberBucketGrant, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE member_bucket_grants SET "), __sets, __sqlbundle_Literal(" WHERE member_bucket_grants.id = ? RETURNING member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.MemberId._set {
+		__values = append(__values, update.MemberId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("member_id = ?"))
+	}
+
+	if update.AllowList._set {
+		__values = append(__values, update.AllowList.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("allow_list = ?"))
+	}
+
+	if update.AllowDownload._set {
+		__values = append(__values, update.AllowDownload.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("allow_download = ?"))
+	}
+
+	if update.AllowUpload._set {
+		__values = append(__values, update.AllowUpload.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("allow_upload = ?"))
+	}
+
+	if update.AllowDelete._set {
+		__values = append(__values, update.AllowDelete.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("allow_delete = ?"))
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+
+	__args = append(__args, member_bucket_grant_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	member_bucket_grant = &MemberBucketGrant{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return member_bucket_grant, nil
+}
+
 func (obj *pgxImpl) Update_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
 	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 	bucket_metainfo_name BucketMetainfo_Name_Field,
@@ -41613,6 +42390,135 @@ func (obj *pgxImpl) Delete_ApiKey_By_ProjectId_And_CreatedBy(ctx context.Context
 
 }
 
+func (obj *pgxImpl) Delete_ProjectMemberAclBucket_By_ProjectId_And_BucketName(ctx context.Context,
+	project_member_acl_bucket_project_id ProjectMemberAclBucket_ProjectId_Field,
+	project_member_acl_bucket_bucket_name ProjectMemberAclBucket_BucketName_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM project_member_acl_buckets WHERE project_member_acl_buckets.project_id = ? AND project_member_acl_buckets.bucket_name = ?")
+
+	var __values []any
+	__values = append(__values, project_member_acl_bucket_project_id.value(), project_member_acl_bucket_bucket_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *pgxImpl) Delete_MemberBucketGrant_By_ProjectId_And_MemberId(ctx context.Context,
+	member_bucket_grant_project_id MemberBucketGrant_ProjectId_Field,
+	member_bucket_grant_member_id MemberBucketGrant_MemberId_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "member_bucket_grants.member_id", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("DELETE FROM member_bucket_grants WHERE member_bucket_grants.project_id = ? AND "), __cond_0}}
+
+	var __values []any
+	__values = append(__values, member_bucket_grant_project_id.value())
+	if !member_bucket_grant_member_id.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, member_bucket_grant_member_id.value())
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
+func (obj *pgxImpl) Delete_MemberBucketGrant_By_ProjectId_And_InviteEmail(ctx context.Context,
+	member_bucket_grant_project_id MemberBucketGrant_ProjectId_Field,
+	member_bucket_grant_invite_email MemberBucketGrant_InviteEmail_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM member_bucket_grants WHERE member_bucket_grants.project_id = ? AND member_bucket_grants.invite_email = ?")
+
+	var __values []any
+	__values = append(__values, member_bucket_grant_project_id.value(), member_bucket_grant_invite_email.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
+func (obj *pgxImpl) Delete_MemberBucketGrant_By_Id(ctx context.Context,
+	member_bucket_grant_id MemberBucketGrant_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM member_bucket_grants WHERE member_bucket_grants.id = ?")
+
+	var __values []any
+	__values = append(__values, member_bucket_grant_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *pgxImpl) Delete_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
 	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 	bucket_metainfo_name BucketMetainfo_Name_Field) (
@@ -42324,6 +43230,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM project_member_acl_buckets;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM project_members;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -42335,6 +43251,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM project_invitations;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM member_bucket_grants;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -45322,6 +46248,85 @@ func (obj *pgxcockroachImpl) Replace_ApiKeyTail(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return api_key_tail, nil
+
+}
+
+func (obj *pgxcockroachImpl) Create_ProjectMemberAclBucket(ctx context.Context,
+	project_member_acl_bucket_project_id ProjectMemberAclBucket_ProjectId_Field,
+	project_member_acl_bucket_bucket_name ProjectMemberAclBucket_BucketName_Field) (
+	project_member_acl_bucket *ProjectMemberAclBucket, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__project_id_val := project_member_acl_bucket_project_id.value()
+	__bucket_name_val := project_member_acl_bucket_bucket_name.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO project_member_acl_buckets ( project_id, bucket_name, created_at ) VALUES ( ?, ?, ? ) RETURNING project_member_acl_buckets.project_id, project_member_acl_buckets.bucket_name, project_member_acl_buckets.created_at")
+
+	var __values []any
+	__values = append(__values, __project_id_val, __bucket_name_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	project_member_acl_bucket = &ProjectMemberAclBucket{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_member_acl_bucket.ProjectId, &project_member_acl_bucket.BucketName, &project_member_acl_bucket.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return project_member_acl_bucket, nil
+
+}
+
+func (obj *pgxcockroachImpl) Create_MemberBucketGrant(ctx context.Context,
+	member_bucket_grant_id MemberBucketGrant_Id_Field,
+	member_bucket_grant_project_id MemberBucketGrant_ProjectId_Field,
+	member_bucket_grant_invite_email MemberBucketGrant_InviteEmail_Field,
+	member_bucket_grant_bucket MemberBucketGrant_Bucket_Field,
+	member_bucket_grant_prefix MemberBucketGrant_Prefix_Field,
+	member_bucket_grant_allow_list MemberBucketGrant_AllowList_Field,
+	member_bucket_grant_allow_download MemberBucketGrant_AllowDownload_Field,
+	member_bucket_grant_allow_upload MemberBucketGrant_AllowUpload_Field,
+	member_bucket_grant_allow_delete MemberBucketGrant_AllowDelete_Field,
+	optional MemberBucketGrant_Create_Fields) (
+	member_bucket_grant *MemberBucketGrant, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := member_bucket_grant_id.value()
+	__project_id_val := member_bucket_grant_project_id.value()
+	__member_id_val := optional.MemberId.value()
+	__invite_email_val := member_bucket_grant_invite_email.value()
+	__bucket_val := member_bucket_grant_bucket.value()
+	__prefix_val := member_bucket_grant_prefix.value()
+	__allow_list_val := member_bucket_grant_allow_list.value()
+	__allow_download_val := member_bucket_grant_allow_download.value()
+	__allow_upload_val := member_bucket_grant_allow_upload.value()
+	__allow_delete_val := member_bucket_grant_allow_delete.value()
+	__created_at_val := __now
+	__updated_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO member_bucket_grants ( id, project_id, member_id, invite_email, bucket, prefix, allow_list, allow_download, allow_upload, allow_delete, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at")
+
+	var __values []any
+	__values = append(__values, __id_val, __project_id_val, __member_id_val, __invite_email_val, __bucket_val, __prefix_val, __allow_list_val, __allow_download_val, __allow_upload_val, __allow_delete_val, __created_at_val, __updated_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	member_bucket_grant = &MemberBucketGrant{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return member_bucket_grant, nil
 
 }
 
@@ -52159,6 +53164,200 @@ func (obj *pgxcockroachImpl) Get_ApiKeyTail_By_Tail(ctx context.Context,
 
 }
 
+func (obj *pgxcockroachImpl) All_ProjectMemberAclBucket_By_ProjectId(ctx context.Context,
+	project_member_acl_bucket_project_id ProjectMemberAclBucket_ProjectId_Field) (
+	rows []*ProjectMemberAclBucket, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_member_acl_buckets.project_id, project_member_acl_buckets.bucket_name, project_member_acl_buckets.created_at FROM project_member_acl_buckets WHERE project_member_acl_buckets.project_id = ?")
+
+	var __values []any
+	__values = append(__values, project_member_acl_bucket_project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*ProjectMemberAclBucket, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				project_member_acl_bucket := &ProjectMemberAclBucket{}
+				err = __rows.Scan(&project_member_acl_bucket.ProjectId, &project_member_acl_bucket.BucketName, &project_member_acl_bucket.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, project_member_acl_bucket)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) Get_ProjectMemberAclBucket_By_ProjectId_And_BucketName(ctx context.Context,
+	project_member_acl_bucket_project_id ProjectMemberAclBucket_ProjectId_Field,
+	project_member_acl_bucket_bucket_name ProjectMemberAclBucket_BucketName_Field) (
+	project_member_acl_bucket *ProjectMemberAclBucket, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_member_acl_buckets.project_id, project_member_acl_buckets.bucket_name, project_member_acl_buckets.created_at FROM project_member_acl_buckets WHERE project_member_acl_buckets.project_id = ? AND project_member_acl_buckets.bucket_name = ?")
+
+	var __values []any
+	__values = append(__values, project_member_acl_bucket_project_id.value(), project_member_acl_bucket_bucket_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	project_member_acl_bucket = &ProjectMemberAclBucket{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_member_acl_bucket.ProjectId, &project_member_acl_bucket.BucketName, &project_member_acl_bucket.CreatedAt)
+	if err != nil {
+		return (*ProjectMemberAclBucket)(nil), obj.makeErr(err)
+	}
+	return project_member_acl_bucket, nil
+
+}
+
+func (obj *pgxcockroachImpl) All_MemberBucketGrant_By_ProjectId_And_MemberId(ctx context.Context,
+	member_bucket_grant_project_id MemberBucketGrant_ProjectId_Field,
+	member_bucket_grant_member_id MemberBucketGrant_MemberId_Field) (
+	rows []*MemberBucketGrant, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "member_bucket_grants.member_id", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at FROM member_bucket_grants WHERE member_bucket_grants.project_id = ? AND "), __cond_0}}
+
+	var __values []any
+	__values = append(__values, member_bucket_grant_project_id.value())
+	if !member_bucket_grant_member_id.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, member_bucket_grant_member_id.value())
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*MemberBucketGrant, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				member_bucket_grant := &MemberBucketGrant{}
+				err = __rows.Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, member_bucket_grant)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) All_MemberBucketGrant_By_ProjectId_And_InviteEmail(ctx context.Context,
+	member_bucket_grant_project_id MemberBucketGrant_ProjectId_Field,
+	member_bucket_grant_invite_email MemberBucketGrant_InviteEmail_Field) (
+	rows []*MemberBucketGrant, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at FROM member_bucket_grants WHERE member_bucket_grants.project_id = ? AND member_bucket_grants.invite_email = ?")
+
+	var __values []any
+	__values = append(__values, member_bucket_grant_project_id.value(), member_bucket_grant_invite_email.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*MemberBucketGrant, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				member_bucket_grant := &MemberBucketGrant{}
+				err = __rows.Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, member_bucket_grant)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) Get_MemberBucketGrant_By_Id(ctx context.Context,
+	member_bucket_grant_id MemberBucketGrant_Id_Field) (
+	member_bucket_grant *MemberBucketGrant, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at FROM member_bucket_grants WHERE member_bucket_grants.id = ?")
+
+	var __values []any
+	__values = append(__values, member_bucket_grant_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	member_bucket_grant = &MemberBucketGrant{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt)
+	if err != nil {
+		return (*MemberBucketGrant)(nil), obj.makeErr(err)
+	}
+	return member_bucket_grant, nil
+
+}
+
 func (obj *pgxcockroachImpl) Get_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
 	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 	bucket_metainfo_name BucketMetainfo_Name_Field) (
@@ -57745,6 +58944,72 @@ func (obj *pgxcockroachImpl) UpdateNoReturn_ApiKey_By_Id(ctx context.Context,
 	return nil
 }
 
+func (obj *pgxcockroachImpl) Update_MemberBucketGrant_By_Id(ctx context.Context,
+	member_bucket_grant_id MemberBucketGrant_Id_Field,
+	update MemberBucketGrant_Update_Fields) (
+	member_bucket_grant *MemberBucketGrant, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE member_bucket_grants SET "), __sets, __sqlbundle_Literal(" WHERE member_bucket_grants.id = ? RETURNING member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.MemberId._set {
+		__values = append(__values, update.MemberId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("member_id = ?"))
+	}
+
+	if update.AllowList._set {
+		__values = append(__values, update.AllowList.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("allow_list = ?"))
+	}
+
+	if update.AllowDownload._set {
+		__values = append(__values, update.AllowDownload.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("allow_download = ?"))
+	}
+
+	if update.AllowUpload._set {
+		__values = append(__values, update.AllowUpload.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("allow_upload = ?"))
+	}
+
+	if update.AllowDelete._set {
+		__values = append(__values, update.AllowDelete.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("allow_delete = ?"))
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+
+	__args = append(__args, member_bucket_grant_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	member_bucket_grant = &MemberBucketGrant{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return member_bucket_grant, nil
+}
+
 func (obj *pgxcockroachImpl) Update_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
 	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 	bucket_metainfo_name BucketMetainfo_Name_Field,
@@ -60647,6 +61912,135 @@ func (obj *pgxcockroachImpl) Delete_ApiKey_By_ProjectId_And_CreatedBy(ctx contex
 
 }
 
+func (obj *pgxcockroachImpl) Delete_ProjectMemberAclBucket_By_ProjectId_And_BucketName(ctx context.Context,
+	project_member_acl_bucket_project_id ProjectMemberAclBucket_ProjectId_Field,
+	project_member_acl_bucket_bucket_name ProjectMemberAclBucket_BucketName_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM project_member_acl_buckets WHERE project_member_acl_buckets.project_id = ? AND project_member_acl_buckets.bucket_name = ?")
+
+	var __values []any
+	__values = append(__values, project_member_acl_bucket_project_id.value(), project_member_acl_bucket_bucket_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *pgxcockroachImpl) Delete_MemberBucketGrant_By_ProjectId_And_MemberId(ctx context.Context,
+	member_bucket_grant_project_id MemberBucketGrant_ProjectId_Field,
+	member_bucket_grant_member_id MemberBucketGrant_MemberId_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "member_bucket_grants.member_id", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("DELETE FROM member_bucket_grants WHERE member_bucket_grants.project_id = ? AND "), __cond_0}}
+
+	var __values []any
+	__values = append(__values, member_bucket_grant_project_id.value())
+	if !member_bucket_grant_member_id.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, member_bucket_grant_member_id.value())
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
+func (obj *pgxcockroachImpl) Delete_MemberBucketGrant_By_ProjectId_And_InviteEmail(ctx context.Context,
+	member_bucket_grant_project_id MemberBucketGrant_ProjectId_Field,
+	member_bucket_grant_invite_email MemberBucketGrant_InviteEmail_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM member_bucket_grants WHERE member_bucket_grants.project_id = ? AND member_bucket_grants.invite_email = ?")
+
+	var __values []any
+	__values = append(__values, member_bucket_grant_project_id.value(), member_bucket_grant_invite_email.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
+func (obj *pgxcockroachImpl) Delete_MemberBucketGrant_By_Id(ctx context.Context,
+	member_bucket_grant_id MemberBucketGrant_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM member_bucket_grants WHERE member_bucket_grants.id = ?")
+
+	var __values []any
+	__values = append(__values, member_bucket_grant_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *pgxcockroachImpl) Delete_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
 	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 	bucket_metainfo_name BucketMetainfo_Name_Field) (
@@ -61358,6 +62752,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM project_member_acl_buckets;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM project_members;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -61369,6 +62773,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM project_invitations;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM member_bucket_grants;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -64637,6 +66051,97 @@ func (obj *spannerImpl) Replace_ApiKeyTail(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return api_key_tail, nil
+
+}
+
+func (obj *spannerImpl) Create_ProjectMemberAclBucket(ctx context.Context,
+	project_member_acl_bucket_project_id ProjectMemberAclBucket_ProjectId_Field,
+	project_member_acl_bucket_bucket_name ProjectMemberAclBucket_BucketName_Field) (
+	project_member_acl_bucket *ProjectMemberAclBucket, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__project_id_val := project_member_acl_bucket_project_id.value()
+	__bucket_name_val := project_member_acl_bucket_bucket_name.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO project_member_acl_buckets ( project_id, bucket_name, created_at ) VALUES ( ?, ?, ? ) THEN RETURN project_member_acl_buckets.project_id, project_member_acl_buckets.bucket_name, project_member_acl_buckets.created_at")
+
+	var __values []any
+	__values = append(__values, __project_id_val, __bucket_name_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	project_member_acl_bucket = &ProjectMemberAclBucket{}
+	if !obj.txn {
+		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&project_member_acl_bucket.ProjectId, &project_member_acl_bucket.BucketName, &project_member_acl_bucket.CreatedAt)
+		})
+	} else {
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&project_member_acl_bucket.ProjectId, &project_member_acl_bucket.BucketName, &project_member_acl_bucket.CreatedAt)
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return project_member_acl_bucket, nil
+
+}
+
+func (obj *spannerImpl) Create_MemberBucketGrant(ctx context.Context,
+	member_bucket_grant_id MemberBucketGrant_Id_Field,
+	member_bucket_grant_project_id MemberBucketGrant_ProjectId_Field,
+	member_bucket_grant_invite_email MemberBucketGrant_InviteEmail_Field,
+	member_bucket_grant_bucket MemberBucketGrant_Bucket_Field,
+	member_bucket_grant_prefix MemberBucketGrant_Prefix_Field,
+	member_bucket_grant_allow_list MemberBucketGrant_AllowList_Field,
+	member_bucket_grant_allow_download MemberBucketGrant_AllowDownload_Field,
+	member_bucket_grant_allow_upload MemberBucketGrant_AllowUpload_Field,
+	member_bucket_grant_allow_delete MemberBucketGrant_AllowDelete_Field,
+	optional MemberBucketGrant_Create_Fields) (
+	member_bucket_grant *MemberBucketGrant, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := member_bucket_grant_id.value()
+	__project_id_val := member_bucket_grant_project_id.value()
+	__member_id_val := optional.MemberId.value()
+	__invite_email_val := member_bucket_grant_invite_email.value()
+	__bucket_val := member_bucket_grant_bucket.value()
+	__prefix_val := member_bucket_grant_prefix.value()
+	__allow_list_val := member_bucket_grant_allow_list.value()
+	__allow_download_val := member_bucket_grant_allow_download.value()
+	__allow_upload_val := member_bucket_grant_allow_upload.value()
+	__allow_delete_val := member_bucket_grant_allow_delete.value()
+	__created_at_val := __now
+	__updated_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO member_bucket_grants ( id, project_id, member_id, invite_email, bucket, prefix, allow_list, allow_download, allow_upload, allow_delete, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) THEN RETURN member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at")
+
+	var __values []any
+	__values = append(__values, __id_val, __project_id_val, __member_id_val, __invite_email_val, __bucket_val, __prefix_val, __allow_list_val, __allow_download_val, __allow_upload_val, __allow_delete_val, __created_at_val, __updated_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	member_bucket_grant = &MemberBucketGrant{}
+	if !obj.txn {
+		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt)
+		})
+	} else {
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt)
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return member_bucket_grant, nil
 
 }
 
@@ -71699,6 +73204,200 @@ func (obj *spannerImpl) Get_ApiKeyTail_By_Tail(ctx context.Context,
 
 }
 
+func (obj *spannerImpl) All_ProjectMemberAclBucket_By_ProjectId(ctx context.Context,
+	project_member_acl_bucket_project_id ProjectMemberAclBucket_ProjectId_Field) (
+	rows []*ProjectMemberAclBucket, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_member_acl_buckets.project_id, project_member_acl_buckets.bucket_name, project_member_acl_buckets.created_at FROM project_member_acl_buckets WHERE project_member_acl_buckets.project_id = ?")
+
+	var __values []any
+	__values = append(__values, project_member_acl_bucket_project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*ProjectMemberAclBucket, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				project_member_acl_bucket := &ProjectMemberAclBucket{}
+				err = __rows.Scan(&project_member_acl_bucket.ProjectId, &project_member_acl_bucket.BucketName, &project_member_acl_bucket.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, project_member_acl_bucket)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) Get_ProjectMemberAclBucket_By_ProjectId_And_BucketName(ctx context.Context,
+	project_member_acl_bucket_project_id ProjectMemberAclBucket_ProjectId_Field,
+	project_member_acl_bucket_bucket_name ProjectMemberAclBucket_BucketName_Field) (
+	project_member_acl_bucket *ProjectMemberAclBucket, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_member_acl_buckets.project_id, project_member_acl_buckets.bucket_name, project_member_acl_buckets.created_at FROM project_member_acl_buckets WHERE project_member_acl_buckets.project_id = ? AND project_member_acl_buckets.bucket_name = ?")
+
+	var __values []any
+	__values = append(__values, project_member_acl_bucket_project_id.value(), project_member_acl_bucket_bucket_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	project_member_acl_bucket = &ProjectMemberAclBucket{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_member_acl_bucket.ProjectId, &project_member_acl_bucket.BucketName, &project_member_acl_bucket.CreatedAt)
+	if err != nil {
+		return (*ProjectMemberAclBucket)(nil), obj.makeErr(err)
+	}
+	return project_member_acl_bucket, nil
+
+}
+
+func (obj *spannerImpl) All_MemberBucketGrant_By_ProjectId_And_MemberId(ctx context.Context,
+	member_bucket_grant_project_id MemberBucketGrant_ProjectId_Field,
+	member_bucket_grant_member_id MemberBucketGrant_MemberId_Field) (
+	rows []*MemberBucketGrant, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "member_bucket_grants.member_id", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at FROM member_bucket_grants WHERE member_bucket_grants.project_id = ? AND "), __cond_0}}
+
+	var __values []any
+	__values = append(__values, member_bucket_grant_project_id.value())
+	if !member_bucket_grant_member_id.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, member_bucket_grant_member_id.value())
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*MemberBucketGrant, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				member_bucket_grant := &MemberBucketGrant{}
+				err = __rows.Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, member_bucket_grant)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) All_MemberBucketGrant_By_ProjectId_And_InviteEmail(ctx context.Context,
+	member_bucket_grant_project_id MemberBucketGrant_ProjectId_Field,
+	member_bucket_grant_invite_email MemberBucketGrant_InviteEmail_Field) (
+	rows []*MemberBucketGrant, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at FROM member_bucket_grants WHERE member_bucket_grants.project_id = ? AND member_bucket_grants.invite_email = ?")
+
+	var __values []any
+	__values = append(__values, member_bucket_grant_project_id.value(), member_bucket_grant_invite_email.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*MemberBucketGrant, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				member_bucket_grant := &MemberBucketGrant{}
+				err = __rows.Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, member_bucket_grant)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) Get_MemberBucketGrant_By_Id(ctx context.Context,
+	member_bucket_grant_id MemberBucketGrant_Id_Field) (
+	member_bucket_grant *MemberBucketGrant, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at FROM member_bucket_grants WHERE member_bucket_grants.id = ?")
+
+	var __values []any
+	__values = append(__values, member_bucket_grant_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	member_bucket_grant = &MemberBucketGrant{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt)
+	if err != nil {
+		return (*MemberBucketGrant)(nil), obj.makeErr(err)
+	}
+	return member_bucket_grant, nil
+
+}
+
 func (obj *spannerImpl) Get_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
 	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 	bucket_metainfo_name BucketMetainfo_Name_Field) (
@@ -77027,6 +78726,68 @@ func (obj *spannerImpl) UpdateNoReturn_ApiKey_By_Id(ctx context.Context,
 	return nil
 }
 
+func (obj *spannerImpl) Update_MemberBucketGrant_By_Id(ctx context.Context,
+	member_bucket_grant_id MemberBucketGrant_Id_Field,
+	update MemberBucketGrant_Update_Fields) (
+	member_bucket_grant *MemberBucketGrant, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE member_bucket_grants SET "), __sets, __sqlbundle_Literal(" WHERE member_bucket_grants.id = ? THEN RETURN member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.MemberId._set {
+		__values = append(__values, update.MemberId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("member_id = ?"))
+	}
+	if update.AllowList._set {
+		__values = append(__values, update.AllowList.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("allow_list = ?"))
+	}
+	if update.AllowDownload._set {
+		__values = append(__values, update.AllowDownload.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("allow_download = ?"))
+	}
+	if update.AllowUpload._set {
+		__values = append(__values, update.AllowUpload.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("allow_upload = ?"))
+	}
+	if update.AllowDelete._set {
+		__values = append(__values, update.AllowDelete.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("allow_delete = ?"))
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+
+	__args = append(__args, member_bucket_grant_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	member_bucket_grant = &MemberBucketGrant{}
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return member_bucket_grant, nil
+}
+
 func (obj *spannerImpl) Update_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
 	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 	bucket_metainfo_name BucketMetainfo_Name_Field,
@@ -79755,6 +81516,135 @@ func (obj *spannerImpl) Delete_ApiKey_By_ProjectId_And_CreatedBy(ctx context.Con
 
 }
 
+func (obj *spannerImpl) Delete_ProjectMemberAclBucket_By_ProjectId_And_BucketName(ctx context.Context,
+	project_member_acl_bucket_project_id ProjectMemberAclBucket_ProjectId_Field,
+	project_member_acl_bucket_bucket_name ProjectMemberAclBucket_BucketName_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM project_member_acl_buckets WHERE project_member_acl_buckets.project_id = ? AND project_member_acl_buckets.bucket_name = ?")
+
+	var __values []any
+	__values = append(__values, project_member_acl_bucket_project_id.value(), project_member_acl_bucket_bucket_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *spannerImpl) Delete_MemberBucketGrant_By_ProjectId_And_MemberId(ctx context.Context,
+	member_bucket_grant_project_id MemberBucketGrant_ProjectId_Field,
+	member_bucket_grant_member_id MemberBucketGrant_MemberId_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "member_bucket_grants.member_id", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("DELETE FROM member_bucket_grants WHERE member_bucket_grants.project_id = ? AND "), __cond_0}}
+
+	var __values []any
+	__values = append(__values, member_bucket_grant_project_id.value())
+	if !member_bucket_grant_member_id.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, member_bucket_grant_member_id.value())
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
+func (obj *spannerImpl) Delete_MemberBucketGrant_By_ProjectId_And_InviteEmail(ctx context.Context,
+	member_bucket_grant_project_id MemberBucketGrant_ProjectId_Field,
+	member_bucket_grant_invite_email MemberBucketGrant_InviteEmail_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM member_bucket_grants WHERE member_bucket_grants.project_id = ? AND member_bucket_grants.invite_email = ?")
+
+	var __values []any
+	__values = append(__values, member_bucket_grant_project_id.value(), member_bucket_grant_invite_email.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
+func (obj *spannerImpl) Delete_MemberBucketGrant_By_Id(ctx context.Context,
+	member_bucket_grant_id MemberBucketGrant_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM member_bucket_grants WHERE member_bucket_grants.id = ?")
+
+	var __values []any
+	__values = append(__values, member_bucket_grant_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *spannerImpl) Delete_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
 	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 	bucket_metainfo_name BucketMetainfo_Name_Field) (
@@ -80462,6 +82352,16 @@ func (obj *spannerImpl) deleteAll(ctx context.Context) (count int64, err error) 
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM project_member_acl_buckets;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM project_members;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -80473,6 +82373,16 @@ func (obj *spannerImpl) deleteAll(ctx context.Context) (count int64, err error) 
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM project_invitations;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM member_bucket_grants;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -81417,6 +83327,16 @@ type Methods interface {
 		google_backup_credentials_user_id GoogleBackupCredentials_UserId_Field) (
 		rows []*GoogleBackupCredentials, err error)
 
+	All_MemberBucketGrant_By_ProjectId_And_InviteEmail(ctx context.Context,
+		member_bucket_grant_project_id MemberBucketGrant_ProjectId_Field,
+		member_bucket_grant_invite_email MemberBucketGrant_InviteEmail_Field) (
+		rows []*MemberBucketGrant, err error)
+
+	All_MemberBucketGrant_By_ProjectId_And_MemberId(ctx context.Context,
+		member_bucket_grant_project_id MemberBucketGrant_ProjectId_Field,
+		member_bucket_grant_member_id MemberBucketGrant_MemberId_Field) (
+		rows []*MemberBucketGrant, err error)
+
 	All_NodeSmartContractUpdates(ctx context.Context) (
 		rows []*NodeSmartContractUpdates, err error)
 
@@ -81465,6 +83385,10 @@ type Methods interface {
 		project_invitation_email ProjectInvitation_Email_Field,
 		user_tenant_id User_TenantId_Field) (
 		rows []*ProjectInvitation, err error)
+
+	All_ProjectMemberAclBucket_By_ProjectId(ctx context.Context,
+		project_member_acl_bucket_project_id ProjectMemberAclBucket_ProjectId_Field) (
+		rows []*ProjectMemberAclBucket, err error)
 
 	All_ProjectMember_By_MemberId(ctx context.Context,
 		project_member_member_id ProjectMember_MemberId_Field) (
@@ -81892,6 +83816,19 @@ type Methods interface {
 		optional MailExportJob_Create_Fields) (
 		mail_export_job *MailExportJob, err error)
 
+	Create_MemberBucketGrant(ctx context.Context,
+		member_bucket_grant_id MemberBucketGrant_Id_Field,
+		member_bucket_grant_project_id MemberBucketGrant_ProjectId_Field,
+		member_bucket_grant_invite_email MemberBucketGrant_InviteEmail_Field,
+		member_bucket_grant_bucket MemberBucketGrant_Bucket_Field,
+		member_bucket_grant_prefix MemberBucketGrant_Prefix_Field,
+		member_bucket_grant_allow_list MemberBucketGrant_AllowList_Field,
+		member_bucket_grant_allow_download MemberBucketGrant_AllowDownload_Field,
+		member_bucket_grant_allow_upload MemberBucketGrant_AllowUpload_Field,
+		member_bucket_grant_allow_delete MemberBucketGrant_AllowDelete_Field,
+		optional MemberBucketGrant_Create_Fields) (
+		member_bucket_grant *MemberBucketGrant, err error)
+
 	Create_NodeEvent(ctx context.Context,
 		node_event_id NodeEvent_Id_Field,
 		node_event_email NodeEvent_Email_Field,
@@ -81938,6 +83875,11 @@ type Methods interface {
 		project_member_project_id ProjectMember_ProjectId_Field,
 		optional ProjectMember_Create_Fields) (
 		project_member *ProjectMember, err error)
+
+	Create_ProjectMemberAclBucket(ctx context.Context,
+		project_member_acl_bucket_project_id ProjectMemberAclBucket_ProjectId_Field,
+		project_member_acl_bucket_bucket_name ProjectMemberAclBucket_BucketName_Field) (
+		project_member_acl_bucket *ProjectMemberAclBucket, err error)
 
 	Create_PushNotifications(ctx context.Context,
 		push_notifications_id PushNotifications_Id_Field,
@@ -82218,6 +84160,20 @@ type Methods interface {
 		fcm_tokens_user_id FcmTokens_UserId_Field) (
 		count int64, err error)
 
+	Delete_MemberBucketGrant_By_Id(ctx context.Context,
+		member_bucket_grant_id MemberBucketGrant_Id_Field) (
+		deleted bool, err error)
+
+	Delete_MemberBucketGrant_By_ProjectId_And_InviteEmail(ctx context.Context,
+		member_bucket_grant_project_id MemberBucketGrant_ProjectId_Field,
+		member_bucket_grant_invite_email MemberBucketGrant_InviteEmail_Field) (
+		count int64, err error)
+
+	Delete_MemberBucketGrant_By_ProjectId_And_MemberId(ctx context.Context,
+		member_bucket_grant_project_id MemberBucketGrant_ProjectId_Field,
+		member_bucket_grant_member_id MemberBucketGrant_MemberId_Field) (
+		count int64, err error)
+
 	Delete_NodeEvent_By_CreatedAt_Less(ctx context.Context,
 		node_event_created_at_less NodeEvent_CreatedAt_Field) (
 		count int64, err error)
@@ -82233,6 +84189,11 @@ type Methods interface {
 	Delete_ProjectInvitation_By_ProjectId_And_Email(ctx context.Context,
 		project_invitation_project_id ProjectInvitation_ProjectId_Field,
 		project_invitation_email ProjectInvitation_Email_Field) (
+		deleted bool, err error)
+
+	Delete_ProjectMemberAclBucket_By_ProjectId_And_BucketName(ctx context.Context,
+		project_member_acl_bucket_project_id ProjectMemberAclBucket_ProjectId_Field,
+		project_member_acl_bucket_bucket_name ProjectMemberAclBucket_BucketName_Field) (
 		deleted bool, err error)
 
 	Delete_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context,
@@ -82550,6 +84511,10 @@ type Methods interface {
 		mail_export_job_id MailExportJob_Id_Field) (
 		mail_export_job *MailExportJob, err error)
 
+	Get_MemberBucketGrant_By_Id(ctx context.Context,
+		member_bucket_grant_id MemberBucketGrant_Id_Field) (
+		member_bucket_grant *MemberBucketGrant, err error)
+
 	Get_NodeEvent_By_Id(ctx context.Context,
 		node_event_id NodeEvent_Id_Field) (
 		node_event *NodeEvent, err error)
@@ -82595,6 +84560,11 @@ type Methods interface {
 		project_invitation_project_id ProjectInvitation_ProjectId_Field,
 		project_invitation_email ProjectInvitation_Email_Field) (
 		project_invitation *ProjectInvitation, err error)
+
+	Get_ProjectMemberAclBucket_By_ProjectId_And_BucketName(ctx context.Context,
+		project_member_acl_bucket_project_id ProjectMemberAclBucket_ProjectId_Field,
+		project_member_acl_bucket_bucket_name ProjectMemberAclBucket_BucketName_Field) (
+		project_member_acl_bucket *ProjectMemberAclBucket, err error)
 
 	Get_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context,
 		project_member_member_id ProjectMember_MemberId_Field,
@@ -83250,6 +85220,11 @@ type Methods interface {
 		mail_export_job_id MailExportJob_Id_Field,
 		update MailExportJob_Update_Fields) (
 		mail_export_job *MailExportJob, err error)
+
+	Update_MemberBucketGrant_By_Id(ctx context.Context,
+		member_bucket_grant_id MemberBucketGrant_Id_Field,
+		update MemberBucketGrant_Update_Fields) (
+		member_bucket_grant *MemberBucketGrant, err error)
 
 	Update_Node_By_Id(ctx context.Context,
 		node_id Node_Id_Field,

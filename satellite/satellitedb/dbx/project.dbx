@@ -426,3 +426,93 @@ read one (
 	select api_key_tail
 	where api_key_tail.tail = ?
 )
+
+// project_member_acl_bucket is the Admin-managed registry of buckets that can
+// participate in Member prefix ACL grants for a project.
+model project_member_acl_bucket (
+	key project_id bucket_name
+
+	index ( fields project_id )
+
+	field project_id   project.id cascade
+	field bucket_name  text
+	field created_at   timestamp ( autoinsert )
+)
+
+create project_member_acl_bucket ( )
+
+read all (
+	select project_member_acl_bucket
+	where project_member_acl_bucket.project_id = ?
+)
+
+read one (
+	select project_member_acl_bucket
+	where project_member_acl_bucket.project_id = ?
+	where project_member_acl_bucket.bucket_name = ?
+)
+
+delete project_member_acl_bucket (
+	where project_member_acl_bucket.project_id = ?
+	where project_member_acl_bucket.bucket_name = ?
+)
+
+// member_bucket_grant stores pending (invite) or active (member) prefix ACL rows.
+model member_bucket_grant (
+	key id
+
+	unique project_id invite_email bucket prefix
+
+	index ( fields project_id member_id )
+	index ( fields project_id invite_email )
+
+	field id             blob
+	field project_id     project.id cascade
+	field member_id      user.id cascade ( nullable, updatable )
+	field invite_email   text
+	field bucket         text
+	field prefix         text
+	field allow_list     bool ( updatable )
+	field allow_download bool ( updatable )
+	field allow_upload   bool ( updatable )
+	field allow_delete   bool ( updatable )
+	field created_at     timestamp ( autoinsert )
+	field updated_at     timestamp ( autoinsert, autoupdate )
+)
+
+create member_bucket_grant ( )
+
+update member_bucket_grant (
+	where member_bucket_grant.id = ?
+)
+
+read all (
+	select member_bucket_grant
+	where member_bucket_grant.project_id = ?
+	where member_bucket_grant.member_id = ?
+)
+
+read all (
+	select member_bucket_grant
+	where member_bucket_grant.project_id = ?
+	where member_bucket_grant.invite_email = ?
+)
+
+read one (
+	select member_bucket_grant
+	where member_bucket_grant.id = ?
+)
+
+delete member_bucket_grant (
+	where member_bucket_grant.project_id = ?
+	where member_bucket_grant.member_id = ?
+)
+
+delete member_bucket_grant (
+	where member_bucket_grant.project_id = ?
+	where member_bucket_grant.invite_email = ?
+)
+
+delete member_bucket_grant (
+	where member_bucket_grant.id = ?
+)

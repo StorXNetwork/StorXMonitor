@@ -82,6 +82,12 @@ type DB interface {
 	// MailExportJobs is a getter for mail export jobs.
 	MailExportJobs() MailExportJobs
 
+	// MemberBucketGrants is a getter for Member prefix ACL grants.
+	MemberBucketGrants() MemberBucketGrants
+
+	// ProjectMemberACLBuckets is a getter for the Member ACL bucket registry.
+	ProjectMemberACLBuckets() ProjectMemberACLBuckets
+
 	// WithTx is a method for executing transactions with retrying as necessary.
 	WithTx(ctx context.Context, fn func(ctx context.Context, tx DBTx) error) error
 }

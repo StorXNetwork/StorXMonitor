@@ -612,6 +612,17 @@ func (s *Service) UploadBackupShare(ctx context.Context, backupID string, share 
 func (s *Service) CreateAccessGrantForProject(ctx context.Context, projectID uuid.UUID, passphrase string,
 	prefix []grant.SharePrefix, permission *grant.Permission, apiKey *macaroon.APIKey) (string, error) {
 
+	if user, err := GetUser(ctx); err == nil && user != nil {
+		member, memberErr := s.isProjectMember(ctx, user.ID, projectID)
+		if memberErr == nil {
+			projectID = member.project.ID
+			prefix, permission, err = s.applyMemberACLToAccessRequest(ctx, projectID, user.ID, prefix, permission)
+			if err != nil {
+				return "", err
+			}
+		}
+	}
+
 	salt, err := s.GetSalt(ctx, projectID)
 	if err != nil {
 		return "", err
@@ -5897,7 +5908,7 @@ func (s *Service) MigrateProjectPricing(ctx context.Context, publicProjectID uui
 	if err != nil {
 		return ErrUnauthorized.Wrap(err)
 	}
-	if isMember.membership.Role != RoleAdmin {
+	if !isMember.isOwnerOrAdmin(user.ID) {
 		return ErrForbidden.New("only project owner or admin may migrate project pricing")
 	}
 
@@ -6161,7 +6172,7 @@ func (s *Service) DeleteProjectMembersAndInvitations(ctx context.Context, projec
 		return ErrUnauthorized.Wrap(err)
 	}
 
-	if isMember.membership.Role != RoleAdmin {
+	if !isMember.isOwnerOrAdmin(user.ID) {
 		// We still allow user to remove themselves even with Member role.
 		if len(data.Emails) != 1 || user.Email != data.Emails[0] {
 			return ErrForbidden.New("only project Owner or Admin can remove other members")
@@ -6211,7 +6222,18 @@ func (s *Service) DeleteProjectMembersAndInvitations(ctx context.Context, projec
 				return err
 			}
 
+			if s.config.MemberBucketGrantsEnabled {
+				if err = tx.MemberBucketGrants().DeleteByMember(ctx, projectID, uID); err != nil {
+					return err
+				}
+			}
+
 			if data.RemoveAccesses {
+				err = tx.APIKeys().DeleteAllByProjectIDAndOwnerID(ctx, projectID, uID)
+				if err != nil {
+					return err
+				}
+			} else if s.config.MemberBucketGrantsEnabled {
 				err = tx.APIKeys().DeleteAllByProjectIDAndOwnerID(ctx, projectID, uID)
 				if err != nil {
 					return err
@@ -6219,6 +6241,11 @@ func (s *Service) DeleteProjectMembersAndInvitations(ctx context.Context, projec
 			}
 		}
 		for _, email := range invitedEmails {
+			if s.config.MemberBucketGrantsEnabled {
+				if err = tx.MemberBucketGrants().DeleteByInviteEmail(ctx, projectID, email); err != nil {
+					return err
+				}
+			}
 			err = tx.ProjectInvitations().Delete(ctx, projectID, email)
 			if err != nil {
 				return err
@@ -6264,6 +6291,39 @@ func (s *Service) UpdateProjectMemberRole(ctx context.Context, memberID, project
 	pm, err = s.store.ProjectMembers().UpdateRole(ctx, memberID, pr.ID, newRole)
 	if err != nil {
 		return nil, Error.Wrap(err)
+	}
+
+	if s.config.MemberBucketGrantsEnabled && newRole == RoleMember {
+		existing, gErr := s.store.MemberBucketGrants().GetByMember(ctx, pr.ID, memberID)
+		if gErr != nil {
+			return nil, Error.Wrap(gErr)
+		}
+		if len(existing) == 0 {
+			memberUser, uErr := s.store.Users().Get(ctx, memberID)
+			if uErr != nil {
+				return nil, Error.Wrap(uErr)
+			}
+			names, nErr := s.registeredBucketNames(ctx, pr.ID)
+			if nErr != nil {
+				return nil, nErr
+			}
+			defaults := DefaultInviteGrants(memberUser.Email, names)
+			if vErr := ValidateGrantSet(defaults); vErr != nil {
+				return nil, ErrValidation.Wrap(vErr)
+			}
+			if len(defaults) > 0 {
+				if eErr := s.ensureMemberGrantBucketsExist(ctx, pr.ID, defaults); eErr != nil {
+					return nil, eErr
+				}
+				_, rErr := s.store.MemberBucketGrants().ReplaceForMember(ctx, pr.ID, memberID, memberUser.Email, defaults)
+				if rErr != nil {
+					return nil, Error.Wrap(rErr)
+				}
+			}
+		}
+		if invErr := s.InvalidateMemberProjectCredentials(ctx, pr.ID, memberID); invErr != nil {
+			return nil, Error.Wrap(invErr)
+		}
 	}
 
 	return pm, err
@@ -7812,6 +7872,15 @@ type isProjectMember struct {
 	membership *ProjectMember
 }
 
+// isOwnerOrAdmin reports whether the user has Owner (projects.owner_id) or Admin role rights.
+// CreateProject inserts the owner membership as RoleMember; elevated rights come from OwnerID.
+func (m isProjectMember) isOwnerOrAdmin(userID uuid.UUID) bool {
+	if m.project != nil && m.project.OwnerID == userID {
+		return true
+	}
+	return m.membership != nil && m.membership.Role == RoleAdmin
+}
+
 // isProjectOwner checks if the user is an owner of a project.
 func (s *Service) isProjectOwner(ctx context.Context, userID uuid.UUID, projectID uuid.UUID) (isOwner bool, project *Project, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -8628,13 +8697,29 @@ func (s *Service) RespondToProjectInvitation(ctx context.Context, projectID uuid
 	}
 
 	if s.IsProjectInvitationExpired(invite) {
+		if s.config.MemberBucketGrantsEnabled {
+			if delErr := s.store.MemberBucketGrants().DeleteByInviteEmail(ctx, projectID, user.Email); delErr != nil {
+				s.log.Warn("error deleting pending member grants for expired invitation",
+					zap.Error(delErr),
+					zap.String("email", user.Email),
+					zap.String("project_id", projectID.String()),
+				)
+			}
+		}
 		return ErrProjectInviteInvalid.New(projInviteInvalidErrMsg)
 	}
 
 	if response == ProjectInvitationDecline {
-		err = Error.Wrap(s.store.ProjectInvitations().Delete(ctx, projectID, user.Email))
+		err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+			if s.config.MemberBucketGrantsEnabled {
+				if err := tx.MemberBucketGrants().DeleteByInviteEmail(ctx, projectID, user.Email); err != nil {
+					return err
+				}
+			}
+			return tx.ProjectInvitations().Delete(ctx, projectID, user.Email)
+		})
 		if err != nil {
-			return err
+			return Error.Wrap(err)
 		}
 
 		// Send push notification for project invitation declined
@@ -8682,12 +8767,31 @@ func (s *Service) RespondToProjectInvitation(ctx context.Context, projectID uuid
 	}
 
 	// All the new team members have regular Member role, which can be updated by the project owner later.
-	_, err = s.store.ProjectMembers().Insert(ctx, user.ID, projectID, RoleMember)
+	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+		_, err = tx.ProjectMembers().Insert(ctx, user.ID, projectID, RoleMember)
+		if err != nil {
+			return err
+		}
+		if s.config.MemberBucketGrantsEnabled {
+			if err = tx.MemberBucketGrants().BindPendingToMember(ctx, projectID, user.Email, user.ID); err != nil {
+				return err
+			}
+		}
+		return tx.ProjectInvitations().Delete(ctx, projectID, user.Email)
+	})
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	deleteWithLog()
+	if s.config.MemberBucketGrantsEnabled {
+		if invErr := s.InvalidateMemberProjectCredentials(ctx, projectID, user.ID); invErr != nil {
+			s.log.Warn("error invalidating member credentials after invite accept",
+				zap.Error(invErr),
+				zap.String("project_id", projectID.String()),
+				zap.String("member_id", user.ID.String()),
+			)
+		}
+	}
 
 	// Send push notification for project invitation accepted
 	variables := map[string]interface{}{
@@ -8724,12 +8828,13 @@ func (s *Service) ReinviteProjectMembers(ctx context.Context, projectID uuid.UUI
 		return nil, Error.Wrap(err)
 	}
 
-	return s.inviteProjectMembers(ctx, user, projectID, emails, ProjectInvitationResend)
+	return s.inviteProjectMembers(ctx, user, projectID, emails, ProjectInvitationResend, nil)
 }
 
 // InviteNewProjectMember invites a user by email to the project specified by the given ID,
 // which may be its public or internal ID.
-func (s *Service) InviteNewProjectMember(ctx context.Context, projectID uuid.UUID, email string) (invite *ProjectInvitation, err error) {
+// grants may be nil (defaults from ACL registry), empty (no folder access), or a custom set.
+func (s *Service) InviteNewProjectMember(ctx context.Context, projectID uuid.UUID, email string, grants []MemberBucketGrantInput) (invite *ProjectInvitation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	user, err := s.getUserAndAuditLog(ctx,
@@ -8741,7 +8846,7 @@ func (s *Service) InviteNewProjectMember(ctx context.Context, projectID uuid.UUI
 		return nil, Error.Wrap(err)
 	}
 
-	invites, err := s.inviteProjectMembers(ctx, user, projectID, []string{email}, ProjectInvitationCreate)
+	invites, err := s.inviteProjectMembers(ctx, user, projectID, []string{email}, ProjectInvitationCreate, grants)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -8749,9 +8854,82 @@ func (s *Service) InviteNewProjectMember(ctx context.Context, projectID uuid.UUI
 	return &invites[0], nil
 }
 
+// ProjectMemberInviteRequest is one entry for bulk invite (same idea as single invite).
+// Vaults are bucket names (e.g. gmail, google-drive). Server builds List+Download on `{email}/`.
+// Vaults == nil → ACL-registry defaults; non-nil (including empty) uses those vault names only.
+type ProjectMemberInviteRequest struct {
+	Email  string
+	Vaults *[]string
+}
+
+// ProjectMemberInviteResult is the per-email outcome of a bulk invite.
+type ProjectMemberInviteResult struct {
+	Email string `json:"email"`
+	OK    bool   `json:"ok"`
+	Error string `json:"error,omitempty"`
+}
+
+// InviteNewProjectMembers invites multiple users one-by-one, same as single invite with vault selection.
+// Auth/authorization failures before the loop return an error; per-email invite failures
+// are reported in results without aborting the rest of the batch.
+func (s *Service) InviteNewProjectMembers(ctx context.Context, projectID uuid.UUID, requests []ProjectMemberInviteRequest) (results []ProjectMemberInviteResult, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err := ValidateBulkInviteCount(len(requests)); err != nil {
+		return nil, err
+	}
+
+	user, err := s.getUserAndAuditLog(ctx,
+		"invite project members",
+		zap.String("project_id", projectID.String()),
+		zap.Int("invite_count", len(requests)),
+	)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	// Fail fast on authz so UI does not get a batch of identical unauthorized errors.
+	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
+	if err != nil {
+		return nil, ErrUnauthorized.Wrap(err)
+	}
+	if !isMember.isOwnerOrAdmin(user.ID) {
+		return nil, ErrForbidden.New("only project Owner or Admin can invite other members")
+	}
+
+	results = make([]ProjectMemberInviteResult, 0, len(requests))
+	for _, req := range requests {
+		email := strings.TrimSpace(req.Email)
+		result := ProjectMemberInviteResult{Email: email}
+		if email == "" {
+			result.Error = "email is required"
+			results = append(results, result)
+			continue
+		}
+
+		var grants []MemberBucketGrantInput
+		if req.Vaults != nil {
+			// Explicit vault list (same as single-invite selected icons) → List+Download grants.
+			grants = GrantsFromVaults(email, *req.Vaults)
+		}
+		// Vaults == nil → pass nil grants → DefaultInviteGrants from ACL registry
+
+		_, inviteErr := s.inviteProjectMembers(ctx, user, projectID, []string{email}, ProjectInvitationCreate, grants)
+		if inviteErr != nil {
+			result.Error = inviteErr.Error()
+			results = append(results, result)
+			continue
+		}
+		result.OK = true
+		results = append(results, result)
+	}
+	return results, nil
+}
+
 // inviteProjectMembers invites users by email to the project specified by the given ID,
 // which may be its public or internal ID.
-func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projectID uuid.UUID, emails []string, opt ProjectInvitationOption) (invites []ProjectInvitation, err error) {
+// pendingGrants is only used for ProjectInvitationCreate with a single email (nil = defaults).
+func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projectID uuid.UUID, emails []string, opt ProjectInvitationOption, pendingGrants []MemberBucketGrantInput) (invites []ProjectInvitation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	isMember, err := s.isProjectMember(ctx, sender.ID, projectID)
@@ -8759,7 +8937,7 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 		return nil, ErrUnauthorized.Wrap(err)
 	}
 
-	if isMember.membership.Role != RoleAdmin {
+	if !isMember.isOwnerOrAdmin(sender.ID) {
 		return nil, ErrForbidden.New("only project Owner or Admin can invite other members")
 	}
 
@@ -8775,13 +8953,12 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 		}
 
 		if invite != nil {
-			// If we should only insert new records, a preexisting record is an issue
+			// Create must not duplicate an existing invite row.
 			if opt == ProjectInvitationCreate {
 				return nil, ErrAlreadyInvited.New(projInviteExistsErrMsg, email)
 			}
-			if !s.IsProjectInvitationExpired(invite) {
-				return nil, ErrAlreadyInvited.New(activeProjInviteExistsErrMsg, email)
-			}
+			// Resend is allowed for active AND expired invites so the UI "Resend"
+			// button can re-deliver mail when the first send failed or was missed.
 		} else if opt == ProjectInvitationResend {
 			// If we should only update existing records, an absence of records is an issue
 			return nil, ErrProjectInviteInvalid.New(projInviteDoesntExistErrMsg, email)
@@ -8814,9 +8991,40 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 			unverifiedUsers = append(unverifiedUsers, oldest)
 		} else if s.config.UnregisteredInviteEmailsEnabled {
 			newUserEmails = append(newUserEmails, email)
+		} else {
+			// No local account and unregistered invites disabled → do not create a
+			// dangling invite row with no email delivery path.
+			return nil, ErrValidation.New("cannot invite unregistered email %s", email)
 		}
 	}
 
+	// Validate grant buckets exist before opening a console DB transaction.
+	// HasBucket must not run inside WithTx (panics: using DB when inside of a transaction).
+	if opt == ProjectInvitationCreate && s.config.MemberBucketGrantsEnabled {
+		for _, email := range emails {
+			var grantsForEmail []MemberBucketGrantInput
+			if len(emails) == 1 {
+				grantsForEmail = pendingGrants
+			}
+			if grantsForEmail == nil {
+				names, nErr := s.registeredBucketNames(ctx, projectID)
+				if nErr != nil {
+					return nil, nErr
+				}
+				grantsForEmail = DefaultInviteGrants(email, names)
+			}
+			// Copy so ValidateGrantSet normalization does not mutate caller input.
+			grantsCopy := append([]MemberBucketGrantInput(nil), grantsForEmail...)
+			if vErr := ValidateGrantSet(grantsCopy); vErr != nil {
+				return nil, ErrValidation.Wrap(vErr)
+			}
+			if eErr := s.ensureMemberGrantBucketsExist(ctx, projectID, grantsCopy); eErr != nil {
+				return nil, eErr
+			}
+		}
+	}
+
+	// Keys are normalized (upper) so request casing vs users.email cannot miss the token.
 	inviteTokens := make(map[string]string)
 	// add project invites in transaction scope
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
@@ -8830,9 +9038,19 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 				return err
 			}
 
+			if opt == ProjectInvitationCreate {
+				var grantsForEmail []MemberBucketGrantInput
+				if len(emails) == 1 {
+					grantsForEmail = pendingGrants
+				}
+				if err = s.createPendingMemberGrants(ctx, tx, projectID, email, grantsForEmail); err != nil {
+					return err
+				}
+			}
+
 			var isUnverified bool
 			for _, u := range unverifiedUsers {
-				if email == u.Email {
+				if strings.EqualFold(email, u.Email) {
 					isUnverified = true
 					invites = append(invites, *invite)
 					break
@@ -8846,7 +9064,7 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 			if err != nil {
 				return err
 			}
-			inviteTokens[email] = token
+			inviteTokens[strings.ToUpper(email)] = token
 			invites = append(invites, *invite)
 		}
 		return nil
@@ -8861,7 +9079,15 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 	}
 
 	for _, invited := range users {
-		inviteLink := fmt.Sprintf("%s?invite=%s", baseLink, inviteTokens[invited.Email])
+		token := inviteTokens[strings.ToUpper(invited.Email)]
+		if token == "" {
+			s.log.Error("missing invite token for existing user; skipping invite email",
+				zap.String("email", invited.Email),
+				zap.String("project_id", projectID.String()),
+			)
+			continue
+		}
+		inviteLink := fmt.Sprintf("%s?invite=%s", baseLink, token)
 
 		userName := invited.ShortName
 		if userName == "" {
@@ -8873,11 +9099,21 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 			&ExistingUserProjectInvitationEmail{
 				InviterEmail: sender.Email,
 				SignInLink:   inviteLink,
+				FullName:     userName,
+				Email:        invited.Email,
 			},
 		)
 	}
 	for _, email := range newUserEmails {
-		inviteLink := fmt.Sprintf("%s?invite=%s", baseLink, inviteTokens[email])
+		token := inviteTokens[strings.ToUpper(email)]
+		if token == "" {
+			s.log.Error("missing invite token for new user; skipping invite email",
+				zap.String("email", email),
+				zap.String("project_id", projectID.String()),
+			)
+			continue
+		}
+		inviteLink := fmt.Sprintf("%s?invite=%s", baseLink, token)
 		s.mailService.SendRenderedAsync(
 			ctx,
 			[]post.Address{{Address: email}},
@@ -8992,7 +9228,7 @@ func (s *Service) GetInviteLink(ctx context.Context, publicProjectID uuid.UUID, 
 		return "", ErrUnauthorized.Wrap(err)
 	}
 
-	if isMember.membership.Role != RoleAdmin {
+	if !isMember.isOwnerOrAdmin(user.ID) {
 		return "", ErrForbidden.New("only project Owner or Admin can get an invite link")
 	}
 

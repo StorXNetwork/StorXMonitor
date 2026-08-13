@@ -297,6 +297,10 @@ func (keys *APIKeys) GetAccessGrant(w http.ResponseWriter, r *http.Request) {
 
 	accessGrantStr, err := keys.service.CreateAccessGrantForProject(ctx, id, passphrase, prefix, permission, parsedAPIKey)
 	if err != nil {
+		if console.ErrForbidden.Has(err) || console.ErrUnauthorized.Has(err) {
+			keys.serveJSONError(ctx, w, http.StatusForbidden, err)
+			return
+		}
 		keys.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
 	}

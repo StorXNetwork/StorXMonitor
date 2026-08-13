@@ -447,7 +447,14 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	projectsRouter.Handle("/{id}/members", http.HandlerFunc(projectsController.GetMembersAndInvitations)).Methods(http.MethodGet, http.MethodOptions)
 	projectsRouter.Handle("/{id}/members/{memberID}", server.withCSRFProtection(http.HandlerFunc(projectsController.UpdateMemberRole))).Methods(http.MethodPatch, http.MethodOptions)
 	projectsRouter.Handle("/{id}/members/{memberID}", http.HandlerFunc(projectsController.GetMember)).Methods(http.MethodGet, http.MethodOptions)
+	memberACLController := consoleapi.NewMemberBucketGrants(logger, service)
+	projectsRouter.Handle("/{id}/member-acl-buckets", http.HandlerFunc(memberACLController.ListACLBuckets)).Methods(http.MethodGet, http.MethodOptions)
+	projectsRouter.Handle("/{id}/member-acl-buckets", server.withCSRFProtection(http.HandlerFunc(memberACLController.AddACLBucket))).Methods(http.MethodPost, http.MethodOptions)
+	projectsRouter.Handle("/{id}/member-acl-buckets/{bucket}", server.withCSRFProtection(http.HandlerFunc(memberACLController.RemoveACLBucket))).Methods(http.MethodDelete, http.MethodOptions)
+	projectsRouter.Handle("/{id}/members/{memberID}/bucket-grants", http.HandlerFunc(memberACLController.GetMemberGrants)).Methods(http.MethodGet, http.MethodOptions)
+	projectsRouter.Handle("/{id}/members/{memberID}/bucket-grants", server.withCSRFProtection(http.HandlerFunc(memberACLController.PutMemberGrants))).Methods(http.MethodPut, http.MethodOptions)
 	projectsRouter.Handle("/{id}/invite/{email}", server.withCSRFProtection(server.userIDRateLimiter.Limit(http.HandlerFunc(projectsController.InviteUser)))).Methods(http.MethodPost, http.MethodOptions)
+	projectsRouter.Handle("/{id}/invites", server.withCSRFProtection(server.userIDRateLimiter.Limit(http.HandlerFunc(projectsController.InviteUsers)))).Methods(http.MethodPost, http.MethodOptions)
 	projectsRouter.Handle("/{id}/reinvite", server.withCSRFProtection(server.userIDRateLimiter.Limit(http.HandlerFunc(projectsController.ReinviteUsers)))).Methods(http.MethodPost, http.MethodOptions)
 	projectsRouter.Handle("/{id}/invite-link", http.HandlerFunc(projectsController.GetInviteLink)).Methods(http.MethodGet, http.MethodOptions)
 	projectsRouter.Handle("/{id}/emission", http.HandlerFunc(projectsController.GetEmissionImpact)).Methods(http.MethodGet, http.MethodOptions)
@@ -1578,6 +1585,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		AltObjBrowserPagingEnabled:        server.config.AltObjBrowserPagingEnabled,
 		AltObjBrowserPagingThreshold:      server.config.AltObjBrowserPagingThreshold,
 		DomainsPageEnabled:                server.config.DomainsPageEnabled,
+		MemberBucketGrantsEnabled:         server.config.MemberBucketGrantsEnabled,
 		ActiveSessionsViewEnabled:         server.config.ActiveSessionsViewEnabled,
 		VersioningUIEnabled:               true,
 		ObjectLockUIEnabled:               server.config.ObjectLockUIEnabled,

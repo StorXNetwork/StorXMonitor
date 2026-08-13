@@ -423,7 +423,7 @@ CREATE TABLE payment_plans (
 	bandwidth bigint NOT NULL,
 	validity bigint NOT NULL,
 	validity_unit text NOT NULL,
-	group text NOT NULL,
+	"group" text NOT NULL,
 	PRIMARY KEY ( id )
 ) ;
 CREATE TABLE peer_identities (
@@ -1139,3 +1139,7 @@ CREATE INDEX project_members_project_id_index ON project_members ( project_id ) 
 CREATE INDEX project_member_acl_buckets_project_id_index ON project_member_acl_buckets ( project_id ) ;
 CREATE INDEX rest_api_keys_user_id_index ON rest_api_keys ( user_id ) ;
 CREATE INDEX rest_api_keys_name_index ON rest_api_keys ( name )
+
+-- NEW DATA --
+INSERT INTO "project_member_acl_buckets" ("project_id", "bucket_name", "created_at") VALUES (E'\\361\\342\\363\\371>+F\\256\\263\\300\\274|\\342N\\347\\017'::bytea, 'gmail', '2026-08-01 10:00:00+00');
+INSERT INTO "member_bucket_grants" ("id", "project_id", "member_id", "invite_email", "bucket", "prefix", "allow_list", "allow_download", "allow_upload", "allow_delete", "created_at", "updated_at") VALUES (E'\\146/\\302;\\225\\355O\\323\\276f\\247\\354/6\\241\\040'::bytea, E'\\361\\342\\363\\371>+F\\256\\263\\300\\274|\\342N\\347\\017'::bytea, NULL, 'MEMBER@MAIL.TEST', 'gmail', 'member@mail.test/', true, true, false, false, '2026-08-01 10:00:00+00', '2026-08-01 10:00:00+00');

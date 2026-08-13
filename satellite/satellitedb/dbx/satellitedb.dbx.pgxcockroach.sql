@@ -1000,6 +1000,22 @@ CREATE TABLE google_backup_credentials (
 	PRIMARY KEY ( id ),
 	UNIQUE ( user_id, google_email )
 ) ;
+CREATE TABLE member_bucket_grants (
+	id bytea NOT NULL,
+	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+	member_id bytea REFERENCES users( id ) ON DELETE CASCADE,
+	invite_email text NOT NULL,
+	bucket text NOT NULL,
+	prefix text NOT NULL,
+	allow_list boolean NOT NULL,
+	allow_download boolean NOT NULL,
+	allow_upload boolean NOT NULL,
+	allow_delete boolean NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( project_id, invite_email, bucket, prefix )
+) ;
 CREATE TABLE project_invitations (
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
 	email text NOT NULL,
@@ -1013,6 +1029,12 @@ CREATE TABLE project_members (
 	role integer NOT NULL DEFAULT 0,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( member_id, project_id )
+) ;
+CREATE TABLE project_member_acl_buckets (
+	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+	bucket_name text NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( project_id, bucket_name )
 ) ;
 CREATE TABLE rest_api_keys (
 	id bytea NOT NULL,
@@ -1109,8 +1131,11 @@ CREATE INDEX webapp_session_developers_developer_id_index ON webapp_session_deve
 CREATE INDEX webapp_session_resellers_reseller_id_index ON webapp_session_resellers ( reseller_id ) ;
 CREATE INDEX bucket_migrations_state_created_at_index ON bucket_migrations ( state, created_at ) ;
 CREATE INDEX google_backup_credentials_user_id_index ON google_backup_credentials ( user_id ) ;
+CREATE INDEX member_bucket_grants_project_id_member_id_index ON member_bucket_grants ( project_id, member_id ) ;
+CREATE INDEX member_bucket_grants_project_id_invite_email_index ON member_bucket_grants ( project_id, invite_email ) ;
 CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id ) ;
 CREATE INDEX project_invitations_email_index ON project_invitations ( email ) ;
 CREATE INDEX project_members_project_id_index ON project_members ( project_id ) ;
+CREATE INDEX project_member_acl_buckets_project_id_index ON project_member_acl_buckets ( project_id ) ;
 CREATE INDEX rest_api_keys_user_id_index ON rest_api_keys ( user_id ) ;
 CREATE INDEX rest_api_keys_name_index ON rest_api_keys ( name )

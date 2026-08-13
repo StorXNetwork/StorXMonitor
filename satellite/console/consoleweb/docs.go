@@ -31,7 +31,10 @@ package consoleweb
 // @description When `console.csrf-protection-enabled` is true: copy `csrfToken` from `GET /config` and Authorize here. Must match `csrf_token` cookie (set by GET /config or synced by Swagger UI). Required for `POST /auth/token`, `POST /auth/account/set-password`, and other CSRF-protected routes.
 
 // @tag.name projects
-// @tag.description Project management: invitations, members, usage, and project CRUD
+// @tag.description Project management: CRUD, salt, usage, config. Team invite + Member bucket restriction APIs are under tag **member-bucket-restriction**.
+
+// @tag.name member-bucket-restriction
+// @tag.description Member bucket & folder restriction — ALL invite/member/ACL APIs in one place. Flag: console.member-bucket-grants-enabled (default OFF). OFF = existing one-user/project access unchanged. ON = Owner/Admin full access; Member only grant rows (bucket+prefix+List/Download; Upload/Delete unsupported). Test order: (1) CookieAuth+CSRF (2) create/ensure bucket (3) POST member-acl-buckets (4) POST invite/{email} (omit body = defaults email/ List+Download) (5) GET members (6) invitee GET invitations + POST respond response=1 (7) GET/PUT members/{id}/bucket-grants (8) PATCH role / DELETE / reinvite / invite-link. Prefix must end with /. PUT grants:[] clears Member access + invalidates keys.
 
 // @tag.name projects-daily-usage
 // @tag.description Storage & bandwidth trends: GET /api/v0/projects/{id}/daily-usage — daily storageUsage and settledBandwidthUsage (bytes per day) for charts

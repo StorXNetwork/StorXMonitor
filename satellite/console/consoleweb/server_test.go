@@ -140,7 +140,7 @@ func TestInvitedRouting(t *testing.T) {
 
 		ownerCtx, err := sat.UserContext(ctx, owner.ID)
 		require.NoError(t, err)
-		_, err = service.InviteNewProjectMember(ownerCtx, project.ID, invitedEmail)
+		_, err = service.InviteNewProjectMember(ownerCtx, project.ID, invitedEmail, nil)
 		require.NoError(t, err)
 
 		// Valid invite for nonexistent user should redirect to registration page with
