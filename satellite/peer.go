@@ -77,6 +77,7 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/satellite/repair/repairer"
 	"github.com/StorXNetwork/StorXMonitor/satellite/reputation"
 	"github.com/StorXNetwork/StorXMonitor/satellite/revocation"
+	"github.com/StorXNetwork/StorXMonitor/satellite/seller"
 	"github.com/StorXNetwork/StorXMonitor/satellite/snopayouts"
 	"github.com/StorXNetwork/StorXMonitor/satellite/userworker"
 	"github.com/StorXNetwork/StorXMonitor/shared/dbutil"
@@ -129,6 +130,8 @@ type DB interface {
 	Console() console.DB
 	// AdminUsers returns database for admin users.
 	AdminUsers() admin.Users
+	// Seller returns database for seller/reseller service.
+	Seller() seller.DB
 	// // AdminChangeHistory returns the database for storing admin change history.
 	// AdminChangeHistory() changehistory.DB
 	// OIDC returns the database for OIDC resources.
@@ -199,6 +202,7 @@ type Config struct {
 
 	Admin     admin.Config
 	Developer developer.Config
+	Seller    seller.Config
 
 	Contact      contact.Config
 	Overlay      overlay.Config
@@ -311,34 +315,6 @@ func setupMailService(log *zap.Logger, mailConfig mailservice.Config, consoleCon
 
 	// Extract tenant configurations from console config
 	tenantConfigs := make(map[string]mailservice.TenantSMTPConfig)
-	for tenantID, config := range consoleConfig.WhiteLabel.Value {
-		tenantConfigs[tenantID] = mailservice.TenantSMTPConfig{
-			Branding: mailservice.WhiteLabelConfig{
-				BrandName:         config.Name,
-				LogoURL:           config.LogoURLs["mail"],
-				HomepageURL:       config.HomepageURL,
-				SupportURL:        config.SupportURL,
-				DocsURL:           config.DocsURL,
-				SourceCodeURL:     config.SourceCodeURL,
-				SocialURL:         config.SocialURL,
-				PrivacyPolicyURL:  config.PrivacyPolicyURL,
-				TermsOfServiceURL: config.TermsOfServiceURL,
-				TermsOfUseURL:     config.TermsOfUseURL,
-				BlogURL:           config.BlogURL,
-				CompanyName:       config.CompanyName,
-				AddressLine1:      config.AddressLine1,
-				AddressLine2:      config.AddressLine2,
-				PrimaryColor:      config.Colors["primary"],
-			},
-			SMTP: mailservice.Config{
-				From:              config.SMTP.From,
-				SMTPServerAddress: config.SMTP.ServerAddress,
-				AuthType:          config.SMTP.AuthType,
-				Login:             config.SMTP.Login,
-				Password:          config.SMTP.Password,
-			},
-		}
-	}
 
 	defaultBranding := mailservice.WhiteLabelConfig{
 		BrandName:         "CyberLS",
@@ -352,7 +328,7 @@ func setupMailService(log *zap.Logger, mailConfig mailservice.Config, consoleCon
 		SourceCodeURL:     "https://github.com/StorXNetwork",
 		SocialURL:         "https://twitter.com/storxnetwork",
 		BlogURL:           "https://storxnetwork.io/blog",
-		PrimaryColor:      "#0052FF",
+		PrimaryColor:      "#e04124",
 		CompanyName:       "CyberLS",
 		AddressLine1:      "1870 The Exchange SE Ste 220, PMB 75268",
 		AddressLine2:      "Atlanta, GA 30339-2171, United States",

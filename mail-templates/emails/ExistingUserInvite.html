@@ -419,10 +419,10 @@
                                 <div style="mso-line-height-rule: exactly;mso-text-raise: 4px;">
                                     <h1 class="size-40"
                                         style="Margin-top: 0;Margin-bottom: 0;font-style: normal;font-weight: 800;
-                                        color: #000;font-size: 32px;line-height: 40px;
+                                        color: #091c45;font-size: 28px;line-height: 36px;
                                         font-family: Helvetica, sans-serif;" lang="x-size-40">
                                         <span>
-                                            <strong>Your are Invited to StorX Network by {{ .InviterEmail }}</strong>
+                                            <strong>You're invited to a project on {{ .BrandName }}</strong>
                                         </span>
                                     </h1>
                                 </div>
@@ -450,18 +450,25 @@
                                     <p class="size-20"
                                         style="Margin-top: 5px;Margin-bottom: 0;
                                         font-family: Helvetica, sans-serif; font-weight: 300;font-size: 17px;
-                                        line-height: 26px;" lang="x-size-20">
-                                        <span>Hello,
+                                        line-height: 26px;color: #4a5568;" lang="x-size-20">
+                                        <span>Hello{{ if .FullName }} {{ .FullName }}{{ end }},</span>
+                                    </p>
+                                    <p class="size-20"
+                                        style="Margin-top: 12px;Margin-bottom: 0;
+                                        font-family: Helvetica, sans-serif; font-weight: 300;font-size: 17px;
+                                        line-height: 26px;color: #4a5568;" lang="x-size-20">
+                                        <span>
+                                            You already have a {{ .BrandName }} account
+                                            {{ if .Email }}(<strong style="color:#091c45;">{{ .Email }}</strong>){{ end }}.
+                                            <strong style="color:#091c45;">{{ .InviterEmail }}</strong>
+                                            has invited you to join their project.
                                         </span>
                                     </p>
                                     <p class="size-20"
-                                        style="Margin-top: 5px;Margin-bottom: 0;
+                                        style="Margin-top: 12px;Margin-bottom: 0;
                                         font-family: Helvetica, sans-serif; font-weight: 300;font-size: 17px;
-                                        line-height: 26px;" lang="x-size-20">
-                                        <span>
-                                            {{ .InviterEmail }}, has invited you to join StorX Networks <br>
-                                            Do not share this link with anyone.
-                                        </span>
+                                        line-height: 26px;color: #4a5568;" lang="x-size-20">
+                                        <span>Sign in to accept the invitation. Do not share this link with anyone.</span>
                                     </p>
                                 </div>
                             </div>
@@ -485,17 +492,17 @@
                             font-family: Helvetica, sans-serif; font-weight: 300;max-width: 600px;min-width: 320px;width: calc(28000% - 167400px);">
                             <div style="margin: 12px 20px;">
                                 <div class="btn btn--flat btn--large" style="text-align: left;">
-                                    <a style="border-radius: 8px;display: inline-block;font-size: 14px;font-weight: bold;
-                                        line-height: 24px;padding: 12px 24px;text-align: center;
-                                        text-decoration: none !important;transition: opacity 0.1s ease-in;
-                                        color: #ffffff !important;background-color: #e04124;
-                                        font-family: Helvetica, sans-serif; font-weight: 500;"
-                                        href="{{ .SignInLink }}">Sign In
-                                    </a>
+                                    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                                                <tr>
+                                                    <td align="center" bgcolor="{{ .PrimaryColor }}" style="border-radius: 8px; background-color: {{ .PrimaryColor }};">
+                                                        <a href="{{ .SignInLink }}" style="border-radius: 8px;display: inline-block;font-size: 15px;font-weight: 700; line-height: 24px;padding: 12px 28px;text-align: center; text-decoration: none !important;color: #ffffff !important;font-family: Helvetica, sans-serif; background-color: {{ .PrimaryColor }};">Sign In</a>
+                                                    </td>
+                                                </tr>
+                                            </table>
                                     <!--[if mso]>
                                     <p style="line-height:0;margin:0;"></p>
                                     <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml"
-                                        href="{{ .SignInLink }}" style="width:191px" arcsize="9%" fillcolor="#2683FF"
+                                        href="{{ .SignInLink }}" style="width:160px" arcsize="17%" fillcolor="{{ .PrimaryColor }}"
                                         stroke="f">
                                         <v:textbox style="mso-fit-shape-to-text:t" inset="0px,11px,0px,11px">
                                             <center style="font-size:14px;line-height:24px;color:#FFFFFF;

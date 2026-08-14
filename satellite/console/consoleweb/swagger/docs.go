@@ -972,7 +972,7 @@ const docTemplate = `{
         },
         "/auth/google-backup": {
             "get": {
-                "description": "**Route:** ` + "`" + `GET /api/v0/auth/google-backup` + "`" + `. Exchanges OAuth code (redirect_uri = GOOGLE_OAUTH_REDIRECT_URL_GOOGLE_BACKUP). If email exists, logs in; otherwise registers. Returns JSON with ` + "`" + `action` + "`" + `, ` + "`" + `onboarding` + "`" + `, and ` + "`" + `google_backup` + "`" + `. Sets session cookie.",
+                "description": "**Route:** ` + "`" + `GET /api/v0/auth/google-backup` + "`" + `. Exchanges OAuth code; ` + "`" + `redirect_uri` + "`" + ` is derived server-side from request Host (e.g. ` + "`" + `https://cyberls.com` + "`" + ` or ` + "`" + `http://localhost:3000` + "`" + ` via config fallback). If email exists, logs in; otherwise registers. Returns JSON with ` + "`" + `action` + "`" + `, ` + "`" + `onboarding` + "`" + `, and ` + "`" + `google_backup` + "`" + `. Sets session cookie.",
                 "produces": [
                     "application/json"
                 ],
@@ -2855,7 +2855,7 @@ const docTemplate = `{
                         "CookieAuth": []
                     }
                 ],
-                "description": "**Route:** ` + "`" + `POST /api/v0/google-backup/connect` + "`" + `. Body: Google OAuth ` + "`" + `code` + "`" + ` (` + "`" + `redirect_uri` + "`" + ` = ` + "`" + `GOOGLE_OAUTH_REDIRECT_URL_GOOGLE_BACKUP` + "`" + `, same as ` + "`" + `GET /auth/google-backup` + "`" + `). Returns scopes metadata. Tokens stored server-side only.",
+                "description": "**Route:** ` + "`" + `POST /api/v0/google-backup/connect` + "`" + `. Body: Google OAuth ` + "`" + `code` + "`" + ` only; ` + "`" + `redirect_uri` + "`" + ` is derived server-side from request Host. Returns scopes metadata. Tokens stored server-side only.",
                 "consumes": [
                     "application/json"
                 ],
@@ -4633,9 +4633,9 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "projects"
+                    "member-bucket-restriction"
                 ],
-                "summary": "List my pending project invitations",
+                "summary": "[6] List my pending invitations (invitee)",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -4666,6 +4666,9 @@ const docTemplate = `{
                 "security": [
                     {
                         "CookieAuth": []
+                    },
+                    {
+                        "CSRFAuth": []
                     }
                 ],
                 "description": "**Full route:** ` + "`" + `POST /api/v0/projects/invitations/{id}/respond` + "`" + `",
@@ -4676,9 +4679,9 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "projects"
+                    "member-bucket-restriction"
                 ],
-                "summary": "Accept or decline a project invitation",
+                "summary": "[6] Accept or decline invitation (invitee)",
                 "parameters": [
                     {
                         "type": "string",
@@ -4978,6 +4981,865 @@ const docTemplate = `{
                 }
             }
         },
+        "/projects/{id}/invite-link": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/projects/{id}/invite-link?email=` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "member-bucket-restriction"
+                ],
+                "summary": "[8] Get invite link",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Invitee email",
+                        "name": "email",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Invite URL",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{id}/invite/{email}": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "CSRFAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `POST /api/v0/projects/{id}/invite/{email}` + "`" + `",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "member-bucket-restriction"
+                ],
+                "summary": "[4] Invite member (optional folder grants)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Invitee email",
+                        "name": "email",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Optional grants (omit for defaults)",
+                        "name": "body",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.InviteProjectMemberWithGrantsSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "402": {
+                        "description": "Payment Required",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{id}/member-acl-buckets": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/projects/{id}/member-acl-buckets` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "member-bucket-restriction"
+                ],
+                "summary": "[3] List ACL bucket registry",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/consoleapi.ProjectMemberACLBucketSwaggerItem"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "CSRFAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `POST /api/v0/projects/{id}/member-acl-buckets` + "`" + `",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "member-bucket-restriction"
+                ],
+                "summary": "[3] Register bucket for Member ACL",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Bucket to register",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.AddProjectMemberACLBucketSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.ProjectMemberACLBucketSwaggerItem"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{id}/member-acl-buckets/{bucket}": {
+            "delete": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "CSRFAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `DELETE /api/v0/projects/{id}/member-acl-buckets/{bucket}` + "`" + `",
+                "tags": [
+                    "member-bucket-restriction"
+                ],
+                "summary": "[3] Unregister ACL bucket",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Bucket name",
+                        "name": "bucket",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{id}/members": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/projects/{id}/members` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "member-bucket-restriction"
+                ],
+                "summary": "[5] List project members and pending invites",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "default": 100,
+                        "description": "Page size",
+                        "name": "limit",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page number (1-based)",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search by name/email",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Sort field: 1=name, 2=email, 3=created",
+                        "name": "order",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "1=asc, 2=desc",
+                        "name": "order-direction",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.ProjectMembersPageSwaggerResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "CSRFAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `DELETE /api/v0/projects/{id}/members` + "`" + `",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "member-bucket-restriction"
+                ],
+                "summary": "[8] Remove members / cancel invites",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Emails to remove",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.DeleteMembersAndInvitationsSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{id}/members/{memberID}": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/projects/{id}/members/{memberID}` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "member-bucket-restriction"
+                ],
+                "summary": "[8] Get one project member",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Member user UUID",
+                        "name": "memberID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.ProjectMemberDetailSwaggerResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "CSRFAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `PATCH /api/v0/projects/{id}/members/{memberID}` + "`" + `",
+                "consumes": [
+                    "text/plain"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "member-bucket-restriction"
+                ],
+                "summary": "[8] Update member role (Admin/Member)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Member user UUID",
+                        "name": "memberID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "example": 1,
+                        "description": "Role: 0=Admin, 1=Member",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.ProjectMemberSwaggerItem"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{id}/members/{memberID}/bucket-grants": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/projects/{id}/members/{memberID}/bucket-grants` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "member-bucket-restriction"
+                ],
+                "summary": "[7] Get Member folder grants",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Member user UUID",
+                        "name": "memberID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/consoleapi.MemberBucketGrantSwaggerItem"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "CSRFAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `PUT /api/v0/projects/{id}/members/{memberID}/bucket-grants` + "`" + `",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "member-bucket-restriction"
+                ],
+                "summary": "[7] Replace Member folder grants",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Member user UUID",
+                        "name": "memberID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Full grant set (empty clears access)",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.PutMemberBucketGrantsSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/consoleapi.MemberBucketGrantSwaggerItem"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{id}/reinvite": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "CSRFAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `POST /api/v0/projects/{id}/reinvite` + "`" + `",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "member-bucket-restriction"
+                ],
+                "summary": "[8] Reinvite expired members",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Emails to reinvite",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.ReinviteProjectMembersSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "402": {
+                        "description": "Payment Required",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/projects/{id}/salt": {
             "get": {
                 "security": [
@@ -5145,6 +6007,1840 @@ const docTemplate = `{
                             "items": {
                                 "$ref": "#/definitions/staticapi.StaticResourceItemSwagger"
                             }
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/auth/account": {
+            "get": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `GET /api/v0/seller/auth/account` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-account"
+                ],
+                "summary": "Get reseller account",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAccountSwaggerResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    },
+                    {
+                        "SellerCSRFAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `DELETE /api/v0/seller/auth/account` + "`" + `. Requires admin verification password in body.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-account"
+                ],
+                "summary": "Delete account (admin)",
+                "parameters": [
+                    {
+                        "description": "Email and admin password",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerDeleteAccountSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    },
+                    {
+                        "SellerCSRFAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `PATCH /api/v0/seller/auth/account` + "`" + `",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-account"
+                ],
+                "summary": "Update reseller account",
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/auth/account/change-password": {
+            "post": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    },
+                    {
+                        "SellerCSRFAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `POST /api/v0/seller/auth/account/change-password` + "`" + `",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-account"
+                ],
+                "summary": "Change password",
+                "parameters": [
+                    {
+                        "description": "Current and new password",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerChangePasswordSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/auth/account/delete-request": {
+            "post": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `POST /api/v0/seller/auth/account/delete-request` + "`" + `. Sends confirmation email when self-serve delete is enabled.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-account"
+                ],
+                "summary": "Request account deletion",
+                "responses": {
+                    "202": {
+                        "description": "Accepted"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/auth/account/set-password": {
+            "post": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    },
+                    {
+                        "SellerCSRFAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `POST /api/v0/seller/auth/account/set-password` + "`" + `. Use when ` + "`" + `hasPassword` + "`" + ` is false.",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-account"
+                ],
+                "summary": "Set initial password",
+                "parameters": [
+                    {
+                        "description": "New password",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerSetPasswordSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/auth/bad-passwords": {
+            "get": {
+                "description": "**Route:** ` + "`" + `GET /api/v0/seller/auth/bad-passwords` + "`" + `",
+                "produces": [
+                    "text/plain"
+                ],
+                "tags": [
+                    "reseller-auth-password"
+                ],
+                "summary": "Get bad passwords list",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/auth/change-email": {
+            "post": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    },
+                    {
+                        "SellerCSRFAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `POST /api/v0/seller/auth/change-email` + "`" + `. Multi-step flow using ` + "`" + `step` + "`" + ` and ` + "`" + `data` + "`" + ` (same steps as console change email).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-account"
+                ],
+                "summary": "Change email",
+                "parameters": [
+                    {
+                        "description": "Step and payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAccountActionSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/auth/code-activation": {
+            "patch": {
+                "description": "**Route:** ` + "`" + `PATCH /api/v0/seller/auth/code-activation` + "`" + `",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-auth"
+                ],
+                "summary": "Activate reseller account",
+                "parameters": [
+                    {
+                        "description": "Email and activation code",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerActivateAccountSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthTokenSwaggerResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/auth/forgot-password": {
+            "post": {
+                "description": "**Route:** ` + "`" + `POST /api/v0/seller/auth/forgot-password` + "`" + `. Always returns HTTP 200 on valid captcha.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-auth-password"
+                ],
+                "summary": "Request password reset email",
+                "parameters": [
+                    {
+                        "description": "Email and captcha",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerForgotPasswordSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/auth/google": {
+            "get": {
+                "description": "**Route:** ` + "`" + `GET /api/v0/seller/auth/google` + "`" + `. Exchanges OAuth code (redirect_uri = GOOGLE_OAUTH_REDIRECT_URL_SELLER). If email exists as an active reseller, logs in; otherwise registers a reseller and empty ` + "`" + `reseller_configs` + "`" + `. Returns JSON with ` + "`" + `action` + "`" + ` and ` + "`" + `reseller` + "`" + `. Sets session cookie ` + "`" + `_seller_tokenKey` + "`" + `. Does not call Backup-Tools or console onboarding.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-auth"
+                ],
+                "summary": "Reseller Google auth (register or login)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Fresh Google OAuth code (single-use)",
+                        "name": "code",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "When true, appends zoho-insert to OAuth redirect URL",
+                        "name": "zoho-insert",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Set-Cookie: _seller_tokenKey",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerGoogleAuthSuccess"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerGoogleAuthError"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/auth/invalidate-session/{id}": {
+            "post": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    },
+                    {
+                        "SellerCSRFAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `POST /api/v0/seller/auth/invalidate-session/{id}` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-sessions"
+                ],
+                "summary": "Invalidate session",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/auth/logout": {
+            "post": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `POST /api/v0/seller/auth/logout` + "`" + `",
+                "tags": [
+                    "reseller-auth"
+                ],
+                "summary": "Logout reseller",
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/auth/mfa/disable": {
+            "post": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    },
+                    {
+                        "SellerCSRFAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `POST /api/v0/seller/auth/mfa/disable` + "`" + `",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-mfa"
+                ],
+                "summary": "Disable MFA",
+                "parameters": [
+                    {
+                        "description": "Passcode or recovery code",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerMFADisableSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/auth/mfa/enable": {
+            "post": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    },
+                    {
+                        "SellerCSRFAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `POST /api/v0/seller/auth/mfa/enable` + "`" + `. Verifies TOTP passcode, enables MFA, invalidates other sessions, returns new recovery codes.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-mfa"
+                ],
+                "summary": "Enable MFA",
+                "parameters": [
+                    {
+                        "description": "TOTP passcode",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerMFAEnableSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Recovery codes",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/auth/mfa/generate-recovery-codes": {
+            "post": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    },
+                    {
+                        "SellerCSRFAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `POST /api/v0/seller/auth/mfa/generate-recovery-codes` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-mfa"
+                ],
+                "summary": "Generate MFA recovery codes",
+                "responses": {
+                    "200": {
+                        "description": "Recovery codes",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/auth/mfa/generate-secret-key": {
+            "post": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    },
+                    {
+                        "SellerCSRFAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `POST /api/v0/seller/auth/mfa/generate-secret-key` + "`" + `. Returns TOTP secret for authenticator app setup (MFA must not already be enabled).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-mfa"
+                ],
+                "summary": "Generate MFA secret key",
+                "responses": {
+                    "200": {
+                        "description": "TOTP secret key string",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/auth/mfa/regenerate-recovery-codes": {
+            "post": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    },
+                    {
+                        "SellerCSRFAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `POST /api/v0/seller/auth/mfa/regenerate-recovery-codes` + "`" + `",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-mfa"
+                ],
+                "summary": "Regenerate MFA recovery codes",
+                "parameters": [
+                    {
+                        "description": "Passcode or recovery code",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerMFARegenerateRecoveryCodesSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "New recovery codes",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/auth/refresh-session": {
+            "post": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    },
+                    {
+                        "SellerCSRFAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `POST /api/v0/seller/auth/refresh-session` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-auth"
+                ],
+                "summary": "Refresh login session",
+                "responses": {
+                    "200": {
+                        "description": "New session expiresAt (RFC3339)",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/auth/register": {
+            "post": {
+                "description": "**Route:** ` + "`" + `POST /api/v0/seller/auth/register` + "`" + `. Sends activation email when signup activation code is enabled.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-auth"
+                ],
+                "summary": "Register reseller",
+                "parameters": [
+                    {
+                        "description": "Registration payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerRegisterSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/auth/resend-email": {
+            "post": {
+                "description": "**Route:** ` + "`" + `POST /api/v0/seller/auth/resend-email` + "`" + `",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-auth"
+                ],
+                "summary": "Resend activation or reset email",
+                "parameters": [
+                    {
+                        "description": "Email",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerResendEmailSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/seller/auth/reset-password": {
+            "post": {
+                "description": "**Route:** ` + "`" + `POST /api/v0/seller/auth/reset-password` + "`" + `. Clears session cookie on success.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-auth-password"
+                ],
+                "summary": "Reset password with recovery token",
+                "parameters": [
+                    {
+                        "description": "Recovery token and new password",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerResetPasswordSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/auth/sessions": {
+            "get": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `GET /api/v0/seller/auth/sessions` + "`" + `. Query params: ` + "`" + `limit` + "`" + `, ` + "`" + `page` + "`" + `, ` + "`" + `order` + "`" + `, ` + "`" + `orderDirection` + "`" + ` (all required).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-sessions"
+                ],
+                "summary": "List active sessions",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Page size",
+                        "name": "limit",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page number (1-based)",
+                        "name": "page",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Sort field",
+                        "name": "order",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Sort direction",
+                        "name": "orderDirection",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerWebappSessionsPageSwagger"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/auth/token": {
+            "post": {
+                "security": [
+                    {
+                        "SellerCSRFAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `POST /api/v0/seller/auth/token` + "`" + `. Sets ` + "`" + `_seller_tokenKey` + "`" + ` session cookie.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-auth"
+                ],
+                "summary": "Reseller email + password login",
+                "parameters": [
+                    {
+                        "description": "Email, password, captcha",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthTokenSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthTokenSwaggerResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/branding": {
+            "get": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `GET /api/v0/seller/branding` + "`" + `. Logo/favicon fields are public asset URLs.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-branding"
+                ],
+                "summary": "Get reseller branding",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/seller.ResellerBrandingConfig"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/branding/active-theme": {
+            "put": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    },
+                    {
+                        "SellerCSRFAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `PUT /api/v0/seller/branding/active-theme` + "`" + `. Body: ` + "`" + `{ \"type\": \"system\"|\"custom\", \"id\": \"uuid\" }` + "`" + `",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-branding"
+                ],
+                "summary": "Set active theme",
+                "parameters": [
+                    {
+                        "description": "Active theme",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/seller.SetActiveThemeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/branding/create": {
+            "post": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    },
+                    {
+                        "SellerCSRFAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `POST /api/v0/seller/branding/create` + "`" + `. Requires complete SMTP mail settings first (` + "`" + `POST /seller/mail-settings/test` + "`" + ` or ` + "`" + `PUT /seller/mail-settings` + "`" + `). Multipart: ` + "`" + `brandName` + "`" + `, ` + "`" + `supportEmail` + "`" + `, ` + "`" + `theme` + "`" + ` (JSON or individual ` + "`" + `themePrimary` + "`" + `, ` + "`" + `themeSecondary` + "`" + `, ` + "`" + `themeBackground` + "`" + `, ` + "`" + `themeSidebar` + "`" + `), files ` + "`" + `logoMain` + "`" + `, ` + "`" + `logoSmall` + "`" + `, ` + "`" + `favicon` + "`" + `. Page title uses ` + "`" + `brandName` + "`" + `. Assets stored locally; GET returns public URLs under ` + "`" + `/api/v0/seller/branding/assets/{resellerId}/{file}` + "`" + `.",
+                "consumes": [
+                    "multipart/form-data",
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-branding"
+                ],
+                "summary": "Create reseller branding",
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/seller.ResellerBrandingConfig"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/branding/delete": {
+            "delete": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    },
+                    {
+                        "SellerCSRFAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `DELETE /api/v0/seller/branding/delete` + "`" + `. Removes config and local logo/favicon files.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-branding"
+                ],
+                "summary": "Delete reseller branding",
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/branding/update": {
+            "put": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    },
+                    {
+                        "SellerCSRFAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `PUT /api/v0/seller/branding/update` + "`" + `. Requires complete SMTP mail settings. Same multipart fields as create. Omit file fields to keep existing assets.",
+                "consumes": [
+                    "multipart/form-data",
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-branding"
+                ],
+                "summary": "Update reseller branding",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/seller.ResellerBrandingConfig"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/config": {
+            "get": {
+                "description": "**Route:** ` + "`" + `GET /api/v0/seller/config` + "`" + `. Public bootstrap (no auth). Call before ` + "`" + `POST /seller/auth/token` + "`" + `: read ` + "`" + `captcha.login` + "`" + ` site keys, ` + "`" + `csrfProtectionEnabled` + "`" + `, and ` + "`" + `csrfToken` + "`" + ` (sets ` + "`" + `csrf_token` + "`" + ` cookie when enabled). Controlled by ` + "`" + `seller.csrf-protection-enabled` + "`" + ` (not console CSRF).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller"
+                ],
+                "summary": "Get seller frontend configuration",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerFrontendConfig"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/domain": {
+            "get": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `GET /api/v0/seller/domain` + "`" + `. Returns 404 if no domain is connected yet.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-domain"
+                ],
+                "summary": "Get reseller domain",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/seller.ResellerDomainResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/domain/connect": {
+            "post": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    },
+                    {
+                        "SellerCSRFAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `POST /api/v0/seller/domain/connect` + "`" + `. Creates reseller_domains row with status active, verification verified, and SSL issued. No DNS validation (manual ops).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-domain"
+                ],
+                "summary": "Connect custom domain",
+                "parameters": [
+                    {
+                        "description": "Custom domain hostname",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/seller.ConnectDomainRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/seller.ResellerDomainResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/domain/update": {
+            "put": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    },
+                    {
+                        "SellerCSRFAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `PUT /api/v0/seller/domain/update` + "`" + `. Updates the single custom domain row. Sets status active, verification verified, and SSL issued. No DNS validation (manual ops).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-domain"
+                ],
+                "summary": "Update reseller domain",
+                "parameters": [
+                    {
+                        "description": "Custom domain hostname",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/seller.UpdateDomainRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/seller.ResellerDomainResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/mail-settings": {
+            "get": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `GET /api/v0/seller/mail-settings` + "`" + `. Returns seller-configured SMTP used for emails on that reseller's custom domain. Auth is login only. CyberLS/main console continues using satellite mail.* config. Password is never returned; passwordSet/configured indicate whether SMTP is stored and usable.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-mail"
+                ],
+                "summary": "Get reseller mail SMTP settings",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/seller.ResellerMailSettingsView"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    },
+                    {
+                        "SellerCSRFAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `PUT /api/v0/seller/mail-settings` + "`" + `. Body: from, smtpServerAddress, authType (login), login, password. Omit password to keep the existing one. When complete, emails on this reseller's domain use these credentials.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-mail"
+                ],
+                "summary": "Update reseller mail SMTP settings",
+                "parameters": [
+                    {
+                        "description": "SMTP settings",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/seller.UpdateResellerMailSettingsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/seller.ResellerMailSettingsView"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/mail-settings/check-host": {
+            "post": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    },
+                    {
+                        "SellerCSRFAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `POST /api/v0/seller/mail-settings/check-host` + "`" + `. Body may include smtp fields (same as PUT) to test unsaved form values; omitted password reuses saved password. Does not send an email and does not persist settings.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-mail"
+                ],
+                "summary": "Check reseller SMTP host",
+                "parameters": [
+                    {
+                        "description": "Optional SMTP overrides",
+                        "name": "body",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/seller.TestMailSMTPRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/seller.MailSMTPActionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/mail-settings/test": {
+            "post": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    },
+                    {
+                        "SellerCSRFAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `POST /api/v0/seller/mail-settings/test` + "`" + `. Body may include smtp fields plus optional ` + "`" + `to` + "`" + ` (defaults to reseller login email). On success, the SMTP settings are saved and used for reseller-domain mail.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-mail"
+                ],
+                "summary": "Send reseller SMTP test email",
+                "parameters": [
+                    {
+                        "description": "Optional SMTP overrides and recipient",
+                        "name": "body",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/seller.TestMailSMTPRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/seller.MailSMTPActionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/status": {
+            "get": {
+                "description": "**Route:** ` + "`" + `GET /api/v0/seller/status` + "`" + `. Public health check for the seller peer.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller"
+                ],
+                "summary": "Seller service status",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerStatusSwaggerResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/themes/custom": {
+            "get": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `GET /api/v0/seller/themes/custom` + "`" + `. Max 5 per reseller.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-branding"
+                ],
+                "summary": "List custom themes",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/seller.CustomThemeSummary"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    },
+                    {
+                        "SellerCSRFAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `POST /api/v0/seller/themes/custom` + "`" + `. Body colors: primary, secondary, background, sidebar only. Max 5 custom themes per reseller.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-branding"
+                ],
+                "summary": "Create custom theme",
+                "parameters": [
+                    {
+                        "description": "Custom theme",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/seller.CreateCustomThemeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/seller.ResellerCustomTheme"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/themes/custom/{id}": {
+            "put": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    },
+                    {
+                        "SellerCSRFAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `PUT /api/v0/seller/themes/custom/{id}` + "`" + `",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-branding"
+                ],
+                "summary": "Update custom theme",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Theme ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Custom theme",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/seller.UpdateCustomThemeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/seller.ResellerCustomTheme"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    },
+                    {
+                        "SellerCSRFAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `DELETE /api/v0/seller/themes/custom/{id}` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-branding"
+                ],
+                "summary": "Delete custom theme",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Theme ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/seller/themes/presets": {
+            "get": {
+                "security": [
+                    {
+                        "SellerCookieAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `GET /api/v0/seller/themes/presets` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reseller-branding"
+                ],
+                "summary": "List system theme presets",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/seller.ThemePresetSummary"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/seller.SellerAuthErrorResponse"
                         }
                     }
                 }
@@ -5447,6 +8143,15 @@ const docTemplate = `{
                 "totalCount": {
                     "type": "integer",
                     "example": 3
+                }
+            }
+        },
+        "consoleapi.AddProjectMemberACLBucketSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "bucketName": {
+                    "type": "string",
+                    "example": "gmail"
                 }
             }
         },
@@ -6465,6 +9170,25 @@ const docTemplate = `{
                 }
             }
         },
+        "consoleapi.DeleteMembersAndInvitationsSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "emails": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "member@example.com",
+                        "pending@example.com"
+                    ]
+                },
+                "removeAccesses": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
         "consoleapi.DeleteProjectSwaggerRequest": {
             "type": "object",
             "properties": {
@@ -7078,6 +9802,17 @@ const docTemplate = `{
                 }
             }
         },
+        "consoleapi.InviteProjectMemberWithGrantsSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "grants": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.MemberBucketGrantInputSwagger"
+                    }
+                }
+            }
+        },
         "consoleapi.MFADisableSwaggerRequest": {
             "type": "object",
             "properties": {
@@ -7110,6 +9845,86 @@ const docTemplate = `{
                 "recoveryCode": {
                     "type": "string",
                     "example": ""
+                }
+            }
+        },
+        "consoleapi.MemberBucketGrantInputSwagger": {
+            "type": "object",
+            "properties": {
+                "allowDelete": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "allowDownload": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "allowList": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "allowUpload": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "bucket": {
+                    "type": "string",
+                    "example": "gmail"
+                },
+                "prefix": {
+                    "type": "string",
+                    "example": "member@example.com/"
+                }
+            }
+        },
+        "consoleapi.MemberBucketGrantSwaggerItem": {
+            "type": "object",
+            "properties": {
+                "allowDelete": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "allowDownload": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "allowList": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "allowUpload": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "bucket": {
+                    "type": "string",
+                    "example": "gmail"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
+                },
+                "inviteEmail": {
+                    "type": "string",
+                    "example": "member@example.com"
+                },
+                "memberId": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000001"
+                },
+                "prefix": {
+                    "type": "string",
+                    "example": "member@example.com/"
+                },
+                "projectId": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
+                },
+                "updatedAt": {
+                    "type": "string"
                 }
             }
         },
@@ -7571,6 +10386,135 @@ const docTemplate = `{
                 }
             }
         },
+        "consoleapi.ProjectInvitationSwaggerItem": {
+            "type": "object",
+            "properties": {
+                "createdAt": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string",
+                    "example": "invitee@example.com"
+                },
+                "expired": {
+                    "type": "boolean",
+                    "example": false
+                }
+            }
+        },
+        "consoleapi.ProjectMemberACLBucketSwaggerItem": {
+            "type": "object",
+            "properties": {
+                "bucketName": {
+                    "type": "string",
+                    "example": "gmail"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "projectId": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
+                }
+            }
+        },
+        "consoleapi.ProjectMemberDetailSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000001"
+                },
+                "joinedAt": {
+                    "type": "string"
+                },
+                "projectID": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
+                },
+                "role": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "consoleapi.ProjectMemberSwaggerItem": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "example": "jane@example.com"
+                },
+                "fullName": {
+                    "type": "string",
+                    "example": "Jane Doe"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000001"
+                },
+                "joinedAt": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "shortName": {
+                    "type": "string",
+                    "example": "Jane"
+                }
+            }
+        },
+        "consoleapi.ProjectMembersPageSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "currentPage": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "limit": {
+                    "type": "integer",
+                    "example": 100
+                },
+                "offset": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "order": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "orderDirection": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "pageCount": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "projectInvitations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.ProjectInvitationSwaggerItem"
+                    }
+                },
+                "projectMembers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.ProjectMemberSwaggerItem"
+                    }
+                },
+                "search": {
+                    "type": "string",
+                    "example": ""
+                },
+                "totalCount": {
+                    "type": "integer",
+                    "example": 3
+                }
+            }
+        },
         "consoleapi.ProjectUsageByDayItem": {
             "type": "object",
             "properties": {
@@ -7643,6 +10587,17 @@ const docTemplate = `{
                 }
             }
         },
+        "consoleapi.PutMemberBucketGrantsSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "grants": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.MemberBucketGrantInputSwagger"
+                    }
+                }
+            }
+        },
         "consoleapi.RegisterFCMTokenSwaggerRequest": {
             "type": "object",
             "required": [
@@ -7685,6 +10640,21 @@ const docTemplate = `{
                 "userAgent": {
                     "type": "string",
                     "example": "Mozilla/5.0 ..."
+                }
+            }
+        },
+        "consoleapi.ReinviteProjectMembersSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "emails": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "invitee@example.com",
+                        "other@example.com"
+                    ]
                 }
             }
         },
@@ -8856,6 +11826,9 @@ const docTemplate = `{
                 "maxNameCharacters": {
                     "type": "integer"
                 },
+                "memberBucketGrantsEnabled": {
+                    "type": "boolean"
+                },
                 "minAddFundsAmount": {
                     "type": "integer"
                 },
@@ -9029,6 +12002,767 @@ const docTemplate = `{
                 "EiB"
             ]
         },
+        "seller.CaptchaConfig": {
+            "type": "object",
+            "properties": {
+                "login": {
+                    "$ref": "#/definitions/seller.MultiCaptchaConfig"
+                },
+                "registration": {
+                    "$ref": "#/definitions/seller.MultiCaptchaConfig"
+                }
+            }
+        },
+        "seller.ConnectDomainRequest": {
+            "type": "object",
+            "properties": {
+                "domain": {
+                    "type": "string",
+                    "example": "portal.acme.com"
+                }
+            }
+        },
+        "seller.CreateCustomThemeRequest": {
+            "type": "object",
+            "properties": {
+                "colors": {
+                    "$ref": "#/definitions/seller.ResellerBrandingTheme"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "seller.CustomThemeSummary": {
+            "type": "object",
+            "properties": {
+                "colors": {
+                    "$ref": "#/definitions/seller.ResellerBrandingTheme"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "seller.MailSMTPActionResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string",
+                    "example": "SMTP host check succeeded"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "seller.MultiCaptchaConfig": {
+            "type": "object",
+            "properties": {
+                "hcaptcha": {
+                    "$ref": "#/definitions/seller.SingleCaptchaConfig"
+                },
+                "recaptcha": {
+                    "$ref": "#/definitions/seller.SingleCaptchaConfig"
+                }
+            }
+        },
+        "seller.ResellerBrandingConfig": {
+            "type": "object",
+            "properties": {
+                "brandName": {
+                    "type": "string"
+                },
+                "favicon": {
+                    "type": "string"
+                },
+                "logo": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "mail": {
+                    "$ref": "#/definitions/seller.ResellerMailSettings"
+                },
+                "supportEmail": {
+                    "type": "string"
+                },
+                "theme": {
+                    "$ref": "#/definitions/seller.ResellerBrandingTheme"
+                }
+            }
+        },
+        "seller.ResellerBrandingTheme": {
+            "type": "object",
+            "properties": {
+                "background": {
+                    "type": "string"
+                },
+                "primary": {
+                    "type": "string"
+                },
+                "secondary": {
+                    "type": "string"
+                },
+                "sidebar": {
+                    "type": "string"
+                }
+            }
+        },
+        "seller.ResellerCustomTheme": {
+            "type": "object",
+            "properties": {
+                "colors": {
+                    "$ref": "#/definitions/seller.ResellerBrandingTheme"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "resellerID": {
+                    "type": "string"
+                }
+            }
+        },
+        "seller.ResellerDomainResponse": {
+            "type": "object",
+            "properties": {
+                "createdAt": {
+                    "type": "string"
+                },
+                "domain": {
+                    "type": "string"
+                },
+                "domainType": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "sslStatus": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                },
+                "verificationStatus": {
+                    "type": "string"
+                },
+                "verifiedAt": {
+                    "type": "string"
+                }
+            }
+        },
+        "seller.ResellerMailSettings": {
+            "type": "object",
+            "properties": {
+                "authType": {
+                    "type": "string"
+                },
+                "from": {
+                    "type": "string"
+                },
+                "login": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "smtpServerAddress": {
+                    "type": "string"
+                }
+            }
+        },
+        "seller.ResellerMailSettingsView": {
+            "type": "object",
+            "properties": {
+                "authType": {
+                    "type": "string"
+                },
+                "configured": {
+                    "type": "boolean"
+                },
+                "from": {
+                    "type": "string"
+                },
+                "login": {
+                    "type": "string"
+                },
+                "passwordSet": {
+                    "type": "boolean"
+                },
+                "smtpServerAddress": {
+                    "type": "string"
+                }
+            }
+        },
+        "seller.SellerAccountActionSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "string",
+                    "example": "currentPassword123"
+                },
+                "step": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "seller.SellerAccountSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "companyName": {
+                    "type": "string",
+                    "example": "Acme Inc"
+                },
+                "email": {
+                    "type": "string",
+                    "example": "reseller@example.com"
+                },
+                "hasPassword": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "id": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000001"
+                },
+                "isMFAEnabled": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "mfaRecoveryCodeCount": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Acme Reseller"
+                },
+                "status": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "seller.SellerActivateAccountSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "example": "123456"
+                },
+                "email": {
+                    "type": "string",
+                    "example": "reseller@example.com"
+                },
+                "signupId": {
+                    "type": "string",
+                    "example": ""
+                }
+            }
+        },
+        "seller.SellerAuthErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": "authorization failed"
+                }
+            }
+        },
+        "seller.SellerAuthTokenSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "captchaResponse": {
+                    "type": "string",
+                    "example": ""
+                },
+                "email": {
+                    "type": "string",
+                    "example": "reseller@example.com"
+                },
+                "mfaPasscode": {
+                    "type": "string",
+                    "example": ""
+                },
+                "mfaRecoveryCode": {
+                    "type": "string",
+                    "example": ""
+                },
+                "password": {
+                    "type": "string",
+                    "example": "securePassword123"
+                },
+                "rememberForOneWeek": {
+                    "type": "boolean",
+                    "example": false
+                }
+            }
+        },
+        "seller.SellerAuthTokenSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "expiresAt": {
+                    "type": "string",
+                    "example": "2026-07-08T12:00:00Z"
+                },
+                "token": {
+                    "type": "string",
+                    "example": "\u003csession token\u003e"
+                }
+            }
+        },
+        "seller.SellerChangePasswordSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "newPassword": {
+                    "type": "string",
+                    "example": "newSecurePassword123"
+                },
+                "password": {
+                    "type": "string",
+                    "example": "currentPassword123"
+                }
+            }
+        },
+        "seller.SellerDeleteAccountSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "example": "reseller@example.com"
+                },
+                "password": {
+                    "type": "string",
+                    "example": "admin-verification-password"
+                }
+            }
+        },
+        "seller.SellerForgotPasswordSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "captchaResponse": {
+                    "type": "string",
+                    "example": ""
+                },
+                "email": {
+                    "type": "string",
+                    "example": "reseller@example.com"
+                }
+            }
+        },
+        "seller.SellerFrontendConfig": {
+            "type": "object",
+            "properties": {
+                "activeSessionsViewEnabled": {
+                    "type": "boolean"
+                },
+                "apiBaseURL": {
+                    "type": "string"
+                },
+                "captcha": {
+                    "$ref": "#/definitions/seller.CaptchaConfig"
+                },
+                "contactInfoURL": {
+                    "type": "string"
+                },
+                "csrfProtectionEnabled": {
+                    "type": "boolean"
+                },
+                "csrfToken": {
+                    "type": "string"
+                },
+                "emailChangeFlowEnabled": {
+                    "type": "boolean"
+                },
+                "externalAddress": {
+                    "type": "string"
+                },
+                "generalRequestURL": {
+                    "type": "string"
+                },
+                "inactivityTimerDuration": {
+                    "type": "integer"
+                },
+                "inactivityTimerEnabled": {
+                    "type": "boolean"
+                },
+                "liveCheckBadPasswords": {
+                    "type": "boolean"
+                },
+                "passwordMaximumLength": {
+                    "type": "integer"
+                },
+                "passwordMinimumLength": {
+                    "type": "integer"
+                },
+                "satelliteName": {
+                    "type": "string"
+                },
+                "selfServeAccountDeleteEnabled": {
+                    "type": "boolean"
+                },
+                "signupActivationCodeEnabled": {
+                    "type": "boolean"
+                },
+                "termsAndConditionsURL": {
+                    "type": "string"
+                }
+            }
+        },
+        "seller.SellerGoogleAuthError": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": "Error getting token from Google!"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": false
+                }
+            }
+        },
+        "seller.SellerGoogleAuthSuccess": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": [
+                        "registered",
+                        "logged_in"
+                    ],
+                    "example": "registered"
+                },
+                "reseller": {
+                    "$ref": "#/definitions/seller.SellerResellerSwagger"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "token": {
+                    "type": "string",
+                    "example": "\u003csession token\u003e"
+                }
+            }
+        },
+        "seller.SellerMFADisableSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "passcode": {
+                    "type": "string",
+                    "example": "123456"
+                },
+                "recoveryCode": {
+                    "type": "string",
+                    "example": ""
+                }
+            }
+        },
+        "seller.SellerMFAEnableSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "passcode": {
+                    "type": "string",
+                    "example": "123456"
+                }
+            }
+        },
+        "seller.SellerMFARegenerateRecoveryCodesSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "passcode": {
+                    "type": "string",
+                    "example": "123456"
+                },
+                "recoveryCode": {
+                    "type": "string",
+                    "example": ""
+                }
+            }
+        },
+        "seller.SellerRegisterSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "captchaResponse": {
+                    "type": "string",
+                    "example": ""
+                },
+                "companyName": {
+                    "type": "string",
+                    "example": "Acme Inc"
+                },
+                "email": {
+                    "type": "string",
+                    "example": "reseller@example.com"
+                },
+                "fullName": {
+                    "type": "string",
+                    "example": "Acme Reseller"
+                },
+                "password": {
+                    "type": "string",
+                    "example": "securePassword123"
+                }
+            }
+        },
+        "seller.SellerResellerSwagger": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "example": "reseller@example.com"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000001"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Acme Reseller"
+                }
+            }
+        },
+        "seller.SellerResendEmailSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "example": "reseller@example.com"
+                }
+            }
+        },
+        "seller.SellerResetPasswordSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "mfaPasscode": {
+                    "type": "string",
+                    "example": ""
+                },
+                "mfaRecoveryCode": {
+                    "type": "string",
+                    "example": ""
+                },
+                "password": {
+                    "type": "string",
+                    "example": "newSecurePassword123"
+                },
+                "token": {
+                    "type": "string",
+                    "example": "\u003crecovery token from email\u003e"
+                }
+            }
+        },
+        "seller.SellerSetPasswordSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "newPassword": {
+                    "type": "string",
+                    "example": "newSecurePassword123"
+                }
+            }
+        },
+        "seller.SellerStatusSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "service": {
+                    "type": "string",
+                    "example": "seller"
+                },
+                "status": {
+                    "type": "string",
+                    "example": "ok"
+                }
+            }
+        },
+        "seller.SellerWebappSessionSwagger": {
+            "type": "object",
+            "properties": {
+                "expiresAt": {
+                    "type": "string",
+                    "example": "2026-07-08T12:00:00Z"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000001"
+                },
+                "ip": {
+                    "type": "string",
+                    "example": "203.0.113.1"
+                },
+                "isRequesterCurrentSession": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "resellerId": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000002"
+                },
+                "status": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "seller.SellerWebappSessionsPageSwagger": {
+            "type": "object",
+            "properties": {
+                "currentPage": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "limit": {
+                    "type": "integer",
+                    "example": 10
+                },
+                "offset": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "order": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "orderDirection": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "pageCount": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "sessions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/seller.SellerWebappSessionSwagger"
+                    }
+                },
+                "totalCount": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "seller.SetActiveThemeRequest": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "seller.SingleCaptchaConfig": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "siteKey": {
+                    "type": "string"
+                }
+            }
+        },
+        "seller.TestMailSMTPRequest": {
+            "type": "object",
+            "properties": {
+                "authType": {
+                    "type": "string"
+                },
+                "from": {
+                    "type": "string"
+                },
+                "login": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "smtpServerAddress": {
+                    "type": "string"
+                },
+                "to": {
+                    "description": "required for test-mail; defaults to reseller email when empty",
+                    "type": "string"
+                }
+            }
+        },
+        "seller.ThemePresetSummary": {
+            "type": "object",
+            "properties": {
+                "colors": {
+                    "$ref": "#/definitions/seller.ResellerBrandingTheme"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "slug": {
+                    "type": "string"
+                }
+            }
+        },
+        "seller.UpdateCustomThemeRequest": {
+            "type": "object",
+            "properties": {
+                "colors": {
+                    "$ref": "#/definitions/seller.ResellerBrandingTheme"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "seller.UpdateDomainRequest": {
+            "type": "object",
+            "properties": {
+                "domain": {
+                    "type": "string",
+                    "example": "portal.acme.com"
+                }
+            }
+        },
+        "seller.UpdateResellerMailSettingsRequest": {
+            "type": "object",
+            "properties": {
+                "authType": {
+                    "type": "string"
+                },
+                "from": {
+                    "type": "string"
+                },
+                "login": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "smtpServerAddress": {
+                    "type": "string"
+                }
+            }
+        },
         "staticapi.StaticBlogItemSwagger": {
             "type": "object",
             "properties": {
@@ -9126,12 +12860,28 @@ const docTemplate = `{
             "type": "apiKey",
             "name": "_tokenKey",
             "in": "cookie"
+        },
+        "SellerCSRFAuth": {
+            "description": "When ` + "`" + `seller.csrf-protection-enabled` + "`" + ` is true: copy ` + "`" + `csrfToken` + "`" + ` from ` + "`" + `GET /seller/config` + "`" + ` and Authorize here. Must match ` + "`" + `csrf_token` + "`" + ` cookie (set by GET /seller/config). Required for ` + "`" + `POST /seller/auth/token` + "`" + `, MFA routes, password change, and other CSRF-protected seller routes.",
+            "type": "apiKey",
+            "name": "X-CSRF-Token",
+            "in": "header"
+        },
+        "SellerCookieAuth": {
+            "description": "Session cookie after reseller Google login. **Swagger Authorize:** paste the token value only (from ` + "`" + `GET /seller/auth/google` + "`" + ` response ` + "`" + `token` + "`" + ` field). Seller peer cookie name is ` + "`" + `_seller_tokenKey` + "`" + ` (not console ` + "`" + `_tokenKey` + "`" + `).",
+            "type": "apiKey",
+            "name": "_seller_tokenKey",
+            "in": "cookie"
         }
     },
     "tags": [
         {
-            "description": "Project management: invitations, members, usage, and project CRUD",
+            "description": "Project management: CRUD, salt, usage, config. Team invite + Member bucket restriction APIs are under tag **member-bucket-restriction**.",
             "name": "projects"
+        },
+        {
+            "description": "Member bucket \u0026 folder restriction — ALL invite/member/ACL APIs in one place. Flag: console.member-bucket-grants-enabled (default OFF). OFF = existing one-user/project access unchanged. ON = Owner/Admin full access; Member only grant rows (bucket+prefix+perms). Test order: (1) CookieAuth+CSRF (2) create/ensure bucket (3) POST member-acl-buckets (4) POST invite/{email} (omit body = defaults email/ List+Download) (5) GET members (6) invitee GET invitations + POST respond response=1 (7) GET/PUT members/{id}/bucket-grants (8) PATCH role / DELETE / reinvite / invite-link. Prefix must end with /. PUT grants:[] clears Member access + invalidates keys.",
+            "name": "member-bucket-restriction"
         },
         {
             "description": "Storage \u0026 bandwidth trends: GET /api/v0/projects/{id}/daily-usage — daily storageUsage and settledBandwidthUsage (bytes per day) for charts",
@@ -9248,6 +12998,38 @@ const docTemplate = `{
         {
             "description": "Public static content at server root (not under /api/v0): GET /resources-list, /blog-list, /guides, /user-guideline-for-app. Swagger may prefix paths with /api/v0 — use the host root path when calling.",
             "name": "static-api"
+        },
+        {
+            "description": "Seller peer (reseller console): health and reseller management APIs under ` + "`" + `/api/v0/seller/*` + "`" + `. Runs as ` + "`" + `satellite run seller` + "`" + ` (default sim port often ` + "`" + `:10003` + "`" + `).",
+            "name": "reseller"
+        },
+        {
+            "description": "Reseller authentication: Google OAuth, email register/login, activation, logout, and refresh under ` + "`" + `/api/v0/seller/auth/*` + "`" + `. Session cookie = ` + "`" + `_seller_tokenKey` + "`" + `.",
+            "name": "reseller-auth"
+        },
+        {
+            "description": "Reseller password recovery: ` + "`" + `POST /seller/auth/forgot-password` + "`" + ` and ` + "`" + `POST /seller/auth/reset-password` + "`" + ` (token from email link).",
+            "name": "reseller-auth-password"
+        },
+        {
+            "description": "Logged-in reseller profile and password management: ` + "`" + `GET/PATCH /seller/auth/account` + "`" + `, change/set password, change email, delete account.",
+            "name": "reseller-account"
+        },
+        {
+            "description": "Reseller MFA setup and recovery: ` + "`" + `POST /seller/auth/mfa/*` + "`" + ` (enable, disable, secret key, recovery codes).",
+            "name": "reseller-mfa"
+        },
+        {
+            "description": "Reseller active sessions: ` + "`" + `GET /seller/auth/sessions` + "`" + `, ` + "`" + `POST /seller/auth/invalidate-session/{id}` + "`" + `.",
+            "name": "reseller-sessions"
+        },
+        {
+            "description": "Reseller branding: multipart upload for logos/favicon stored flat under ` + "`" + `{branding-assets-dir}/reseller/` + "`" + `. Config: ` + "`" + `brandName` + "`" + ` (also used as page title), ` + "`" + `supportEmail` + "`" + `, ` + "`" + `theme` + "`" + `, ` + "`" + `logo` + "`" + `, ` + "`" + `favicon` + "`" + `.",
+            "name": "reseller-branding"
+        },
+        {
+            "description": "Reseller custom domain: ` + "`" + `GET /seller/domain` + "`" + `, ` + "`" + `POST /seller/domain/connect` + "`" + `, ` + "`" + `PUT /seller/domain/update` + "`" + ` (one custom domain per reseller, no DNS validation).",
+            "name": "reseller-domain"
         }
     ]
 }`

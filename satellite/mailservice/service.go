@@ -10,6 +10,7 @@ import (
 	htmltemplate "html/template"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 
@@ -17,7 +18,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"github.com/StorXNetwork/StorXMonitor/mail-templates"
+	mailtemplates "github.com/StorXNetwork/StorXMonitor/mail-templates"
 	"github.com/StorXNetwork/StorXMonitor/private/post"
 	"github.com/StorXNetwork/StorXMonitor/satellite/tenancy"
 	"github.com/StorXNetwork/common/context2"
@@ -91,32 +92,40 @@ type emailVars struct {
 type flattenedEmailVars struct {
 	emailVars
 	// Message fields flattened to root for templates that use .Username, .LoginLink, etc.
-	Username              string
-	UserName              string
-	LoginLink             string
-	FullName              string
-	Email                 string
-	Password              string
-	ActivationLink        string
-	Origin                string
-	Device                string
-	Browser               string
-	Location              string
-	State                 string
-	IPAddress             string
-	LoginTime             string
-	SignInLink            string
-	ResetPasswordLink     string
-	ResetLink             string
+	Username                   string
+	UserName                   string
+	LoginLink                  string
+	FullName                   string
+	Email                      string
+	Password                   string
+	ActivationLink             string
+	Origin                     string
+	Device                     string
+	Browser                    string
+	Location                   string
+	State                      string
+	IPAddress                  string
+	LoginTime                  string
+	SignInLink                 string
+	ResetPasswordLink          string
+	ResetLink                  string
 	CancelPasswordRecoveryLink string
-	DoubleCheckLink       string
-	CreateAccountLink     string
-	SupportTeamLink       string
-	SatelliteName         string
-	ContactInfoURL        string
-	TermsAndConditionsURL string
-	Name                  string
-	Message               string
+	DoubleCheckLink            string
+	CreateAccountLink          string
+	SupportTeamLink            string
+	SatelliteName              string
+	ContactInfoURL             string
+	TermsAndConditionsURL      string
+	Name                       string
+	Message                    string
+	InviterEmail               string
+	SignUpLink                 string
+	Region                     string
+	ProjectName                string
+	SupportURL                 string
+	ScheduleMeetingLink        string
+	LockoutDuration            string
+	ActivationCode             string
 }
 
 // copyStringField sets dst to the string value of v.FieldByName(fieldName) if the field exists and is a string.
@@ -133,8 +142,10 @@ type Service struct {
 	log    *zap.Logger
 	Sender Sender
 
-	tenantConfig    TenantConfig
-	defaultBranding WhiteLabelConfig
+	tenantConfig     TenantConfig
+	defaultBranding  WhiteLabelConfig
+	brandingResolver func(context.Context) (WhiteLabelConfig, bool)
+	senderResolver   func(context.Context) (Sender, bool)
 
 	html *htmltemplate.Template
 	// TODO(yar): prepare plain text version
@@ -219,7 +230,7 @@ func (service *Service) SendRenderedAsync(ctx context.Context, to []post.Address
 	go func() {
 		defer service.sending.Done()
 
-		ctx, cancel := context.WithTimeout(context2.WithoutCancellation(ctx), 5*time.Second)
+		ctx, cancel := context.WithTimeout(context2.WithoutCancellation(ctx), 60*time.Second)
 		defer cancel()
 
 		err := service.SendRendered(ctx, to, msg)
@@ -284,6 +295,14 @@ func (service *Service) SendRendered(ctx context.Context, to []post.Address, msg
 			copyStringField(&flatVars.TermsAndConditionsURL, v, "TermsAndConditionsURL")
 			copyStringField(&flatVars.Name, v, "Name")
 			copyStringField(&flatVars.Message, v, "Message")
+			copyStringField(&flatVars.InviterEmail, v, "InviterEmail")
+			copyStringField(&flatVars.SignUpLink, v, "SignUpLink")
+			copyStringField(&flatVars.Region, v, "Region")
+			copyStringField(&flatVars.ProjectName, v, "ProjectName")
+			copyStringField(&flatVars.SupportURL, v, "SupportURL")
+			copyStringField(&flatVars.ScheduleMeetingLink, v, "ScheduleMeetingLink")
+			copyStringField(&flatVars.LockoutDuration, v, "LockoutDuration")
+			copyStringField(&flatVars.ActivationCode, v, "ActivationCode")
 		}
 	}
 	templateData := &flatVars
@@ -329,15 +348,22 @@ func (service *Service) SendRendered(ctx context.Context, to []post.Address, msg
 	return err
 }
 
+const defaultPrimaryColor = "#e04124"
+
 func (service *Service) getEmailVars(ctx context.Context) emailVars {
 	defer mon.Task()(&ctx)(nil)
 
 	defaultVars := emailVars{
-		WhiteLabelConfig: service.defaultBranding,
+		WhiteLabelConfig: withPrimaryColorFallback(service.defaultBranding, defaultPrimaryColor),
+	}
+
+	if service.brandingResolver != nil {
+		if branding, ok := service.brandingResolver(ctx); ok {
+			return emailVars{WhiteLabelConfig: withPrimaryColorFallback(branding, service.defaultBranding.PrimaryColor)}
+		}
 	}
 
 	if len(service.tenantConfig.WhiteLabelConfig) == 0 {
-		// No config provider - return Storj defaults
 		return defaultVars
 	}
 
@@ -348,8 +374,31 @@ func (service *Service) getEmailVars(ctx context.Context) emailVars {
 	}
 
 	return emailVars{
-		WhiteLabelConfig: wlCfg,
+		WhiteLabelConfig: withPrimaryColorFallback(wlCfg, service.defaultBranding.PrimaryColor),
 	}
+}
+
+func withPrimaryColorFallback(cfg WhiteLabelConfig, fallback string) WhiteLabelConfig {
+	if strings.TrimSpace(cfg.PrimaryColor) != "" {
+		return cfg
+	}
+	if strings.TrimSpace(fallback) != "" {
+		cfg.PrimaryColor = fallback
+		return cfg
+	}
+	cfg.PrimaryColor = defaultPrimaryColor
+	return cfg
+}
+
+// SetBrandingResolver sets a callback that supplies tenant-specific branding (e.g. reseller configs).
+func (service *Service) SetBrandingResolver(resolver func(context.Context) (WhiteLabelConfig, bool)) {
+	service.brandingResolver = resolver
+}
+
+// SetSenderResolver sets a callback that supplies tenant-specific SMTP senders (e.g. seller dashboard SMTP).
+// When the resolver returns false, the default satellite mail.* sender is used.
+func (service *Service) SetSenderResolver(resolver func(context.Context) (Sender, bool)) {
+	service.senderResolver = resolver
 }
 
 func (service *Service) getSenderForTenant(ctx context.Context) (Sender, error) {
@@ -363,7 +412,15 @@ func (service *Service) getSenderForTenant(ctx context.Context) (Sender, error) 
 	if sender, exists := service.tenantConfig.TenantSenderMap[tenantID]; exists {
 		return sender, nil
 	}
-	return nil, errs.New("sender not found for tenant ID %s", tenantID)
+
+	if service.senderResolver != nil {
+		if sender, ok := service.senderResolver(ctx); ok && sender != nil {
+			return sender, nil
+		}
+	}
+
+	// CyberLS / missing seller SMTP → satellite mail.* default.
+	return service.Sender, nil
 }
 
 // TestSetTenantSender sets tenant-specific sender for testing purposes.

@@ -138,7 +138,7 @@
                                             <div>
                                                 <h1 style="font-family: Helvetica, sans-serif; text-align: center;
                                             color: #000; font-weight: 800; font-size: 38px !important;">
-                                                    Your Account Activation on StorX Network
+                                                    Your Account Activation on {{ .BrandName }}
                                                 </h1>
                                             </div>
                                             <!--[if mso]><table width="100%" cellpadding="0" cellspacing="0" border="0">
@@ -156,7 +156,7 @@
                                                     <p
                                                         style="font-size: 12px; line-height: 1.2; mso-line-height-alt: 14px; margin: 0;">
                                                         <br>
-                                                        <span style="font-size: 18px;">We’re excited to welcome you to StorX Network!
+                                                        <span style="font-size: 18px;">We’re excited to welcome you to {{ .BrandName }}!
                                                             Before you begin your journey, We need you to verify your email.
                                                             Kindly click on the link below to verify your account email::
                                                         </span>
@@ -168,13 +168,13 @@
                                                     <p
                                                         style="font-size: 12px; line-height: 1.2; mso-line-height-alt: 14px; margin: 20px 0;">
                                                         <span>
-                                                            <a data-simulate
-                                                                style="font-family: Helvetica, sans-serif;
-                                                    font-weight: 500; font-size: 16px; color: #ffffff; background-color: #e04124;
-                                                    padding: 12px 24px; border: none; border-radius: 4px; text-decoration: none;"
-                                                                href="{{ .ActivationLink }}">
-                                                                Verify My Account
-                                                            </a>
+                                                            <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                                                <tr>
+                                                    <td align="center" bgcolor="{{ .PrimaryColor }}" style="border-radius: 4px;">
+                                                        <a href="{{ .ActivationLink }}" style="font-family: Helvetica, sans-serif; font-weight: 500; font-size: 16px; color: #ffffff; padding: 12px 24px; border: none; border-radius: 4px; text-decoration: none;">Verify My Account</a>
+                                                    </td>
+                                                </tr>
+                                            </table>
                                                         </span>
                                                     </p>
                                                     <p
@@ -183,7 +183,7 @@
                                                     </p>
                                                     <p
                                                         style="font-size: 14px; line-height: 1.2; mso-line-height-alt: 17px; margin: 0;">
-                                                        <span style="font-size: 18px;">After verification, you’ll have access to all the amazing features on StorX Network.</span>
+                                                        <span style="font-size: 18px;">After verification, you’ll have access to all the amazing features on {{ .BrandName }}.</span>
                                                     </p>
                                                     <p
                                                         style="font-size: 14px; line-height: 1.2; mso-line-height-alt: 17px; margin: 0;">
@@ -215,7 +215,7 @@
                                                     </p>
                                                     <p
                                                         style="font-size: 14px; line-height: 1.2; mso-line-height-alt: 17px; margin: 0;">
-                                                        <span style="font-size: 18px;">StorX Network Team</span>
+                                                        <span style="font-size: 18px;">{{ .CompanyName }} Team</span>
                                                     </p>
                                                 </div>
                                             </div>

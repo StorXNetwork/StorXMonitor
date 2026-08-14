@@ -1,0 +1,58 @@
+// mail_export_jobs stores gateway-mt mail export job state (no download_url).
+
+model mail_export_job (
+	key id
+
+	index (
+		name mail_export_jobs_status_created_at_index
+		fields status created_at
+	)
+	index (
+		name mail_export_jobs_status_expires_at_index
+		fields status expires_at
+	)
+	index (
+		name mail_export_jobs_status_started_at_index
+		fields status started_at
+	)
+
+	field id               text
+	field user_id          text
+	field project_id       text
+	field access_key_id    text
+	field bucket           text
+	field format           text
+	field mode             text
+	field prefix           text      ( nullable, updatable )
+	field keys_json        json      ( nullable, updatable )
+	field access_grant     text      ( nullable, updatable )
+	field status           text      ( updatable )
+	field retry_count      int       ( updatable )
+	field progress         int       ( updatable )
+	field processed_files  int64     ( updatable )
+	field total_files      int64     ( updatable )
+	field processed_bytes  int64     ( updatable )
+	field total_bytes      int64     ( updatable )
+	field current_object   text      ( nullable, updatable )
+	field archive_bucket   text      ( nullable, updatable )
+	field archive_key      text      ( nullable, updatable )
+	field archive_name                 text      ( nullable, updatable )
+	field error_message                text      ( nullable, updatable )
+	field last_download_charge_id      text      ( nullable, updatable )
+	field last_download_charged_bytes  int64     ( nullable, updatable )
+	field created_at                   timestamp ( autoinsert )
+	field started_at                   timestamp ( nullable, updatable )
+	field completed_at                 timestamp ( nullable, updatable )
+	field expires_at                   timestamp ( nullable, updatable )
+)
+
+create mail_export_job ( )
+
+read one (
+	select mail_export_job
+	where mail_export_job.id = ?
+)
+
+update mail_export_job (
+	where mail_export_job.id = ?
+)

@@ -16,7 +16,7 @@
     <!--[if !mso]><!-->
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <!--<![endif]-->
-    <title>Account Activated - StorX Network</title>
+    <title>Account Activated - {{ .BrandName }}</title>
     <style type="text/css">
         body {
             margin: 0;
@@ -195,20 +195,18 @@
                                             <div class="content" style="padding-top: 0;">
                                                 <div>
                                                     <p class="paragraph" style="Margin-top: 0;"><span style="font-size: 18px;">Hi {{ .Username }},</span></p>
-                                                    <p class="paragraph">Congratulations! Your StorX Network account has been successfully activated. You now have full access to all features and can start storing your data securely on our decentralized platform.</p>
-                                                    <p class="paragraph">You can now sign in to your account and begin exploring the powerful features that StorX Network has to offer.</p>
+                                                    <p class="paragraph">Congratulations! Your {{ .BrandName }} account has been successfully activated. You now have full access to all features and can start storing your data securely on our decentralized platform.</p>
+                                                    <p class="paragraph">You can now sign in to your account and begin exploring the powerful features that {{ .BrandName }} has to offer.</p>
 
                                                     <table class="button-table" role="presentation" border="0" cellspacing="0" cellpadding="0" align="center">
                                                         <tr>
-                                                            <td align="center">
-                                                                <a class="button-link" href="{{ .SignInLink }}">Sign In to Your Account</a>
-                                                            </td>
+                                                            <td align="center" bgcolor="{{ .PrimaryColor }}" style="border-radius: 6px;"><a class="button-link" href="{{ .SignInLink }}">Sign In to Your Account</a></td>
                                                         </tr>
                                                     </table>
 
                                                     <p class="paragraph" style="Margin-top: 18px;">If you have any questions or need assistance, please don't hesitate to contact us at <a href="{{ .ContactInfoURL }}" style="color:#091c45; text-decoration: underline;">{{ .ContactInfoURL }}</a>.</p>
-                                                    <p class="paragraph">By using StorX Network, you agree to our <a href="{{ .TermsAndConditionsURL }}" style="color:#091c45; text-decoration: underline;">Terms and Conditions</a>.</p>
-                                                    <p class="paragraph" style="Margin: 20px 0 0 0;">Thank you for choosing StorX Network!<br/>StorX Network Team</p>
+                                                    <p class="paragraph">By using {{ .BrandName }}, you agree to our <a href="{{ .TermsAndConditionsURL }}" style="color:#091c45; text-decoration: underline;">Terms and Conditions</a>.</p>
+                                                    <p class="paragraph" style="Margin: 20px 0 0 0;">Thank you for choosing {{ .BrandName }}!<br/>{{ .CompanyName }} Team</p>
                                                 </div>
                                             </div>
                                             <!--[if mso]></td></tr></table><![endif]-->
@@ -281,7 +279,7 @@
                                             </table>
                                             <div style="font-size: 12px;text-align: center;color:#6B7280;
                                         font-family: Helvetica, sans-serif; font-weight: 300; padding: 8px 24px 24px 24px;">
-                                                You're receiving this email because your StorX account was activated.
+                                                You're receiving this email because your {{ .BrandName }} account was activated.
                                             </div>
                                             <!--[if mso]>
                                     <table width="100%" cellpadding="0" cellspacing="0" border="0">

@@ -31,7 +31,10 @@ package consoleweb
 // @description When `console.csrf-protection-enabled` is true: copy `csrfToken` from `GET /config` and Authorize here. Must match `csrf_token` cookie (set by GET /config or synced by Swagger UI). Required for `POST /auth/token`, `POST /auth/account/set-password`, and other CSRF-protected routes.
 
 // @tag.name projects
-// @tag.description Project management: invitations, members, usage, and project CRUD
+// @tag.description Project management: CRUD, salt, usage, config. Team invite + Member bucket restriction APIs are under tag **member-bucket-restriction**.
+
+// @tag.name member-bucket-restriction
+// @tag.description Member bucket & folder restriction — ALL invite/member/ACL APIs in one place. Flag: console.member-bucket-grants-enabled (default OFF). OFF = existing one-user/project access unchanged. ON = Owner/Admin full access; Member only grant rows (bucket+prefix+List/Download; Upload/Delete unsupported). Test order: (1) CookieAuth+CSRF (2) create/ensure bucket (3) POST member-acl-buckets (4) POST invite/{email} (omit body = defaults email/ List+Download) (5) GET members (6) invitee GET invitations + POST respond response=1 (7) GET/PUT members/{id}/bucket-grants (8) PATCH role / DELETE / reinvite / invite-link. Prefix must end with /. PUT grants:[] clears Member access + invalidates keys.
 
 // @tag.name projects-daily-usage
 // @tag.description Storage & bandwidth trends: GET /api/v0/projects/{id}/daily-usage — daily storageUsage and settledBandwidthUsage (bytes per day) for charts
@@ -119,6 +122,40 @@ package consoleweb
 
 // @tag.name static-api
 // @tag.description Public static content at server root (not under /api/v0): GET /resources-list, /blog-list, /guides, /user-guideline-for-app. Swagger may prefix paths with /api/v0 — use the host root path when calling.
+
+// @tag.name reseller
+// @tag.description Seller peer (reseller console): health and reseller management APIs under `/api/v0/seller/*`. Runs as `satellite run seller` (default sim port often `:10003`).
+
+// @tag.name reseller-auth
+// @tag.description Reseller authentication: Google OAuth, email register/login, activation, logout, and refresh under `/api/v0/seller/auth/*`. Session cookie = `_seller_tokenKey`.
+
+// @tag.name reseller-auth-password
+// @tag.description Reseller password recovery: `POST /seller/auth/forgot-password` and `POST /seller/auth/reset-password` (token from email link).
+
+// @tag.name reseller-account
+// @tag.description Logged-in reseller profile and password management: `GET/PATCH /seller/auth/account`, change/set password, change email, delete account.
+
+// @tag.name reseller-mfa
+// @tag.description Reseller MFA setup and recovery: `POST /seller/auth/mfa/*` (enable, disable, secret key, recovery codes).
+
+// @tag.name reseller-sessions
+// @tag.description Reseller active sessions: `GET /seller/auth/sessions`, `POST /seller/auth/invalidate-session/{id}`.
+
+// @tag.name reseller-branding
+// @tag.description Reseller branding: multipart upload for logos/favicon stored flat under `{branding-assets-dir}/reseller/`. Config: `brandName` (also used as page title), `supportEmail`, `theme`, `logo`, `favicon`.
+
+// @tag.name reseller-domain
+// @tag.description Reseller custom domain: `GET /seller/domain`, `POST /seller/domain/connect`, `PUT /seller/domain/update` (one custom domain per reseller, no DNS validation).
+
+// @securityDefinitions.apikey SellerCSRFAuth
+// @in header
+// @name X-CSRF-Token
+// @description When `seller.csrf-protection-enabled` is true: copy `csrfToken` from `GET /seller/config` and Authorize here. Must match `csrf_token` cookie (set by GET /seller/config). Required for `POST /seller/auth/token`, MFA routes, password change, and other CSRF-protected seller routes.
+
+// @securityDefinitions.apikey SellerCookieAuth
+// @in cookie
+// @name _seller_tokenKey
+// @description Session cookie after reseller Google login. **Swagger Authorize:** paste the token value only (from `GET /seller/auth/google` response `token` field). Seller peer cookie name is `_seller_tokenKey` (not console `_tokenKey`).
 
 // Common response models
 type ErrorResponse struct {

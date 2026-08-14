@@ -16,7 +16,7 @@
     <!--[if !mso]><!-->
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <!--<![endif]-->
-    <title>Welcome to StorX Network</title>
+    <title>Welcome to {{ .BrandName }}</title>
     <style type="text/css">
         body {
             margin: 0;
@@ -192,7 +192,7 @@
                                     border-bottom: 0px solid #000000; border-right: 0px solid #000000;">
                                             <!--<![endif]-->
                                             <div class="content">
-                                                <h1 class="heading">Welcome to StorX Network</h1>
+                                                <h1 class="heading">Welcome to {{ .BrandName }}</h1>
                                                 <div style="height: 8px; font-size: 8px; line-height: 8px;">&nbsp;</div>
                                                 <div class="divider"></div>
                                                 <div style="height: 8px; font-size: 8px; line-height: 8px;">&nbsp;</div>
@@ -203,28 +203,26 @@
                                             <div class="content" style="padding-top: 0;">
                                                 <div>
                                                     <p class="paragraph" style="Margin-top: 0;"><span style="font-size: 18px;">Hi {{ .Username }},</span></p>
-                                                    <p class="paragraph">Welcome aboard! You’ve just taken a massive leap toward true data ownership by joining the StorX Network family. With StorX, you’re part of a community that values security and privacy above all else.</p>
+                                                    <p class="paragraph">Welcome aboard! You’ve just taken a massive leap toward true data ownership by joining the {{ .BrandName }} family. With {{ .BrandName }}, you’re part of a community that values security and privacy above all else.</p>
                                                     <p class="paragraph">You’ve signed up for our Free Plan, which gives you up to 2 GB of secure, decentralized storage to explore our platform.</p>
-                                                    <p class="paragraph">StorX uses a decentralized architecture that encrypts, fragments, replicates, and distributes your data globally. Your data is never stored in a single location vulnerable to outages or attacks.</p>
+                                                    <p class="paragraph">{{ .BrandName }} uses a decentralized architecture that encrypts, fragments, replicates, and distributes your data globally. Your data is never stored in a single location vulnerable to outages or attacks.</p>
 
                                                     <table class="button-table" role="presentation" border="0" cellspacing="0" cellpadding="0" align="center">
                                                         <tr>
-                                                            <td align="center">
-                                                                <a class="button-link" href="{{ .LoginLink }}">Start Your Decentralized Journey</a>
-                                                            </td>
+                                                            <td align="center" bgcolor="{{ .PrimaryColor }}" style="border-radius: 6px;"><a class="button-link" href="{{ .LoginLink }}">Start Your Decentralized Journey</a></td>
                                                         </tr>
                                                     </table>
 
                                                     <p class="paragraph" style="Margin-top: 18px; font-weight: 600;">Helpful resources:</p>
                                                     <ul class="list">
                                                         <li>Quick Start Video: <a href="https://www.youtube.com/watch?v=7AC1j1ihDzE" style="color:#091c45; text-decoration: underline;">Watch on YouTube</a></li>
-                                                        <li>Join the Community: <a href="https://discord.com/channels/805710560083181578/805710560083181581" style="color:#091c45; text-decoration: underline;">StorX on Discord</a></li>
+                                                        <li>Join the Community: <a href="https://discord.com/channels/805710560083181578/805710560083181581" style="color:#091c45; text-decoration: underline;">{{ .BrandName }} Community</a></li>
                                                         <li>Need more capacity? <a href="https://storx.io" style="color:#091c45; text-decoration: underline;">See plans & pricing</a></li>
                                                     </ul>
 
                                                     <p class="paragraph">If you need assistance at any time, email us at <a href="mailto:support@storx.io" style="color:#091c45; text-decoration: underline;">support@storx.io</a>.</p>
                                                     <p class="paragraph">We’re excited to help you store your data with unprecedented privacy and security.</p>
-                                                    <p class="paragraph" style="Margin: 20px 0 0 0;">Thank you,<br/>StorX Network Team</p>
+                                                    <p class="paragraph" style="Margin: 20px 0 0 0;">Thank you,<br/>{{ .CompanyName }} Team</p>
                                                 </div>
                                             </div>
                                             <!--[if mso]></td></tr></table><![endif]-->
@@ -297,7 +295,7 @@
                                             </table>
                                             <div style="font-size: 12px;text-align: center;color:#6B7280;
                                         font-family: Helvetica, sans-serif; font-weight: 300; padding: 8px 24px 24px 24px;">
-                                                You’re receiving this email because you created a StorX account.
+                                                You’re receiving this email because you created a {{ .BrandName }} account.
                                             </div>
                                             <!--[if mso]>
                                     <table width="100%" cellpadding="0" cellspacing="0" border="0">

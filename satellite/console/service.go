@@ -290,7 +290,7 @@ type Service struct {
 
 	satelliteAddress        string
 	satelliteName           string
-	whiteLabelConfig        TenantWhiteLabelConfig
+	resellerTenantLookup    ResellerTenantLookup
 	pushNotificationService *pushnotifications.Service
 	auditLogService         *auditlog.Service
 
@@ -321,6 +321,8 @@ type Service struct {
 
 	socialShareHelper smartcontract.SocialShareHelper
 	backupToolsURL    string
+
+	mailExportOrdersDB MailExportOrdersDB
 
 	loginURL   string
 	supportURL string
@@ -392,11 +394,13 @@ func (s *Service) SendPushNotificationByEventName(ctx context.Context, userID uu
 // This function handles context creation, error logging, and all the boilerplate
 // required for sending notifications without blocking the HTTP request.
 func (s *Service) SendNotificationAsync(userID uuid.UUID, email string, eventName string, category string, variables map[string]interface{}) {
-	go func() {
-		// Use background context to avoid cancellation when HTTP request completes
-		notifyCtx := context.Background()
+	s.SendNotificationAsyncWithContext(context.Background(), userID, email, eventName, category, variables)
+}
 
-		// Create a descriptive log message based on event name
+// SendNotificationAsyncWithContext sends a push notification asynchronously while preserving tenant context.
+func (s *Service) SendNotificationAsyncWithContext(ctx context.Context, userID uuid.UUID, email string, eventName string, category string, variables map[string]interface{}) {
+	notifyCtx := tenancy.DetachContext(ctx)
+	go func() {
 		eventDescription := strings.ReplaceAll(eventName, "_", " ")
 
 		if err := s.SendPushNotificationByEventName(notifyCtx, userID, eventName, category, variables); err != nil {
@@ -405,6 +409,7 @@ func (s *Service) SendNotificationAsync(userID uuid.UUID, email string, eventNam
 				zap.String("description", eventDescription),
 				zap.Stringer("user_id", userID),
 				zap.String("email", email),
+				zap.String("tenant_id", tenancy.TenantIDFromContext(notifyCtx)),
 				zap.Error(err))
 		}
 	}()
@@ -420,6 +425,7 @@ func (s *Service) buildNotificationFromEvent(ctx context.Context, userID uuid.UU
 
 	mergedVars := configs.MergeUserPreferences(templateData.DefaultVariables, nil, variables)
 	s.handleSpecialVariables(mergedVars)
+	s.injectResellerBrandVariables(ctx, mergedVars)
 
 	if err := configs.ValidateVariables(templateData, mergedVars); err != nil {
 		s.log.Warn("Failed to validate template variables",
@@ -498,6 +504,21 @@ func (s *Service) handleSpecialVariables(variables map[string]interface{}) {
 		if tsStr, ok := timestamp.(string); ok && tsStr == "now" {
 			variables["timestamp"] = time.Now().Format(time.RFC3339)
 		}
+	}
+}
+
+// injectResellerBrandVariables adds seller branding vars for tenant-scoped push notifications.
+func (s *Service) injectResellerBrandVariables(ctx context.Context, variables map[string]interface{}) {
+	branding, ok := s.ResellerMailBranding(ctx)
+	if !ok {
+		return
+	}
+	if branding.BrandName != "" {
+		variables["brand_name"] = branding.BrandName
+		variables["product_name"] = branding.BrandName
+	}
+	if branding.CompanyName != "" {
+		variables["company_name"] = branding.CompanyName
 	}
 }
 
@@ -590,6 +611,17 @@ func (s *Service) UploadBackupShare(ctx context.Context, backupID string, share 
 
 func (s *Service) CreateAccessGrantForProject(ctx context.Context, projectID uuid.UUID, passphrase string,
 	prefix []grant.SharePrefix, permission *grant.Permission, apiKey *macaroon.APIKey) (string, error) {
+
+	if user, err := GetUser(ctx); err == nil && user != nil {
+		member, memberErr := s.isProjectMember(ctx, user.ID, projectID)
+		if memberErr == nil {
+			projectID = member.project.ID
+			prefix, permission, err = s.applyMemberACLToAccessRequest(ctx, projectID, user.ID, prefix, permission)
+			if err != nil {
+				return "", err
+			}
+		}
+	}
 
 	salt, err := s.GetSalt(ctx, projectID)
 	if err != nil {
@@ -858,6 +890,170 @@ func (s *Service) ClearGoogleBackupTokensForBackupTools(ctx context.Context, req
 	return nil
 }
 
+// CreateMailExportJob inserts a QUEUED mail export job. Caller must authenticate (Bearer token).
+func (s *Service) CreateMailExportJob(ctx context.Context, job CreateMailExportJob) (_ *MailExportJob, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if strings.TrimSpace(job.ID) == "" || strings.TrimSpace(job.UserID) == "" ||
+		strings.TrimSpace(job.ProjectID) == "" || strings.TrimSpace(job.Bucket) == "" ||
+		strings.TrimSpace(job.Format) == "" || strings.TrimSpace(job.Mode) == "" {
+		return nil, ErrValidation.New("id, userId, projectId, bucket, format, and mode are required")
+	}
+	created, err := s.store.MailExportJobs().Create(ctx, job)
+	return created, Error.Wrap(err)
+}
+
+// GetMailExportJob returns a mail export job by id. Caller must authenticate (Bearer token).
+func (s *Service) GetMailExportJob(ctx context.Context, id string) (_ *MailExportJob, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if strings.TrimSpace(id) == "" {
+		return nil, ErrValidation.New("id is required")
+	}
+	job, err := s.store.MailExportJobs().Get(ctx, id)
+	if err != nil {
+		if ErrMailExportJobNotFound.Has(err) {
+			return nil, err
+		}
+		return nil, Error.Wrap(err)
+	}
+	return job, nil
+}
+
+// ClaimMailExportJob atomically claims one QUEUED job. Caller must authenticate (Bearer token).
+func (s *Service) ClaimMailExportJob(ctx context.Context) (_ *MailExportJob, err error) {
+	defer mon.Task()(&ctx)(&err)
+	job, err := s.store.MailExportJobs().Claim(ctx)
+	if err != nil {
+		if ErrMailExportJobNotFound.Has(err) {
+			return nil, err
+		}
+		return nil, Error.Wrap(err)
+	}
+	return job, nil
+}
+
+// PatchMailExportJob updates job progress/status. Caller must authenticate (Bearer token).
+func (s *Service) PatchMailExportJob(ctx context.Context, id string, patch PatchMailExportJob) (_ *MailExportJob, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if strings.TrimSpace(id) == "" {
+		return nil, ErrValidation.New("id is required")
+	}
+	job, err := s.store.MailExportJobs().Patch(ctx, id, patch)
+	if err != nil {
+		if ErrMailExportJobNotFound.Has(err) {
+			return nil, err
+		}
+		return nil, Error.Wrap(err)
+	}
+	return job, nil
+}
+
+// CancelMailExportJob cancels a QUEUED/PROCESSING job. Caller must authenticate (Bearer token).
+func (s *Service) CancelMailExportJob(ctx context.Context, id string) (_ *MailExportJob, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if strings.TrimSpace(id) == "" {
+		return nil, ErrValidation.New("id is required")
+	}
+	job, err := s.store.MailExportJobs().Cancel(ctx, id)
+	if err != nil {
+		if ErrMailExportJobNotFound.Has(err) {
+			return nil, err
+		}
+		return nil, Error.Wrap(err)
+	}
+	return job, nil
+}
+
+// ExpireMailExportJobs marks past-expires SUCCEEDED jobs as EXPIRED. Caller must authenticate (Bearer token).
+func (s *Service) ExpireMailExportJobs(ctx context.Context) (_ []MailExportJob, err error) {
+	defer mon.Task()(&ctx)(&err)
+	jobs, err := s.store.MailExportJobs().Expire(ctx)
+	return jobs, Error.Wrap(err)
+}
+
+// RequeueStaleMailExportJobs returns PROCESSING jobs older than olderThan to QUEUED.
+// Caller must authenticate (Bearer token).
+func (s *Service) RequeueStaleMailExportJobs(ctx context.Context, olderThan time.Duration) (count int, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if olderThan <= 0 {
+		return 0, ErrValidation.New("olderThan must be positive")
+	}
+	count, err = s.store.MailExportJobs().RequeueStale(ctx, olderThan)
+	return count, Error.Wrap(err)
+}
+
+// GetAvailableBandwidthForMailExport returns remaining project bandwidth bytes for GMT quota checks.
+// Caller must authenticate (Bearer token). Prefer accessGrant (resolves real project via API key head).
+// projectID is only used when it is a real Satellite UUID (public or internal).
+func (s *Service) GetAvailableBandwidthForMailExport(ctx context.Context, userID, projectID, accessKeyID, accessGrant string) (available int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	_ = userID
+	_ = accessKeyID
+
+	project, err := s.resolveProjectForMailExportQuota(ctx, projectID, accessGrant)
+	if err != nil {
+		return 0, err
+	}
+
+	limits, err := s.getProjectUsageLimits(ctx, project.ID, false)
+	if err != nil {
+		return 0, Error.Wrap(err)
+	}
+
+	return AvailableBandwidthBytes(limits.BandwidthLimit, limits.BandwidthUsed), nil
+}
+
+func (s *Service) resolveProjectForMailExportQuota(ctx context.Context, projectID, accessGrant string) (*Project, error) {
+	accessGrant = strings.TrimSpace(accessGrant)
+	if accessGrant != "" {
+		access, err := grant.ParseAccess(accessGrant)
+		if err != nil {
+			return nil, ErrValidation.New("invalid accessGrant")
+		}
+		apiKeyInfo, err := s.store.APIKeys().GetByHead(ctx, access.APIKey.Head())
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, ErrMailExportJobNotFound.New("api key not found for accessGrant")
+			}
+			return nil, Error.Wrap(err)
+		}
+		project, err := s.GetProjectNoAuth(ctx, apiKeyInfo.ProjectID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, ErrMailExportJobNotFound.New("project not found for accessGrant")
+			}
+			return nil, Error.Wrap(err)
+		}
+		return project, nil
+	}
+
+	projectID = strings.TrimSpace(projectID)
+	if projectID == "" {
+		return nil, ErrValidation.New("accessGrant or projectId is required")
+	}
+	projectUUID, err := uuid.FromString(projectID)
+	if err != nil {
+		// GMT may send opaque identity hashes — those are not Satellite UUIDs.
+		return nil, ErrValidation.New("projectId is not a Satellite UUID; send accessGrant instead")
+	}
+	project, err := s.GetProjectNoAuth(ctx, projectUUID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrMailExportJobNotFound.New("project not found")
+		}
+		return nil, Error.Wrap(err)
+	}
+	return project, nil
+}
+
+// AvailableBandwidthBytes returns remaining bandwidth floored at zero.
+func AvailableBandwidthBytes(limit, used int64) int64 {
+	available := limit - used
+	if available < 0 {
+		return 0
+	}
+	return available
+}
+
 func init() {
 	var c Config
 	cfgstruct.Bind(pflag.NewFlagSet("", pflag.PanicOnError), &c, cfgstruct.UseTestDefaults())
@@ -888,7 +1084,7 @@ type Payments struct {
 }
 
 // NewService returns new instance of Service.
-func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKeys restapikeys.Service, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets buckets.DB, attributions attribution.DB, accounts payments.Accounts, depositWallets payments.DepositWallets, billingDB billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, hubspotMailService *hubspotmails.Service, accountFreezeService *AccountFreezeService, emission *emission.Service, kmsService *kms.Service, valdiService *valdi.Service, ssoService *sso.Service, satelliteAddress string, satelliteNodeAddress string, satelliteName string, whiteLabelConfig TenantWhiteLabelConfig, maxProjectBuckets int, ssoEnabled bool, placements nodeselection.PlacementDefinitions, versioning VersioningConfig, config Config, skuEnabled bool, loginURL string, supportURL string, bucketEventing eventingconfig.Config, entitlementsService *entitlements.Service, entitlementsConfig entitlements.Config, placementProductMap map[int]int32, productConfigs map[int32]payments.ProductUsagePriceModel, minimumChargeAmount int64, minimumChargeDate *time.Time, packagePlans map[string]payments.PackagePlan, backupToolsURL string, socialShareHelper smartcontract.SocialShareHelper) (*Service, error) {
+func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKeys restapikeys.Service, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets buckets.DB, attributions attribution.DB, accounts payments.Accounts, depositWallets payments.DepositWallets, billingDB billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, hubspotMailService *hubspotmails.Service, accountFreezeService *AccountFreezeService, emission *emission.Service, kmsService *kms.Service, valdiService *valdi.Service, ssoService *sso.Service, satelliteAddress string, satelliteNodeAddress string, satelliteName string, maxProjectBuckets int, ssoEnabled bool, placements nodeselection.PlacementDefinitions, versioning VersioningConfig, config Config, skuEnabled bool, loginURL string, supportURL string, bucketEventing eventingconfig.Config, entitlementsService *entitlements.Service, entitlementsConfig entitlements.Config, placementProductMap map[int]int32, productConfigs map[int32]payments.ProductUsagePriceModel, minimumChargeAmount int64, minimumChargeDate *time.Time, packagePlans map[string]payments.PackagePlan, backupToolsURL string, socialShareHelper smartcontract.SocialShareHelper) (*Service, error) {
 	if store == nil {
 		return nil, errs.New("store can't be nil")
 	}
@@ -984,7 +1180,6 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 		satelliteAddress:           satelliteAddress,
 		SatelliteNodeAddress:       satelliteNodeAddress,
 		satelliteName:              satelliteName,
-		whiteLabelConfig:           whiteLabelConfig,
 		maxProjectBuckets:          maxProjectBuckets,
 		ssoEnabled:                 ssoEnabled,
 		pushNotificationService:    pushNotificationService,
@@ -1122,45 +1317,31 @@ func (s *Service) sendLoginNotificationEmail(ctx context.Context, user *User, ip
 		return
 	}
 
+	// Keep tenant/reseller branding after the HTTP request ends.
+	emailCtx := tenancy.DetachContext(ctx)
+	emailUserID := user.ID
+	emailUserEmail := user.Email
+	emailUserName := user.ShortName
+	if emailUserName == "" {
+		emailUserName = user.FullName
+	}
+	emailIPAddress := ipAddress
+	if emailIPAddress == "" {
+		emailIPAddress = "0.0.0.0"
+	}
+	emailUserAgent := userAgent
+
+	satelliteAddress := s.ExternalAddressForContext(emailCtx)
+	signInLink := satelliteAddress + "login"
+
 	go func() {
-		// Use background context to avoid cancellation when HTTP request completes
-		emailCtx := context.Background()
-		emailUserID := user.ID       // Capture user ID before closure
-		emailUserEmail := user.Email // Capture email before closure
-		emailUserName := user.ShortName
-		if emailUserName == "" {
-			emailUserName = user.FullName
-		}
-		emailIPAddress := ipAddress
-		if emailIPAddress == "" {
-			emailIPAddress = "0.0.0.0"
-		}
-		emailUserAgent := userAgent
-
-		// Parse device and browser information
 		device, browser := parseDeviceInfo(emailUserAgent)
-
-		// Get location from IP
 		location, state := getLocationFromIP(emailIPAddress)
 		locationStr := location
 		if state != "" {
 			locationStr = state + ", " + location
 		}
-
-		// Format login time
 		loginTime := time.Now().Format("January 2, 2006 at 3:04 PM MST")
-
-		// Prepare satellite address
-		satelliteAddress := s.satelliteAddress
-		if satelliteAddress == "" {
-			satelliteAddress = "https://storx.io/"
-		}
-		if !strings.HasSuffix(satelliteAddress, "/") {
-			satelliteAddress += "/"
-		}
-
-		signInLink := satelliteAddress + "login"
-		contactInfoURL := "https://forum.storx.io" // Default contact info URL
 
 		s.mailService.SendRenderedAsync(
 			emailCtx,
@@ -1174,26 +1355,19 @@ func (s *Service) sendLoginNotificationEmail(ctx context.Context, user *User, ip
 				IPAddress:      emailIPAddress,
 				LoginTime:      loginTime,
 				SignInLink:     signInLink,
-				ContactInfoURL: contactInfoURL,
+				ContactInfoURL: satelliteAddress,
 			},
 		)
 		s.auditLog(emailCtx, "login notification email sent", &emailUserID, emailUserEmail,
 			zap.String("device", device),
-			zap.String("location", locationStr))
+			zap.String("location", locationStr),
+			zap.String("tenant_id", tenancy.TenantIDFromContext(emailCtx)))
 	}()
 }
 
 // getSatelliteAddress returns the external satellite address for the current tenant context.
-// If a tenant-specific external address is configured, it returns that; otherwise, it falls back
-// to the global satellite address.
 func (s *Service) getSatelliteAddress(ctx context.Context) string {
-	tenantID := tenancy.TenantIDFromContext(ctx)
-	if tenantID != "" {
-		if wlConfig, ok := s.whiteLabelConfig.Value[tenantID]; ok && wlConfig.ExternalAddress != "" {
-			return wlConfig.ExternalAddress
-		}
-	}
-	return s.satelliteAddress
+	return s.ExternalAddressForContext(ctx)
 }
 
 func (s *Service) auditLog(ctx context.Context, operation string, userID *uuid.UUID, email string, extra ...zap.Field) {
@@ -2190,30 +2364,17 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	}
 
 	// verified, unverified, err := s.store.Users().GetByEmailWithUnverified(ctx, user.Email)
-	if !socialsign {
-		verified, unverified, err := s.store.Users().GetByEmailWithUnverified(ctx, user.Email)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-		if verified != nil {
-			mon.Counter("create_user_duplicate_verified").Inc(1) //mon:locked
-			return nil, ErrEmailUsed.New(emailUsedErrMsg)
-		} else if len(unverified) != 0 {
-			mon.Counter("create_user_duplicate_unverified").Inc(1) //mon:locked
-			return nil, ErrEmailUsed.New(emailUsedErrMsg)
-		}
-	} else {
-		verified, unverified, err := s.store.Users().GetByEmailWithUnverified_google(ctx, user.Email)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-		if verified != nil {
-			mon.Counter("create_user_duplicate_verified").Inc(1) //mon:locked
-			return nil, ErrEmailUsed.New(emailUsedErrMsg)
-		} else if len(unverified) != 0 {
-			mon.Counter("create_user_duplicate_unverified").Inc(1) //mon:locked
-			return nil, ErrEmailUsed.New(emailUsedErrMsg)
-		}
+	tenantID := tenantIDFromContext(ctx)
+	verified, unverified, err := s.store.Users().GetByEmailAndTenantWithUnverified(ctx, user.Email, tenantID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	if verified != nil {
+		mon.Counter("create_user_duplicate_verified").Inc(1) //mon:locked
+		return nil, ErrEmailUsed.New(emailUsedErrMsg)
+	} else if len(unverified) != 0 {
+		mon.Counter("create_user_duplicate_unverified").Inc(1) //mon:locked
+		return nil, ErrEmailUsed.New(emailUsedErrMsg)
 	}
 
 	// if err != nil {
@@ -2292,9 +2453,8 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		}
 
 		hasTenant := newUser.TenantID != nil && *newUser.TenantID != ""
-		if hasTenant {
-			newUser.ProjectLimit = s.config.UsageLimits.Project.Paid
-		} else if registrationToken != nil {
+		_ = hasTenant // all tenants (main and reseller) use free tier limits
+		if registrationToken != nil {
 			newUser.ProjectLimit = registrationToken.ProjectLimit
 		} else {
 			newUser.ProjectLimit = s.config.UsageLimits.Project.Free
@@ -2305,16 +2465,10 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			newUser.TrialExpiration = &expiration
 		}
 
-		if hasTenant {
-			newUser.ProjectStorageLimit = s.config.UsageLimits.Storage.Paid.Int64()
-			newUser.ProjectBandwidthLimit = s.config.UsageLimits.Bandwidth.Paid.Int64()
-			newUser.ProjectSegmentLimit = s.config.UsageLimits.Segment.Paid
-		} else {
-			// TODO: move the project limits into the registration token.
-			newUser.ProjectStorageLimit = s.config.UsageLimits.Storage.Free.Int64()
-			newUser.ProjectBandwidthLimit = s.config.UsageLimits.Bandwidth.Free.Int64()
-			newUser.ProjectSegmentLimit = s.config.UsageLimits.Segment.Free
-		}
+		// TODO: move the project limits into the registration token.
+		newUser.ProjectStorageLimit = s.config.UsageLimits.Storage.Free.Int64()
+		newUser.ProjectBandwidthLimit = s.config.UsageLimits.Bandwidth.Free.Int64()
+		newUser.ProjectSegmentLimit = s.config.UsageLimits.Segment.Free
 
 		u, err = tx.Users().Insert(ctx,
 			newUser,
@@ -2326,7 +2480,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		// Post-insert duplicate check only for non-social signup. For social signup we skip this
 		// so we don't treat the user we just inserted (Active) as a duplicate and delete them.
 		if !socialsign {
-			verified, unverified, err := tx.Users().GetByEmailWithUnverified(ctx, user.Email)
+			verified, unverified, err := tx.Users().GetByEmailAndTenantWithUnverified(ctx, user.Email, tenantID)
 			if err != nil {
 				return err
 			}
@@ -3478,7 +3632,7 @@ func (s *Service) TokenWithoutPassword(ctx context.Context, request AuthWithoutP
 		"ip_address": ipAddress,
 		"location":   location,
 	}
-	s.SendNotificationAsync(user.ID, user.Email, "logged_in_successfully", "account", variables)
+	s.SendNotificationAsyncWithContext(ctx, user.ID, user.Email, "logged_in_successfully", "account", variables)
 
 	// Send email notification for successful login
 	s.sendLoginNotificationEmail(ctx, user, request.IP, request.UserAgent)
@@ -3491,7 +3645,7 @@ func (s *Service) Token_google(ctx context.Context, request AuthUser) (response 
 
 	mon.Counter("login_attempt").Inc(1) //mon:locked
 
-	user, unverified, err := s.store.Users().GetByEmailWithUnverified_google(ctx, request.Email)
+	user, unverified, err := s.store.Users().GetByEmailAndTenantWithUnverified(ctx, request.Email, tenantIDFromContext(ctx))
 
 	if user == nil {
 		if len(unverified) > 0 {
@@ -3541,7 +3695,7 @@ func (s *Service) Token_google(ctx context.Context, request AuthUser) (response 
 		"ip_address": ipAddress,
 		"location":   location,
 	}
-	s.SendNotificationAsync(user.ID, user.Email, "logged_in_successfully", "account", variables)
+	s.SendNotificationAsyncWithContext(ctx, user.ID, user.Email, "logged_in_successfully", "account", variables)
 
 	// Send email notification for successful login
 	s.sendLoginNotificationEmail(ctx, user, request.IP, request.UserAgent)
@@ -3656,17 +3810,20 @@ func (s *Service) GetUserID(ctx context.Context) (id uuid.UUID, err error) {
 	return user.ID, nil
 }
 
-// GetUserByEmailWithUnverified returns Users by email.
+func tenantIDFromContext(ctx context.Context) *string {
+	tenantCtx := tenancy.GetContext(ctx)
+	if tenantCtx == nil || tenantCtx.TenantID == "" {
+		return nil
+	}
+	tenantID := tenantCtx.TenantID
+	return &tenantID
+}
+
+// GetUserByEmailWithUnverified returns Users by email scoped to the request tenant.
 func (s *Service) GetUserByEmailWithUnverified(ctx context.Context, email string) (verified *User, unverified []User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var tenantID *string
-	tenantCtx := tenancy.GetContext(ctx)
-	if tenantCtx != nil {
-		tenantID = &tenantCtx.TenantID
-	}
-
-	verified, unverified, err = s.store.Users().GetByEmailAndTenantWithUnverified(ctx, email, tenantID)
+	verified, unverified, err = s.store.Users().GetByEmailAndTenantWithUnverified(ctx, email, tenantIDFromContext(ctx))
 	if err != nil {
 		return verified, unverified, err
 	}
@@ -3679,13 +3836,17 @@ func (s *Service) GetUserByEmailWithUnverified(ctx context.Context, email string
 }
 
 func (s *Service) GetUserByEmailWithUnverified_google(ctx context.Context, email string) (verified *User, unverified []User, err error) {
+	return s.getUserByEmailWithUnverifiedForTenant(ctx, email)
+}
+
+func (s *Service) getUserByEmailWithUnverifiedForTenant(ctx context.Context, email string) (verified *User, unverified []User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if email == "" {
 		return nil, nil, ErrEmailNotFound.New("email is empty")
 	}
 
-	verified, unverified, err = s.store.Users().GetByEmailWithUnverified_google(ctx, email)
+	verified, unverified, err = s.store.Users().GetByEmailAndTenantWithUnverified(ctx, email, tenantIDFromContext(ctx))
 	if err != nil {
 		return verified, unverified, err
 	}
@@ -5747,7 +5908,7 @@ func (s *Service) MigrateProjectPricing(ctx context.Context, publicProjectID uui
 	if err != nil {
 		return ErrUnauthorized.Wrap(err)
 	}
-	if isMember.membership.Role != RoleAdmin {
+	if !isMember.isOwnerOrAdmin(user.ID) {
 		return ErrForbidden.New("only project owner or admin may migrate project pricing")
 	}
 
@@ -6011,7 +6172,7 @@ func (s *Service) DeleteProjectMembersAndInvitations(ctx context.Context, projec
 		return ErrUnauthorized.Wrap(err)
 	}
 
-	if isMember.membership.Role != RoleAdmin {
+	if !isMember.isOwnerOrAdmin(user.ID) {
 		// We still allow user to remove themselves even with Member role.
 		if len(data.Emails) != 1 || user.Email != data.Emails[0] {
 			return ErrForbidden.New("only project Owner or Admin can remove other members")
@@ -6061,7 +6222,18 @@ func (s *Service) DeleteProjectMembersAndInvitations(ctx context.Context, projec
 				return err
 			}
 
+			if s.config.MemberBucketGrantsEnabled {
+				if err = tx.MemberBucketGrants().DeleteByMember(ctx, projectID, uID); err != nil {
+					return err
+				}
+			}
+
 			if data.RemoveAccesses {
+				err = tx.APIKeys().DeleteAllByProjectIDAndOwnerID(ctx, projectID, uID)
+				if err != nil {
+					return err
+				}
+			} else if s.config.MemberBucketGrantsEnabled {
 				err = tx.APIKeys().DeleteAllByProjectIDAndOwnerID(ctx, projectID, uID)
 				if err != nil {
 					return err
@@ -6069,6 +6241,11 @@ func (s *Service) DeleteProjectMembersAndInvitations(ctx context.Context, projec
 			}
 		}
 		for _, email := range invitedEmails {
+			if s.config.MemberBucketGrantsEnabled {
+				if err = tx.MemberBucketGrants().DeleteByInviteEmail(ctx, projectID, email); err != nil {
+					return err
+				}
+			}
 			err = tx.ProjectInvitations().Delete(ctx, projectID, email)
 			if err != nil {
 				return err
@@ -6114,6 +6291,39 @@ func (s *Service) UpdateProjectMemberRole(ctx context.Context, memberID, project
 	pm, err = s.store.ProjectMembers().UpdateRole(ctx, memberID, pr.ID, newRole)
 	if err != nil {
 		return nil, Error.Wrap(err)
+	}
+
+	if s.config.MemberBucketGrantsEnabled && newRole == RoleMember {
+		existing, gErr := s.store.MemberBucketGrants().GetByMember(ctx, pr.ID, memberID)
+		if gErr != nil {
+			return nil, Error.Wrap(gErr)
+		}
+		if len(existing) == 0 {
+			memberUser, uErr := s.store.Users().Get(ctx, memberID)
+			if uErr != nil {
+				return nil, Error.Wrap(uErr)
+			}
+			names, nErr := s.registeredBucketNames(ctx, pr.ID)
+			if nErr != nil {
+				return nil, nErr
+			}
+			defaults := DefaultInviteGrants(memberUser.Email, names)
+			if vErr := ValidateGrantSet(defaults); vErr != nil {
+				return nil, ErrValidation.Wrap(vErr)
+			}
+			if len(defaults) > 0 {
+				if eErr := s.ensureMemberGrantBucketsExist(ctx, pr.ID, defaults); eErr != nil {
+					return nil, eErr
+				}
+				_, rErr := s.store.MemberBucketGrants().ReplaceForMember(ctx, pr.ID, memberID, memberUser.Email, defaults)
+				if rErr != nil {
+					return nil, Error.Wrap(rErr)
+				}
+			}
+		}
+		if invErr := s.InvalidateMemberProjectCredentials(ctx, pr.ID, memberID); invErr != nil {
+			return nil, Error.Wrap(invErr)
+		}
 	}
 
 	return pm, err
@@ -7662,6 +7872,15 @@ type isProjectMember struct {
 	membership *ProjectMember
 }
 
+// isOwnerOrAdmin reports whether the user has Owner (projects.owner_id) or Admin role rights.
+// CreateProject inserts the owner membership as RoleMember; elevated rights come from OwnerID.
+func (m isProjectMember) isOwnerOrAdmin(userID uuid.UUID) bool {
+	if m.project != nil && m.project.OwnerID == userID {
+		return true
+	}
+	return m.membership != nil && m.membership.Role == RoleAdmin
+}
+
 // isProjectOwner checks if the user is an owner of a project.
 func (s *Service) isProjectOwner(ctx context.Context, userID uuid.UUID, projectID uuid.UUID) (isOwner bool, project *Project, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -8478,13 +8697,29 @@ func (s *Service) RespondToProjectInvitation(ctx context.Context, projectID uuid
 	}
 
 	if s.IsProjectInvitationExpired(invite) {
+		if s.config.MemberBucketGrantsEnabled {
+			if delErr := s.store.MemberBucketGrants().DeleteByInviteEmail(ctx, projectID, user.Email); delErr != nil {
+				s.log.Warn("error deleting pending member grants for expired invitation",
+					zap.Error(delErr),
+					zap.String("email", user.Email),
+					zap.String("project_id", projectID.String()),
+				)
+			}
+		}
 		return ErrProjectInviteInvalid.New(projInviteInvalidErrMsg)
 	}
 
 	if response == ProjectInvitationDecline {
-		err = Error.Wrap(s.store.ProjectInvitations().Delete(ctx, projectID, user.Email))
+		err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+			if s.config.MemberBucketGrantsEnabled {
+				if err := tx.MemberBucketGrants().DeleteByInviteEmail(ctx, projectID, user.Email); err != nil {
+					return err
+				}
+			}
+			return tx.ProjectInvitations().Delete(ctx, projectID, user.Email)
+		})
 		if err != nil {
-			return err
+			return Error.Wrap(err)
 		}
 
 		// Send push notification for project invitation declined
@@ -8532,12 +8767,31 @@ func (s *Service) RespondToProjectInvitation(ctx context.Context, projectID uuid
 	}
 
 	// All the new team members have regular Member role, which can be updated by the project owner later.
-	_, err = s.store.ProjectMembers().Insert(ctx, user.ID, projectID, RoleMember)
+	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+		_, err = tx.ProjectMembers().Insert(ctx, user.ID, projectID, RoleMember)
+		if err != nil {
+			return err
+		}
+		if s.config.MemberBucketGrantsEnabled {
+			if err = tx.MemberBucketGrants().BindPendingToMember(ctx, projectID, user.Email, user.ID); err != nil {
+				return err
+			}
+		}
+		return tx.ProjectInvitations().Delete(ctx, projectID, user.Email)
+	})
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	deleteWithLog()
+	if s.config.MemberBucketGrantsEnabled {
+		if invErr := s.InvalidateMemberProjectCredentials(ctx, projectID, user.ID); invErr != nil {
+			s.log.Warn("error invalidating member credentials after invite accept",
+				zap.Error(invErr),
+				zap.String("project_id", projectID.String()),
+				zap.String("member_id", user.ID.String()),
+			)
+		}
+	}
 
 	// Send push notification for project invitation accepted
 	variables := map[string]interface{}{
@@ -8574,12 +8828,13 @@ func (s *Service) ReinviteProjectMembers(ctx context.Context, projectID uuid.UUI
 		return nil, Error.Wrap(err)
 	}
 
-	return s.inviteProjectMembers(ctx, user, projectID, emails, ProjectInvitationResend)
+	return s.inviteProjectMembers(ctx, user, projectID, emails, ProjectInvitationResend, nil)
 }
 
 // InviteNewProjectMember invites a user by email to the project specified by the given ID,
 // which may be its public or internal ID.
-func (s *Service) InviteNewProjectMember(ctx context.Context, projectID uuid.UUID, email string) (invite *ProjectInvitation, err error) {
+// grants may be nil (defaults from ACL registry), empty (no folder access), or a custom set.
+func (s *Service) InviteNewProjectMember(ctx context.Context, projectID uuid.UUID, email string, grants []MemberBucketGrantInput) (invite *ProjectInvitation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	user, err := s.getUserAndAuditLog(ctx,
@@ -8591,7 +8846,7 @@ func (s *Service) InviteNewProjectMember(ctx context.Context, projectID uuid.UUI
 		return nil, Error.Wrap(err)
 	}
 
-	invites, err := s.inviteProjectMembers(ctx, user, projectID, []string{email}, ProjectInvitationCreate)
+	invites, err := s.inviteProjectMembers(ctx, user, projectID, []string{email}, ProjectInvitationCreate, grants)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -8599,9 +8854,82 @@ func (s *Service) InviteNewProjectMember(ctx context.Context, projectID uuid.UUI
 	return &invites[0], nil
 }
 
+// ProjectMemberInviteRequest is one entry for bulk invite (same idea as single invite).
+// Vaults are bucket names (e.g. gmail, google-drive). Server builds List+Download on `{email}/`.
+// Vaults == nil → ACL-registry defaults; non-nil (including empty) uses those vault names only.
+type ProjectMemberInviteRequest struct {
+	Email  string
+	Vaults *[]string
+}
+
+// ProjectMemberInviteResult is the per-email outcome of a bulk invite.
+type ProjectMemberInviteResult struct {
+	Email string `json:"email"`
+	OK    bool   `json:"ok"`
+	Error string `json:"error,omitempty"`
+}
+
+// InviteNewProjectMembers invites multiple users one-by-one, same as single invite with vault selection.
+// Auth/authorization failures before the loop return an error; per-email invite failures
+// are reported in results without aborting the rest of the batch.
+func (s *Service) InviteNewProjectMembers(ctx context.Context, projectID uuid.UUID, requests []ProjectMemberInviteRequest) (results []ProjectMemberInviteResult, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err := ValidateBulkInviteCount(len(requests)); err != nil {
+		return nil, err
+	}
+
+	user, err := s.getUserAndAuditLog(ctx,
+		"invite project members",
+		zap.String("project_id", projectID.String()),
+		zap.Int("invite_count", len(requests)),
+	)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	// Fail fast on authz so UI does not get a batch of identical unauthorized errors.
+	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
+	if err != nil {
+		return nil, ErrUnauthorized.Wrap(err)
+	}
+	if !isMember.isOwnerOrAdmin(user.ID) {
+		return nil, ErrForbidden.New("only project Owner or Admin can invite other members")
+	}
+
+	results = make([]ProjectMemberInviteResult, 0, len(requests))
+	for _, req := range requests {
+		email := strings.TrimSpace(req.Email)
+		result := ProjectMemberInviteResult{Email: email}
+		if email == "" {
+			result.Error = "email is required"
+			results = append(results, result)
+			continue
+		}
+
+		var grants []MemberBucketGrantInput
+		if req.Vaults != nil {
+			// Explicit vault list (same as single-invite selected icons) → List+Download grants.
+			grants = GrantsFromVaults(email, *req.Vaults)
+		}
+		// Vaults == nil → pass nil grants → DefaultInviteGrants from ACL registry
+
+		_, inviteErr := s.inviteProjectMembers(ctx, user, projectID, []string{email}, ProjectInvitationCreate, grants)
+		if inviteErr != nil {
+			result.Error = inviteErr.Error()
+			results = append(results, result)
+			continue
+		}
+		result.OK = true
+		results = append(results, result)
+	}
+	return results, nil
+}
+
 // inviteProjectMembers invites users by email to the project specified by the given ID,
 // which may be its public or internal ID.
-func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projectID uuid.UUID, emails []string, opt ProjectInvitationOption) (invites []ProjectInvitation, err error) {
+// pendingGrants is only used for ProjectInvitationCreate with a single email (nil = defaults).
+func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projectID uuid.UUID, emails []string, opt ProjectInvitationOption, pendingGrants []MemberBucketGrantInput) (invites []ProjectInvitation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	isMember, err := s.isProjectMember(ctx, sender.ID, projectID)
@@ -8609,7 +8937,7 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 		return nil, ErrUnauthorized.Wrap(err)
 	}
 
-	if isMember.membership.Role != RoleAdmin {
+	if !isMember.isOwnerOrAdmin(sender.ID) {
 		return nil, ErrForbidden.New("only project Owner or Admin can invite other members")
 	}
 
@@ -8625,13 +8953,12 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 		}
 
 		if invite != nil {
-			// If we should only insert new records, a preexisting record is an issue
+			// Create must not duplicate an existing invite row.
 			if opt == ProjectInvitationCreate {
 				return nil, ErrAlreadyInvited.New(projInviteExistsErrMsg, email)
 			}
-			if !s.IsProjectInvitationExpired(invite) {
-				return nil, ErrAlreadyInvited.New(activeProjInviteExistsErrMsg, email)
-			}
+			// Resend is allowed for active AND expired invites so the UI "Resend"
+			// button can re-deliver mail when the first send failed or was missed.
 		} else if opt == ProjectInvitationResend {
 			// If we should only update existing records, an absence of records is an issue
 			return nil, ErrProjectInviteInvalid.New(projInviteDoesntExistErrMsg, email)
@@ -8664,9 +8991,40 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 			unverifiedUsers = append(unverifiedUsers, oldest)
 		} else if s.config.UnregisteredInviteEmailsEnabled {
 			newUserEmails = append(newUserEmails, email)
+		} else {
+			// No local account and unregistered invites disabled → do not create a
+			// dangling invite row with no email delivery path.
+			return nil, ErrValidation.New("cannot invite unregistered email %s", email)
 		}
 	}
 
+	// Validate grant buckets exist before opening a console DB transaction.
+	// HasBucket must not run inside WithTx (panics: using DB when inside of a transaction).
+	if opt == ProjectInvitationCreate && s.config.MemberBucketGrantsEnabled {
+		for _, email := range emails {
+			var grantsForEmail []MemberBucketGrantInput
+			if len(emails) == 1 {
+				grantsForEmail = pendingGrants
+			}
+			if grantsForEmail == nil {
+				names, nErr := s.registeredBucketNames(ctx, projectID)
+				if nErr != nil {
+					return nil, nErr
+				}
+				grantsForEmail = DefaultInviteGrants(email, names)
+			}
+			// Copy so ValidateGrantSet normalization does not mutate caller input.
+			grantsCopy := append([]MemberBucketGrantInput(nil), grantsForEmail...)
+			if vErr := ValidateGrantSet(grantsCopy); vErr != nil {
+				return nil, ErrValidation.Wrap(vErr)
+			}
+			if eErr := s.ensureMemberGrantBucketsExist(ctx, projectID, grantsCopy); eErr != nil {
+				return nil, eErr
+			}
+		}
+	}
+
+	// Keys are normalized (upper) so request casing vs users.email cannot miss the token.
 	inviteTokens := make(map[string]string)
 	// add project invites in transaction scope
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
@@ -8680,9 +9038,19 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 				return err
 			}
 
+			if opt == ProjectInvitationCreate {
+				var grantsForEmail []MemberBucketGrantInput
+				if len(emails) == 1 {
+					grantsForEmail = pendingGrants
+				}
+				if err = s.createPendingMemberGrants(ctx, tx, projectID, email, grantsForEmail); err != nil {
+					return err
+				}
+			}
+
 			var isUnverified bool
 			for _, u := range unverifiedUsers {
-				if email == u.Email {
+				if strings.EqualFold(email, u.Email) {
 					isUnverified = true
 					invites = append(invites, *invite)
 					break
@@ -8696,7 +9064,7 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 			if err != nil {
 				return err
 			}
-			inviteTokens[email] = token
+			inviteTokens[strings.ToUpper(email)] = token
 			invites = append(invites, *invite)
 		}
 		return nil
@@ -8711,7 +9079,15 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 	}
 
 	for _, invited := range users {
-		inviteLink := fmt.Sprintf("%s?invite=%s", baseLink, inviteTokens[invited.Email])
+		token := inviteTokens[strings.ToUpper(invited.Email)]
+		if token == "" {
+			s.log.Error("missing invite token for existing user; skipping invite email",
+				zap.String("email", invited.Email),
+				zap.String("project_id", projectID.String()),
+			)
+			continue
+		}
+		inviteLink := fmt.Sprintf("%s?invite=%s", baseLink, token)
 
 		userName := invited.ShortName
 		if userName == "" {
@@ -8723,11 +9099,21 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 			&ExistingUserProjectInvitationEmail{
 				InviterEmail: sender.Email,
 				SignInLink:   inviteLink,
+				FullName:     userName,
+				Email:        invited.Email,
 			},
 		)
 	}
 	for _, email := range newUserEmails {
-		inviteLink := fmt.Sprintf("%s?invite=%s", baseLink, inviteTokens[email])
+		token := inviteTokens[strings.ToUpper(email)]
+		if token == "" {
+			s.log.Error("missing invite token for new user; skipping invite email",
+				zap.String("email", email),
+				zap.String("project_id", projectID.String()),
+			)
+			continue
+		}
+		inviteLink := fmt.Sprintf("%s?invite=%s", baseLink, token)
 		s.mailService.SendRenderedAsync(
 			ctx,
 			[]post.Address{{Address: email}},
@@ -8842,7 +9228,7 @@ func (s *Service) GetInviteLink(ctx context.Context, publicProjectID uuid.UUID, 
 		return "", ErrUnauthorized.Wrap(err)
 	}
 
-	if isMember.membership.Role != RoleAdmin {
+	if !isMember.isOwnerOrAdmin(user.ID) {
 		return "", ErrForbidden.New("only project Owner or Admin can get an invite link")
 	}
 

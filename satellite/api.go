@@ -825,7 +825,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			externalAddress,
 			peer.URL().String(),
 			consoleConfig.SatelliteName,
-			consoleConfig.WhiteLabel,
 			config.Metainfo.ProjectLimits.MaxBuckets,
 			config.SSO.Enabled,
 			placements,
@@ -849,6 +848,12 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
+		}
+		peer.Console.Service.SetResellerTenantLookup(consoleweb.NewResellerTenantResolver(peer.DB.Seller(), consoleConfig.SellerExternalAddress))
+		peer.Console.Service.SetMailExportOrdersDB(peer.Orders.DB)
+		if peer.Mail.Service != nil {
+			peer.Mail.Service.SetBrandingResolver(peer.Console.Service.ResellerMailBranding)
+			peer.Mail.Service.SetSenderResolver(peer.Console.Service.ResellerMailSender)
 		}
 
 		auditLogChore := auditlog.NewChore(
@@ -932,6 +937,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			priceSummaries,
 			config.Entitlements.Enabled,
 			config.SSO.Enabled,
+			peer.DB.Seller(),
 		)
 
 		if config.DisableConsoleFromSatelliteAPI {
@@ -1246,7 +1252,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				externalAddress,
 				peer.URL().String(),
 				consoleConfig.SatelliteName,
-				consoleConfig.WhiteLabel,
 				config.Metainfo.ProjectLimits.MaxBuckets,
 				config.SSO.Enabled,
 				placements,
@@ -1269,6 +1274,12 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			)
 			if err != nil {
 				return nil, errs.Combine(err, peer.Close())
+			}
+			peer.Console.Service.SetResellerTenantLookup(consoleweb.NewResellerTenantResolver(peer.DB.Seller(), consoleConfig.SellerExternalAddress))
+			peer.Console.Service.SetMailExportOrdersDB(peer.Orders.DB)
+			if peer.Mail.Service != nil {
+				peer.Mail.Service.SetBrandingResolver(peer.Console.Service.ResellerMailBranding)
+				peer.Mail.Service.SetSenderResolver(peer.Console.Service.ResellerMailSender)
 			}
 
 			peer.Console.ConsoleService, err = consoleservice.NewService(
@@ -1347,6 +1358,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				priceSummaries,
 				config.Entitlements.Enabled,
 				config.SSO.Enabled,
+				peer.DB.Seller(),
 			)
 
 			peer.Servers.Add(lifecycle.Item{

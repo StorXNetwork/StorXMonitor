@@ -273,7 +273,7 @@ func (s *Service) GetGoogleBackupAutoSyncJob(ctx context.Context, tokenKey, jobI
 
 // UpdateGoogleBackupAutoSyncJobsByProject proxies to Backup-Tools PUT /auto-sync/job/project.
 // When code is present, Satellite exchanges it for tokens, updates google_backup_credentials, then sends refresh_token only.
-func (s *Service) UpdateGoogleBackupAutoSyncJobsByProject(ctx context.Context, tokenKey string, req UpdateGoogleBackupAutoSyncJobsByProjectRequest) (body []byte, status int, err error) {
+func (s *Service) UpdateGoogleBackupAutoSyncJobsByProject(ctx context.Context, tokenKey string, req UpdateGoogleBackupAutoSyncJobsByProjectRequest, redirectURI string) (body []byte, status int, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if strings.TrimSpace(tokenKey) == "" {
@@ -282,7 +282,7 @@ func (s *Service) UpdateGoogleBackupAutoSyncJobsByProject(ctx context.Context, t
 	if err := req.Validate(); err != nil {
 		return nil, 0, err
 	}
-	if err := s.applyGoogleBackupProjectUpdateTokens(ctx, &req); err != nil {
+	if err := s.applyGoogleBackupProjectUpdateTokens(ctx, &req, redirectURI); err != nil {
 		return nil, 0, err
 	}
 
@@ -294,7 +294,7 @@ func (s *Service) UpdateGoogleBackupAutoSyncJobsByProject(ctx context.Context, t
 	return s.backupToolsRequest(ctx, http.MethodPut, "/auto-sync/job/project", tokenKey, "", btPayload)
 }
 
-func (s *Service) applyGoogleBackupProjectUpdateTokens(ctx context.Context, req *UpdateGoogleBackupAutoSyncJobsByProjectRequest) error {
+func (s *Service) applyGoogleBackupProjectUpdateTokens(ctx context.Context, req *UpdateGoogleBackupAutoSyncJobsByProjectRequest, redirectURI string) error {
 	user, err := GetUser(ctx)
 	if err != nil {
 		return Error.Wrap(err)
@@ -305,7 +305,7 @@ func (s *Service) applyGoogleBackupProjectUpdateTokens(ctx context.Context, req 
 	refreshToken := strings.TrimSpace(req.RefreshToken)
 
 	if code != "" {
-		tokenRes, err := socialmedia.GetGoogleOauthToken(code, "googlebackup", false)
+		tokenRes, err := socialmedia.GetGoogleOauthTokenWithRedirect(code, "googlebackup", false, redirectURI)
 		if err != nil {
 			return ErrValidation.New("failed to exchange google oauth code: %v", err)
 		}
@@ -492,8 +492,8 @@ type ConnectGoogleBackupResult struct {
 }
 
 // ConnectGoogleBackupCredential exchanges a Google OAuth code for an already logged-in user.
-// The UI must request backup scopes on the Google consent screen; redirect_uri must match GOOGLE_OAUTH_REDIRECT_URL_GOOGLE_BACKUP.
-func (s *Service) ConnectGoogleBackupCredential(ctx context.Context, code string) (result ConnectGoogleBackupResult, err error) {
+// redirectURI must match the frontend origin used when starting Google OAuth (same as google-backup auth).
+func (s *Service) ConnectGoogleBackupCredential(ctx context.Context, code, redirectURI string) (result ConnectGoogleBackupResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	code = strings.TrimSpace(code)
@@ -506,7 +506,7 @@ func (s *Service) ConnectGoogleBackupCredential(ctx context.Context, code string
 		return result, Error.Wrap(err)
 	}
 
-	tokenRes, err := socialmedia.GetGoogleOauthToken(code, "googlebackup", false)
+	tokenRes, err := socialmedia.GetGoogleOauthTokenWithRedirect(code, "googlebackup", false, redirectURI)
 	if err != nil {
 		return result, ErrValidation.New("failed to exchange google oauth code: %v", err)
 	}

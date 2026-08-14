@@ -107,7 +107,7 @@
                                 </h1>
 
                                 <p style="font-size: 17px; line-height: 26px; margin-bottom: 20px;">
-                                    Hello StorX User,
+                                    Hello {{ .BrandName }} User,
                                 </p>
 
                                 <p style="font-size: 17px; line-height: 26px; margin-bottom: 20px;">
@@ -121,7 +121,7 @@
                                     
                                     <ol>
                                         <li>
-                                            <strong>Log in to your StorX application.</strong>
+                                            <strong>Log in to your {{ .BrandName }} application.</strong>
                                         </li>
                                         <li>
                                             <strong>Select Backup</strong> from the sidebar.
@@ -130,7 +130,7 @@
                                             On the <strong>Auto-Sync listing page</strong>, click the <strong>Edit (Pen) icon</strong> for the failed backup.
                                         </li>
                                         <li>
-                                            Verify the StorX connection and click <strong>Connect to StorX</strong>.
+                                            Verify the {{ .BrandName }} connection and click <strong>Connect to {{ .BrandName }}</strong>.
                                         </li>
                                         <li>
                                             <strong>Save the changes.</strong>
@@ -138,17 +138,15 @@
                                     </ol>
                                 </div>
 
-                                <a href="https://storx.io/dashboard" class="btn">
-                                    Go to Dashboard
-                                </a>
+                                <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td align="center" bgcolor="{{ .PrimaryColor }}" style="border-radius: 4px;"><a href="https://storx.io/dashboard" style="color:#ffffff;text-decoration:none;padding:12px 24px;font-weight:bold;display:inline-block;">Go to Dashboard</a></td></tr></table>
 
                                 <p style="font-size: 17px; line-height: 26px; margin-bottom: 30px;">
-                                    We hope these steps help resolve the issue. If the problem persists, please feel free to reach out to the StorX Support team for further assistance.
+                                    We hope these steps help resolve the issue. If the problem persists, please feel free to reach out to the {{ .BrandName }} Support team for further assistance.
                                 </p>
 
                                 <p style="font-size: 17px; line-height: 26px; margin-top: 30px;">
                                     Thank you,<br>
-                                    StorX Network
+                                    {{ .BrandName }}
                                 </p>
                             </td>
                         </tr>
