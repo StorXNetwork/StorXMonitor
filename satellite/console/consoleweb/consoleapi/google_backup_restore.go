@@ -185,9 +185,10 @@ func (g *GoogleBackupRestore) GoogleAuth(w http.ResponseWriter, r *http.Request)
 // Proxies Backup-Tools `GET /restore/prepare` with `token_key` only. Flat response (not success/failed envelope). `auth_mode` is computed (`oauth` vs `dwd`). UI `service` param maps to DB `method` on job rows (e.g. drive → google_drive).
 // @Tags         google-backup-restore-cron
 // @Produce      json
-// @Param        project_id  query  string  true  "Storj/Satellite project public UUID"
-// @Param        login_id    query  string  true  "Mailbox email (same as policy UI)"
-// @Param        service     query  string  true  "gmail, drive, photos, calendar, or contacts"
+// @Param        project_id    query  string  true   "Storj/Satellite project public UUID"
+// @Param        login_id      query  string  true   "Source backup mailbox email"
+// @Param        service       query  string  true   "gmail, drive, photos, calendar, or contacts"
+// @Param        target_email  query  string  false  "Migration target from personal or workspace picker; omit or same as login_id for in-place restore"
 // @Success      200         {object}  RestorePrepareSwaggerResponse
 // @Failure      400         {object}  SwaggerErrorResponse
 // @Failure      401         {object}  SwaggerErrorResponse
@@ -205,9 +206,10 @@ func (g *GoogleBackupRestore) RestorePrepare(w http.ResponseWriter, r *http.Requ
 	}
 
 	respBody, status, err := g.service.PrepareGoogleBackupRestore(ctx, tokenKey, console.GoogleBackupRestorePrepareParams{
-		ProjectID: r.URL.Query().Get("project_id"),
-		LoginID:   r.URL.Query().Get("login_id"),
-		Service:   r.URL.Query().Get("service"),
+		ProjectID:   r.URL.Query().Get("project_id"),
+		LoginID:     r.URL.Query().Get("login_id"),
+		Service:     r.URL.Query().Get("service"),
+		TargetEmail: r.URL.Query().Get("target_email"),
 	})
 	if err != nil {
 		g.serveJSONError(ctx, w, err)
@@ -221,7 +223,7 @@ func (g *GoogleBackupRestore) RestorePrepare(w http.ResponseWriter, r *http.Requ
 // @Summary      Start restore-all job
 // @Description  **Full route:** `POST /api/v0/google-backup/restore/all`
 //
-// Proxies Backup-Tools `POST /restore/all` with `token_key` only. Body: `project_id`, `login_id`, `service`. Call `GET /restore/prepare` first. **409** when an active restore exists for the same user + service + login_id. **422** returns the same flat body as prepare when `ready: false`.
+// Proxies Backup-Tools `POST /restore/all` with `token_key` only. Body: `project_id`, `login_id`, `service`, optional `target_email`. Call `GET /restore/prepare` first. **409** when an active restore exists for the same user + service + login_id. **422** returns the same flat body as prepare when `ready: false`.
 // @Tags         google-backup-restore-cron
 // @Accept       json
 // @Produce      json
@@ -251,9 +253,10 @@ func (g *GoogleBackupRestore) RestoreAll(w http.ResponseWriter, r *http.Request)
 	}
 
 	respBody, status, err := g.service.StartGoogleBackupRestoreAll(ctx, tokenKey, console.GoogleBackupRestoreAllRequest{
-		Service:   body.Service,
-		ProjectID: body.ProjectID,
-		LoginID:   body.LoginID,
+		Service:     body.Service,
+		ProjectID:   body.ProjectID,
+		LoginID:     body.LoginID,
+		TargetEmail: body.TargetEmail,
 	})
 	g.service.RecordUserAuditHTTP(ctx, "GB_RESTORE_INITIATED", "Restore", "Restore initiated", status, respBody, err)
 	if err != nil {
@@ -261,6 +264,55 @@ func (g *GoogleBackupRestore) RestoreAll(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	writeBackupToolsJSON(w, status, respBody)
+}
+
+// RestoreCredentials lists personal Google accounts for the restore target picker.
+//
+// @Summary      List personal restore targets
+// @Description  **Full route:** `GET /api/v0/google-backup/restore/credentials`
+//
+// Proxies Backup-Tools `GET /restore/credentials` with `token_key` only. No `project_id`, `credential_id`, `account_kind`, or `credential_status`. Optional filters: `search`, `limit`, `offset`, `login_id` (exclude source mailbox).
+// @Tags         google-backup-restore-cron
+// @Produce      json
+// @Param        search    query  string  false  "Email substring filter"
+// @Param        limit     query  int     false  "Max results (default 20, max 100)"
+// @Param        offset    query  int     false  "Pagination offset"
+// @Param        login_id  query  string  false  "Exclude source mailbox from list"
+// @Success      200       {object}  RestoreCredentialsSwaggerResponse
+// @Failure      401       {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /google-backup/restore/credentials [get]
+func (g *GoogleBackupRestore) RestoreCredentials(w http.ResponseWriter, r *http.Request) {
+	g.restoreCron(w, r, func(ctx context.Context, tokenKey string) ([]byte, int, error) {
+		return g.service.ListGoogleBackupRestoreCredentials(ctx, tokenKey, r.URL.RawQuery)
+	})
+}
+
+// RestoreWorkspaces lists workspace domains or mailboxes for the restore target picker.
+//
+// @Summary      List workspace restore targets
+// @Description  **Full route:** `GET /api/v0/google-backup/restore/workspaces`
+//
+// Proxies Backup-Tools `GET /restore/workspaces` with `token_key` only. Without `domain`: returns `{ workspaces: ["company.com", ...] }` from admin credentials (no Google call). With `domain`: returns paginated mailbox emails for that workspace. Optional filters: `search`, `limit`, `offset`, `login_id`. Replaces removed `GET /restore/workspace-mailboxes`.
+// @Tags         google-backup-restore-cron
+// @Produce      json
+// @Param        domain    query  string  false  "Workspace domain for mailbox list (omit for domain tabs)"
+// @Param        search    query  string  false  "Email substring filter"
+// @Param        limit     query  int     false  "Max results (default 20, max 100)"
+// @Param        offset    query  int     false  "Pagination offset"
+// @Param        login_id  query  string  false  "Exclude source mailbox from list"
+// @Success      200       {object}  RestoreWorkspacesDomainsSwaggerResponse
+// @Success      200       {object}  RestoreWorkspacesMailboxesSwaggerResponse
+// @Failure      401       {object}  SwaggerErrorResponse
+// @Failure      404       {object}  SwaggerErrorResponse
+// @Failure      422       {object}  SwaggerErrorResponse
+// @Failure      502       {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /google-backup/restore/workspaces [get]
+func (g *GoogleBackupRestore) RestoreWorkspaces(w http.ResponseWriter, r *http.Request) {
+	g.restoreCron(w, r, func(ctx context.Context, tokenKey string) ([]byte, int, error) {
+		return g.service.ListGoogleBackupRestoreWorkspaces(ctx, tokenKey, r.URL.RawQuery)
+	})
 }
 
 // RestoreLive lists running restore jobs (Backup-Tools GET /restore/live).

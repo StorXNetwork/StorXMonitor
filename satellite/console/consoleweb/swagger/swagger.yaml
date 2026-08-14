@@ -1245,7 +1245,7 @@ definitions:
   consoleapi.GoogleBackupRestoreAllSwaggerRequest:
     properties:
       login_id:
-        example: user@company.com
+        example: alice@company.com
         type: string
       project_id:
         example: 37159d9b-6f3c-4c38-bfe2-0efbbc4b568d
@@ -1258,6 +1258,9 @@ definitions:
         - calendar
         - contacts
         example: gmail
+        type: string
+      target_email:
+        example: bob@company.com
         type: string
     required:
     - login_id
@@ -1957,6 +1960,27 @@ definitions:
         example: restore cancelled
         type: string
     type: object
+  consoleapi.RestoreCredentialItemSwagger:
+    properties:
+      email:
+        example: alice@gmail.com
+        type: string
+      has_backup:
+        example: true
+        type: boolean
+      needs_google_reconnect:
+        example: false
+        type: boolean
+    type: object
+  consoleapi.RestoreCredentialsSwaggerResponse:
+    properties:
+      credentials:
+        items:
+          $ref: '#/definitions/consoleapi.RestoreCredentialItemSwagger'
+        type: array
+      pagination:
+        $ref: '#/definitions/consoleapi.RestoreListPaginationSwagger'
+    type: object
   consoleapi.RestoreDeadItemSwagger:
     properties:
       error_code:
@@ -2150,6 +2174,24 @@ definitions:
           $ref: '#/definitions/consoleapi.RestoreJobListItemSwagger'
         type: array
     type: object
+  consoleapi.RestoreListPaginationSwagger:
+    properties:
+      limit:
+        example: 20
+        type: integer
+      offset:
+        example: 0
+        type: integer
+      page:
+        example: 1
+        type: integer
+      total_count:
+        example: 1
+        type: integer
+      total_pages:
+        example: 1
+        type: integer
+    type: object
   consoleapi.RestoreLiveJobSwagger:
     properties:
       cursor_id:
@@ -2283,10 +2325,13 @@ definitions:
           type: string
         type: array
       login_id:
-        example: user@gmail.com
+        example: alice@company.com
         type: string
       message:
         type: string
+      migration:
+        example: true
+        type: boolean
       missing_permissions:
         items:
           $ref: '#/definitions/consoleapi.RestoreMissingPermissionSwagger'
@@ -2312,6 +2357,31 @@ definitions:
       service:
         example: gmail
         type: string
+      target_email:
+        example: bob@company.com
+        type: string
+    type: object
+  consoleapi.RestoreWorkspacesDomainsSwaggerResponse:
+    properties:
+      workspaces:
+        example:
+        - company.com
+        - other.com
+        items:
+          type: string
+        type: array
+    type: object
+  consoleapi.RestoreWorkspacesMailboxesSwaggerResponse:
+    properties:
+      mailboxes:
+        example:
+        - admin@company.com
+        - bob@company.com
+        items:
+          type: string
+        type: array
+      pagination:
+        $ref: '#/definitions/consoleapi.RestoreListPaginationSwagger'
     type: object
   consoleapi.SetAuthUserSettingsSwaggerRequest:
     properties:
@@ -5613,6 +5683,42 @@ paths:
       summary: Start restore-all job
       tags:
       - google-backup-restore-cron
+  /google-backup/restore/credentials:
+    get:
+      description: '**Full route:** `GET /api/v0/google-backup/restore/credentials`'
+      parameters:
+      - description: Email substring filter
+        in: query
+        name: search
+        type: string
+      - description: Max results (default 20, max 100)
+        in: query
+        name: limit
+        type: integer
+      - description: Pagination offset
+        in: query
+        name: offset
+        type: integer
+      - description: Exclude source mailbox from list
+        in: query
+        name: login_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.RestoreCredentialsSwaggerResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: List personal restore targets
+      tags:
+      - google-backup-restore-cron
   /google-backup/restore/job/{job_id}:
     get:
       description: '**Full route:** `GET /api/v0/google-backup/restore/job/{job_id}`'
@@ -5780,7 +5886,7 @@ paths:
         name: project_id
         required: true
         type: string
-      - description: Mailbox email (same as policy UI)
+      - description: Source backup mailbox email
         in: query
         name: login_id
         required: true
@@ -5789,6 +5895,11 @@ paths:
         in: query
         name: service
         required: true
+        type: string
+      - description: Migration target from personal or workspace picker; omit or same
+          as login_id for in-place restore
+        in: query
+        name: target_email
         type: string
       produces:
       - application/json
@@ -5808,6 +5919,58 @@ paths:
       security:
       - CookieAuth: []
       summary: Pre-flight restore-all check
+      tags:
+      - google-backup-restore-cron
+  /google-backup/restore/workspaces:
+    get:
+      description: '**Full route:** `GET /api/v0/google-backup/restore/workspaces`'
+      parameters:
+      - description: Workspace domain for mailbox list (omit for domain tabs)
+        in: query
+        name: domain
+        type: string
+      - description: Email substring filter
+        in: query
+        name: search
+        type: string
+      - description: Max results (default 20, max 100)
+        in: query
+        name: limit
+        type: integer
+      - description: Pagination offset
+        in: query
+        name: offset
+        type: integer
+      - description: Exclude source mailbox from list
+        in: query
+        name: login_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.RestoreWorkspacesMailboxesSwaggerResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: List workspace restore targets
       tags:
       - google-backup-restore-cron
   /google-backup/users-groups:
@@ -8721,11 +8884,13 @@ tags:
     = Backup-Tools JWT from POST /google-backup/google-auth. No ACCESS_TOKEN (StorX
     from DB). Session cookie required.'
   name: google-backup-restore-manual
-- description: 'Google Backup restore-all scheduler: GET /restore/prepare (flat),
-    POST /restore/all, GET /restore/live|jobs|job/* (token_key only; list/detail/live
-    use {message,success,failed} envelope). UI service param (gmail,drive,...) maps
-    to DB method (gmail,google_drive,...). OAuth reconnect via POST /google-backup/connect
-    or PUT /auto-sync/jobs/project.'
+- description: 'Google Backup restore-all: target picker GET /restore/credentials
+    (personal) and GET /restore/workspaces (domain tabs + mailboxes; replaces workspace-mailboxes),
+    preflight GET /restore/prepare (optional target_email), POST /restore/all, job
+    polling GET /restore/live|jobs|job/* (token_key only; no ACCESS_TOKEN). List/detail/live
+    use {message,success,failed} envelope except credentials/workspaces/prepare. UI
+    service param (gmail,drive,...) maps to DB method (gmail,google_drive,...). OAuth
+    reconnect via POST /google-backup/connect or PUT /auto-sync/jobs/project.'
   name: google-backup-restore-cron
 - description: GET /google-backup/backup-restore/logs
   name: google-backup-logs

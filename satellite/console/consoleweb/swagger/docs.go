@@ -3353,6 +3353,63 @@ const docTemplate = `{
                 }
             }
         },
+        "/google-backup/restore/credentials": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/google-backup/restore/credentials` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-restore-cron"
+                ],
+                "summary": "List personal restore targets",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Email substring filter",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Max results (default 20, max 100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Pagination offset",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Exclude source mailbox from list",
+                        "name": "login_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.RestoreCredentialsSwaggerResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/google-backup/restore/job/{job_id}": {
             "get": {
                 "security": [
@@ -3628,7 +3685,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Mailbox email (same as policy UI)",
+                        "description": "Source backup mailbox email",
                         "name": "login_id",
                         "in": "query",
                         "required": true
@@ -3639,6 +3696,12 @@ const docTemplate = `{
                         "name": "service",
                         "in": "query",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Migration target from personal or workspace picker; omit or same as login_id for in-place restore",
+                        "name": "target_email",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -3656,6 +3719,87 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-backup/restore/workspaces": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/google-backup/restore/workspaces` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-backup-restore-cron"
+                ],
+                "summary": "List workspace restore targets",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Workspace domain for mailbox list (omit for domain tabs)",
+                        "name": "domain",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Email substring filter",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Max results (default 20, max 100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Pagination offset",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Exclude source mailbox from list",
+                        "name": "login_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.RestoreWorkspacesMailboxesSwaggerResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
                         "schema": {
                             "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
                         }
@@ -9759,7 +9903,7 @@ const docTemplate = `{
             "properties": {
                 "login_id": {
                     "type": "string",
-                    "example": "user@company.com"
+                    "example": "alice@company.com"
                 },
                 "project_id": {
                     "type": "string",
@@ -9775,6 +9919,10 @@ const docTemplate = `{
                         "contacts"
                     ],
                     "example": "gmail"
+                },
+                "target_email": {
+                    "type": "string",
+                    "example": "bob@company.com"
                 }
             }
         },
@@ -10750,6 +10898,37 @@ const docTemplate = `{
                 }
             }
         },
+        "consoleapi.RestoreCredentialItemSwagger": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "example": "alice@gmail.com"
+                },
+                "has_backup": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "needs_google_reconnect": {
+                    "type": "boolean",
+                    "example": false
+                }
+            }
+        },
+        "consoleapi.RestoreCredentialsSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "credentials": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.RestoreCredentialItemSwagger"
+                    }
+                },
+                "pagination": {
+                    "$ref": "#/definitions/consoleapi.RestoreListPaginationSwagger"
+                }
+            }
+        },
         "consoleapi.RestoreDeadItemSwagger": {
             "type": "object",
             "properties": {
@@ -11014,6 +11193,31 @@ const docTemplate = `{
                 }
             }
         },
+        "consoleapi.RestoreListPaginationSwagger": {
+            "type": "object",
+            "properties": {
+                "limit": {
+                    "type": "integer",
+                    "example": 20
+                },
+                "offset": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "page": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "total_count": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "total_pages": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
         "consoleapi.RestoreLiveJobSwagger": {
             "type": "object",
             "properties": {
@@ -11196,10 +11400,14 @@ const docTemplate = `{
                 },
                 "login_id": {
                     "type": "string",
-                    "example": "user@gmail.com"
+                    "example": "alice@company.com"
                 },
                 "message": {
                     "type": "string"
+                },
+                "migration": {
+                    "type": "boolean",
+                    "example": true
                 },
                 "missing_permissions": {
                     "type": "array",
@@ -11235,6 +11443,43 @@ const docTemplate = `{
                 "service": {
                     "type": "string",
                     "example": "gmail"
+                },
+                "target_email": {
+                    "type": "string",
+                    "example": "bob@company.com"
+                }
+            }
+        },
+        "consoleapi.RestoreWorkspacesDomainsSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "workspaces": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "company.com",
+                        "other.com"
+                    ]
+                }
+            }
+        },
+        "consoleapi.RestoreWorkspacesMailboxesSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "mailboxes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "admin@company.com",
+                        "bob@company.com"
+                    ]
+                },
+                "pagination": {
+                    "$ref": "#/definitions/consoleapi.RestoreListPaginationSwagger"
                 }
             }
         },
@@ -12948,7 +13193,7 @@ const docTemplate = `{
             "name": "google-backup-restore-manual"
         },
         {
-            "description": "Google Backup restore-all scheduler: GET /restore/prepare (flat), POST /restore/all, GET /restore/live|jobs|job/* (token_key only; list/detail/live use {message,success,failed} envelope). UI service param (gmail,drive,...) maps to DB method (gmail,google_drive,...). OAuth reconnect via POST /google-backup/connect or PUT /auto-sync/jobs/project.",
+            "description": "Google Backup restore-all: target picker GET /restore/credentials (personal) and GET /restore/workspaces (domain tabs + mailboxes; replaces workspace-mailboxes), preflight GET /restore/prepare (optional target_email), POST /restore/all, job polling GET /restore/live|jobs|job/* (token_key only; no ACCESS_TOKEN). List/detail/live use {message,success,failed} envelope except credentials/workspaces/prepare. UI service param (gmail,drive,...) maps to DB method (gmail,google_drive,...). OAuth reconnect via POST /google-backup/connect or PUT /auto-sync/jobs/project.",
             "name": "google-backup-restore-cron"
         },
         {

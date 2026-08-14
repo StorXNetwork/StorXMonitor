@@ -19,9 +19,10 @@ type GoogleBackupAuthSwaggerResponse struct {
 
 // GoogleBackupRestoreAllSwaggerRequest starts async restore-all on Backup-Tools (token_key only; credentials from DB).
 type GoogleBackupRestoreAllSwaggerRequest struct {
-	Service   string `json:"service" binding:"required" example:"gmail" enums:"gmail,drive,photos,calendar,contacts"`
-	ProjectID string `json:"project_id" binding:"required" example:"37159d9b-6f3c-4c38-bfe2-0efbbc4b568d"`
-	LoginID   string `json:"login_id" binding:"required" example:"user@company.com"`
+	Service     string `json:"service" binding:"required" example:"gmail" enums:"gmail,drive,photos,calendar,contacts"`
+	ProjectID   string `json:"project_id" binding:"required" example:"37159d9b-6f3c-4c38-bfe2-0efbbc4b568d"`
+	LoginID     string `json:"login_id" binding:"required" example:"alice@company.com"`
+	TargetEmail string `json:"target_email,omitempty" example:"bob@company.com"`
 }
 
 // GoogleBackupManualRestoreSwaggerRequest is the UI body for manual restore (1–10 base64 vault keys per request).
@@ -44,10 +45,12 @@ type RestorePrepareSwaggerResponse struct {
 	Ready              bool                              `json:"ready" example:"false"`
 	Reason             string                            `json:"reason,omitempty" example:"missing_permissions"`
 	AuthMode           string                            `json:"auth_mode,omitempty" example:"oauth" enums:"oauth,dwd"`
+	Migration          bool                              `json:"migration,omitempty" example:"true"`
 	AccountType        string                            `json:"account_type,omitempty" example:"personal" enums:"personal,employee_workspace,admin_workspace"`
 	Service            string                            `json:"service,omitempty" example:"gmail"`
 	ProjectID          string                            `json:"project_id,omitempty" example:"37159d9b-6f3c-4c38-bfe2-0efbbc4b568d"`
-	LoginID            string                            `json:"login_id,omitempty" example:"user@gmail.com"`
+	LoginID            string                            `json:"login_id,omitempty" example:"alice@company.com"`
+	TargetEmail        string                            `json:"target_email,omitempty" example:"bob@company.com"`
 	CronJobID          uint                              `json:"cron_job_id,omitempty" example:"57"`
 	CredentialID       uint                              `json:"credential_id,omitempty" example:"12"`
 	BackupItemCount    uint                              `json:"backup_item_count,omitempty" example:"1988"`
@@ -171,4 +174,37 @@ type RestoreDeadItemSwagger struct {
 // RestoreDeadItemsSwaggerResponse is returned from GET /restore/job/{job_id}/dead-items.
 type RestoreDeadItemsSwaggerResponse struct {
 	Items []RestoreDeadItemSwagger `json:"items"`
+}
+
+// RestoreListPaginationSwagger is pagination metadata on restore target picker lists.
+type RestoreListPaginationSwagger struct {
+	Limit      int `json:"limit" example:"20"`
+	Offset     int `json:"offset" example:"0"`
+	Page       int `json:"page" example:"1"`
+	TotalPages int `json:"total_pages" example:"1"`
+	TotalCount int `json:"total_count" example:"1"`
+}
+
+// RestoreCredentialItemSwagger is one personal account in GET /restore/credentials.
+type RestoreCredentialItemSwagger struct {
+	Email                string `json:"email" example:"alice@gmail.com"`
+	HasBackup            bool   `json:"has_backup" example:"true"`
+	NeedsGoogleReconnect bool   `json:"needs_google_reconnect" example:"false"`
+}
+
+// RestoreCredentialsSwaggerResponse is returned from GET /restore/credentials.
+type RestoreCredentialsSwaggerResponse struct {
+	Credentials []RestoreCredentialItemSwagger `json:"credentials"`
+	Pagination  RestoreListPaginationSwagger   `json:"pagination"`
+}
+
+// RestoreWorkspacesDomainsSwaggerResponse is returned from GET /restore/workspaces (no domain param).
+type RestoreWorkspacesDomainsSwaggerResponse struct {
+	Workspaces []string `json:"workspaces" example:"company.com,other.com"`
+}
+
+// RestoreWorkspacesMailboxesSwaggerResponse is returned from GET /restore/workspaces?domain=...
+type RestoreWorkspacesMailboxesSwaggerResponse struct {
+	Mailboxes  []string                     `json:"mailboxes" example:"admin@company.com,bob@company.com"`
+	Pagination RestoreListPaginationSwagger `json:"pagination"`
 }
