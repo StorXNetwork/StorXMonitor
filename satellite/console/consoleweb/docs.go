@@ -66,6 +66,9 @@ package consoleweb
 // @tag.name google-backup-onboarding
 // @tag.description Google Backup combined auth: `GET /auth/google-backup` (register or login by email). Returns `action`, `onboarding` block, and `google_backup`. OAuth redirect = `GOOGLE_OAUTH_REDIRECT_URL_GOOGLE_BACKUP`.
 
+// @tag.name microsoft-backup-onboarding
+// @tag.description Microsoft Backup combined auth: `GET /auth/microsoft-backup` (register or login by email). Accepts MSAL idToken/accessToken or OAuth code as `code`. Returns `action`, `token`, `onboarding`, and `microsoft_backup`. Config: `OUTLOOK_CLIENT_ID` / `OUTLOOK_CLIENT_SECRET`.
+
 // @tag.name google-backup
 // @tag.description Google Backup auto-sync APIs (jobs, connect, domain-users). OAuth `code` on `POST /google-backup/connect` and `PUT /auto-sync/jobs/project` uses `GOOGLE_OAUTH_REDIRECT_URL_GOOGLE_BACKUP` (same as `GET /auth/google-backup`). `POST /auto-sync/jobs` sets onboarding complete on success.
 
@@ -91,7 +94,7 @@ package consoleweb
 // @tag.description GET /google-backup/backup-restore/logs
 
 // @tag.name auth-account
-// @tag.description Logged-in account: profile (`GET/PATCH /auth/account` — check `hasPassword`), change-password when password exists, MFA, settings, onboarding PATCH, refresh-session, developer-access. Login: Google via `/auth/google-backup` or email via `POST /auth/token`.
+// @tag.description Logged-in account: profile (`GET/PATCH /auth/account` — check `hasPassword`), change-password when password exists, MFA, settings, onboarding PATCH, refresh-session, developer-access. Login: Google via `/auth/google-backup`, Microsoft via `/auth/microsoft-backup`, or email via `POST /auth/token`.
 
 // @tag.name auth-email-login
 // @tag.description **Email + password login:** `GET /config` first for `captcha.login` site keys and `csrfToken` when CSRF is enabled, then `POST /auth/token` with `captchaResponse` and optional `X-CSRF-Token` header. Sets `_tokenKey` cookie. Response: `token`, `success`, `action` (`logged_in`), `onboarding` (same block as google-backup), `google_backup` when user has stored Google credentials (scopes refreshed via refresh token). Send `mfaPasscode` or `mfaRecoveryCode` on second request if MFA enabled.

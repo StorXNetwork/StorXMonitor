@@ -112,6 +112,10 @@ type Config struct {
 	GoogleBackupRedirectURLstring string `help:"redirect url for google oauth google-backup (GET /api/v0/auth/google-backup)" default:""`
 	GoogleSellerRedirectURLstring string `help:"redirect url for google oauth seller (GET /api/v0/seller/auth/google)" default:""`
 
+	OutlookClientID                     string `help:"client id for microsoft/outlook oauth (GET /api/v0/auth/microsoft-backup)" default:""`
+	OutlookClientSecret                 string `help:"client secret for microsoft/outlook oauth (GET /api/v0/auth/microsoft-backup)" default:""`
+	MicrosoftBackupRedirectURLstring    string `help:"redirect url for microsoft oauth microsoft-backup (GET /api/v0/auth/microsoft-backup)" default:""`
+
 	FacebookClientID               string `help:"client id for facebook oauth" default:""`
 	FacebookClientSecret           string `help:"client secret for facebook oauth" default:""`
 	FacebookSigupRedirectURLstring string `help:"redirect url for facebook oauth" default:""`
@@ -480,6 +484,8 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	socialmedia.SetGoogleSocialMediaConfig(config.GoogleClientID, config.GoogleClientSecret, config.GoogleSigupRedirectURLstring, config.GoggleLoginRedirectURLstring)
 	socialmedia.SetGoogleBackupOAuthRedirectURL(config.GoogleBackupRedirectURLstring)
 	socialmedia.SetGoogleSellerOAuthRedirectURL(config.GoogleSellerRedirectURLstring)
+	socialmedia.SetOutlookSocialMediaConfig(config.OutlookClientID, config.OutlookClientSecret)
+	socialmedia.SetMicrosoftBackupOAuthRedirectURL(config.MicrosoftBackupRedirectURLstring)
 	socialmedia.SetFacebookSocialMediaConfig(config.FacebookClientID, config.FacebookClientSecret, config.FacebookSigupRedirectURLstring, config.FacebookLoginRedirectURLstring)
 	socialmedia.SetLinkedinSocialMediaConfig(config.LinkedinClientID, config.LinkedinClientSecret, config.LinkedinSigupRedirectURLstring, config.LinkedinLoginRedirectURLstring, config.LinkedinRegisterIdTokenRedirectURLstring, config.LinkedinLoginIdTokenRedirectURLstring)
 	socialmedia.SetUnstoppableDomainSocialMediaConfig(config.UnstoppableDomainClientID, config.UnstoppableDomainClientSecret, config.UnstoppableDomainSignupRedirectURLstring, config.UnstoppableDomainLoginRedirectURLstring)
@@ -530,6 +536,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	authRouter.Handle("/linkedin_register/mobile", server.ipRateLimiter.Limit(http.HandlerFunc(authController.HandleLinkedInRegisterWithAuthToken))).Methods(http.MethodPost, http.MethodOptions)
 
 	authRouter.Handle("/google-backup", server.ipRateLimiter.Limit(http.HandlerFunc(authController.GoogleBackupAuth))).Methods(http.MethodGet, http.MethodOptions)
+	authRouter.Handle("/microsoft-backup", server.ipRateLimiter.Limit(http.HandlerFunc(authController.MicrosoftBackupAuth))).Methods(http.MethodGet, http.MethodOptions)
 	authRouter.Handle("/register-google", server.ipRateLimiter.Limit(http.HandlerFunc(authController.RegisterGoogle))).Methods(http.MethodGet, http.MethodOptions)
 	authRouter.Handle("/login-google", server.ipRateLimiter.Limit(http.HandlerFunc(authController.LoginUserConfirm))).Methods(http.MethodGet, http.MethodOptions)
 	authRouter.Handle("/register-google-app", server.ipRateLimiter.Limit(http.HandlerFunc(authController.RegisterGoogleForApp))).Methods(http.MethodPost, http.MethodOptions)
