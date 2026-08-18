@@ -153,4 +153,57 @@ func TestUpdateGoogleBackupAutoSyncJobRequest_backupToolsPayload(t *testing.T) {
 	require.Equal(t, map[string]interface{}{"active": true}, got)
 }
 
+func TestNormalizeEmailOrgUnits(t *testing.T) {
+	emails := []string{"billing@salestalker.com", "support@salestalker.com"}
+	got := normalizeEmailOrgUnits(map[string]string{
+		"Billing@salestalker.com": "/",
+		"support@salestalker.com": " /SAles ",
+		"other@salestalker.com":   "/Skip",
+		"":                        "/",
+		"x@y.com":                 "",
+	}, emails)
+	require.Equal(t, map[string]string{
+		"billing@salestalker.com": "/",
+		"support@salestalker.com": "/SAles",
+	}, got)
+	require.Nil(t, normalizeEmailOrgUnits(nil, emails))
+	require.Nil(t, normalizeEmailOrgUnits(map[string]string{"a@b.com": "/"}, nil))
+}
+
+func TestOrgUnitPathMapFromDomainUsers(t *testing.T) {
+	src := GmailCorporateDomainUsersResponse{
+		"organizational_units": []interface{}{
+			map[string]interface{}{
+				"org_unit_path": "/",
+				"users": []interface{}{
+					map[string]interface{}{"email": "billing@salestalker.com"},
+				},
+			},
+			map[string]interface{}{
+				"org_unit_path": "/SAles",
+				"users": []interface{}{
+					map[string]interface{}{"email": "Support@salestalker.com", "org_unit_path": "/SAles"},
+					map[string]interface{}{"email": "sales@salestalker.com"},
+				},
+			},
+		},
+	}
+	require.Equal(t, map[string]string{
+		"billing@salestalker.com": "/",
+		"support@salestalker.com": "/SAles",
+		"sales@salestalker.com":   "/SAles",
+	}, orgUnitPathMapFromDomainUsers(src))
+}
+
+func TestShouldEnrichJobOrgUnits(t *testing.T) {
+	emails := []string{"billing@salestalker.com", "support@salestalker.com"}
+	require.False(t, shouldEnrichJobOrgUnits("personal", emails, nil))
+	require.True(t, shouldEnrichJobOrgUnits("admin_workspace", emails, nil))
+	require.True(t, shouldEnrichJobOrgUnits("admin_workspace", emails, map[string]string{"billing@salestalker.com": "/"}))
+	require.False(t, shouldEnrichJobOrgUnits("admin_workspace", emails, map[string]string{
+		"billing@salestalker.com": "/",
+		"support@salestalker.com": "/SAles",
+	}))
+}
+
 func boolPtr(v bool) *bool { return &v }

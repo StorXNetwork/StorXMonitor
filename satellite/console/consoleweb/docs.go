@@ -67,13 +67,13 @@ package consoleweb
 // @tag.description Google Backup combined auth: `GET /auth/google-backup` (register or login by email). Returns `action`, `onboarding` block, and `google_backup`. OAuth redirect = `GOOGLE_OAUTH_REDIRECT_URL_GOOGLE_BACKUP`.
 
 // @tag.name google-backup
-// @tag.description Google Backup auto-sync APIs (jobs, connect, domain-users). OAuth `code` on `POST /google-backup/connect` and `PUT /auto-sync/jobs/project` uses `GOOGLE_OAUTH_REDIRECT_URL_GOOGLE_BACKUP` (same as `GET /auth/google-backup`). `POST /auto-sync/jobs` sets onboarding complete on success.
+// @tag.description Google Backup auto-sync APIs (jobs, connect, domain-users). `GET /google-backup/domain-users` forwards Backup-Tools Workspace OU tree as `google_backup.organizational_units` (plus legacy `grouped_emails`). OAuth `code` on `POST /google-backup/connect` and `PUT /auto-sync/jobs/project` uses `GOOGLE_OAUTH_REDIRECT_URL_GOOGLE_BACKUP` (same as `GET /auth/google-backup`). `POST /auto-sync/jobs` sets onboarding complete on success.
 
 // @tag.name google-backup-autosync-live
 // @tag.description Live backup progress poll: GET /api/v0/google-backup/auto-sync/live → Backup-Tools GET /auto-sync/live (running/failed tasks only; poll 3–5s). Not `/autosync/live`.
 
 // @tag.name google-backup-users-groups
-// @tag.description GET /google-backup/users-groups/*
+// @tag.description GET /google-backup/users-groups/* — list returns `entities[].org_unit_path` and `org_units` (Google Admin OU paths stored on jobs; no groups table). Filter `org_unit_path`; `search` also matches OU path.
 
 // @tag.name google-backup-policy
 // @tag.description Google Backup shared policies: schedule, retention, merge (Backup-Tools /auto-sync/policy/*)

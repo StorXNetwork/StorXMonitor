@@ -21,12 +21,13 @@ import (
 )
 
 type CreateGoogleBackupAutoSyncJobsRequest struct {
-	Services   []string
-	Interval   string
-	On         string
-	Emails     []string
-	PolicyID   *int
-	PolicyName string
+	Services      []string
+	Interval      string
+	On            string
+	Emails        []string
+	EmailOrgUnits map[string]string
+	PolicyID      *int
+	PolicyName    string
 }
 
 // UpdateGoogleBackupAutoSyncJobsByProjectRequest is the UI → satellite body for
@@ -145,6 +146,12 @@ func (s *Service) CreateGoogleBackupAutoSyncJobs(ctx context.Context, req Create
 	if err != nil {
 		return nil, 0, err
 	}
+	emailOrgUnits := normalizeEmailOrgUnits(req.EmailOrgUnits, gmailEmails)
+	if shouldEnrichJobOrgUnits(credential.AccountType, gmailEmails, emailOrgUnits) {
+		if filled := s.emailOrgUnitsFromDirectory(ctx, tokenKey, credential, gmailEmails); len(filled) > 0 {
+			emailOrgUnits = mergeEmailOrgUnits(emailOrgUnits, filled)
+		}
+	}
 
 	projects, err := s.GetUsersProjects(ctx)
 	if err != nil {
@@ -183,6 +190,9 @@ func (s *Service) CreateGoogleBackupAutoSyncJobs(ctx context.Context, req Create
 	}
 	if len(gmailEmails) > 0 {
 		payload["emails"] = gmailEmails
+	}
+	if len(emailOrgUnits) > 0 {
+		payload["email_org_units"] = emailOrgUnits
 	}
 	if req.PolicyID != nil {
 		payload["policy_id"] = *req.PolicyID
@@ -434,6 +444,134 @@ func normalizeGoogleBackupInterval(interval string) string {
 	default:
 		return interval
 	}
+}
+
+func shouldEnrichJobOrgUnits(accountType string, emails []string, units map[string]string) bool {
+	if !isCorporateGoogleBackupAccount(accountType) || len(emails) == 0 {
+		return false
+	}
+	for _, email := range emails {
+		if strings.TrimSpace(units[strings.ToLower(email)]) == "" {
+			return true
+		}
+	}
+	return false
+}
+
+func normalizeEmailOrgUnits(units map[string]string, emails []string) map[string]string {
+	if len(units) == 0 || len(emails) == 0 {
+		return nil
+	}
+	allowed := make(map[string]struct{}, len(emails))
+	for _, email := range emails {
+		allowed[strings.ToLower(strings.TrimSpace(email))] = struct{}{}
+	}
+	out := make(map[string]string, len(units))
+	for email, path := range units {
+		email = strings.ToLower(strings.TrimSpace(email))
+		path = strings.TrimSpace(path)
+		if email == "" || path == "" {
+			continue
+		}
+		if _, ok := allowed[email]; !ok {
+			continue
+		}
+		out[email] = path
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func mergeEmailOrgUnits(dst, src map[string]string) map[string]string {
+	if len(src) == 0 {
+		return dst
+	}
+	if dst == nil {
+		dst = make(map[string]string, len(src))
+	}
+	for email, path := range src {
+		email = strings.ToLower(strings.TrimSpace(email))
+		path = strings.TrimSpace(path)
+		if email == "" || path == "" {
+			continue
+		}
+		if strings.TrimSpace(dst[email]) == "" {
+			dst[email] = path
+		}
+	}
+	if len(dst) == 0 {
+		return nil
+	}
+	return dst
+}
+
+func orgUnitPathMapFromDomainUsers(domainUsers GmailCorporateDomainUsersResponse) map[string]string {
+	if domainUsers == nil {
+		return nil
+	}
+	raw, ok := domainUsers["organizational_units"]
+	if !ok || raw == nil {
+		return nil
+	}
+	units, ok := raw.([]interface{})
+	if !ok {
+		return nil
+	}
+	out := make(map[string]string)
+	for _, item := range units {
+		unit, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		unitPath := strings.TrimSpace(fmtString(unit["org_unit_path"]))
+		users, _ := unit["users"].([]interface{})
+		for _, userItem := range users {
+			user, ok := userItem.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			email := strings.ToLower(strings.TrimSpace(fmtString(user["email"])))
+			if email == "" {
+				continue
+			}
+			path := strings.TrimSpace(fmtString(user["org_unit_path"]))
+			if path == "" {
+				path = unitPath
+			}
+			if path != "" {
+				out[email] = path
+			}
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func fmtString(v interface{}) string {
+	s, _ := v.(string)
+	return s
+}
+
+func (s *Service) emailOrgUnitsFromDirectory(ctx context.Context, tokenKey string, credential *GoogleBackupCredential, emails []string) map[string]string {
+	accessTokenExpiry := time.Time{}
+	if credential.AccessTokenExpiry != nil {
+		accessTokenExpiry = *credential.AccessTokenExpiry
+	}
+	accessToken, _, err := socialmedia.ResolveAccessToken(ctx, credential.AccessToken, credential.RefreshToken, accessTokenExpiry)
+	if err != nil {
+		s.log.Warn("failed to resolve google access token for job org units", zap.Error(err))
+		return nil
+	}
+	domainUsers, err := s.fetchGmailCorporateDomainUsers(ctx, tokenKey, accessToken)
+	if err != nil {
+		s.log.Warn("failed to load domain-users org units for job create", zap.Error(err))
+		return nil
+	}
+	return normalizeEmailOrgUnits(orgUnitPathMapFromDomainUsers(domainUsers), emails)
 }
 
 func googleBackupGmailEmails(services, emails []string, credential *GoogleBackupCredential) ([]string, error) {

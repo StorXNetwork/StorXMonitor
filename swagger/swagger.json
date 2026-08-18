@@ -661,7 +661,7 @@
                         "CSRFAuth": []
                     }
                 ],
-                "description": "**Full route:** `POST /api/v0/auth/account/set-password` — requires logged-in session (`_tokenKey` cookie) and CSRF when enabled. **Swagger:** Authorize **CookieAuth** with session token value; Authorize **CSRFAuth** with `csrfToken` from `GET /config`; then call this route. Body: `{ \"newPassword\": \"...\" }` (8–64 chars). Returns 409 if password already set.",
+                "description": "**Full route:** `POST /api/v0/auth/account/set-password` \u2014 requires logged-in session (`_tokenKey` cookie) and CSRF when enabled. **Swagger:** Authorize **CookieAuth** with session token value; Authorize **CSRFAuth** with `csrfToken` from `GET /config`; then call this route. Body: `{ \"newPassword\": \"...\" }` (8\u201364 chars). Returns 409 if password already set.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1598,7 +1598,7 @@
         },
         "/config": {
             "get": {
-                "description": "**Full route:** `GET /api/v0/config` — public bootstrap (no auth). Call before `POST /auth/token`: read `captcha.login` (hCaptcha/reCAPTCHA site keys) and `csrfToken` when CSRF is enabled; send `captchaResponse` and optional `X-CSRF-Token` on login. Also returns `apiBaseURL`, feature flags, Stripe key, and other `FrontendConfig` fields.",
+                "description": "**Full route:** `GET /api/v0/config` \u2014 public bootstrap (no auth). Call before `POST /auth/token`: read `captcha.login` (hCaptcha/reCAPTCHA site keys) and `csrfToken` when CSRF is enabled; send `captchaResponse` and optional `X-CSRF-Token` on login. Also returns `apiBaseURL`, feature flags, Stripe key, and other `FrontendConfig` fields.",
                 "produces": [
                     "application/json"
                 ],
@@ -1667,7 +1667,7 @@
                         "CookieAuth": []
                     }
                 ],
-                "description": "**Full route:** `GET /api/v0/fcm-token`. Settings → Push devices. Returns all FCM token records for the logged-in user (active and inactive).",
+                "description": "**Full route:** `GET /api/v0/fcm-token`. Settings \u2192 Push devices. Returns all FCM token records for the logged-in user (active and inactive).",
                 "produces": [
                     "application/json"
                 ],
@@ -1699,7 +1699,7 @@
                         "CookieAuth": []
                     }
                 ],
-                "description": "**Full route:** `POST /api/v0/fcm-token`. Settings → Push devices. Registers the device FCM token for the logged-in user. If the same `token` string already exists, metadata is updated and `200` semantics apply (existing record returned). `ip_address` is derived from `X-Forwarded-For`, `X-Real-IP`, or `RemoteAddr` — do not send from client.",
+                "description": "**Full route:** `POST /api/v0/fcm-token`. Settings \u2192 Push devices. Registers the device FCM token for the logged-in user. If the same `token` string already exists, metadata is updated and `200` semantics apply (existing record returned). `ip_address` is derived from `X-Forwarded-For`, `X-Real-IP`, or `RemoteAddr` \u2014 do not send from client.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1750,7 +1750,7 @@
                         "CookieAuth": []
                     }
                 ],
-                "description": "**Full route:** `PUT /api/v0/fcm-token/{tokenId}`. Settings → Push devices. Updates metadata or `isActive` for a token owned by the current user. All body fields are optional; send only fields to change.",
+                "description": "**Full route:** `PUT /api/v0/fcm-token/{tokenId}`. Settings \u2192 Push devices. Updates metadata or `isActive` for a token owned by the current user. All body fields are optional; send only fields to change.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1818,7 +1818,7 @@
                         "CookieAuth": []
                     }
                 ],
-                "description": "**Full route:** `DELETE /api/v0/fcm-token/{tokenId}`. Settings → Push devices. Permanently removes a token record owned by the current user.",
+                "description": "**Full route:** `DELETE /api/v0/fcm-token/{tokenId}`. Settings \u2192 Push devices. Permanently removes a token record owned by the current user.",
                 "produces": [
                     "application/json"
                 ],
@@ -1876,7 +1876,7 @@
                         "CookieAuth": []
                     }
                 ],
-                "description": "**Full route:** `GET /api/v0/google-backup/auto-sync/jobs`. Proxies Backup-Tools `GET /auto-sync/job` with session `token_key`. Single `filter` query param = URL-encoded `AutosyncJobListFilter` JSON. UI mapping: Service dropdown → `method` (gmail, google_drive, google_photos, google_calendar, google_contacts); Active/Inactive → `active` (true/false, user toggle); Success/Failed/Running → `status` (success, failed, in_progress, in_queue, created — last run, not same as active); Search bar → `name` (partial email). No `search` param on job list — use `filter.name`. Mailbox/domain search → `GET .../users-groups?search=...`. See `GET .../auto-sync/jobs/filter-schema` for examples.",
+                "description": "**Full route:** `GET /api/v0/google-backup/auto-sync/jobs`. Proxies Backup-Tools `GET /auto-sync/job` with session `token_key`. Single `filter` query param = URL-encoded `AutosyncJobListFilter` JSON. UI mapping: Service dropdown \u2192 `method` (gmail, google_drive, google_photos, google_calendar, google_contacts); Active/Inactive \u2192 `active` (true/false, user toggle); Success/Failed/Running \u2192 `status` (success, failed, in_progress, in_queue, created \u2014 last run, not same as active); Search bar \u2192 `name` (partial email). No `search` param on job list \u2014 use `filter.name`. Mailbox/domain search \u2192 `GET .../users-groups?search=...`. See `GET .../auto-sync/jobs/filter-schema` for examples.",
                 "produces": [
                     "application/json"
                 ],
@@ -1920,7 +1920,7 @@
                         "CookieAuth": []
                     }
                 ],
-                "description": "**Route:** `POST /api/v0/google-backup/auto-sync/jobs`. Satellite enriches the UI payload (tokens, project_id) and POSTs Backup-Tools `/auto-sync/job`. Omits `interval`/`on` when `policy_id` is set; schedule validation is handled by Backup-Tools. On success (no failed jobs) sets onboarding to `GoogleBackupCompleted`.",
+                "description": "**Route:** `POST /api/v0/google-backup/auto-sync/jobs`. Satellite enriches the UI payload (tokens, project_id) and POSTs Backup-Tools `/auto-sync/job`. Create still uses `emails[]`. Optional `email_org_units` (email \u2192 Google Admin `org_unit_path`) is forwarded onto each mailbox job as `input_data.org_unit_path`. For `admin_workspace`, Satellite fills missing paths from domain-users OUs; Backup-Tools Directory lookup is the fallback. Individual Gmail has no path. Omits `interval`/`on` when `policy_id` is set. On success (no failed jobs) sets onboarding to `GoogleBackupCompleted`.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2331,13 +2331,13 @@
                     },
                     {
                         "type": "string",
-                        "description": "Step 1 — filter mailbox name or email.",
+                        "description": "Step 1 \u2014 filter mailbox name or email.",
                         "name": "search",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "Step 2 — return services for this mailbox.",
+                        "description": "Step 2 \u2014 return services for this mailbox.",
                         "name": "email",
                         "in": "query"
                     }
@@ -2899,7 +2899,7 @@
                         "CookieAuth": []
                     }
                 ],
-                "description": "**Route:** `GET /api/v0/google-backup/domain-users`. Workspace mailboxes for corporate Gmail. Optional `google_email` query.",
+                "description": "**Route:** `GET /api/v0/google-backup/domain-users`. Workspace mailboxes for corporate Gmail. Optional `google_email` query. Backup-Tools JSON is forwarded as-is under `google_backup`. Wizard Step 2 should render `google_backup.organizational_units[]` (org_unit_path, name, user_count, users[].email/role). Keep `grouped_emails` for old clients only; do not build the OU tree from `connected_emails`. OU paths come from Google Admin Directory (`orgUnitPath`); Satellite does not invent OUs.",
                 "produces": [
                     "application/json"
                 ],
@@ -2995,7 +2995,7 @@
                         "CookieAuth": []
                     }
                 ],
-                "description": "Proxies Backup-Tools POST /google/gmail/insert-mail. Single or multiple items (max 10 per request): send base64 vault keys in body `keys` or `ids` (from GET /google-backup/backup-restore/logs). Call POST /google-backup/google-auth first. `Authorization` header = Backup-Tools JWT. Session cookie → `token_key`. No `ACCESS_TOKEN` (StorX from DB).",
+                "description": "Proxies Backup-Tools POST /google/gmail/insert-mail. Single or multiple items (max 10 per request): send base64 vault keys in body `keys` or `ids` (from GET /google-backup/backup-restore/logs). Call POST /google-backup/google-auth first. `Authorization` header = Backup-Tools JWT. Session cookie \u2192 `token_key`. No `ACCESS_TOKEN` (StorX from DB).",
                 "consumes": [
                     "application/json",
                     "multipart/form-data"
@@ -3075,7 +3075,7 @@
                         "required": true
                     },
                     {
-                        "description": "Vault keys (1–10)",
+                        "description": "Vault keys (1\u201310)",
                         "name": "body",
                         "in": "body",
                         "required": true,
@@ -3134,7 +3134,7 @@
                         "required": true
                     },
                     {
-                        "description": "Vault keys (1–10)",
+                        "description": "Vault keys (1\u201310)",
                         "name": "body",
                         "in": "body",
                         "required": true,
@@ -3193,7 +3193,7 @@
                         "required": true
                     },
                     {
-                        "description": "Vault keys (1–10)",
+                        "description": "Vault keys (1\u201310)",
                         "name": "body",
                         "in": "body",
                         "required": true,
@@ -3252,7 +3252,7 @@
                         "required": true
                     },
                     {
-                        "description": "Vault keys (1–10)",
+                        "description": "Vault keys (1\u201310)",
                         "name": "body",
                         "in": "body",
                         "required": true,
@@ -3813,7 +3813,7 @@
                 "tags": [
                     "google-backup-users-groups"
                 ],
-                "summary": "List Users \u0026 Groups mailboxes",
+                "summary": "List Users & Groups mailboxes",
                 "parameters": [
                     {
                         "type": "string",
@@ -3823,7 +3823,7 @@
                     },
                     {
                         "type": "string",
-                        "description": "Partial match on mailbox email.",
+                        "description": "Partial match on mailbox email or org_unit_path.",
                         "name": "search",
                         "in": "query"
                     },
@@ -3846,6 +3846,12 @@
                         "in": "query"
                     },
                     {
+                        "type": "string",
+                        "description": "Filter by Google Admin OU path (e.g. /SAles). Empty/omit = all.",
+                        "name": "org_unit_path",
+                        "in": "query"
+                    },
+                    {
                         "type": "integer",
                         "description": "Page size (default 10).",
                         "name": "limit",
@@ -3862,7 +3868,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                            "$ref": "#/definitions/consoleapi.GoogleBackupUsersGroupsListSwaggerResponse"
                         }
                     },
                     "400": {
@@ -3877,7 +3883,8 @@
                             "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
                         }
                     }
-                }
+                },
+                "description": "**Full route:** `GET /api/v0/google-backup/users-groups`. Same URL. Each entity may include `org_unit_path` (omit/empty if unknown; UI shows \u2014). `org_units` is the unique-path dropdown. Filter with `org_unit_path=/SAles`. `search` matches mailbox email and OU path. No groups table \u2014 path is stored on the mailbox job. Existing domain/account_type/method/credential_status/active/pagination unchanged. Bind `org_unit_path` + `org_units`; keep using `entities`."
             }
         },
         "/google-backup/users-groups/dashboard-alerts": {
@@ -3887,7 +3894,7 @@
                         "CookieAuth": []
                     }
                 ],
-                "description": "**Full route:** `GET /api/v0/google-backup/users-groups/dashboard-alerts`. Proxies Backup-Tools `GET /autosync/dashboard-alerts` with session `token_key`. UI mapping: Auth Errors → `re_auth_required`; Paused Backups → `paused_backups`; New Mailboxes (24h) → `new_connected_accounts_24h`. Review links: re-auth → `GET .../users-groups?credential_status=re_auth_required`; paused → `GET .../users-groups?active=false`; new → sort by `connected_at` on users-groups list.",
+                "description": "**Full route:** `GET /api/v0/google-backup/users-groups/dashboard-alerts`. Proxies Backup-Tools `GET /autosync/dashboard-alerts` with session `token_key`. UI mapping: Auth Errors \u2192 `re_auth_required`; Paused Backups \u2192 `paused_backups`; New Mailboxes (24h) \u2192 `new_connected_accounts_24h`. Review links: re-auth \u2192 `GET .../users-groups?credential_status=re_auth_required`; paused \u2192 `GET .../users-groups?active=false`; new \u2192 sort by `connected_at` on users-groups list.",
                 "produces": [
                     "application/json"
                 ],
@@ -3930,7 +3937,7 @@
                 "tags": [
                     "google-backup-users-groups"
                 ],
-                "summary": "List Users \u0026 Groups domains",
+                "summary": "List Users & Groups domains",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -8010,7 +8017,7 @@
                         "CookieAuth": []
                     }
                 ],
-                "description": "**Full route:** `GET /api/v0/user/notification-preferences`. Settings → Notification preferences. Returns a JSON **array** with zero or one global preference row. Each row `Preferences` map uses keys `push`, `email`, `sms` with minimum priority levels 1–4 (marketing, info, warning, critical).",
+                "description": "**Full route:** `GET /api/v0/user/notification-preferences`. Settings \u2192 Notification preferences. Returns a JSON **array** with zero or one global preference row. Each row `Preferences` map uses keys `push`, `email`, `sms` with minimum priority levels 1\u20134 (marketing, info, warning, critical).",
                 "produces": [
                     "application/json"
                 ],
@@ -8048,7 +8055,7 @@
                         "CookieAuth": []
                     }
                 ],
-                "description": "**Full route:** `PUT /api/v0/user/notification-preferences`. Settings → Notification preferences. Upserts global channel thresholds applied to all notifications. `preferences` may include any of `push`, `email`, `sms` — each value is minimum priority to receive: 1=marketing, 2=info, 3=warning, 4=critical (string names `marketing`/`info`/`warning`/`critical` also accepted). Returns `201` on create, `200` on update.",
+                "description": "**Full route:** `PUT /api/v0/user/notification-preferences`. Settings \u2192 Notification preferences. Upserts global channel thresholds applied to all notifications. `preferences` may include any of `push`, `email`, `sms` \u2014 each value is minimum priority to receive: 1=marketing, 2=info, 3=warning, 4=critical (string names `marketing`/`info`/`warning`/`critical` also accepted). Returns `201` on create, `200` on update.",
                 "consumes": [
                     "application/json"
                 ],
@@ -8550,7 +8557,7 @@
                 },
                 "token": {
                     "type": "string",
-                    "example": "\u003csession-token\u003e"
+                    "example": "<session-token>"
                 }
             }
         },
@@ -8559,7 +8566,7 @@
             "properties": {
                 "captchaResponse": {
                     "type": "string",
-                    "example": "\u003ccaptcha-token\u003e"
+                    "example": "<captcha-token>"
                 },
                 "email": {
                     "type": "string",
@@ -8597,7 +8604,7 @@
                 },
                 "token": {
                     "type": "string",
-                    "example": "\u003crecovery-token-from-email\u003e"
+                    "example": "<recovery-token-from-email>"
                 }
             }
         },
@@ -9148,6 +9155,16 @@
                         "gmail",
                         "drive"
                     ]
+                },
+                "email_org_units": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    },
+                    "example": {
+                        "billing@salestalker.com": "/",
+                        "support@salestalker.com": "/SAles"
+                    }
                 }
             }
         },
@@ -9510,7 +9527,7 @@
             "properties": {
                 "google_key": {
                     "type": "string",
-                    "example": "\u003cGoogle OAuth id_token or access_token\u003e"
+                    "example": "<Google OAuth id_token or access_token>"
                 }
             }
         },
@@ -9828,12 +9845,12 @@
         "consoleapi.GoogleBackupDomainUsersSwaggerResponse": {
             "type": "object",
             "properties": {
-                "google_backup": {
-                    "type": "object"
-                },
                 "success": {
                     "type": "boolean",
                     "example": true
+                },
+                "google_backup": {
+                    "$ref": "#/definitions/consoleapi.GoogleBackupDomainUsersPayload"
                 }
             }
         },
@@ -11650,11 +11667,11 @@
                 },
                 "refresh_token": {
                     "type": "string",
-                    "example": "\u003cgoogle refresh token\u003e"
+                    "example": "<google refresh token>"
                 },
                 "storx_token": {
                     "type": "string",
-                    "example": "\u003cstorx access grant\u003e"
+                    "example": "<storx access grant>"
                 }
             }
         },
@@ -11925,7 +11942,7 @@
                     "$ref": "#/definitions/console.AnnouncementConfig"
                 },
                 "apiBaseURL": {
-                    "description": "ApiBaseURL is the base URL for all API requests. The frontend MUST use this (e.g. apiBaseURL + \"api/v0/...\")\nfor every API call so requests hit the correct host. Using relative paths when the app is served from\na different host (e.g. dev server) causes the wrong host to return HTML → DOCTYPE/JSON parse error.",
+                    "description": "ApiBaseURL is the base URL for all API requests. The frontend MUST use this (e.g. apiBaseURL + \"api/v0/...\")\nfor every API call so requests hit the correct host. Using relative paths when the app is served from\na different host (e.g. dev server) causes the wrong host to return HTML \u2192 DOCTYPE/JSON parse error.",
                     "type": "string"
                 },
                 "betaSatelliteFeedbackURL": {
@@ -12558,7 +12575,7 @@
                 },
                 "token": {
                     "type": "string",
-                    "example": "\u003csession token\u003e"
+                    "example": "<session token>"
                 }
             }
         },
@@ -12693,7 +12710,7 @@
                 },
                 "token": {
                     "type": "string",
-                    "example": "\u003csession token\u003e"
+                    "example": "<session token>"
                 }
             }
         },
@@ -12800,7 +12817,7 @@
                 },
                 "token": {
                     "type": "string",
-                    "example": "\u003crecovery token from email\u003e"
+                    "example": "<recovery token from email>"
                 }
             }
         },
@@ -13078,6 +13095,191 @@
                 "Minute",
                 "Hour"
             ]
+        },
+        "consoleapi.GoogleBackupOrganizationalUnitUser": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "example": "support@salestalker.com"
+                },
+                "org_unit_path": {
+                    "type": "string",
+                    "example": "/Customer Support"
+                },
+                "role": {
+                    "type": "string",
+                    "enum": [
+                        "admin",
+                        "user"
+                    ],
+                    "example": "user"
+                },
+                "is_admin": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "is_delegated_admin": {
+                    "type": "boolean",
+                    "example": false
+                }
+            }
+        },
+        "consoleapi.GoogleBackupOrganizationalUnit": {
+            "type": "object",
+            "properties": {
+                "org_unit_path": {
+                    "type": "string",
+                    "example": "/Customer Support"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Customer Support"
+                },
+                "user_count": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "users": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.GoogleBackupOrganizationalUnitUser"
+                    }
+                }
+            }
+        },
+        "consoleapi.GoogleBackupDomainUsersPayload": {
+            "type": "object",
+            "properties": {
+                "account": {
+                    "type": "string",
+                    "example": "sales@salestalker.com"
+                },
+                "account_type": {
+                    "type": "string",
+                    "enum": [
+                        "personal",
+                        "employee_workspace",
+                        "admin_workspace"
+                    ],
+                    "example": "admin_workspace"
+                },
+                "count": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "mailbox_count": {
+                    "type": "integer",
+                    "example": 3
+                },
+                "ou_count": {
+                    "type": "integer",
+                    "example": 3
+                },
+                "organizational_units": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.GoogleBackupOrganizationalUnit"
+                    }
+                },
+                "grouped_emails": {
+                    "type": "object"
+                },
+                "domain_users_error": {
+                    "type": "string"
+                }
+            }
+        },
+        "consoleapi.GoogleBackupUsersGroupsPaginationSwagger": {
+            "type": "object",
+            "properties": {
+                "limit": {
+                    "type": "integer",
+                    "example": 10
+                },
+                "offset": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "page": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "total_pages": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "total_count": {
+                    "type": "integer",
+                    "example": 2
+                }
+            }
+        },
+        "consoleapi.GoogleBackupUsersGroupsEntitySwagger": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "example": "billing"
+                },
+                "email": {
+                    "type": "string",
+                    "example": "billing@salestalker.com"
+                },
+                "account_type": {
+                    "type": "string",
+                    "enum": [
+                        "corporate",
+                        "individual"
+                    ],
+                    "example": "corporate"
+                },
+                "org_unit_path": {
+                    "type": "string",
+                    "example": "/"
+                },
+                "credential_status": {
+                    "type": "string",
+                    "enum": [
+                        "healthy",
+                        "re_auth_required"
+                    ],
+                    "example": "healthy"
+                },
+                "credential": {
+                    "$ref": "#/definitions/consoleapi.GoogleBackupDashboardCredentialSwagger"
+                },
+                "services": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.GoogleBackupDashboardServiceSwagger"
+                    }
+                }
+            }
+        },
+        "consoleapi.GoogleBackupUsersGroupsListSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "entities": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.GoogleBackupUsersGroupsEntitySwagger"
+                    }
+                },
+                "org_units": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "/",
+                        "/SAles"
+                    ]
+                },
+                "pagination": {
+                    "$ref": "#/definitions/consoleapi.GoogleBackupUsersGroupsPaginationSwagger"
+                }
+            }
         }
     },
     "securityDefinitions": {
@@ -13118,19 +13320,19 @@
             "name": "projects"
         },
         {
-            "description": "Member bucket \u0026 folder restriction — ALL invite/member/ACL APIs in one place. Flag: console.member-bucket-grants-enabled (default OFF). OFF = existing one-user/project access unchanged. ON = Owner/Admin full access; Member only grant rows (bucket+prefix+perms). Test order: (1) CookieAuth+CSRF (2) create/ensure bucket (3) POST member-acl-buckets (4) POST invite/{email} (omit body = defaults email/ List+Download) (5) GET members (6) invitee GET invitations + POST respond response=1 (7) GET/PUT members/{id}/bucket-grants (8) PATCH role / DELETE / reinvite / invite-link. Prefix must end with /. PUT grants:[] clears Member access + invalidates keys.",
+            "description": "Member bucket & folder restriction \u2014 ALL invite/member/ACL APIs in one place. Flag: console.member-bucket-grants-enabled (default OFF). OFF = existing one-user/project access unchanged. ON = Owner/Admin full access; Member only grant rows (bucket+prefix+perms). Test order: (1) CookieAuth+CSRF (2) create/ensure bucket (3) POST member-acl-buckets (4) POST invite/{email} (omit body = defaults email/ List+Download) (5) GET members (6) invitee GET invitations + POST respond response=1 (7) GET/PUT members/{id}/bucket-grants (8) PATCH role / DELETE / reinvite / invite-link. Prefix must end with /. PUT grants:[] clears Member access + invalidates keys.",
             "name": "member-bucket-restriction"
         },
         {
-            "description": "Storage \u0026 bandwidth trends: GET /api/v0/projects/{id}/daily-usage — daily storageUsage and settledBandwidthUsage (bytes per day) for charts",
+            "description": "Storage & bandwidth trends: GET /api/v0/projects/{id}/daily-usage \u2014 daily storageUsage and settledBandwidthUsage (bytes per day) for charts",
             "name": "projects-daily-usage"
         },
         {
-            "description": "S3 credentials \u0026 vault setup: GET /api/v0/projects/{id}/config — salt, passphrase, role, placements, and feature flags for access-grant / vault flows in the frontend",
+            "description": "S3 credentials & vault setup: GET /api/v0/projects/{id}/config \u2014 salt, passphrase, role, placements, and feature flags for access-grant / vault flows in the frontend",
             "name": "projects-s3-vault-setup"
         },
         {
-            "description": "S3 credentials \u0026 vault setup: DELETE /api/v0/api-keys/delete-by-name — remove an API key by name and project when revoking S3 credentials from the frontend vault flow",
+            "description": "S3 credentials & vault setup: DELETE /api/v0/api-keys/delete-by-name \u2014 remove an API key by name and project when revoking S3 credentials from the frontend vault flow",
             "name": "api-keys-s3-vault-setup"
         },
         {
@@ -13138,11 +13340,11 @@
             "name": "buckets"
         },
         {
-            "description": "Reserved integration vault usage: GET /api/v0/buckets/usage-totals-for-reserved — bucketName, storage (GB), objectCount per vault (Google Backup, Dropbox, etc.)",
+            "description": "Reserved integration vault usage: GET /api/v0/buckets/usage-totals-for-reserved \u2014 bucketName, storage (GB), objectCount per vault (Google Backup, Dropbox, etc.)",
             "name": "buckets-reserved-usage"
         },
         {
-            "description": "Storage \u0026 bandwidth quota popup: POST /api/v0/buckets/check-upload — usage percents, allow_upload/download, popup_show + message (login, upload, download). Same usage data as dashboard quota cards.",
+            "description": "Storage & bandwidth quota popup: POST /api/v0/buckets/check-upload \u2014 usage percents, allow_upload/download, popup_show + message (login, upload, download). Same usage data as dashboard quota cards.",
             "name": "buckets-quota-check"
         },
         {
@@ -13162,15 +13364,15 @@
             "name": "google-backup-onboarding"
         },
         {
-            "description": "Google Backup auto-sync APIs (jobs, connect, domain-users). OAuth `code` on `POST /google-backup/connect` and `PUT /auto-sync/jobs/project` uses `GOOGLE_OAUTH_REDIRECT_URL_GOOGLE_BACKUP` (same as `GET /auth/google-backup`). `POST /auto-sync/jobs` sets onboarding complete on success.",
+            "description": "Google Backup auto-sync APIs (jobs, connect, domain-users). `GET /google-backup/domain-users` forwards Backup-Tools Workspace OU tree as `google_backup.organizational_units` (plus legacy `grouped_emails`). OAuth `code` on `POST /google-backup/connect` and `PUT /auto-sync/jobs/project` uses `GOOGLE_OAUTH_REDIRECT_URL_GOOGLE_BACKUP` (same as `GET /auth/google-backup`). `POST /auto-sync/jobs` sets onboarding complete on success.",
             "name": "google-backup"
         },
         {
-            "description": "Live backup progress poll: GET /api/v0/google-backup/auto-sync/live → Backup-Tools GET /auto-sync/live (running/failed tasks only; poll 3–5s). Not `/autosync/live`.",
+            "description": "Live backup progress poll: GET /api/v0/google-backup/auto-sync/live \u2192 Backup-Tools GET /auto-sync/live (running/failed tasks only; poll 3\u20135s). Not `/autosync/live`.",
             "name": "google-backup-autosync-live"
         },
         {
-            "description": "GET /google-backup/users-groups/*",
+            "description": "GET /google-backup/users-groups/* \u2014 list returns `entities[].org_unit_path` and `org_units` (Google Admin OU paths stored on jobs; no groups table). Filter `org_unit_path`; `search` also matches OU path.",
             "name": "google-backup-users-groups"
         },
         {
@@ -13182,7 +13384,7 @@
             "name": "google-backup-auth"
         },
         {
-            "description": "Google Backup manual restore: POST /google-backup/google/* (1–10 vault keys per request; same body for single or multiple items). Authorization header = Backup-Tools JWT from POST /google-backup/google-auth. No ACCESS_TOKEN (StorX from DB). Session cookie required.",
+            "description": "Google Backup manual restore: POST /google-backup/google/* (1\u201310 vault keys per request; same body for single or multiple items). Authorization header = Backup-Tools JWT from POST /google-backup/google-auth. No ACCESS_TOKEN (StorX from DB). Session cookie required.",
             "name": "google-backup-restore-manual"
         },
         {
@@ -13194,7 +13396,7 @@
             "name": "google-backup-logs"
         },
         {
-            "description": "Logged-in account: profile (`GET/PATCH /auth/account` — check `hasPassword`), change-password when password exists, MFA, settings, onboarding PATCH, refresh-session, developer-access. Login: Google via `/auth/google-backup` or email via `POST /auth/token`.",
+            "description": "Logged-in account: profile (`GET/PATCH /auth/account` \u2014 check `hasPassword`), change-password when password exists, MFA, settings, onboarding PATCH, refresh-session, developer-access. Login: Google via `/auth/google-backup` or email via `POST /auth/token`.",
             "name": "auth-account"
         },
         {
@@ -13202,19 +13404,19 @@
             "name": "auth-email-login"
         },
         {
-            "description": "**Optional first password** when `GET /auth/account` returns `hasPassword: false`. **Swagger test:** (1) `GET /config` → copy `csrfToken`. (2) Authorize **CookieAuth** = `_tokenKey` value from Google login / `auth/token`. (3) Authorize **CSRFAuth** = same `csrfToken`. (4) `POST /auth/account/set-password` with `{ \"newPassword\": \"...\" }`.",
+            "description": "**Optional first password** when `GET /auth/account` returns `hasPassword: false`. **Swagger test:** (1) `GET /config` \u2192 copy `csrfToken`. (2) Authorize **CookieAuth** = `_tokenKey` value from Google login / `auth/token`. (3) Authorize **CSRFAuth** = same `csrfToken`. (4) `POST /auth/account/set-password` with `{ \"newPassword\": \"...\" }`.",
             "name": "auth-set-password"
         },
         {
-            "description": "**Forgot password (no CSRF):** `POST /auth/forgot-password` and `POST /auth/reset-password` do **not** require `X-CSRF-Token` (only login captcha / recovery token). Flow: forgot-password → email link `/password-recovery?token=` → reset-password → **`POST /auth/token` needs CSRF** when enabled: call `GET /config` first, copy `csrfToken`, Authorize **CSRFAuth**, then login with the new password.",
+            "description": "**Forgot password (no CSRF):** `POST /auth/forgot-password` and `POST /auth/reset-password` do **not** require `X-CSRF-Token` (only login captcha / recovery token). Flow: forgot-password \u2192 email link `/password-recovery?token=` \u2192 reset-password \u2192 **`POST /auth/token` needs CSRF** when enabled: call `GET /config` first, copy `csrfToken`, Authorize **CSRFAuth**, then login with the new password.",
             "name": "auth-password-recovery"
         },
         {
-            "description": "Settings → Push devices: register and manage FCM tokens at `/api/v0/fcm-token` (session cookie). IP address is set server-side.",
+            "description": "Settings \u2192 Push devices: register and manage FCM tokens at `/api/v0/fcm-token` (session cookie). IP address is set server-side.",
             "name": "settings-fcm"
         },
         {
-            "description": "Settings → Notification preferences: global channel thresholds at `/api/v0/user/notification-preferences` (push, email, sms minimum priority levels applied to all notifications).",
+            "description": "Settings \u2192 Notification preferences: global channel thresholds at `/api/v0/user/notification-preferences` (push, email, sms minimum priority levels applied to all notifications).",
             "name": "settings-notification-preferences"
         },
         {
@@ -13234,7 +13436,7 @@
             "name": "audit-logs"
         },
         {
-            "description": "Public static content at server root (not under /api/v0): GET /resources-list, /blog-list, /guides, /user-guideline-for-app. Swagger may prefix paths with /api/v0 — use the host root path when calling.",
+            "description": "Public static content at server root (not under /api/v0): GET /resources-list, /blog-list, /guides, /user-guideline-for-app. Swagger may prefix paths with /api/v0 \u2014 use the host root path when calling.",
             "name": "static-api"
         },
         {
