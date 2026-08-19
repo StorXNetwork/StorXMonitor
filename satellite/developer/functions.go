@@ -758,11 +758,7 @@ func (s *Service) CreateDeveloperOAuthClient(ctx context.Context, req console.Cr
 	if err != nil {
 		return nil, err
 	}
-	clientSecret, err := generateRandomSecret(32)
-	if err != nil {
-		return nil, err
-	}
-	hashedSecret, err := hashSecret(clientSecret)
+	clientSecret, err := generateClientSecret()
 	if err != nil {
 		return nil, err
 	}
@@ -781,7 +777,7 @@ func (s *Service) CreateDeveloperOAuthClient(ctx context.Context, req console.Cr
 		ID:           id,
 		DeveloperID:  developerID.ID,
 		ClientID:     clientID.String(),
-		ClientSecret: string(hashedSecret),
+		ClientSecret: clientSecret,
 		Name:         req.Name,
 		Description:  req.Description,
 		RedirectURIs: req.RedirectURIs,
@@ -794,8 +790,8 @@ func (s *Service) CreateDeveloperOAuthClient(ctx context.Context, req console.Cr
 	if err != nil {
 		return nil, err
 	}
-	// Encode secret as base64 for safe display
-	created.ClientSecret = string(hashedSecret)
+	// Return plaintext once. ExchangeOAuth2Code HMAC-signs with this exact value.
+	created.ClientSecret = clientSecret
 	return created, nil
 }
 
@@ -881,16 +877,12 @@ func (s *Service) RegenerateDeveloperOAuthClientSecret(ctx context.Context, id u
 		return nil, err
 	}
 
-	clientSecret, err := generateRandomSecret(32)
-	if err != nil {
-		return nil, err
-	}
-	hashedSecret, err := hashSecret(clientSecret)
+	clientSecret, err := generateClientSecret()
 	if err != nil {
 		return nil, err
 	}
 
-	client.ClientSecret = string(hashedSecret)
+	client.ClientSecret = clientSecret
 	client.UpdatedAt = time.Now().UTC()
 	err = s.store.DeveloperOAuthClients().Update(ctx, id, client)
 	if err != nil {
@@ -902,8 +894,7 @@ func (s *Service) RegenerateDeveloperOAuthClientSecret(ctx context.Context, id u
 		s.auditLog(ctx, "regenerate developer oauth client secret", &developerID.ID, "")
 	}
 
-	// Encode secret as base64 for safe display
-	client.ClientSecret = string(hashedSecret)
+	client.ClientSecret = clientSecret
 	return client, nil
 }
 

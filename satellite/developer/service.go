@@ -6,6 +6,7 @@ package developer
 import (
 	"context"
 	"crypto/rand"
+	"encoding/base64"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
@@ -175,23 +176,15 @@ func (s *Service) getDeveloperAndAuditLog(ctx context.Context, operation string,
 	return developer, nil
 }
 
-// generateRandomSecret generates a random secret of the specified length.
-func generateRandomSecret(length int) ([]byte, error) {
-	secret := make([]byte, length)
-	_, err := rand.Read(secret)
-	if err != nil {
-		return nil, err
+// generateClientSecret returns a URL-safe secret used as the HMAC key for
+// OAuth client_secret JWTs. It must not contain '$' because Next.js env files
+// treat $FOO as interpolation, which truncated bcrypt hashes and broke token exchange.
+func generateClientSecret() (string, error) {
+	secret := make([]byte, 32)
+	if _, err := rand.Read(secret); err != nil {
+		return "", err
 	}
-	return secret, nil
-}
-
-// hashSecret hashes a secret using bcrypt (for OAuth client secrets).
-func hashSecret(secret []byte) ([]byte, error) {
-	hash, err := bcrypt.GenerateFromPassword(secret, bcrypt.DefaultCost)
-	if err != nil {
-		return nil, err
-	}
-	return hash, nil
+	return base64.RawURLEncoding.EncodeToString(secret), nil
 }
 
 // GetLoginAttemptsWithoutPenalty returns the login attempts without penalty from config.

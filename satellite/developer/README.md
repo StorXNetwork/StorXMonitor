@@ -13,7 +13,7 @@ This package implements the developer console server and all developer-related f
   - `NewService` / `NewServiceWithMail` - Service constructors
   - Error definitions and constants
   - Audit logging helpers
-  - Utility functions (generateRandomSecret, hashSecret)
+  - Utility functions (generateClientSecret)
 
 #### `functions.go`
 - **Purpose**: Developer CRUD operations and authentication logic
