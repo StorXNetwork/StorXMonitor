@@ -16,6 +16,7 @@ func TestGoogleBackupDomainUsersPayloadPassesThroughOUFields(t *testing.T) {
 		"count":          2,
 		"mailbox_count":  3,
 		"ou_count":       2,
+		"org_units":      []interface{}{"/", "/SAles"},
 		"grouped_emails": map[string]interface{}{"connected_emails": []string{"billing@salestalker.com"}},
 		"organizational_units": []interface{}{
 			map[string]interface{}{
@@ -33,6 +34,7 @@ func TestGoogleBackupDomainUsersPayloadPassesThroughOUFields(t *testing.T) {
 
 	out := googleBackupDomainUsersPayload(src, "")
 	require.Equal(t, src["organizational_units"], out["organizational_units"])
+	require.Equal(t, src["org_units"], out["org_units"])
 	require.Equal(t, src["mailbox_count"], out["mailbox_count"])
 	require.Equal(t, src["ou_count"], out["ou_count"])
 	require.Equal(t, src["grouped_emails"], out["grouped_emails"])

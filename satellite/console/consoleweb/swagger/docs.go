@@ -9155,6 +9155,43 @@ const docTemplate = `{
                         "gmail",
                         "drive"
                     ]
+                },
+                "email_org_units": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "account_type": {
+                    "type": "string",
+                    "example": "admin_workspace"
+                },
+                "policy_scope": {
+                    "type": "string",
+                    "example": "org_unit"
+                },
+                "org_unit_schedules": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/consoleapi.GoogleBackupOrgUnitScheduleSwagger"
+                    }
+                }
+            }
+        },
+        "consoleapi.GoogleBackupOrgUnitScheduleSwagger": {
+            "type": "object",
+            "properties": {
+                "policy_name": {
+                    "type": "string",
+                    "example": "SAles"
+                },
+                "interval": {
+                    "type": "string",
+                    "example": "daily"
+                },
+                "on": {
+                    "type": "string",
+                    "example": "12am"
                 }
             }
         },

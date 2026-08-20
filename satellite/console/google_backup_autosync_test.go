@@ -206,4 +206,25 @@ func TestShouldEnrichJobOrgUnits(t *testing.T) {
 	}))
 }
 
+func TestNeedsScheduleInBody(t *testing.T) {
+	require.True(t, CreateGoogleBackupAutoSyncJobsRequest{Interval: "3h"}.needsScheduleInBody())
+	require.False(t, CreateGoogleBackupAutoSyncJobsRequest{PolicyID: intPtr(50), Interval: "3h"}.needsScheduleInBody())
+	require.False(t, CreateGoogleBackupAutoSyncJobsRequest{PolicyScope: "org_unit", Interval: "3h"}.needsScheduleInBody())
+}
+
+func TestNormalizeOrgUnitSchedules(t *testing.T) {
+	got := normalizeOrgUnitSchedules(map[string]GoogleBackupOrgUnitSchedule{
+		"/":       {Interval: " 3h ", On: "", PolicyName: " Root "},
+		" /SAles": {Interval: "daily", On: "12am", PolicyName: "SAles"},
+		"  ":      {Interval: "weekly"},
+	})
+	require.Equal(t, map[string]GoogleBackupOrgUnitSchedule{
+		"/":      {Interval: "3h", PolicyName: "Root"},
+		"/SAles": {Interval: "daily", On: "12am", PolicyName: "SAles"},
+	}, got)
+	require.Nil(t, normalizeOrgUnitSchedules(nil))
+}
+
+func intPtr(v int) *int { return &v }
+
 func boolPtr(v bool) *bool { return &v }

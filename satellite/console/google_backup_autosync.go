@@ -20,14 +20,23 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consoleapi/socialmedia"
 )
 
+// GoogleBackupOrgUnitSchedule is a per-OU cron for policy_scope=org_unit job create.
+type GoogleBackupOrgUnitSchedule struct {
+	PolicyName string `json:"policy_name,omitempty"`
+	Interval   string `json:"interval"`
+	On         string `json:"on,omitempty"`
+}
+
 type CreateGoogleBackupAutoSyncJobsRequest struct {
-	Services      []string
-	Interval      string
-	On            string
-	Emails        []string
-	EmailOrgUnits map[string]string
-	PolicyID      *int
-	PolicyName    string
+	Services         []string
+	Interval         string
+	On               string
+	Emails           []string
+	EmailOrgUnits    map[string]string
+	PolicyID         *int
+	PolicyName       string
+	PolicyScope      string
+	OrgUnitSchedules map[string]GoogleBackupOrgUnitSchedule
 }
 
 // UpdateGoogleBackupAutoSyncJobsByProjectRequest is the UI → satellite body for
@@ -153,17 +162,15 @@ func (s *Service) CreateGoogleBackupAutoSyncJobs(ctx context.Context, req Create
 		}
 	}
 
-	projects, err := s.GetUsersProjects(ctx)
+	// Invites only grant membership for viewing another project's details. Job create
+	// always uses this user's own active project (oldest = default signup project).
+	projects, err := s.store.Projects().GetOwnActive(ctx, user.ID)
 	if err != nil {
 		return nil, 0, Error.Wrap(err)
 	}
-	if len(projects) != 1 {
-		if len(projects) == 0 {
-			return nil, 0, ErrNotFound.New("project not found for user")
-		}
-		return nil, 0, Error.New("expected exactly one project per user, found %d", len(projects))
+	if len(projects) == 0 {
+		return nil, 0, ErrNotFound.New("project not found for user")
 	}
-
 	project := projects[0]
 	payload := map[string]interface{}{
 		"services":          req.Services,
@@ -199,6 +206,12 @@ func (s *Service) CreateGoogleBackupAutoSyncJobs(ctx context.Context, req Create
 	}
 	if v := strings.TrimSpace(req.PolicyName); v != "" {
 		payload["policy_name"] = v
+	}
+	if v := strings.TrimSpace(req.PolicyScope); v != "" {
+		payload["policy_scope"] = v
+	}
+	if schedules := normalizeOrgUnitSchedules(req.OrgUnitSchedules); len(schedules) > 0 {
+		payload["org_unit_schedules"] = schedules
 	}
 
 	btPayload, err := json.Marshal(payload)
@@ -406,10 +419,35 @@ func (s *Service) maybeCompleteGoogleBackupOnboarding(ctx context.Context, body 
 	}
 }
 
-// needsScheduleInBody reports whether interval/on should be forwarded to Backup-Tools.
-// When policy_id is set, schedule comes from the policy and Backup-Tools validates the rest.
+// needsScheduleInBody reports whether top-level interval/on should be forwarded to Backup-Tools.
+// When policy_id is set, schedule comes from the policy. When policy_scope=org_unit, schedules are per OU.
 func (r CreateGoogleBackupAutoSyncJobsRequest) needsScheduleInBody() bool {
-	return r.PolicyID == nil
+	if r.PolicyID != nil {
+		return false
+	}
+	return !strings.EqualFold(strings.TrimSpace(r.PolicyScope), "org_unit")
+}
+
+func normalizeOrgUnitSchedules(in map[string]GoogleBackupOrgUnitSchedule) map[string]GoogleBackupOrgUnitSchedule {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make(map[string]GoogleBackupOrgUnitSchedule, len(in))
+	for path, sched := range in {
+		path = strings.TrimSpace(path)
+		if path == "" {
+			continue
+		}
+		out[path] = GoogleBackupOrgUnitSchedule{
+			PolicyName: strings.TrimSpace(sched.PolicyName),
+			Interval:   strings.TrimSpace(sched.Interval),
+			On:         strings.TrimSpace(sched.On),
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func normalizeGoogleBackupServices(services []string) ([]string, error) {

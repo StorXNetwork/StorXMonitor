@@ -29,19 +29,30 @@ type GoogleBackupAuthError struct {
 	Error   string `json:"error" example:"Error getting token from Google!"`
 }
 
+// GoogleBackupOrgUnitScheduleSwagger is one OU schedule on create jobs (policy_scope=org_unit).
+type GoogleBackupOrgUnitScheduleSwagger struct {
+	PolicyName string `json:"policy_name,omitempty" example:"SAles"`
+	Interval   string `json:"interval" example:"daily"`
+	On         string `json:"on,omitempty" example:"12am"`
+}
+
 // CreateGoogleBackupAutoSyncJobsSwaggerRequest is the UI → satellite body for job create.
 // services: gmail, drive, photos, contacts, calendar.
-// interval/on: forwarded when policy_id is absent; omitted when policy_id is set (schedule from policy). Required/optional rules are enforced by Backup-Tools.
+// interval/on: forwarded when policy_id is absent and policy_scope is not org_unit; omitted when policy_id is set or policy_scope=org_unit.
 // emails: required for corporate gmail when backing up delegated mailboxes.
 // email_org_units: optional email → Google Admin org_unit_path (from domain-users organizational_units). Stored on the job, not a groups table.
+// policy_scope / org_unit_schedules: optional per-OU policies. Satellite injects google_email, refresh_token, project_id.
 type CreateGoogleBackupAutoSyncJobsSwaggerRequest struct {
-	Services      []string          `json:"services" binding:"required" example:"gmail,drive"`
-	Interval      string            `json:"interval,omitempty" example:"6h"`
-	On            string            `json:"on,omitempty" example:"12am"`
-	Emails        []string          `json:"emails,omitempty" example:"billing@salestalker.com,support@salestalker.com"`
-	EmailOrgUnits map[string]string `json:"email_org_units,omitempty" example:"billing@salestalker.com:/,support@salestalker.com:/SAles"`
-	PolicyID      *int              `json:"policy_id,omitempty" example:"50"`
-	PolicyName    string            `json:"policy_name,omitempty" example:"New team policy"`
+	Services         []string                                      `json:"services" binding:"required" example:"gmail,drive"`
+	Interval         string                                        `json:"interval,omitempty" example:"6h"`
+	On               string                                        `json:"on,omitempty" example:"12am"`
+	Emails           []string                                      `json:"emails,omitempty" example:"billing@salestalker.com,support@salestalker.com"`
+	EmailOrgUnits    map[string]string                             `json:"email_org_units,omitempty" example:"billing@salestalker.com:/,support@salestalker.com:/SAles"`
+	PolicyID         *int                                          `json:"policy_id,omitempty" example:"50"`
+	PolicyName       string                                        `json:"policy_name,omitempty" example:"New team policy"`
+	PolicyScope      string                                        `json:"policy_scope,omitempty" example:"org_unit"`
+	OrgUnitSchedules map[string]GoogleBackupOrgUnitScheduleSwagger `json:"org_unit_schedules,omitempty"`
+	AccountType      string                                        `json:"account_type,omitempty" example:"admin_workspace"`
 }
 
 // UpdateGoogleBackupAutoSyncJobSwaggerRequest is the UI body for PUT .../auto-sync/jobs/{job_id} (active toggle only).
@@ -108,6 +119,7 @@ type GoogleBackupDomainUsersPayload struct {
 	MailboxCount        int                              `json:"mailbox_count,omitempty" example:"3"`
 	OUCount             int                              `json:"ou_count,omitempty" example:"3"`
 	OrganizationalUnits []GoogleBackupOrganizationalUnit `json:"organizational_units,omitempty"`
+	OrgUnits            []string                         `json:"org_units,omitempty" example:"/,/SAles"`
 	GroupedEmails       map[string]interface{}           `json:"grouped_emails,omitempty" swaggertype:"object"`
 	DomainUsersError    string                           `json:"domain_users_error,omitempty"`
 }

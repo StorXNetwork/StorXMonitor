@@ -9165,6 +9165,37 @@
                         "billing@salestalker.com": "/",
                         "support@salestalker.com": "/SAles"
                     }
+                },
+                "account_type": {
+                    "type": "string",
+                    "example": "admin_workspace"
+                },
+                "policy_scope": {
+                    "type": "string",
+                    "example": "org_unit"
+                },
+                "org_unit_schedules": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/consoleapi.GoogleBackupOrgUnitScheduleSwagger"
+                    }
+                }
+            }
+        },
+        "consoleapi.GoogleBackupOrgUnitScheduleSwagger": {
+            "type": "object",
+            "properties": {
+                "policy_name": {
+                    "type": "string",
+                    "example": "SAles"
+                },
+                "interval": {
+                    "type": "string",
+                    "example": "daily"
+                },
+                "on": {
+                    "type": "string",
+                    "example": "12am"
                 }
             }
         },
@@ -13181,6 +13212,16 @@
                     "items": {
                         "$ref": "#/definitions/consoleapi.GoogleBackupOrganizationalUnit"
                     }
+                },
+                "org_units": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "/",
+                        "/SAles"
+                    ]
                 },
                 "grouped_emails": {
                     "type": "object"
