@@ -212,17 +212,55 @@ func TestNeedsScheduleInBody(t *testing.T) {
 	require.False(t, CreateGoogleBackupAutoSyncJobsRequest{PolicyScope: "org_unit", Interval: "3h"}.needsScheduleInBody())
 }
 
+func TestAllowsEmptyTopLevelServices(t *testing.T) {
+	require.False(t, CreateGoogleBackupAutoSyncJobsRequest{}.allowsEmptyTopLevelServices())
+	require.False(t, CreateGoogleBackupAutoSyncJobsRequest{
+		PolicyScope: "org_unit",
+		OrgUnitSchedules: map[string]GoogleBackupOrgUnitSchedule{
+			"/":      {Interval: "3h", Services: []string{"gmail"}},
+			"/SAles": {Interval: "daily"},
+		},
+	}.allowsEmptyTopLevelServices())
+	require.True(t, CreateGoogleBackupAutoSyncJobsRequest{
+		PolicyScope: "org_unit",
+		OrgUnitSchedules: map[string]GoogleBackupOrgUnitSchedule{
+			"/":      {Interval: "3h", Services: []string{"gmail"}},
+			"/SAles": {Interval: "daily", Services: []string{"gmail", "drive"}},
+		},
+	}.allowsEmptyTopLevelServices())
+}
+
 func TestNormalizeOrgUnitSchedules(t *testing.T) {
-	got := normalizeOrgUnitSchedules(map[string]GoogleBackupOrgUnitSchedule{
-		"/":       {Interval: " 3h ", On: "", PolicyName: " Root "},
-		" /SAles": {Interval: "daily", On: "12am", PolicyName: "SAles"},
+	got, err := normalizeOrgUnitSchedules(map[string]GoogleBackupOrgUnitSchedule{
+		"/":       {Interval: " 3h ", On: "", PolicyName: " Root ", Services: []string{" Gmail ", "drive"}},
+		" /SAles": {Interval: "daily", On: "12am", PolicyName: "SAles", Services: []string{"calendar"}},
 		"  ":      {Interval: "weekly"},
 	})
+	require.NoError(t, err)
 	require.Equal(t, map[string]GoogleBackupOrgUnitSchedule{
-		"/":      {Interval: "3h", PolicyName: "Root"},
-		"/SAles": {Interval: "daily", On: "12am", PolicyName: "SAles"},
+		"/":      {Interval: "3h", PolicyName: "Root", Services: []string{"gmail", "drive"}},
+		"/SAles": {Interval: "daily", On: "12am", PolicyName: "SAles", Services: []string{"calendar"}},
 	}, got)
-	require.Nil(t, normalizeOrgUnitSchedules(nil))
+	empty, err := normalizeOrgUnitSchedules(nil)
+	require.NoError(t, err)
+	require.Nil(t, empty)
+}
+
+func TestNormalizeGoogleBackupServicesAllowEmpty(t *testing.T) {
+	got, err := normalizeGoogleBackupServices(nil, true)
+	require.NoError(t, err)
+	require.Nil(t, got)
+	_, err = normalizeGoogleBackupServices(nil, false)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "at least one service is required")
+}
+
+func TestCollectGoogleBackupServices(t *testing.T) {
+	got := collectGoogleBackupServices([]string{"gmail"}, map[string]GoogleBackupOrgUnitSchedule{
+		"/":      {Services: []string{"gmail", "drive"}},
+		"/SAles": {Services: []string{"calendar"}},
+	})
+	require.ElementsMatch(t, []string{"gmail", "drive", "calendar"}, got)
 }
 
 func intPtr(v int) *int { return &v }

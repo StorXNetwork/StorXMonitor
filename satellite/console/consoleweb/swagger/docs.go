@@ -9116,9 +9116,6 @@ const docTemplate = `{
         },
         "consoleapi.CreateGoogleBackupAutoSyncJobsSwaggerRequest": {
             "type": "object",
-            "required": [
-                "services"
-            ],
             "properties": {
                 "emails": {
                     "type": "array",
@@ -9192,6 +9189,16 @@ const docTemplate = `{
                 "on": {
                     "type": "string",
                     "example": "12am"
+                },
+                "services": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "gmail",
+                        "drive"
+                    ]
                 }
             }
         },

@@ -31,19 +31,20 @@ type GoogleBackupAuthError struct {
 
 // GoogleBackupOrgUnitScheduleSwagger is one OU schedule on create jobs (policy_scope=org_unit).
 type GoogleBackupOrgUnitScheduleSwagger struct {
-	PolicyName string `json:"policy_name,omitempty" example:"SAles"`
-	Interval   string `json:"interval" example:"daily"`
-	On         string `json:"on,omitempty" example:"12am"`
+	PolicyName string   `json:"policy_name,omitempty" example:"SAles"`
+	Interval   string   `json:"interval" example:"daily"`
+	On         string   `json:"on,omitempty" example:"12am"`
+	Services   []string `json:"services,omitempty" example:"gmail,drive"`
 }
 
 // CreateGoogleBackupAutoSyncJobsSwaggerRequest is the UI → satellite body for job create.
-// services: gmail, drive, photos, contacts, calendar.
+// services: gmail, drive, photos, contacts, calendar — optional when policy_scope=org_unit and every OU has services.
 // interval/on: forwarded when policy_id is absent and policy_scope is not org_unit; omitted when policy_id is set or policy_scope=org_unit.
 // emails: required for corporate gmail when backing up delegated mailboxes.
 // email_org_units: optional email → Google Admin org_unit_path (from domain-users organizational_units). Stored on the job, not a groups table.
-// policy_scope / org_unit_schedules: optional per-OU policies. Satellite injects google_email, refresh_token, project_id.
+// policy_scope / org_unit_schedules: optional per-OU policies (interval/on/services). Satellite injects google_email, refresh_token, project_id.
 type CreateGoogleBackupAutoSyncJobsSwaggerRequest struct {
-	Services         []string                                      `json:"services" binding:"required" example:"gmail,drive"`
+	Services         []string                                      `json:"services,omitempty" example:"gmail,drive"`
 	Interval         string                                        `json:"interval,omitempty" example:"6h"`
 	On               string                                        `json:"on,omitempty" example:"12am"`
 	Emails           []string                                      `json:"emails,omitempty" example:"billing@salestalker.com,support@salestalker.com"`

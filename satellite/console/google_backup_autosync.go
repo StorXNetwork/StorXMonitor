@@ -22,9 +22,10 @@ import (
 
 // GoogleBackupOrgUnitSchedule is a per-OU cron for policy_scope=org_unit job create.
 type GoogleBackupOrgUnitSchedule struct {
-	PolicyName string `json:"policy_name,omitempty"`
-	Interval   string `json:"interval"`
-	On         string `json:"on,omitempty"`
+	PolicyName string   `json:"policy_name,omitempty"`
+	Interval   string   `json:"interval"`
+	On         string   `json:"on,omitempty"`
+	Services   []string `json:"services,omitempty"`
 }
 
 type CreateGoogleBackupAutoSyncJobsRequest struct {
@@ -124,7 +125,11 @@ var allowedGoogleBackupServices = map[string]struct{}{
 func (s *Service) CreateGoogleBackupAutoSyncJobs(ctx context.Context, req CreateGoogleBackupAutoSyncJobsRequest, tokenKey, syncType string) (body []byte, status int, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	req.Services, err = normalizeGoogleBackupServices(req.Services)
+	req.OrgUnitSchedules, err = normalizeOrgUnitSchedules(req.OrgUnitSchedules)
+	if err != nil {
+		return nil, 0, err
+	}
+	req.Services, err = normalizeGoogleBackupServices(req.Services, req.allowsEmptyTopLevelServices())
 	if err != nil {
 		return nil, 0, err
 	}
@@ -151,7 +156,8 @@ func (s *Service) CreateGoogleBackupAutoSyncJobs(ctx context.Context, req Create
 		return nil, 0, err
 	}
 
-	gmailEmails, err := googleBackupGmailEmails(req.Services, req.Emails, credential)
+	effectiveServices := collectGoogleBackupServices(req.Services, req.OrgUnitSchedules)
+	gmailEmails, err := googleBackupGmailEmails(effectiveServices, req.Emails, credential)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -173,12 +179,14 @@ func (s *Service) CreateGoogleBackupAutoSyncJobs(ctx context.Context, req Create
 	}
 	project := projects[0]
 	payload := map[string]interface{}{
-		"services":          req.Services,
 		"google_email":      credential.GoogleEmail,
 		"account_type":      credential.AccountType,
 		"project_id":        project.PublicID.String(),
 		"satellite_user_id": user.ID.String(),
 		"refresh_token":     credential.RefreshToken,
+	}
+	if len(req.Services) > 0 {
+		payload["services"] = req.Services
 	}
 	if req.needsScheduleInBody() {
 		if interval := normalizeGoogleBackupInterval(req.Interval); interval != "" {
@@ -210,8 +218,8 @@ func (s *Service) CreateGoogleBackupAutoSyncJobs(ctx context.Context, req Create
 	if v := strings.TrimSpace(req.PolicyScope); v != "" {
 		payload["policy_scope"] = v
 	}
-	if schedules := normalizeOrgUnitSchedules(req.OrgUnitSchedules); len(schedules) > 0 {
-		payload["org_unit_schedules"] = schedules
+	if len(req.OrgUnitSchedules) > 0 {
+		payload["org_unit_schedules"] = req.OrgUnitSchedules
 	}
 
 	btPayload, err := json.Marshal(payload)
@@ -419,18 +427,35 @@ func (s *Service) maybeCompleteGoogleBackupOnboarding(ctx context.Context, body 
 	}
 }
 
+func (r CreateGoogleBackupAutoSyncJobsRequest) isOrgUnitScope() bool {
+	return strings.EqualFold(strings.TrimSpace(r.PolicyScope), "org_unit")
+}
+
 // needsScheduleInBody reports whether top-level interval/on should be forwarded to Backup-Tools.
 // When policy_id is set, schedule comes from the policy. When policy_scope=org_unit, schedules are per OU.
 func (r CreateGoogleBackupAutoSyncJobsRequest) needsScheduleInBody() bool {
 	if r.PolicyID != nil {
 		return false
 	}
-	return !strings.EqualFold(strings.TrimSpace(r.PolicyScope), "org_unit")
+	return !r.isOrgUnitScope()
 }
 
-func normalizeOrgUnitSchedules(in map[string]GoogleBackupOrgUnitSchedule) map[string]GoogleBackupOrgUnitSchedule {
+// allowsEmptyTopLevelServices is true when every OU schedule carries its own services list.
+func (r CreateGoogleBackupAutoSyncJobsRequest) allowsEmptyTopLevelServices() bool {
+	if !r.isOrgUnitScope() || len(r.OrgUnitSchedules) == 0 {
+		return false
+	}
+	for _, sched := range r.OrgUnitSchedules {
+		if len(sched.Services) == 0 {
+			return false
+		}
+	}
+	return true
+}
+
+func normalizeOrgUnitSchedules(in map[string]GoogleBackupOrgUnitSchedule) (map[string]GoogleBackupOrgUnitSchedule, error) {
 	if len(in) == 0 {
-		return nil
+		return nil, nil
 	}
 	out := make(map[string]GoogleBackupOrgUnitSchedule, len(in))
 	for path, sched := range in {
@@ -438,20 +463,28 @@ func normalizeOrgUnitSchedules(in map[string]GoogleBackupOrgUnitSchedule) map[st
 		if path == "" {
 			continue
 		}
+		services, err := normalizeGoogleBackupServices(sched.Services, true)
+		if err != nil {
+			return nil, err
+		}
 		out[path] = GoogleBackupOrgUnitSchedule{
 			PolicyName: strings.TrimSpace(sched.PolicyName),
 			Interval:   strings.TrimSpace(sched.Interval),
 			On:         strings.TrimSpace(sched.On),
+			Services:   services,
 		}
 	}
 	if len(out) == 0 {
-		return nil
+		return nil, nil
 	}
-	return out
+	return out, nil
 }
 
-func normalizeGoogleBackupServices(services []string) ([]string, error) {
+func normalizeGoogleBackupServices(services []string, allowEmpty bool) ([]string, error) {
 	if len(services) == 0 {
+		if allowEmpty {
+			return nil, nil
+		}
 		return nil, Error.New("at least one service is required")
 	}
 
@@ -472,6 +505,25 @@ func normalizeGoogleBackupServices(services []string) ([]string, error) {
 		out = append(out, s)
 	}
 	return out, nil
+}
+
+func collectGoogleBackupServices(topLevel []string, schedules map[string]GoogleBackupOrgUnitSchedule) []string {
+	seen := make(map[string]struct{}, len(topLevel))
+	out := make([]string, 0, len(topLevel))
+	add := func(services []string) {
+		for _, s := range services {
+			if _, ok := seen[s]; ok {
+				continue
+			}
+			seen[s] = struct{}{}
+			out = append(out, s)
+		}
+	}
+	add(topLevel)
+	for _, sched := range schedules {
+		add(sched.Services)
+	}
+	return out
 }
 
 func normalizeGoogleBackupInterval(interval string) string {
