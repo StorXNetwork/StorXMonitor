@@ -10675,7 +10675,8 @@ func (s *Service) storeGoogleBackupCredential(ctx context.Context, userID uuid.U
 	return Error.Wrap(err)
 }
 
-// googleBackupDomainUsersPayload builds the register-google `google_backup` object shape.
+// googleBackupDomainUsersPayload forwards Backup-Tools domain-users JSON as-is under google_backup
+// (including organizational_units, org_units, mailbox_count, ou_count, grouped_emails). Satellite does not reshape the OU tree.
 func googleBackupDomainUsersPayload(domainUsers GmailCorporateDomainUsersResponse, domainError string) map[string]interface{} {
 	if domainUsers != nil {
 		out := make(map[string]interface{}, len(domainUsers)+1)

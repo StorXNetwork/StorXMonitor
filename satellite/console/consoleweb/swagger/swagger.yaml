@@ -710,6 +710,23 @@ definitions:
       policy_name:
         example: New team policy
         type: string
+      policy_scope:
+        example: org_unit
+        type: string
+      email_org_units:
+        additionalProperties:
+          type: string
+        example:
+          billing@salestalker.com: /
+          support@salestalker.com: /SAles
+        type: object
+      org_unit_schedules:
+        additionalProperties:
+          $ref: '#/definitions/consoleapi.GoogleBackupOrgUnitScheduleSwagger'
+        type: object
+      account_type:
+        example: admin_workspace
+        type: string
       services:
         example:
         - gmail
@@ -717,8 +734,25 @@ definitions:
         items:
           type: string
         type: array
-    required:
-    - services
+    type: object
+  consoleapi.GoogleBackupOrgUnitScheduleSwagger:
+    properties:
+      interval:
+        example: daily
+        type: string
+      "on":
+        example: 12am
+        type: string
+      policy_name:
+        example: SAles
+        type: string
+      services:
+        example:
+        - gmail
+        - drive
+        items:
+          type: string
+        type: array
     type: object
   consoleapi.CreateGoogleBackupAutoSyncPolicySwaggerRequest:
     properties:

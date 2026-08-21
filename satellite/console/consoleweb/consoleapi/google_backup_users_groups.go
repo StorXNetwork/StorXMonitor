@@ -102,16 +102,18 @@ func (g *GoogleBackupUsersGroups) GetDomains(w http.ResponseWriter, r *http.Requ
 // List proxies Backup-Tools GET /users-groups.
 //
 // @Summary      List Users & Groups mailboxes
+// @Description  **Full route:** `GET /api/v0/google-backup/users-groups`. Same URL. Each entity may include `org_unit_path` (omit/empty if unknown; UI shows —). `org_units` is the unique-path dropdown. Filter with `org_unit_path=/SAles`. `search` matches mailbox email and OU path. No groups table — path is stored on the mailbox job. Existing domain/account_type/method/credential_status/active/pagination unchanged. Bind `org_unit_path` + `org_units`; keep using `entities`.
 // @Tags         google-backup-users-groups
 // @Produce      json
 // @Param        domain            query  string  false  "Filter by domain."
-// @Param        search            query  string  false  "Partial match on mailbox email."
+// @Param        search            query  string  false  "Partial match on mailbox email or org_unit_path."
 // @Param        method            query  string  false  "gmail, google_drive, google_photos, google_contacts, google_calendar, all, all_services."
 // @Param        account_type      query  string  false  "corporate, individual, all, all_types."
 // @Param        credential_status query  string  false  "healthy, re_auth_required, all, all_statuses."
+// @Param        org_unit_path     query  string  false  "Filter by Google Admin OU path (e.g. /SAles). Empty/omit = all."
 // @Param        limit             query  int     false  "Page size (default 10)."
 // @Param        offset            query  int     false  "Rows to skip (default 0)."
-// @Success      200  {object}  BackupToolsJSONResponse
+// @Success      200  {object}  GoogleBackupUsersGroupsListSwaggerResponse
 // @Failure      400  {object}  SwaggerErrorResponse
 // @Failure      401  {object}  SwaggerErrorResponse
 // @Security     CookieAuth

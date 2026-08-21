@@ -55,7 +55,7 @@ func (g *GoogleBackup) serveJSONError(ctx context.Context, w http.ResponseWriter
 // CreateAutoSyncJobs creates Backup-Tools auto-sync jobs from a minimal UI payload.
 //
 // @Summary      Create Google Backup auto-sync jobs
-// @Description  **Route:** `POST /api/v0/google-backup/auto-sync/jobs`. Satellite enriches the UI payload (tokens, project_id) and POSTs Backup-Tools `/auto-sync/job`. Omits `interval`/`on` when `policy_id` is set; schedule validation is handled by Backup-Tools. On success (no failed jobs) sets onboarding to `GoogleBackupCompleted`.
+// @Description  **Route:** `POST /api/v0/google-backup/auto-sync/jobs`. Satellite enriches the UI payload (tokens, project_id) and POSTs Backup-Tools `/auto-sync/job`. Create still uses `emails[]`. Optional `email_org_units` (email → Google Admin `org_unit_path`) is forwarded onto each mailbox job as `input_data.org_unit_path`. Optional `policy_scope=org_unit` plus `org_unit_schedules` apply schedule/services per OU (top-level `interval`/`on`/`services` optional when every OU has `services`). For `admin_workspace`, Satellite fills missing paths from domain-users OUs; Backup-Tools Directory lookup is the fallback. Individual Gmail has no path. Omits `interval`/`on` when `policy_id` is set. On success (no failed jobs) sets onboarding to `GoogleBackupCompleted`. Create response is Backup-Tools JSON as-is, including `org_units` and `policies` when present.
 // @Tags         google-backup
 // @Accept       json
 // @Produce      json
@@ -78,32 +78,32 @@ func (g *GoogleBackup) CreateAutoSyncJobs(w http.ResponseWriter, r *http.Request
 	}
 
 	var body struct {
-		Services   []string `json:"services"`
-		Interval   string   `json:"interval"`
-		On         string   `json:"on"`
-		Emails     []string `json:"emails"`
-		PolicyID   *int     `json:"policy_id"`
-		PolicyName string   `json:"policy_name"`
+		Services         []string                                       `json:"services"`
+		Interval         string                                         `json:"interval"`
+		On               string                                         `json:"on"`
+		Emails           []string                                       `json:"emails"`
+		EmailOrgUnits    map[string]string                              `json:"email_org_units"`
+		PolicyID         *int                                           `json:"policy_id"`
+		PolicyName       string                                         `json:"policy_name"`
+		PolicyScope      string                                         `json:"policy_scope"`
+		OrgUnitSchedules map[string]console.GoogleBackupOrgUnitSchedule `json:"org_unit_schedules"`
 	}
-	dec := json.NewDecoder(r.Body)
-	dec.DisallowUnknownFields()
-	if err := dec.Decode(&body); err != nil {
-		g.serveJSONError(ctx, w, console.ErrValidation.New("invalid request body"))
-		return
-	}
-	if dec.More() {
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		g.serveJSONError(ctx, w, console.ErrValidation.New("invalid request body"))
 		return
 	}
 
 	syncType := r.URL.Query().Get("sync_type")
 	respBody, status, err := g.service.CreateGoogleBackupAutoSyncJobs(ctx, console.CreateGoogleBackupAutoSyncJobsRequest{
-		Services:   body.Services,
-		Interval:   body.Interval,
-		On:         body.On,
-		Emails:     body.Emails,
-		PolicyID:   body.PolicyID,
-		PolicyName: body.PolicyName,
+		Services:         body.Services,
+		Interval:         body.Interval,
+		On:               body.On,
+		Emails:           body.Emails,
+		EmailOrgUnits:    body.EmailOrgUnits,
+		PolicyID:         body.PolicyID,
+		PolicyName:       body.PolicyName,
+		PolicyScope:      body.PolicyScope,
+		OrgUnitSchedules: body.OrgUnitSchedules,
 	}, tokenKey, syncType)
 	g.service.RecordUserAuditHTTP(ctx, "GB_JOB_CREATE", "Auto-sync job", "Auto-sync job created", status, respBody, err)
 	if err == nil && status == http.StatusOK {
@@ -418,7 +418,7 @@ func (g *GoogleBackup) UpdateAutoSyncJob(w http.ResponseWriter, r *http.Request)
 // GetDomainUsers proxies Backup-Tools GET /google/gmail/corporate/domain-users (same payload as register-google).
 //
 // @Summary      Gmail corporate domain-users
-// @Description  **Route:** `GET /api/v0/google-backup/domain-users`. Workspace mailboxes for corporate Gmail. Optional `google_email` query.
+// @Description  **Route:** `GET /api/v0/google-backup/domain-users`. Workspace mailboxes for corporate Gmail. Optional `google_email` query. Backup-Tools JSON is forwarded as-is under `google_backup`, including `organizational_units[]` and `org_units` (`["/","/SAles"]` for policy-by-group). Wizard Step 2 should render `google_backup.organizational_units[]` (org_unit_path, name, user_count, users[].email/role). Keep `grouped_emails` for old clients only; do not build the OU tree from `connected_emails`. OU paths come from Google Admin Directory (`orgUnitPath`); Satellite does not invent OUs.
 // @Tags         google-backup
 // @Produce      json
 // @Param        google_email  query     string  false  "Google account email (default: latest credential for user)"
@@ -444,9 +444,9 @@ func (g *GoogleBackup) GetDomainUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	payload := GoogleBackupDomainUsersSwaggerResponse{Success: true}
+	payload := map[string]interface{}{"success": true}
 	if googleBackup != nil {
-		payload.GoogleBackup = googleBackup
+		payload["google_backup"] = googleBackup
 	}
 
 	w.Header().Set("Content-Type", "application/json")

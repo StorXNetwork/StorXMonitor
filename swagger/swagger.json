@@ -1920,7 +1920,7 @@
                         "CookieAuth": []
                     }
                 ],
-                "description": "**Route:** `POST /api/v0/google-backup/auto-sync/jobs`. Satellite enriches the UI payload (tokens, project_id) and POSTs Backup-Tools `/auto-sync/job`. Omits `interval`/`on` when `policy_id` is set; schedule validation is handled by Backup-Tools. On success (no failed jobs) sets onboarding to `GoogleBackupCompleted`.",
+                "description": "**Route:** `POST /api/v0/google-backup/auto-sync/jobs`. Satellite enriches the UI payload (tokens, project_id) and POSTs Backup-Tools `/auto-sync/job`. Create still uses `emails[]`. Optional `email_org_units` (email \u2192 Google Admin `org_unit_path`) is forwarded onto each mailbox job as `input_data.org_unit_path`. For `admin_workspace`, Satellite fills missing paths from domain-users OUs; Backup-Tools Directory lookup is the fallback. Individual Gmail has no path. Omits `interval`/`on` when `policy_id` is set. On success (no failed jobs) sets onboarding to `GoogleBackupCompleted`.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2899,7 +2899,7 @@
                         "CookieAuth": []
                     }
                 ],
-                "description": "**Route:** `GET /api/v0/google-backup/domain-users`. Workspace mailboxes for corporate Gmail. Optional `google_email` query.",
+                "description": "**Route:** `GET /api/v0/google-backup/domain-users`. Workspace mailboxes for corporate Gmail. Optional `google_email` query. Backup-Tools JSON is forwarded as-is under `google_backup`. Wizard Step 2 should render `google_backup.organizational_units[]` (org_unit_path, name, user_count, users[].email/role). Keep `grouped_emails` for old clients only; do not build the OU tree from `connected_emails`. OU paths come from Google Admin Directory (`orgUnitPath`); Satellite does not invent OUs.",
                 "produces": [
                     "application/json"
                 ],
@@ -3823,7 +3823,7 @@
                     },
                     {
                         "type": "string",
-                        "description": "Partial match on mailbox email.",
+                        "description": "Partial match on mailbox email or org_unit_path.",
                         "name": "search",
                         "in": "query"
                     },
@@ -3846,6 +3846,12 @@
                         "in": "query"
                     },
                     {
+                        "type": "string",
+                        "description": "Filter by Google Admin OU path (e.g. /SAles). Empty/omit = all.",
+                        "name": "org_unit_path",
+                        "in": "query"
+                    },
+                    {
                         "type": "integer",
                         "description": "Page size (default 10).",
                         "name": "limit",
@@ -3862,7 +3868,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                            "$ref": "#/definitions/consoleapi.GoogleBackupUsersGroupsListSwaggerResponse"
                         }
                     },
                     "400": {
@@ -3877,7 +3883,8 @@
                             "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
                         }
                     }
-                }
+                },
+                "description": "**Full route:** `GET /api/v0/google-backup/users-groups`. Same URL. Each entity may include `org_unit_path` (omit/empty if unknown; UI shows \u2014). `org_units` is the unique-path dropdown. Filter with `org_unit_path=/SAles`. `search` matches mailbox email and OU path. No groups table \u2014 path is stored on the mailbox job. Existing domain/account_type/method/credential_status/active/pagination unchanged. Bind `org_unit_path` + `org_units`; keep using `entities`."
             }
         },
         "/google-backup/users-groups/dashboard-alerts": {
@@ -9195,6 +9202,16 @@
                         "gmail",
                         "drive"
                     ]
+                },
+                "email_org_units": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    },
+                    "example": {
+                        "billing@salestalker.com": "/",
+                        "support@salestalker.com": "/SAles"
+                    }
                 }
             }
         },
@@ -9875,12 +9892,12 @@
         "consoleapi.GoogleBackupDomainUsersSwaggerResponse": {
             "type": "object",
             "properties": {
-                "google_backup": {
-                    "type": "object"
-                },
                 "success": {
                     "type": "boolean",
                     "example": true
+                },
+                "google_backup": {
+                    "$ref": "#/definitions/consoleapi.GoogleBackupDomainUsersPayload"
                 }
             }
         },
@@ -13126,70 +13143,188 @@
                 "Hour"
             ]
         },
-        "consoleapi.MicrosoftBackupOnboardingSwagger": {
+        "consoleapi.GoogleBackupOrganizationalUnitUser": {
             "type": "object",
             "properties": {
-                "onboardingStart": {
-                    "type": "boolean",
-                    "example": true
+                "email": {
+                    "type": "string",
+                    "example": "support@salestalker.com"
                 },
-                "onboardingEnd": {
+                "org_unit_path": {
+                    "type": "string",
+                    "example": "/Customer Support"
+                },
+                "role": {
+                    "type": "string",
+                    "enum": [
+                        "admin",
+                        "user"
+                    ],
+                    "example": "user"
+                },
+                "is_admin": {
                     "type": "boolean",
                     "example": false
                 },
-                "onboardingStep": {
-                    "type": "string",
-                    "example": "MicrosoftBackupPending"
-                },
-                "onboarding_status": {
-                    "type": "string",
-                    "enum": [
-                        "pending",
-                        "in_progress",
-                        "completed"
-                    ],
-                    "example": "pending"
-                }
-            }
-        },
-        "consoleapi.MicrosoftBackupAuthSuccess": {
-            "type": "object",
-            "properties": {
-                "success": {
-                    "type": "boolean",
-                    "example": true
-                },
-                "action": {
-                    "type": "string",
-                    "enum": [
-                        "registered",
-                        "logged_in"
-                    ],
-                    "example": "logged_in"
-                },
-                "token": {
-                    "type": "string",
-                    "example": "..."
-                },
-                "onboarding": {
-                    "$ref": "#/definitions/consoleapi.MicrosoftBackupOnboardingSwagger"
-                },
-                "microsoft_backup": {
-                    "type": "object",
-                    "additionalProperties": true
-                }
-            }
-        },
-        "consoleapi.MicrosoftBackupAuthError": {
-            "type": "object",
-            "properties": {
-                "success": {
+                "is_delegated_admin": {
                     "type": "boolean",
                     "example": false
-                },
-                "error": {
+                }
+            }
+        },
+        "consoleapi.GoogleBackupOrganizationalUnit": {
+            "type": "object",
+            "properties": {
+                "org_unit_path": {
                     "type": "string",
-                    "example": "Error getting token from Microsoft!"
+                    "example": "/Customer Support"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Customer Support"
+                },
+                "user_count": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "users": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.GoogleBackupOrganizationalUnitUser"
+                    }
+                }
+            }
+        },
+        "consoleapi.GoogleBackupDomainUsersPayload": {
+            "type": "object",
+            "properties": {
+                "account": {
+                    "type": "string",
+                    "example": "sales@salestalker.com"
+                },
+                "account_type": {
+                    "type": "string",
+                    "enum": [
+                        "personal",
+                        "employee_workspace",
+                        "admin_workspace"
+                    ],
+                    "example": "admin_workspace"
+                },
+                "count": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "mailbox_count": {
+                    "type": "integer",
+                    "example": 3
+                },
+                "ou_count": {
+                    "type": "integer",
+                    "example": 3
+                },
+                "organizational_units": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.GoogleBackupOrganizationalUnit"
+                    }
+                },
+                "grouped_emails": {
+                    "type": "object"
+                },
+                "domain_users_error": {
+                    "type": "string"
+                }
+            }
+        },
+        "consoleapi.GoogleBackupUsersGroupsPaginationSwagger": {
+            "type": "object",
+            "properties": {
+                "limit": {
+                    "type": "integer",
+                    "example": 10
+                },
+                "offset": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "page": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "total_pages": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "total_count": {
+                    "type": "integer",
+                    "example": 2
+                }
+            }
+        },
+        "consoleapi.GoogleBackupUsersGroupsEntitySwagger": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "example": "billing"
+                },
+                "email": {
+                    "type": "string",
+                    "example": "billing@salestalker.com"
+                },
+                "account_type": {
+                    "type": "string",
+                    "enum": [
+                        "corporate",
+                        "individual"
+                    ],
+                    "example": "corporate"
+                },
+                "org_unit_path": {
+                    "type": "string",
+                    "example": "/"
+                },
+                "credential_status": {
+                    "type": "string",
+                    "enum": [
+                        "healthy",
+                        "re_auth_required"
+                    ],
+                    "example": "healthy"
+                },
+                "credential": {
+                    "$ref": "#/definitions/consoleapi.GoogleBackupDashboardCredentialSwagger"
+                },
+                "services": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.GoogleBackupDashboardServiceSwagger"
+                    }
+                }
+            }
+        },
+        "consoleapi.GoogleBackupUsersGroupsListSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "entities": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.GoogleBackupUsersGroupsEntitySwagger"
+                    }
+                },
+                "org_units": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "/",
+                        "/SAles"
+                    ]
+                },
+                "pagination": {
+                    "$ref": "#/definitions/consoleapi.GoogleBackupUsersGroupsPaginationSwagger"
                 }
             }
         }
@@ -13276,11 +13411,7 @@
             "name": "google-backup-onboarding"
         },
         {
-            "name": "microsoft-backup-onboarding",
-            "description": "Microsoft Backup combined auth: `GET /auth/microsoft-backup` (register or login by email). Accepts MSAL idToken/accessToken or OAuth code as `code`. Returns `action`, `token`, `onboarding`, and `microsoft_backup`. Config: `OUTLOOK_CLIENT_ID` / `OUTLOOK_CLIENT_SECRET`."
-        },
-        {
-            "description": "Google Backup auto-sync APIs (jobs, connect, domain-users). OAuth `code` on `POST /google-backup/connect` and `PUT /auto-sync/jobs/project` uses `GOOGLE_OAUTH_REDIRECT_URL_GOOGLE_BACKUP` (same as `GET /auth/google-backup`). `POST /auto-sync/jobs` sets onboarding complete on success.",
+            "description": "Google Backup auto-sync APIs (jobs, connect, domain-users). `GET /google-backup/domain-users` forwards Backup-Tools Workspace OU tree as `google_backup.organizational_units` (plus legacy `grouped_emails`). OAuth `code` on `POST /google-backup/connect` and `PUT /auto-sync/jobs/project` uses `GOOGLE_OAUTH_REDIRECT_URL_GOOGLE_BACKUP` (same as `GET /auth/google-backup`). `POST /auto-sync/jobs` sets onboarding complete on success.",
             "name": "google-backup"
         },
         {
@@ -13288,7 +13419,7 @@
             "name": "google-backup-autosync-live"
         },
         {
-            "description": "GET /google-backup/users-groups/*",
+            "description": "GET /google-backup/users-groups/* \u2014 list returns `entities[].org_unit_path` and `org_units` (Google Admin OU paths stored on jobs; no groups table). Filter `org_unit_path`; `search` also matches OU path.",
             "name": "google-backup-users-groups"
         },
         {

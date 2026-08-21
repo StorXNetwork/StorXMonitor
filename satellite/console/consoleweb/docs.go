@@ -70,13 +70,13 @@ package consoleweb
 // @tag.description Microsoft Backup combined auth: `GET /auth/microsoft-backup` (register or login by email). Accepts MSAL idToken/accessToken or OAuth code as `code`. Returns `action`, `token`, `onboarding`, and `microsoft_backup`. Config: `OUTLOOK_CLIENT_ID` / `OUTLOOK_CLIENT_SECRET`.
 
 // @tag.name google-backup
-// @tag.description Google Backup auto-sync APIs (jobs, connect, domain-users). OAuth `code` on `POST /google-backup/connect` and `PUT /auto-sync/jobs/project` uses `GOOGLE_OAUTH_REDIRECT_URL_GOOGLE_BACKUP` (same as `GET /auth/google-backup`). `POST /auto-sync/jobs` sets onboarding complete on success.
+// @tag.description Google Backup auto-sync APIs (jobs, connect, domain-users). `GET /google-backup/domain-users` forwards Backup-Tools Workspace OU tree as `google_backup.organizational_units` and `google_backup.org_units` (plus legacy `grouped_emails`). `POST /auto-sync/jobs` accepts `policy_scope`, `email_org_units`, `org_unit_schedules` and forwards them to Backup-Tools. OAuth `code` on `POST /google-backup/connect` and `PUT /auto-sync/jobs/project` uses `GOOGLE_OAUTH_REDIRECT_URL_GOOGLE_BACKUP` (same as `GET /auth/google-backup`). `POST /auto-sync/jobs` sets onboarding complete on success.
 
 // @tag.name google-backup-autosync-live
 // @tag.description Live backup progress poll: GET /api/v0/google-backup/auto-sync/live → Backup-Tools GET /auto-sync/live (running/failed tasks only; poll 3–5s). Not `/autosync/live`.
 
 // @tag.name google-backup-users-groups
-// @tag.description GET /google-backup/users-groups/*
+// @tag.description GET /google-backup/users-groups/* — list returns `entities[].org_unit_path` and `org_units` (Google Admin OU paths stored on jobs; no groups table). Filter `org_unit_path`; `search` also matches OU path.
 
 // @tag.name google-backup-policy
 // @tag.description Google Backup shared policies: schedule, retention, merge (Backup-Tools /auto-sync/policy/*)

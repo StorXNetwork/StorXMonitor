@@ -153,4 +153,116 @@ func TestUpdateGoogleBackupAutoSyncJobRequest_backupToolsPayload(t *testing.T) {
 	require.Equal(t, map[string]interface{}{"active": true}, got)
 }
 
+func TestNormalizeEmailOrgUnits(t *testing.T) {
+	emails := []string{"billing@salestalker.com", "support@salestalker.com"}
+	got := normalizeEmailOrgUnits(map[string]string{
+		"Billing@salestalker.com": "/",
+		"support@salestalker.com": " /SAles ",
+		"other@salestalker.com":   "/Skip",
+		"":                        "/",
+		"x@y.com":                 "",
+	}, emails)
+	require.Equal(t, map[string]string{
+		"billing@salestalker.com": "/",
+		"support@salestalker.com": "/SAles",
+	}, got)
+	require.Nil(t, normalizeEmailOrgUnits(nil, emails))
+	require.Nil(t, normalizeEmailOrgUnits(map[string]string{"a@b.com": "/"}, nil))
+}
+
+func TestOrgUnitPathMapFromDomainUsers(t *testing.T) {
+	src := GmailCorporateDomainUsersResponse{
+		"organizational_units": []interface{}{
+			map[string]interface{}{
+				"org_unit_path": "/",
+				"users": []interface{}{
+					map[string]interface{}{"email": "billing@salestalker.com"},
+				},
+			},
+			map[string]interface{}{
+				"org_unit_path": "/SAles",
+				"users": []interface{}{
+					map[string]interface{}{"email": "Support@salestalker.com", "org_unit_path": "/SAles"},
+					map[string]interface{}{"email": "sales@salestalker.com"},
+				},
+			},
+		},
+	}
+	require.Equal(t, map[string]string{
+		"billing@salestalker.com": "/",
+		"support@salestalker.com": "/SAles",
+		"sales@salestalker.com":   "/SAles",
+	}, orgUnitPathMapFromDomainUsers(src))
+}
+
+func TestShouldEnrichJobOrgUnits(t *testing.T) {
+	emails := []string{"billing@salestalker.com", "support@salestalker.com"}
+	require.False(t, shouldEnrichJobOrgUnits("personal", emails, nil))
+	require.True(t, shouldEnrichJobOrgUnits("admin_workspace", emails, nil))
+	require.True(t, shouldEnrichJobOrgUnits("admin_workspace", emails, map[string]string{"billing@salestalker.com": "/"}))
+	require.False(t, shouldEnrichJobOrgUnits("admin_workspace", emails, map[string]string{
+		"billing@salestalker.com": "/",
+		"support@salestalker.com": "/SAles",
+	}))
+}
+
+func TestNeedsScheduleInBody(t *testing.T) {
+	require.True(t, CreateGoogleBackupAutoSyncJobsRequest{Interval: "3h"}.needsScheduleInBody())
+	require.False(t, CreateGoogleBackupAutoSyncJobsRequest{PolicyID: intPtr(50), Interval: "3h"}.needsScheduleInBody())
+	require.False(t, CreateGoogleBackupAutoSyncJobsRequest{PolicyScope: "org_unit", Interval: "3h"}.needsScheduleInBody())
+}
+
+func TestAllowsEmptyTopLevelServices(t *testing.T) {
+	require.False(t, CreateGoogleBackupAutoSyncJobsRequest{}.allowsEmptyTopLevelServices())
+	require.False(t, CreateGoogleBackupAutoSyncJobsRequest{
+		PolicyScope: "org_unit",
+		OrgUnitSchedules: map[string]GoogleBackupOrgUnitSchedule{
+			"/":      {Interval: "3h", Services: []string{"gmail"}},
+			"/SAles": {Interval: "daily"},
+		},
+	}.allowsEmptyTopLevelServices())
+	require.True(t, CreateGoogleBackupAutoSyncJobsRequest{
+		PolicyScope: "org_unit",
+		OrgUnitSchedules: map[string]GoogleBackupOrgUnitSchedule{
+			"/":      {Interval: "3h", Services: []string{"gmail"}},
+			"/SAles": {Interval: "daily", Services: []string{"gmail", "drive"}},
+		},
+	}.allowsEmptyTopLevelServices())
+}
+
+func TestNormalizeOrgUnitSchedules(t *testing.T) {
+	got, err := normalizeOrgUnitSchedules(map[string]GoogleBackupOrgUnitSchedule{
+		"/":       {Interval: " 3h ", On: "", PolicyName: " Root ", Services: []string{" Gmail ", "drive"}},
+		" /SAles": {Interval: "daily", On: "12am", PolicyName: "SAles", Services: []string{"calendar"}},
+		"  ":      {Interval: "weekly"},
+	})
+	require.NoError(t, err)
+	require.Equal(t, map[string]GoogleBackupOrgUnitSchedule{
+		"/":      {Interval: "3h", PolicyName: "Root", Services: []string{"gmail", "drive"}},
+		"/SAles": {Interval: "daily", On: "12am", PolicyName: "SAles", Services: []string{"calendar"}},
+	}, got)
+	empty, err := normalizeOrgUnitSchedules(nil)
+	require.NoError(t, err)
+	require.Nil(t, empty)
+}
+
+func TestNormalizeGoogleBackupServicesAllowEmpty(t *testing.T) {
+	got, err := normalizeGoogleBackupServices(nil, true)
+	require.NoError(t, err)
+	require.Nil(t, got)
+	_, err = normalizeGoogleBackupServices(nil, false)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "at least one service is required")
+}
+
+func TestCollectGoogleBackupServices(t *testing.T) {
+	got := collectGoogleBackupServices([]string{"gmail"}, map[string]GoogleBackupOrgUnitSchedule{
+		"/":      {Services: []string{"gmail", "drive"}},
+		"/SAles": {Services: []string{"calendar"}},
+	})
+	require.ElementsMatch(t, []string{"gmail", "drive", "calendar"}, got)
+}
+
+func intPtr(v int) *int { return &v }
+
 func boolPtr(v bool) *bool { return &v }
