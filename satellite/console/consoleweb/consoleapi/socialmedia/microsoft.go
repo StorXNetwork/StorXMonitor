@@ -151,6 +151,10 @@ func GetMicrosoftOauthTokenWithRedirect(code, redirectURI string) (*MicrosoftOau
 	values.Set("client_id", configVal.OutlookClientID)
 	values.Set("client_secret", configVal.OutlookClientSecret)
 	values.Set("redirect_uri", redirectURL)
+	// Do NOT send scope on code exchange. Passing MicrosoftBackupScopes here strips any
+	// incremental restore write scopes (e.g. Mail.ReadWrite) the user just consented to,
+	// so prepare keeps returning missing_permissions after Grant Access / connect.
+	// Omitting scope returns tokens for whatever the authorization code granted.
 
 	req, err := http.NewRequest(http.MethodPost, microsoftTokenURL, bytes.NewBufferString(values.Encode()))
 	if err != nil {
@@ -461,3 +465,197 @@ func jwkToRSAPublicKey(key microsoftJWK) (*rsa.PublicKey, error) {
 		E: eInt,
 	}, nil
 }
+
+const microsoftAuthorizeURL = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize"
+
+// MicrosoftBackupScopes are required for Microsoft Backup login/connect and Backup-Tools cron (read).
+// Restore write scopes are NOT included — UI must use MicrosoftRestoreScopes + POST /microsoft-backup/microsoft-auth
+// (same pattern as Google: backup scopes ≠ restore; POST /google-backup/google-auth before restore).
+// Files.Read.All is required for OneDrive and SharePoint document libraries.
+// Sites.Read.All is required to list/resolve SharePoint sites (outlook_sharepoint).
+// Existing users must reconnect (prompt=consent) and org tenants often need admin consent.
+// Same role as GoogleRegisterBackupScopes; keep aligned with Backup-Tools apps/outlook defaultScopes.
+var MicrosoftBackupScopes = []string{
+	"openid",
+	"profile",
+	"email",
+	"offline_access", // required for opaque refresh_token (not a JWT)
+	"User.Read",
+	"Mail.Read",
+	"Mail.Read.Shared",
+	"Calendars.Read",
+	"Contacts.Read",
+	"Files.Read.All", // OneDrive + SharePoint libraries (outlook_onedrive, outlook_sharepoint)
+	"Sites.Read.All", // SharePoint site picker (outlook_sharepoint)
+	"Team.ReadBasic.All",
+	"Channel.ReadBasic.All",
+	"ChannelMessage.Read.All",
+	"Group.Read.All",
+	"Group-Conversation.Read.All",
+	// Corporate directory (admin consent may be required)
+	"User.Read.All",
+	"Directory.Read.All",
+}
+
+// MicrosoftRestoreScopes are write permissions for select-and-restore only.
+// UI builds a separate Microsoft authorize URL with these scopes, then exchanges the Graph
+// access token via POST /microsoft-backup/microsoft-auth before calling office365/satellite-to-*.
+var MicrosoftRestoreScopes = []string{
+	"openid",
+	"profile",
+	"email",
+	"offline_access",
+	"User.Read",
+	"Mail.ReadWrite",
+	"Calendars.ReadWrite",
+	"Contacts.ReadWrite",
+	"Files.ReadWrite.All",
+	"ChannelMessage.Send",
+	"Group.ReadWrite.All",
+}
+
+// MicrosoftBackupScopesString returns the space-separated scope list for MSAL / authorize URL.
+func MicrosoftBackupScopesString() string {
+	return strings.Join(MicrosoftBackupScopes, " ")
+}
+
+// MicrosoftRestoreScopesString returns space-separated restore scopes for the restore OAuth consent screen.
+func MicrosoftRestoreScopesString() string {
+	return strings.Join(MicrosoftRestoreScopes, " ")
+}
+
+// BuildMicrosoftRestoreOAuthURL builds the Microsoft authorize URL for restore consent (write scopes).
+// UI reference — same pattern as BuildMicrosoftBackupOAuthURL but uses MicrosoftRestoreScopes.
+func BuildMicrosoftRestoreOAuthURL(state, redirectURI string) (string, error) {
+	if configVal.OutlookClientID == "" {
+		return "", errors.New("invalid outlook client id")
+	}
+	redirectURL := strings.TrimSpace(redirectURI)
+	if redirectURL == "" {
+		redirectURL = strings.TrimSpace(configVal.OutlookOAuthRedirectUrl_microsoftbackup)
+	}
+	if redirectURL == "" {
+		return "", errors.New("OUTLOOK_OAUTH_REDIRECT_URL_MICROSOFT_BACKUP is not configured")
+	}
+	redirectURL = strings.TrimRight(redirectURL, "/")
+
+	params := url.Values{}
+	params.Set("client_id", configVal.OutlookClientID)
+	params.Set("response_type", "code")
+	params.Set("redirect_uri", redirectURL)
+	params.Set("response_mode", "query")
+	params.Set("scope", MicrosoftRestoreScopesString())
+	params.Set("prompt", "consent")
+	if state != "" {
+		params.Set("state", state)
+	}
+	return microsoftAuthorizeURL + "?" + params.Encode(), nil
+}
+
+// BuildMicrosoftBackupOAuthURL builds the Microsoft authorize URL for microsoft-backup.
+// Used by tests and UI reference only — no Satellite HTTP route (same as Google backup OAuth URL).
+func BuildMicrosoftBackupOAuthURL(state, redirectURI string) (string, error) {
+	if configVal.OutlookClientID == "" {
+		return "", errors.New("invalid outlook client id")
+	}
+	redirectURL := strings.TrimSpace(redirectURI)
+	if redirectURL == "" {
+		redirectURL = strings.TrimSpace(configVal.OutlookOAuthRedirectUrl_microsoftbackup)
+	}
+	if redirectURL == "" {
+		return "", errors.New("OUTLOOK_OAUTH_REDIRECT_URL_MICROSOFT_BACKUP is not configured")
+	}
+	redirectURL = strings.TrimRight(redirectURL, "/")
+
+	params := url.Values{}
+	params.Set("client_id", configVal.OutlookClientID)
+	params.Set("response_type", "code")
+	params.Set("redirect_uri", redirectURL)
+	params.Set("response_mode", "query")
+	params.Set("scope", MicrosoftBackupScopesString())
+	params.Set("prompt", "consent") // force refresh_token issuance
+	if state != "" {
+		params.Set("state", state)
+	}
+	return microsoftAuthorizeURL + "?" + params.Encode(), nil
+}
+
+// ParseMicrosoftScopeString splits Microsoft's space-separated scope string.
+func ParseMicrosoftScopeString(scope string) []string {
+	scope = strings.TrimSpace(scope)
+	if scope == "" {
+		return nil
+	}
+	parts := strings.Fields(scope)
+	out := make([]string, 0, len(parts))
+	seen := make(map[string]struct{}, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		// Normalize Graph full URI → short name for comparison.
+		p = strings.TrimPrefix(p, "https://graph.microsoft.com/")
+		if _, ok := seen[p]; ok {
+			continue
+		}
+		seen[p] = struct{}{}
+		out = append(out, p)
+	}
+	return out
+}
+
+var microsoftBackupScopeAlternates = map[string][]string{
+	"openid":            {"openid"},
+	"profile":           {"profile"},
+	"email":             {"email"},
+	"offline_access":    {"offline_access"},
+	"User.Read":         {"User.Read", "https://graph.microsoft.com/User.Read"},
+	"Mail.Read":          {"Mail.Read", "https://graph.microsoft.com/Mail.Read"},
+	"Mail.Read.Shared":   {"Mail.Read.Shared", "https://graph.microsoft.com/Mail.Read.Shared"},
+	"Calendars.Read":     {"Calendars.Read", "https://graph.microsoft.com/Calendars.Read"},
+	"Contacts.Read":      {"Contacts.Read", "https://graph.microsoft.com/Contacts.Read"},
+	"Files.Read.All":     {"Files.Read.All", "https://graph.microsoft.com/Files.Read.All"},
+	"Sites.Read.All":     {"Sites.Read.All", "https://graph.microsoft.com/Sites.Read.All"},
+	"User.Read.All":      {"User.Read.All", "https://graph.microsoft.com/User.Read.All"},
+	"Directory.Read.All": {"Directory.Read.All", "https://graph.microsoft.com/Directory.Read.All"},
+}
+
+func microsoftBackupScopeGranted(grantedSet map[string]struct{}, required string) bool {
+	for _, alt := range microsoftBackupScopeAlternates[required] {
+		short := strings.TrimPrefix(alt, "https://graph.microsoft.com/")
+		if _, ok := grantedSet[alt]; ok {
+			return true
+		}
+		if _, ok := grantedSet[short]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+// MicrosoftBackupScopeSummary returns canonical backup scopes only: granted vs ungranted.
+// When hasRefreshToken is true, offline_access is treated as granted even if Microsoft omitted
+// it from the token response scope string (common after refresh_token issuance).
+func MicrosoftBackupScopeSummary(granted []string, hasRefreshToken bool) (grantedOut, ungranted []string) {
+	grantedSet := make(map[string]struct{}, len(granted))
+	for _, s := range granted {
+		s = strings.TrimPrefix(strings.TrimSpace(s), "https://graph.microsoft.com/")
+		if s == "" {
+			continue
+		}
+		grantedSet[s] = struct{}{}
+	}
+	if hasRefreshToken {
+		grantedSet["offline_access"] = struct{}{}
+	}
+	for _, req := range MicrosoftBackupScopes {
+		if microsoftBackupScopeGranted(grantedSet, req) {
+			grantedOut = append(grantedOut, req)
+		} else {
+			ungranted = append(ungranted, req)
+		}
+	}
+	return grantedOut, ungranted
+}
+

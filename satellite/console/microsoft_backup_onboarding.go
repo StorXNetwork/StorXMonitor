@@ -120,17 +120,17 @@ func MicrosoftBackupOnboardingAPIFromSettings(settings *UserSettings) MicrosoftB
 }
 
 // GetMicrosoftBackupOnboarding reads user_settings for the current user and returns the Microsoft onboarding block.
-func (s *Service) GetMicrosoftBackupOnboarding(ctx context.Context) (MicrosoftBackupOnboardingAPI, error) {
-	defer mon.Task()(&ctx)
+func (s *Service) GetMicrosoftBackupOnboarding(ctx context.Context) (api MicrosoftBackupOnboardingAPI, err error) {
+	defer mon.Task()(&ctx)(&err)
 
 	user, err := GetUser(ctx)
 	if err != nil {
-		return MicrosoftBackupOnboardingAPI{}, Error.Wrap(err)
+		return api, Error.Wrap(err)
 	}
 
 	settings, err := s.store.Users().GetSettings(ctx, user.ID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return MicrosoftBackupOnboardingAPI{}, Error.Wrap(err)
+		return api, Error.Wrap(err)
 	}
 	return MicrosoftBackupOnboardingAPIFromSettings(settings), nil
 }

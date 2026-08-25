@@ -1244,6 +1244,53 @@ const docTemplate = `{
                 }
             }
         },
+        "/auth/microsoft-backup": {
+            "get": {
+                "description": "**Route:** ` + "`" + `GET /api/v0/auth/microsoft-backup` + "`" + `. Same pattern as ` + "`" + `GET /auth/google-backup` + "`" + `: UI builds the Microsoft authorize URL client-side (` + "`" + `OUTLOOK_CLIENT_ID` + "`" + `, frontend origin as ` + "`" + `redirect_uri` + "`" + `, ` + "`" + `MicrosoftBackupScopes` + "`" + `, ` + "`" + `prompt=consent` + "`" + `, ` + "`" + `offline_access` + "`" + `), then redirects here with OAuth ` + "`" + `code` + "`" + `. ` + "`" + `redirect_uri` + "`" + ` on token exchange is derived server-side from request Host (or ` + "`" + `OUTLOOK_OAUTH_REDIRECT_URL_MICROSOFT_BACKUP` + "`" + `). MSAL JWT-as-code still works for login but will not yield refresh_token. Returns ` + "`" + `action` + "`" + `, ` + "`" + `token` + "`" + `, ` + "`" + `onboarding` + "`" + `, and ` + "`" + `microsoft_backup` + "`" + ` (` + "`" + `email` + "`" + `, ` + "`" + `account_type` + "`" + ` for consumer mail, ` + "`" + `has_refresh_token` + "`" + `). Sets session cookie.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "microsoft-backup-onboarding"
+                ],
+                "summary": "Microsoft Backup auth (register or login)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Microsoft OAuth authorization code (preferred) or MSAL idToken/accessToken",
+                        "name": "code",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "OAuth state (UTM / verifier payload)",
+                        "name": "state",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "When true, inserts CRM lead in Zoho",
+                        "name": "zoho-insert",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Set-Cookie: _tokenKey",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.MicrosoftBackupAuthSuccess"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.MicrosoftBackupAuthError"
+                        }
+                    }
+                }
+            }
+        },
         "/auth/refresh-session": {
             "post": {
                 "security": [
@@ -1374,6 +1421,822 @@ const docTemplate = `{
                     },
                     "403": {
                         "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/backup/auto-sync/jobs": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `GET /api/v0/backup/auto-sync/jobs` + "`" + `. Proxies Backup-Tools ` + "`" + `GET /auto-sync/job/` + "`" + `. Filter ` + "`" + `method` + "`" + `: gmail, google_drive, outlook, outlook_onedrive, etc.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "backup"
+                ],
+                "summary": "List backup auto-sync jobs",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "URL-encoded AutosyncJobListFilter JSON",
+                        "name": "filter",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.AutosyncJobListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/backup/auto-sync/jobs/project": {
+            "put": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `PUT /api/v0/backup/auto-sync/jobs/project` + "`" + `. Google: send ` + "`" + `google_email` + "`" + ` and optional OAuth ` + "`" + `code` + "`" + `. Microsoft: send ` + "`" + `microsoft_email` + "`" + ` or ` + "`" + `credential_id` + "`" + `.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "backup"
+                ],
+                "summary": "Update backup jobs by project",
+                "parameters": [
+                    {
+                        "description": "Project-scoped update",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.UpdateBackupAutoSyncJobsByProjectSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/backup/auto-sync/jobs/services": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `GET /api/v0/backup/auto-sync/jobs/services` + "`" + `. Google + Microsoft services update page.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "backup"
+                ],
+                "summary": "List backup auto-sync service stats",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupAutoSyncJobServicesSwaggerResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/backup/auto-sync/jobs/{job_id}": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `GET /api/v0/backup/auto-sync/jobs/{job_id}` + "`" + `. Proxies Backup-Tools ` + "`" + `GET /auto-sync/job/{job_id}` + "`" + `.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "backup"
+                ],
+                "summary": "Get backup auto-sync job",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Job ID",
+                        "name": "job_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.AutosyncJobDetailResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `PUT /api/v0/backup/auto-sync/jobs/{job_id}` + "`" + `. Typically ` + "`" + `{ \"active\": true|false }` + "`" + `; Microsoft may also send storx_token / refresh_token.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "backup"
+                ],
+                "summary": "Update backup auto-sync job",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Job ID",
+                        "name": "job_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Job update",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.UpdateBackupAutoSyncJobSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.AutosyncJobDetailResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/backup/auto-sync/live": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `GET /api/v0/backup/auto-sync/live` + "`" + `. Poll every 3–5s for in-progress backup UI.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "backup"
+                ],
+                "summary": "Live auto-sync backup progress",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupAutoSyncLiveSwaggerResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/backup/auto-sync/policy": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "backup-policy"
+                ],
+                "summary": "List backup policies",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "backup-policy"
+                ],
+                "summary": "Create backup policy",
+                "parameters": [
+                    {
+                        "description": "Policy create request",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.CreateBackupAutoSyncPolicySwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/backup/auto-sync/policy/available-assignments": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "backup-policy"
+                ],
+                "summary": "List available assignments for Add Email modal",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Target policy ID",
+                        "name": "policy_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter mailbox name or email",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Return services for this mailbox",
+                        "name": "email",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/backup/auto-sync/policy/merge": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "backup-policy"
+                ],
+                "summary": "Merge duplicate policies into a new policy",
+                "parameters": [
+                    {
+                        "description": "policy_ids and new policy name",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.MergeBackupAutoSyncPoliciesSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/backup/auto-sync/policy/merge/preview": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "backup-policy"
+                ],
+                "summary": "Preview duplicate policy merge",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/backup/auto-sync/policy/move": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "backup-policy"
+                ],
+                "summary": "Move job assignments to a policy",
+                "parameters": [
+                    {
+                        "description": "target_policy_id and job_ids",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.MoveBackupAutoSyncPolicyAssignmentsSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/backup/auto-sync/policy/options": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "backup-policy"
+                ],
+                "summary": "List policy options for move picker",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/backup/auto-sync/policy/{policy_id}": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "backup-policy"
+                ],
+                "summary": "Get backup policy details",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Policy ID",
+                        "name": "policy_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter linked_jobs",
+                        "name": "search",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "backup-policy"
+                ],
+                "summary": "Update backup policy schedule",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Policy ID",
+                        "name": "policy_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "interval, on, retention_type",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.UpdateBackupAutoSyncPolicySwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "backup-policy"
+                ],
+                "summary": "Delete empty backup policy",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Policy ID (linked_job_count must be 0)",
+                        "name": "policy_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/backup/auto-sync/task/{job_id}/backup-now": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `POST /api/v0/backup/auto-sync/task/{job_id}/backup-now` + "`" + `.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "backup"
+                ],
+                "summary": "Trigger on-demand auto-sync backup",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Auto-sync job ID",
+                        "name": "job_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupAutoSyncBackupNowSwaggerResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
                         }
@@ -1623,6 +2486,118 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal Server Error"
+                    }
+                }
+            }
+        },
+        "/dashboard/alerts": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/dashboard/alerts` + "`" + `. Proxies Backup-Tools ` + "`" + `GET /autosync/dashboard-alerts` + "`" + `. Same payload for Google and Microsoft.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "dashboard"
+                ],
+                "summary": "Dashboard alert cards (common)",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.DashboardAlertsSwaggerResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/dashboard/backup-restore/logs": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/dashboard/backup-restore/logs` + "`" + `. Proxies Backup-Tools ` + "`" + `GET /backup-restore/logs` + "`" + `. Shared for Google and Microsoft.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "dashboard"
+                ],
+                "summary": "Backup and restore logs",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Comma-separated: backup, restore, or both (default backup,restore).",
+                        "name": "types",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Partial match on subject or message.",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Service filter: gmail, google_drive, google_photos, google_contacts, google_calendar, outlook, outlook_calendar, outlook_contacts, outlook_onedrive, outlook_sharepoint, outlook_teams, outlook_groups.",
+                        "name": "method",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "info, warning, or error.",
+                        "name": "message_status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size (default 10, max 100).",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Rows to skip (default 0).",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
                     }
                 }
             }
@@ -1877,57 +2852,13 @@ const docTemplate = `{
             }
         },
         "/google-backup/auto-sync/jobs": {
-            "get": {
-                "security": [
-                    {
-                        "CookieAuth": []
-                    }
-                ],
-                "description": "**Full route:** ` + "`" + `GET /api/v0/google-backup/auto-sync/jobs` + "`" + `. Proxies Backup-Tools ` + "`" + `GET /auto-sync/job` + "`" + ` with session ` + "`" + `token_key` + "`" + `. Single ` + "`" + `filter` + "`" + ` query param = URL-encoded ` + "`" + `AutosyncJobListFilter` + "`" + ` JSON. UI mapping: Service dropdown → ` + "`" + `method` + "`" + ` (gmail, google_drive, google_photos, google_calendar, google_contacts); Active/Inactive → ` + "`" + `active` + "`" + ` (true/false, user toggle); Success/Failed/Running → ` + "`" + `status` + "`" + ` (success, failed, in_progress, in_queue, created — last run, not same as active); Search bar → ` + "`" + `name` + "`" + ` (partial email). No ` + "`" + `search` + "`" + ` param on job list — use ` + "`" + `filter.name` + "`" + `. Mailbox/domain search → ` + "`" + `GET .../users-groups?search=...` + "`" + `. See ` + "`" + `GET .../auto-sync/jobs/filter-schema` + "`" + ` for examples.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "google-backup"
-                ],
-                "summary": "List Google Backup auto-sync jobs",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "example": "%7B%22method%22%3A%22gmail%22%2C%22active%22%3Atrue%2C%22status%22%3A%22failed%22%7D",
-                        "description": "URL-encoded AutosyncJobListFilter JSON. See definitions and GET .../auto-sync/jobs/filter-schema for four examples.",
-                        "name": "filter",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.AutosyncJobListResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    }
-                }
-            },
             "post": {
                 "security": [
                     {
                         "CookieAuth": []
                     }
                 ],
-                "description": "**Route:** ` + "`" + `POST /api/v0/google-backup/auto-sync/jobs` + "`" + `. Satellite enriches the UI payload (tokens, project_id) and POSTs Backup-Tools ` + "`" + `/auto-sync/job` + "`" + `. Omits ` + "`" + `interval` + "`" + `/` + "`" + `on` + "`" + ` when ` + "`" + `policy_id` + "`" + ` is set; schedule validation is handled by Backup-Tools. On success (no failed jobs) sets onboarding to ` + "`" + `GoogleBackupCompleted` + "`" + `.",
+                "description": "**Route:** ` + "`" + `POST /api/v0/google-backup/auto-sync/jobs` + "`" + `. Satellite enriches the UI payload (tokens, project_id) and POSTs Backup-Tools ` + "`" + `/auto-sync/job` + "`" + `. Create still uses ` + "`" + `emails[]` + "`" + `. Optional ` + "`" + `email_org_units` + "`" + ` (email → Google Admin ` + "`" + `org_unit_path` + "`" + `) is forwarded onto each mailbox job as ` + "`" + `input_data.org_unit_path` + "`" + `. Optional ` + "`" + `policy_scope=org_unit` + "`" + ` plus ` + "`" + `org_unit_schedules` + "`" + ` apply schedule/services per OU (top-level ` + "`" + `interval` + "`" + `/` + "`" + `on` + "`" + `/` + "`" + `services` + "`" + ` optional when every OU has ` + "`" + `services` + "`" + `). For ` + "`" + `admin_workspace` + "`" + `, Satellite fills missing paths from domain-users OUs; Backup-Tools Directory lookup is the fallback. Individual Gmail has no path. Omits ` + "`" + `interval` + "`" + `/` + "`" + `on` + "`" + ` when ` + "`" + `policy_id` + "`" + ` is set. On success (no failed jobs) sets onboarding to ` + "`" + `GoogleBackupCompleted` + "`" + `. Create response is Backup-Tools JSON as-is, including ` + "`" + `org_units` + "`" + ` and ` + "`" + `policies` + "`" + ` when present.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1997,857 +2928,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/google-backup/auto-sync/jobs/project": {
-            "put": {
-                "security": [
-                    {
-                        "CookieAuth": []
-                    }
-                ],
-                "description": "**Full route:** ` + "`" + `PUT /api/v0/google-backup/auto-sync/jobs/project` + "`" + `",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "google-backup"
-                ],
-                "summary": "Update Google Backup jobs by project",
-                "parameters": [
-                    {
-                        "description": "Project-scoped update",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.UpdateGoogleBackupAutoSyncJobsByProjectSwaggerRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/google-backup/auto-sync/jobs/services": {
-            "get": {
-                "security": [
-                    {
-                        "CookieAuth": []
-                    }
-                ],
-                "description": "**Full route:** ` + "`" + `GET /api/v0/google-backup/auto-sync/jobs/services` + "`" + `",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "google-backup"
-                ],
-                "summary": "List Google Backup auto-sync service stats",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.GoogleBackupAutoSyncJobServicesSwaggerResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/google-backup/auto-sync/jobs/{job_id}": {
-            "get": {
-                "security": [
-                    {
-                        "CookieAuth": []
-                    }
-                ],
-                "description": "**Full route:** ` + "`" + `GET /api/v0/google-backup/auto-sync/jobs/{job_id}` + "`" + `. Proxies Backup-Tools ` + "`" + `GET /auto-sync/job/{job_id}` + "`" + ` with session ` + "`" + `token_key` + "`" + `. Job is in ` + "`" + `success[0]` + "`" + `.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "google-backup"
-                ],
-                "summary": "Get Google Backup auto-sync job",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Job ID",
-                        "name": "job_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.AutosyncJobDetailResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    }
-                }
-            },
-            "put": {
-                "security": [
-                    {
-                        "CookieAuth": []
-                    }
-                ],
-                "description": "**Full route:** ` + "`" + `PUT /api/v0/google-backup/auto-sync/jobs/{job_id}` + "`" + `. Proxies Backup-Tools ` + "`" + `PUT /auto-sync/job/{job_id}` + "`" + ` with body ` + "`" + `{ \"active\": true|false }` + "`" + ` only.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "google-backup"
-                ],
-                "summary": "Toggle Google Backup auto-sync job active",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Job ID",
-                        "name": "job_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Active toggle",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.UpdateGoogleBackupAutoSyncJobSwaggerRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.AutosyncJobDetailResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/google-backup/auto-sync/live": {
-            "get": {
-                "security": [
-                    {
-                        "CookieAuth": []
-                    }
-                ],
-                "description": "**Full route:** ` + "`" + `GET /api/v0/google-backup/auto-sync/live` + "`" + `",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "google-backup-autosync-live"
-                ],
-                "summary": "Live auto-sync backup progress",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.GoogleBackupAutoSyncLiveSwaggerResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/google-backup/auto-sync/policy": {
-            "get": {
-                "security": [
-                    {
-                        "CookieAuth": []
-                    }
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "google-backup-policy"
-                ],
-                "summary": "List backup policies",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    }
-                }
-            },
-            "post": {
-                "security": [
-                    {
-                        "CookieAuth": []
-                    }
-                ],
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "google-backup-policy"
-                ],
-                "summary": "Create backup policy",
-                "parameters": [
-                    {
-                        "description": "Omit job_ids for empty policy; set job_ids for split or move-to-new",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.CreateGoogleBackupAutoSyncPolicySwaggerRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/google-backup/auto-sync/policy/available-assignments": {
-            "get": {
-                "security": [
-                    {
-                        "CookieAuth": []
-                    }
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "google-backup-policy"
-                ],
-                "summary": "List available assignments for Add Email modal",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Target policy ID.",
-                        "name": "policy_id",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Step 1 — filter mailbox name or email.",
-                        "name": "search",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Step 2 — return services for this mailbox.",
-                        "name": "email",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/google-backup/auto-sync/policy/merge": {
-            "post": {
-                "security": [
-                    {
-                        "CookieAuth": []
-                    }
-                ],
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "google-backup-policy"
-                ],
-                "summary": "Merge duplicate policies into a new policy",
-                "parameters": [
-                    {
-                        "description": "Complete policy_ids from one preview group plus new policy name",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.MergeGoogleBackupAutoSyncPoliciesSwaggerRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/google-backup/auto-sync/policy/merge/preview": {
-            "get": {
-                "security": [
-                    {
-                        "CookieAuth": []
-                    }
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "google-backup-policy"
-                ],
-                "summary": "Preview duplicate policy merge",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/google-backup/auto-sync/policy/move": {
-            "post": {
-                "security": [
-                    {
-                        "CookieAuth": []
-                    }
-                ],
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "google-backup-policy"
-                ],
-                "summary": "Move job assignments to a policy",
-                "parameters": [
-                    {
-                        "description": "target_policy_id and job_ids",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.MoveGoogleBackupAutoSyncPolicyAssignmentsSwaggerRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/google-backup/auto-sync/policy/options": {
-            "get": {
-                "security": [
-                    {
-                        "CookieAuth": []
-                    }
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "google-backup-policy"
-                ],
-                "summary": "List policy options for move picker",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/google-backup/auto-sync/policy/{policy_id}": {
-            "get": {
-                "security": [
-                    {
-                        "CookieAuth": []
-                    }
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "google-backup-policy"
-                ],
-                "summary": "Get backup policy details",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Policy ID",
-                        "name": "policy_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Filter linked_jobs by email, name, method, or service label.",
-                        "name": "search",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    }
-                }
-            },
-            "put": {
-                "security": [
-                    {
-                        "CookieAuth": []
-                    }
-                ],
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "google-backup-policy"
-                ],
-                "summary": "Update backup policy schedule",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Policy ID",
-                        "name": "policy_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "interval, on, retention_type",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.UpdateGoogleBackupAutoSyncPolicySwaggerRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "security": [
-                    {
-                        "CookieAuth": []
-                    }
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "google-backup-policy"
-                ],
-                "summary": "Delete empty backup policy",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Policy ID (linked_job_count must be 0)",
-                        "name": "policy_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/google-backup/auto-sync/task/{job_id}/backup-now": {
-            "post": {
-                "security": [
-                    {
-                        "CookieAuth": []
-                    }
-                ],
-                "description": "**Full route:** ` + "`" + `POST /api/v0/google-backup/auto-sync/task/{job_id}/backup-now` + "`" + `",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "google-backup"
-                ],
-                "summary": "Trigger on-demand auto-sync backup",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Auto-sync job ID",
-                        "name": "job_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.GoogleBackupAutoSyncBackupNowSwaggerResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/google-backup/backup-restore/logs": {
-            "get": {
-                "security": [
-                    {
-                        "CookieAuth": []
-                    }
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "google-backup-logs"
-                ],
-                "summary": "List backup and restore logs",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Comma-separated: backup, restore, or both (default backup,restore).",
-                        "name": "types",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Partial match on subject or message.",
-                        "name": "search",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Exact service filter: gmail, google_drive, google_photos, google_contacts, google_calendar.",
-                        "name": "method",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "info, warning, or error.",
-                        "name": "message_status",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Page size on merged list (default 10, max 100).",
-                        "name": "limit",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Rows to skip (default 0).",
-                        "name": "offset",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
         "/google-backup/connect": {
             "post": {
                 "security": [
@@ -2906,7 +2986,7 @@ const docTemplate = `{
                         "CookieAuth": []
                     }
                 ],
-                "description": "**Route:** ` + "`" + `GET /api/v0/google-backup/domain-users` + "`" + `. Workspace mailboxes for corporate Gmail. Optional ` + "`" + `google_email` + "`" + ` query.",
+                "description": "**Route:** ` + "`" + `GET /api/v0/google-backup/domain-users` + "`" + `. Workspace mailboxes for corporate Gmail. Optional ` + "`" + `google_email` + "`" + ` query. Backup-Tools JSON is forwarded as-is under ` + "`" + `google_backup` + "`" + `, including ` + "`" + `organizational_units[]` + "`" + ` and ` + "`" + `org_units` + "`" + ` (` + "`" + `[\"/\",\"/SAles\"]` + "`" + ` for policy-by-group). Wizard Step 2 should render ` + "`" + `google_backup.organizational_units[]` + "`" + ` (org_unit_path, name, user_count, users[].email/role). Keep ` + "`" + `grouped_emails` + "`" + ` for old clients only; do not build the OU tree from ` + "`" + `connected_emails` + "`" + `. OU paths come from Google Admin Directory (` + "`" + `orgUnitPath` + "`" + `); Satellite does not invent OUs.",
                 "produces": [
                     "application/json"
                 ],
@@ -3814,6 +3894,7 @@ const docTemplate = `{
                         "CookieAuth": []
                     }
                 ],
+                "description": "**Full route:** ` + "`" + `GET /api/v0/google-backup/users-groups` + "`" + `. Same URL. Each entity may include ` + "`" + `org_unit_path` + "`" + ` (omit/empty if unknown; UI shows —). ` + "`" + `org_units` + "`" + ` is the unique-path dropdown. Filter with ` + "`" + `org_unit_path=/SAles` + "`" + `. ` + "`" + `search` + "`" + ` matches mailbox email and OU path. No groups table — path is stored on the mailbox job. Existing domain/account_type/method/credential_status/active/pagination unchanged. Bind ` + "`" + `org_unit_path` + "`" + ` + ` + "`" + `org_units` + "`" + `; keep using ` + "`" + `entities` + "`" + `.",
                 "produces": [
                     "application/json"
                 ],
@@ -3830,7 +3911,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Partial match on mailbox email.",
+                        "description": "Partial match on mailbox email or org_unit_path.",
                         "name": "search",
                         "in": "query"
                     },
@@ -3853,6 +3934,12 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "type": "string",
+                        "description": "Filter by Google Admin OU path (e.g. /SAles). Empty/omit = all.",
+                        "name": "org_unit_path",
+                        "in": "query"
+                    },
+                    {
                         "type": "integer",
                         "description": "Page size (default 10).",
                         "name": "limit",
@@ -3869,7 +3956,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                            "$ref": "#/definitions/consoleapi.GoogleBackupUsersGroupsListSwaggerResponse"
                         }
                     },
                     "400": {
@@ -3880,43 +3967,6 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/google-backup/users-groups/dashboard-alerts": {
-            "get": {
-                "security": [
-                    {
-                        "CookieAuth": []
-                    }
-                ],
-                "description": "**Full route:** ` + "`" + `GET /api/v0/google-backup/users-groups/dashboard-alerts` + "`" + `. Proxies Backup-Tools ` + "`" + `GET /autosync/dashboard-alerts` + "`" + ` with session ` + "`" + `token_key` + "`" + `. UI mapping: Auth Errors → ` + "`" + `re_auth_required` + "`" + `; Paused Backups → ` + "`" + `paused_backups` + "`" + `; New Mailboxes (24h) → ` + "`" + `new_connected_accounts_24h` + "`" + `. Review links: re-auth → ` + "`" + `GET .../users-groups?credential_status=re_auth_required` + "`" + `; paused → ` + "`" + `GET .../users-groups?active=false` + "`" + `; new → sort by ` + "`" + `connected_at` + "`" + ` on users-groups list.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "google-backup-users-groups"
-                ],
-                "summary": "Dashboard alert cards",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.GoogleBackupDashboardAlertsSwaggerResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
                         }
@@ -4227,6 +4277,1075 @@ const docTemplate = `{
                         "description": "Method Not Allowed",
                         "schema": {
                             "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/microsoft-backup/auto-sync/job": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `POST /api/v0/microsoft-backup/auto-sync/job` + "`" + ` (also ` + "`" + `POST .../backup/onboarding/jobs` + "`" + `). Satellite enriches the UI payload (refresh_token, account_type, tenant_id from ` + "`" + `backup_credentials` + "`" + `, project_id, storx_token) and POSTs Backup-Tools ` + "`" + `/microsoft/auto-sync/job` + "`" + `. Do not send ` + "`" + `account_type` + "`" + ` — Satellite injects it. Services: outlook/mail, calendar, contacts, onedrive (` + "`" + `outlook_onedrive` + "`" + `), sharepoint (` + "`" + `outlook_sharepoint` + "`" + ` + ` + "`" + `sites[]` + "`" + `), teams (` + "`" + `outlook_teams` + "`" + ` + ` + "`" + `teams[]` + "`" + ` or ` + "`" + `backup_scope=all_tenant` + "`" + `), groups (` + "`" + `outlook_groups` + "`" + ` + ` + "`" + `groups[]` + "`" + ` or ` + "`" + `backup_scope=all_tenant` + "`" + `). SharePoint, teams, and groups require ` + "`" + `admin_workspace` + "`" + `. On success (no failed jobs) sets onboarding to ` + "`" + `MicrosoftBackupCompleted` + "`" + `.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "microsoft-backup"
+                ],
+                "summary": "Create Microsoft Backup auto-sync jobs",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "daily or one_time (default daily)",
+                        "name": "sync_type",
+                        "in": "query"
+                    },
+                    {
+                        "description": "Job create request",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.CreateMicrosoftBackupAutoSyncJobsSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/microsoft-backup/calendar/events/{calendarId}": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "microsoft-backup-browse"
+                ],
+                "summary": "Browse Microsoft calendar events",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Calendar ID",
+                        "name": "calendarId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Microsoft OAuth refresh token",
+                        "name": "REFRESH_TOKEN",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Microsoft OAuth refresh token (fallback)",
+                        "name": "refresh_token",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/microsoft-backup/calendar/list": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "microsoft-backup-browse"
+                ],
+                "summary": "Browse Microsoft calendars",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Microsoft OAuth refresh token",
+                        "name": "REFRESH_TOKEN",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Microsoft OAuth refresh token (fallback)",
+                        "name": "refresh_token",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/microsoft-backup/connect": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `POST /api/v0/microsoft-backup/connect` + "`" + `. Same pattern as ` + "`" + `POST /google-backup/connect` + "`" + `. Body: Microsoft OAuth ` + "`" + `code` + "`" + ` only (from UI-built authorize URL); ` + "`" + `redirect_uri` + "`" + ` is derived server-side from request Host. Requires real refresh_token. Returns ` + "`" + `email` + "`" + `, ` + "`" + `account_type` + "`" + `, and ` + "`" + `has_refresh_token` + "`" + `. Tokens stored server-side only.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "microsoft-backup"
+                ],
+                "summary": "Connect Microsoft account for backup",
+                "parameters": [
+                    {
+                        "description": "OAuth authorization code",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.MicrosoftBackupConnectSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.MicrosoftBackupConnectSwaggerResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/microsoft-backup/contacts/list": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "microsoft-backup-browse"
+                ],
+                "summary": "Browse Microsoft contacts",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Microsoft OAuth refresh token",
+                        "name": "REFRESH_TOKEN",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Microsoft OAuth refresh token (fallback)",
+                        "name": "refresh_token",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/microsoft-backup/domain-users": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `GET /api/v0/microsoft-backup/domain-users` + "`" + ` (also ` + "`" + `.../outlook/corporate/domain-users` + "`" + `). Uses refresh_token from ` + "`" + `backup_credentials` + "`" + ` when ` + "`" + `REFRESH_TOKEN` + "`" + ` header is omitted. Returns Backup-Tools JSON under ` + "`" + `microsoft_backup` + "`" + ` and updates ` + "`" + `account_type` + "`" + ` when present.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "microsoft-backup"
+                ],
+                "summary": "Microsoft corporate domain users",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Microsoft mailbox email (defaults to stored credential)",
+                        "name": "microsoft_email",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Optional override; prefer DB injection",
+                        "name": "REFRESH_TOKEN",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Optional override",
+                        "name": "refresh_token",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.MicrosoftBackupDomainUsersSwaggerResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/microsoft-backup/groups/flat-conversations": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `GET /api/v0/microsoft-backup/groups/flat-conversations` + "`" + `. Requires ` + "`" + `group_id` + "`" + `. Query: ` + "`" + `skip` + "`" + `, ` + "`" + `top` + "`" + `.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "microsoft-backup-browse"
+                ],
+                "summary": "Browse M365 Group conversations (admin)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Microsoft 365 group ID",
+                        "name": "group_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Rows to skip",
+                        "name": "skip",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size (default 50)",
+                        "name": "top",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/microsoft-backup/groups/list": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `GET /api/v0/microsoft-backup/groups/list` + "`" + `. Admin group picker for ` + "`" + `outlook_groups` + "`" + ` jobs. Uses stored refresh_token when ` + "`" + `REFRESH_TOKEN` + "`" + ` header omitted. Query: ` + "`" + `search` + "`" + `, ` + "`" + `top` + "`" + `.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "microsoft-backup-browse"
+                ],
+                "summary": "List Microsoft 365 Groups (admin)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter groups by name",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size (default 50)",
+                        "name": "top",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/microsoft-backup/query-messages": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "microsoft-backup-browse"
+                ],
+                "summary": "Browse Microsoft Outlook messages",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Microsoft OAuth refresh token",
+                        "name": "REFRESH_TOKEN",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Microsoft OAuth refresh token (fallback)",
+                        "name": "refresh_token",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/microsoft-backup/sharepoint/flat-files": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `GET /api/v0/microsoft-backup/sharepoint/flat-files` + "`" + `. Requires ` + "`" + `drive_id` + "`" + `. Query: ` + "`" + `skip` + "`" + `, ` + "`" + `top` + "`" + `.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "microsoft-backup-browse"
+                ],
+                "summary": "Browse SharePoint files (admin)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "SharePoint document library drive id",
+                        "name": "drive_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Rows to skip",
+                        "name": "skip",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size (default 50)",
+                        "name": "top",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/microsoft-backup/sharepoint/sites": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `GET /api/v0/microsoft-backup/sharepoint/sites` + "`" + `. Admin org picker. Uses stored refresh_token when ` + "`" + `REFRESH_TOKEN` + "`" + ` header omitted. Query: ` + "`" + `search` + "`" + `, ` + "`" + `top` + "`" + `. Requires ` + "`" + `Sites.Read.All` + "`" + ` (reconnect after scope add).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "microsoft-backup-browse"
+                ],
+                "summary": "List SharePoint sites (admin)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter sites by name",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size (default 50)",
+                        "name": "top",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/microsoft-backup/teams/channels": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `GET /api/v0/microsoft-backup/teams/channels` + "`" + `. Requires ` + "`" + `team_id` + "`" + ` query param.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "microsoft-backup-browse"
+                ],
+                "summary": "List Teams channels (admin)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Microsoft Teams team ID",
+                        "name": "team_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/microsoft-backup/teams/flat-messages": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `GET /api/v0/microsoft-backup/teams/flat-messages` + "`" + `. Requires ` + "`" + `team_id` + "`" + ` and ` + "`" + `channel_id` + "`" + `. Query: ` + "`" + `skip` + "`" + `, ` + "`" + `top` + "`" + `.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "microsoft-backup-browse"
+                ],
+                "summary": "Browse Teams channel messages (admin)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Microsoft Teams team ID",
+                        "name": "team_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Channel ID within the team",
+                        "name": "channel_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Rows to skip",
+                        "name": "skip",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size (default 50)",
+                        "name": "top",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/microsoft-backup/teams/list": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "**Route:** ` + "`" + `GET /api/v0/microsoft-backup/teams/list` + "`" + `. Admin team picker for ` + "`" + `outlook_teams` + "`" + ` jobs. Uses stored refresh_token when ` + "`" + `REFRESH_TOKEN` + "`" + ` header omitted. Query: ` + "`" + `search` + "`" + `, ` + "`" + `top` + "`" + `. Requires Teams Graph scopes (reconnect after scope add).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "microsoft-backup-browse"
+                ],
+                "summary": "List Microsoft Teams (admin)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter teams by name",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size (default 50)",
+                        "name": "top",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/microsoft-backup/users-groups": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "Filter method: outlook, outlook_calendar, outlook_contacts, outlook_onedrive, outlook_sharepoint, outlook_teams, outlook_groups, or all. Response includes ` + "`" + `organization_resources` + "`" + ` with ` + "`" + `sharepoint_sites` + "`" + `, ` + "`" + `teams` + "`" + `, and ` + "`" + `groups` + "`" + ` (admin_workspace).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "microsoft-backup-users-groups"
+                ],
+                "summary": "List Microsoft Users \u0026 Groups mailboxes",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter by domain",
+                        "name": "domain",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Partial email match",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "outlook, outlook_calendar, outlook_contacts, outlook_onedrive, outlook_sharepoint, outlook_teams, outlook_groups, all",
+                        "name": "method",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "corporate, individual, all",
+                        "name": "account_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Same as Google credential_status",
+                        "name": "credential_status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Filter by active",
+                        "name": "active",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/microsoft-backup/users-groups/domains": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "microsoft-backup-users-groups"
+                ],
+                "summary": "List Microsoft Users \u0026 Groups domains",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/microsoft-backup/users-groups/jobs/active": {
+            "put": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "microsoft-backup-users-groups"
+                ],
+                "summary": "Bulk pause or resume Microsoft jobs",
+                "parameters": [
+                    {
+                        "description": "job_ids and active",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.MicrosoftBackupUsersGroupsJobsActiveSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/microsoft-backup/users-groups/mailbox/credentials": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "microsoft-backup-users-groups"
+                ],
+                "summary": "Microsoft mailbox credentials tab",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Mailbox email",
+                        "name": "email",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/microsoft-backup/users-groups/mailbox/overview": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "microsoft-backup-users-groups"
+                ],
+                "summary": "Microsoft mailbox overview tab",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Mailbox email",
+                        "name": "email",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/microsoft-backup/users-groups/mailbox/schedule": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "microsoft-backup-users-groups"
+                ],
+                "summary": "Microsoft mailbox schedule tab",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Mailbox email",
+                        "name": "email",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/microsoft-backup/users-groups/mailbox/services": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "microsoft-backup-users-groups"
+                ],
+                "summary": "Microsoft mailbox services tab",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Mailbox email",
+                        "name": "email",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
                         }
                     }
                 }
@@ -5253,6 +6372,79 @@ const docTemplate = `{
                     },
                     "402": {
                         "description": "Payment Required",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{id}/invites": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "CSRFAuth": []
+                    }
+                ],
+                "description": "**Full route:** ` + "`" + `POST /api/v0/projects/{id}/invites` + "`" + `",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "member-bucket-restriction"
+                ],
+                "summary": "[4] Invite multiple members (one-by-one)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Invites with vaults",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BulkInviteProjectMembersSwaggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.BulkInviteProjectMembersSwaggerResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
                             "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
                         }
@@ -8943,6 +10135,134 @@ const docTemplate = `{
                 }
             }
         },
+        "consoleapi.BackupAutoSyncBackupNowSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/consoleapi.BackupAutoSyncBackupNowTaskSwagger"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "consoleapi.BackupAutoSyncBackupNowTaskSwagger": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string",
+                    "example": "2026-01-01T00:00:00Z"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "task-789"
+                },
+                "job_id": {
+                    "type": "string",
+                    "example": "job-456"
+                },
+                "status": {
+                    "type": "string",
+                    "example": "queued"
+                },
+                "trigger": {
+                    "type": "string",
+                    "example": "on_demand"
+                }
+            }
+        },
+        "consoleapi.BackupAutoSyncJobServiceStatsSwagger": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "integer",
+                    "example": 4
+                },
+                "count": {
+                    "type": "integer",
+                    "example": 5
+                },
+                "service": {
+                    "type": "string",
+                    "example": "gmail"
+                }
+            }
+        },
+        "consoleapi.BackupAutoSyncJobServicesSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.BackupAutoSyncJobServiceStatsSwagger"
+                    }
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "consoleapi.BackupAutoSyncLiveJobSwagger": {
+            "type": "object",
+            "properties": {
+                "backup_status": {
+                    "type": "string",
+                    "example": "running"
+                },
+                "email": {
+                    "type": "string",
+                    "example": "user@gmail.com"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "job-456"
+                },
+                "method": {
+                    "type": "string",
+                    "example": "gmail"
+                },
+                "tasks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.BackupAutoSyncLiveTaskSwagger"
+                    }
+                }
+            }
+        },
+        "consoleapi.BackupAutoSyncLiveSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.BackupAutoSyncLiveJobSwagger"
+                    }
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "consoleapi.BackupAutoSyncLiveTaskSwagger": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "example": "task-123"
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "running",
+                        "failed"
+                    ],
+                    "example": "running"
+                }
+            }
+        },
         "consoleapi.BackupToolsJSONResponse": {
             "type": "object",
             "additionalProperties": true
@@ -9031,6 +10351,64 @@ const docTemplate = `{
                 }
             }
         },
+        "consoleapi.BulkInviteProjectMemberSwaggerItem": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "example": "alice@example.com"
+                },
+                "vaults": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "gmail",
+                        "google-drive"
+                    ]
+                }
+            }
+        },
+        "consoleapi.BulkInviteProjectMemberSwaggerResult": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "example": "alice@example.com"
+                },
+                "error": {
+                    "type": "string",
+                    "example": ""
+                },
+                "ok": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "consoleapi.BulkInviteProjectMembersSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "invites": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.BulkInviteProjectMemberSwaggerItem"
+                    }
+                }
+            }
+        },
+        "consoleapi.BulkInviteProjectMembersSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "results": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.BulkInviteProjectMemberSwaggerResult"
+                    }
+                }
+            }
+        },
         "consoleapi.CheckUploadSwaggerRequest": {
             "type": "object",
             "required": [
@@ -9114,95 +10492,7 @@ const docTemplate = `{
                 }
             }
         },
-        "consoleapi.CreateGoogleBackupAutoSyncJobsSwaggerRequest": {
-            "type": "object",
-            "properties": {
-                "emails": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "example": [
-                        "billing@salestalker.com",
-                        "support@salestalker.com"
-                    ]
-                },
-                "interval": {
-                    "type": "string",
-                    "example": "6h"
-                },
-                "on": {
-                    "type": "string",
-                    "example": "12am"
-                },
-                "policy_id": {
-                    "type": "integer",
-                    "example": 50
-                },
-                "policy_name": {
-                    "type": "string",
-                    "example": "New team policy"
-                },
-                "services": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "example": [
-                        "gmail",
-                        "drive"
-                    ]
-                },
-                "email_org_units": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
-                },
-                "account_type": {
-                    "type": "string",
-                    "example": "admin_workspace"
-                },
-                "policy_scope": {
-                    "type": "string",
-                    "example": "org_unit"
-                },
-                "org_unit_schedules": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "$ref": "#/definitions/consoleapi.GoogleBackupOrgUnitScheduleSwagger"
-                    }
-                }
-            }
-        },
-        "consoleapi.GoogleBackupOrgUnitScheduleSwagger": {
-            "type": "object",
-            "properties": {
-                "policy_name": {
-                    "type": "string",
-                    "example": "SAles"
-                },
-                "interval": {
-                    "type": "string",
-                    "example": "daily"
-                },
-                "on": {
-                    "type": "string",
-                    "example": "12am"
-                },
-                "services": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "example": [
-                        "gmail",
-                        "drive"
-                    ]
-                }
-            }
-        },
-        "consoleapi.CreateGoogleBackupAutoSyncPolicySwaggerRequest": {
+        "consoleapi.CreateBackupAutoSyncPolicySwaggerRequest": {
             "type": "object",
             "required": [
                 "interval",
@@ -9252,6 +10542,171 @@ const docTemplate = `{
                 }
             }
         },
+        "consoleapi.CreateGoogleBackupAutoSyncJobsSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "account_type": {
+                    "type": "string",
+                    "example": "admin_workspace"
+                },
+                "email_org_units": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    },
+                    "example": {
+                        "billing@salestalker.com": "/",
+                        "support@salestalker.com": "/SAles"
+                    }
+                },
+                "emails": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "billing@salestalker.com",
+                        "support@salestalker.com"
+                    ]
+                },
+                "interval": {
+                    "type": "string",
+                    "example": "6h"
+                },
+                "on": {
+                    "type": "string",
+                    "example": "12am"
+                },
+                "org_unit_schedules": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/consoleapi.GoogleBackupOrgUnitScheduleSwagger"
+                    }
+                },
+                "policy_id": {
+                    "type": "integer",
+                    "example": 50
+                },
+                "policy_name": {
+                    "type": "string",
+                    "example": "New team policy"
+                },
+                "policy_scope": {
+                    "type": "string",
+                    "example": "org_unit"
+                },
+                "services": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "gmail",
+                        "drive"
+                    ]
+                }
+            }
+        },
+        "consoleapi.CreateMicrosoftBackupAutoSyncJobsSwaggerRequest": {
+            "type": "object",
+            "required": [
+                "services"
+            ],
+            "properties": {
+                "backup_scope": {
+                    "type": "string",
+                    "example": "all_tenant"
+                },
+                "emails": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "user@contoso.com"
+                    ]
+                },
+                "groups": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.GroupsOnboardingSwaggerInput"
+                    }
+                },
+                "interval": {
+                    "type": "string",
+                    "example": "daily"
+                },
+                "microsoft_email": {
+                    "type": "string",
+                    "example": "user@contoso.com"
+                },
+                "on": {
+                    "type": "string",
+                    "example": "12am"
+                },
+                "policy_id": {
+                    "type": "integer"
+                },
+                "policy_name": {
+                    "type": "string",
+                    "example": "Outlook defaults"
+                },
+                "project_id": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000001"
+                },
+                "refresh_token": {
+                    "type": "string"
+                },
+                "satellite_user_id": {
+                    "type": "string"
+                },
+                "services": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "outlook",
+                        "calendar",
+                        "contacts",
+                        "onedrive",
+                        "sharepoint",
+                        "teams",
+                        "groups"
+                    ]
+                },
+                "sites": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.SharePointSiteSwaggerInput"
+                    }
+                },
+                "storx_token": {
+                    "type": "string"
+                },
+                "teams": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.TeamsOnboardingSwaggerInput"
+                    }
+                }
+            }
+        },
+        "consoleapi.DashboardAlertsSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "new_connected_accounts_24h": {
+                    "$ref": "#/definitions/consoleapi.GoogleBackupDashboardAlertSectionSwagger"
+                },
+                "paused_backups": {
+                    "$ref": "#/definitions/consoleapi.GoogleBackupDashboardAlertSectionSwagger"
+                },
+                "re_auth_required": {
+                    "$ref": "#/definitions/consoleapi.GoogleBackupDashboardAlertSectionSwagger"
+                }
+            }
+        },
         "consoleapi.DashboardButtonSwagger": {
             "type": "object",
             "properties": {
@@ -9298,7 +10753,7 @@ const docTemplate = `{
                 },
                 "description": {
                     "type": "string",
-                    "example": "Google accounts with backup enabled"
+                    "example": "Microsoft accounts with backup enabled"
                 },
                 "icon": {
                     "$ref": "#/definitions/consoleapi.DashboardIconSwagger"
@@ -9574,168 +11029,6 @@ const docTemplate = `{
                 }
             }
         },
-        "consoleapi.GoogleBackupAutoSyncBackupNowSwaggerResponse": {
-            "type": "object",
-            "properties": {
-                "data": {
-                    "$ref": "#/definitions/consoleapi.GoogleBackupAutoSyncBackupNowTaskSwagger"
-                },
-                "message": {
-                    "type": "string",
-                    "example": "On-demand backup queued successfully"
-                }
-            }
-        },
-        "consoleapi.GoogleBackupAutoSyncBackupNowTaskSwagger": {
-            "type": "object",
-            "properties": {
-                "cron_job_id": {
-                    "type": "integer",
-                    "example": 123
-                },
-                "id": {
-                    "type": "integer",
-                    "example": 456
-                },
-                "message": {
-                    "type": "string",
-                    "example": ""
-                },
-                "retry_count": {
-                    "type": "integer",
-                    "example": 0
-                },
-                "status": {
-                    "type": "string",
-                    "enum": [
-                        "pushed",
-                        "running",
-                        "success",
-                        "failed"
-                    ],
-                    "example": "pushed"
-                },
-                "trigger": {
-                    "type": "string",
-                    "enum": [
-                        "on_demand",
-                        "scheduled"
-                    ],
-                    "example": "on_demand"
-                }
-            }
-        },
-        "consoleapi.GoogleBackupAutoSyncJobServiceStatsSwagger": {
-            "type": "object",
-            "properties": {
-                "active_jobs": {
-                    "type": "integer",
-                    "example": 3
-                },
-                "deactive_jobs": {
-                    "type": "integer",
-                    "example": 1
-                },
-                "method": {
-                    "type": "string",
-                    "example": "gmail"
-                },
-                "total_jobs": {
-                    "type": "integer",
-                    "example": 4
-                }
-            }
-        },
-        "consoleapi.GoogleBackupAutoSyncJobServicesSwaggerResponse": {
-            "type": "object",
-            "properties": {
-                "message": {
-                    "type": "string",
-                    "example": "Connected autosync services"
-                },
-                "services": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/consoleapi.GoogleBackupAutoSyncJobServiceStatsSwagger"
-                    }
-                }
-            }
-        },
-        "consoleapi.GoogleBackupAutoSyncLiveJobSwagger": {
-            "type": "object",
-            "properties": {
-                "id": {
-                    "type": "integer",
-                    "example": 12
-                },
-                "message": {
-                    "type": "string",
-                    "example": "Backup in progress..."
-                },
-                "message_status": {
-                    "type": "string",
-                    "enum": [
-                        "info",
-                        "warning",
-                        "error"
-                    ],
-                    "example": "info"
-                },
-                "method": {
-                    "type": "string",
-                    "enum": [
-                        "gmail",
-                        "google_drive",
-                        "google_photos",
-                        "google_contacts",
-                        "google_calendar"
-                    ],
-                    "example": "gmail"
-                },
-                "name": {
-                    "type": "string",
-                    "example": "user@example.com"
-                },
-                "tasks": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/consoleapi.GoogleBackupAutoSyncLiveTaskSwagger"
-                    }
-                }
-            }
-        },
-        "consoleapi.GoogleBackupAutoSyncLiveSwaggerResponse": {
-            "type": "object",
-            "properties": {
-                "data": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/consoleapi.GoogleBackupAutoSyncLiveJobSwagger"
-                    }
-                },
-                "message": {
-                    "type": "string",
-                    "example": "Active Automatic Backup Accounts List"
-                }
-            }
-        },
-        "consoleapi.GoogleBackupAutoSyncLiveTaskSwagger": {
-            "type": "object",
-            "properties": {
-                "start_time": {
-                    "type": "string",
-                    "example": "2026-06-17T10:30:00Z"
-                },
-                "status": {
-                    "type": "string",
-                    "enum": [
-                        "running",
-                        "failed"
-                    ],
-                    "example": "running"
-                }
-            }
-        },
         "consoleapi.GoogleBackupConnectSwaggerRequest": {
             "type": "object",
             "required": [
@@ -9780,20 +11073,6 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/consoleapi.GoogleBackupDashboardMailboxSwagger"
                     }
-                }
-            }
-        },
-        "consoleapi.GoogleBackupDashboardAlertsSwaggerResponse": {
-            "type": "object",
-            "properties": {
-                "new_connected_accounts_24h": {
-                    "$ref": "#/definitions/consoleapi.GoogleBackupDashboardAlertSectionSwagger"
-                },
-                "paused_backups": {
-                    "$ref": "#/definitions/consoleapi.GoogleBackupDashboardAlertSectionSwagger"
-                },
-                "re_auth_required": {
-                    "$ref": "#/definitions/consoleapi.GoogleBackupDashboardAlertSectionSwagger"
                 }
             }
         },
@@ -9876,11 +11155,63 @@ const docTemplate = `{
                 }
             }
         },
+        "consoleapi.GoogleBackupDomainUsersPayload": {
+            "type": "object",
+            "properties": {
+                "account": {
+                    "type": "string",
+                    "example": "sales@salestalker.com"
+                },
+                "account_type": {
+                    "type": "string",
+                    "enum": [
+                        "personal",
+                        "employee_workspace",
+                        "admin_workspace"
+                    ],
+                    "example": "admin_workspace"
+                },
+                "count": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "domain_users_error": {
+                    "type": "string"
+                },
+                "grouped_emails": {
+                    "type": "object"
+                },
+                "mailbox_count": {
+                    "type": "integer",
+                    "example": 3
+                },
+                "org_units": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "/",
+                        "/SAles"
+                    ]
+                },
+                "organizational_units": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.GoogleBackupOrganizationalUnit"
+                    }
+                },
+                "ou_count": {
+                    "type": "integer",
+                    "example": 3
+                }
+            }
+        },
         "consoleapi.GoogleBackupDomainUsersSwaggerResponse": {
             "type": "object",
             "properties": {
                 "google_backup": {
-                    "type": "object"
+                    "$ref": "#/definitions/consoleapi.GoogleBackupDomainUsersPayload"
                 },
                 "success": {
                     "type": "boolean",
@@ -9937,6 +11268,85 @@ const docTemplate = `{
                 }
             }
         },
+        "consoleapi.GoogleBackupOrgUnitScheduleSwagger": {
+            "type": "object",
+            "properties": {
+                "interval": {
+                    "type": "string",
+                    "example": "daily"
+                },
+                "on": {
+                    "type": "string",
+                    "example": "12am"
+                },
+                "policy_name": {
+                    "type": "string",
+                    "example": "SAles"
+                },
+                "services": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "gmail",
+                        "drive"
+                    ]
+                }
+            }
+        },
+        "consoleapi.GoogleBackupOrganizationalUnit": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "example": "Customer Support"
+                },
+                "org_unit_path": {
+                    "type": "string",
+                    "example": "/Customer Support"
+                },
+                "user_count": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "users": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.GoogleBackupOrganizationalUnitUser"
+                    }
+                }
+            }
+        },
+        "consoleapi.GoogleBackupOrganizationalUnitUser": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "example": "support@salestalker.com"
+                },
+                "is_admin": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "is_delegated_admin": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "org_unit_path": {
+                    "type": "string",
+                    "example": "/Customer Support"
+                },
+                "role": {
+                    "type": "string",
+                    "enum": [
+                        "admin",
+                        "user"
+                    ],
+                    "example": "user"
+                }
+            }
+        },
         "consoleapi.GoogleBackupRestoreAllSwaggerRequest": {
             "type": "object",
             "required": [
@@ -9970,6 +11380,48 @@ const docTemplate = `{
                 }
             }
         },
+        "consoleapi.GoogleBackupUsersGroupsEntitySwagger": {
+            "type": "object",
+            "properties": {
+                "account_type": {
+                    "type": "string",
+                    "enum": [
+                        "corporate",
+                        "individual"
+                    ],
+                    "example": "corporate"
+                },
+                "credential": {
+                    "$ref": "#/definitions/consoleapi.GoogleBackupDashboardCredentialSwagger"
+                },
+                "credential_status": {
+                    "type": "string",
+                    "enum": [
+                        "healthy",
+                        "re_auth_required"
+                    ],
+                    "example": "healthy"
+                },
+                "email": {
+                    "type": "string",
+                    "example": "billing@salestalker.com"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "billing"
+                },
+                "org_unit_path": {
+                    "type": "string",
+                    "example": "/"
+                },
+                "services": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.GoogleBackupDashboardServiceSwagger"
+                    }
+                }
+            }
+        },
         "consoleapi.GoogleBackupUsersGroupsJobsActiveSwaggerRequest": {
             "type": "object",
             "required": [
@@ -9991,6 +11443,68 @@ const docTemplate = `{
                         13,
                         14
                     ]
+                }
+            }
+        },
+        "consoleapi.GoogleBackupUsersGroupsListSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "entities": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consoleapi.GoogleBackupUsersGroupsEntitySwagger"
+                    }
+                },
+                "org_units": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "/",
+                        "/SAles"
+                    ]
+                },
+                "pagination": {
+                    "$ref": "#/definitions/consoleapi.GoogleBackupUsersGroupsPaginationSwagger"
+                }
+            }
+        },
+        "consoleapi.GoogleBackupUsersGroupsPaginationSwagger": {
+            "type": "object",
+            "properties": {
+                "limit": {
+                    "type": "integer",
+                    "example": 10
+                },
+                "offset": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "page": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "total_count": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "total_pages": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "consoleapi.GroupsOnboardingSwaggerInput": {
+            "type": "object",
+            "properties": {
+                "group_id": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000002"
+                },
+                "group_name": {
+                    "type": "string",
+                    "example": "HR Team"
                 }
             }
         },
@@ -10044,6 +11558,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "allowDelete": {
+                    "description": "ignored",
                     "type": "boolean",
                     "example": false
                 },
@@ -10056,6 +11571,7 @@ const docTemplate = `{
                     "example": true
                 },
                 "allowUpload": {
+                    "description": "ignored",
                     "type": "boolean",
                     "example": false
                 },
@@ -10073,6 +11589,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "allowDelete": {
+                    "description": "always false; unsupported",
                     "type": "boolean",
                     "example": false
                 },
@@ -10085,6 +11602,7 @@ const docTemplate = `{
                     "example": true
                 },
                 "allowUpload": {
+                    "description": "always false; unsupported",
                     "type": "boolean",
                     "example": false
                 },
@@ -10120,7 +11638,7 @@ const docTemplate = `{
                 }
             }
         },
-        "consoleapi.MergeGoogleBackupAutoSyncPoliciesSwaggerRequest": {
+        "consoleapi.MergeBackupAutoSyncPoliciesSwaggerRequest": {
             "type": "object",
             "required": [
                 "name",
@@ -10144,7 +11662,137 @@ const docTemplate = `{
                 }
             }
         },
-        "consoleapi.MoveGoogleBackupAutoSyncPolicyAssignmentsSwaggerRequest": {
+        "consoleapi.MicrosoftBackupAuthError": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": "Error getting token from Microsoft!"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": false
+                }
+            }
+        },
+        "consoleapi.MicrosoftBackupAuthSuccess": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": [
+                        "registered",
+                        "logged_in"
+                    ],
+                    "example": "logged_in"
+                },
+                "microsoft_backup": {
+                    "type": "object"
+                },
+                "onboarding": {
+                    "$ref": "#/definitions/consoleapi.MicrosoftBackupOnboardingSwagger"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "token": {
+                    "type": "string",
+                    "example": "..."
+                }
+            }
+        },
+        "consoleapi.MicrosoftBackupConnectSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "example": "0.AXo..."
+                }
+            }
+        },
+        "consoleapi.MicrosoftBackupConnectSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "created": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "has_refresh_token": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "microsoft_backup": {
+                    "type": "object"
+                },
+                "microsoft_email": {
+                    "type": "string",
+                    "example": "user@contoso.com"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "consoleapi.MicrosoftBackupDomainUsersSwaggerResponse": {
+            "type": "object",
+            "properties": {
+                "microsoft_backup": {
+                    "type": "object"
+                }
+            }
+        },
+        "consoleapi.MicrosoftBackupOnboardingSwagger": {
+            "type": "object",
+            "properties": {
+                "onboardingEnd": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "onboardingStart": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "onboardingStep": {
+                    "type": "string",
+                    "example": "MicrosoftBackupPending"
+                },
+                "onboarding_status": {
+                    "type": "string",
+                    "enum": [
+                        "pending",
+                        "in_progress",
+                        "completed"
+                    ],
+                    "example": "pending"
+                }
+            }
+        },
+        "consoleapi.MicrosoftBackupUsersGroupsJobsActiveSwaggerRequest": {
+            "type": "object",
+            "required": [
+                "active",
+                "job_ids"
+            ],
+            "properties": {
+                "active": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "job_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    },
+                    "example": [
+                        101,
+                        102
+                    ]
+                }
+            }
+        },
+        "consoleapi.MoveBackupAutoSyncPolicyAssignmentsSwaggerRequest": {
             "type": "object",
             "required": [
                 "job_ids",
@@ -10859,7 +12507,7 @@ const docTemplate = `{
                 },
                 "bucketName": {
                     "type": "string",
-                    "example": "gmail"
+                    "example": "outlook"
                 },
                 "createdAt": {
                     "type": "string",
@@ -11564,12 +13212,44 @@ const docTemplate = `{
                 }
             }
         },
+        "consoleapi.SharePointSiteSwaggerInput": {
+            "type": "object",
+            "properties": {
+                "site_id": {
+                    "type": "string",
+                    "example": "contoso.sharepoint.com,abc123,def456"
+                },
+                "site_url": {
+                    "type": "string",
+                    "example": "https://contoso.sharepoint.com/sites/HR"
+                }
+            }
+        },
         "consoleapi.SwaggerErrorResponse": {
             "type": "object",
             "properties": {
                 "error": {
                     "type": "string",
                     "example": "request validation failed"
+                }
+            }
+        },
+        "consoleapi.TeamsOnboardingSwaggerInput": {
+            "type": "object",
+            "properties": {
+                "channel_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "team_id": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000001"
+                },
+                "team_name": {
+                    "type": "string",
+                    "example": "Engineering"
                 }
             }
         },
@@ -11618,6 +13298,98 @@ const docTemplate = `{
                 }
             }
         },
+        "consoleapi.UpdateBackupAutoSyncJobSwaggerRequest": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "apply_storx_to_all_linked_accounts": {
+                    "type": "boolean"
+                },
+                "refresh_token": {
+                    "type": "string"
+                },
+                "storx_token": {
+                    "type": "string"
+                }
+            }
+        },
+        "consoleapi.UpdateBackupAutoSyncJobsByProjectSwaggerRequest": {
+            "type": "object",
+            "required": [
+                "project_id"
+            ],
+            "properties": {
+                "active": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "code": {
+                    "type": "string",
+                    "example": ""
+                },
+                "credential_id": {
+                    "type": "integer",
+                    "example": 12
+                },
+                "google_email": {
+                    "type": "string",
+                    "example": "user@gmail.com"
+                },
+                "microsoft_email": {
+                    "type": "string",
+                    "example": "user@contoso.com"
+                },
+                "project_id": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
+                },
+                "refresh_token": {
+                    "type": "string",
+                    "example": "\u003coauth refresh token\u003e"
+                },
+                "storx_token": {
+                    "type": "string",
+                    "example": "\u003cstorx access grant\u003e"
+                }
+            }
+        },
+        "consoleapi.UpdateBackupAutoSyncPolicySwaggerRequest": {
+            "type": "object",
+            "required": [
+                "interval",
+                "retention_type"
+            ],
+            "properties": {
+                "interval": {
+                    "type": "string",
+                    "enum": [
+                        "3h",
+                        "12h",
+                        "daily",
+                        "weekly",
+                        "monthly"
+                    ],
+                    "example": "3h"
+                },
+                "on": {
+                    "type": "string",
+                    "example": ""
+                },
+                "retention_type": {
+                    "type": "string",
+                    "enum": [
+                        "never",
+                        "30_days",
+                        "1_year",
+                        "7_years"
+                    ],
+                    "example": "never"
+                }
+            }
+        },
         "consoleapi.UpdateFCMTokenSwaggerRequest": {
             "type": "object",
             "properties": {
@@ -11661,85 +13433,6 @@ const docTemplate = `{
                 "userAgent": {
                     "type": "string",
                     "example": "Mozilla/5.0 ..."
-                }
-            }
-        },
-        "consoleapi.UpdateGoogleBackupAutoSyncJobSwaggerRequest": {
-            "type": "object",
-            "required": [
-                "active"
-            ],
-            "properties": {
-                "active": {
-                    "type": "boolean",
-                    "example": true
-                }
-            }
-        },
-        "consoleapi.UpdateGoogleBackupAutoSyncJobsByProjectSwaggerRequest": {
-            "type": "object",
-            "required": [
-                "google_email",
-                "project_id"
-            ],
-            "properties": {
-                "active": {
-                    "type": "boolean",
-                    "example": true
-                },
-                "code": {
-                    "type": "string",
-                    "example": ""
-                },
-                "google_email": {
-                    "type": "string",
-                    "example": "user@gmail.com"
-                },
-                "project_id": {
-                    "type": "string",
-                    "example": "00000000-0000-0000-0000-000000000000"
-                },
-                "refresh_token": {
-                    "type": "string",
-                    "example": "\u003cgoogle refresh token\u003e"
-                },
-                "storx_token": {
-                    "type": "string",
-                    "example": "\u003cstorx access grant\u003e"
-                }
-            }
-        },
-        "consoleapi.UpdateGoogleBackupAutoSyncPolicySwaggerRequest": {
-            "type": "object",
-            "required": [
-                "interval",
-                "retention_type"
-            ],
-            "properties": {
-                "interval": {
-                    "type": "string",
-                    "enum": [
-                        "3h",
-                        "12h",
-                        "daily",
-                        "weekly",
-                        "monthly"
-                    ],
-                    "example": "3h"
-                },
-                "on": {
-                    "type": "string",
-                    "example": ""
-                },
-                "retention_type": {
-                    "type": "string",
-                    "enum": [
-                        "never",
-                        "30_days",
-                        "1_year",
-                        "7_years"
-                    ],
-                    "example": "never"
                 }
             }
         },
@@ -13169,7 +14862,7 @@ const docTemplate = `{
             "name": "projects"
         },
         {
-            "description": "Member bucket \u0026 folder restriction — ALL invite/member/ACL APIs in one place. Flag: console.member-bucket-grants-enabled (default OFF). OFF = existing one-user/project access unchanged. ON = Owner/Admin full access; Member only grant rows (bucket+prefix+perms). Test order: (1) CookieAuth+CSRF (2) create/ensure bucket (3) POST member-acl-buckets (4) POST invite/{email} (omit body = defaults email/ List+Download) (5) GET members (6) invitee GET invitations + POST respond response=1 (7) GET/PUT members/{id}/bucket-grants (8) PATCH role / DELETE / reinvite / invite-link. Prefix must end with /. PUT grants:[] clears Member access + invalidates keys.",
+            "description": "Member bucket \u0026 folder restriction — ALL invite/member/ACL APIs in one place. Flag: console.member-bucket-grants-enabled (default OFF). OFF = existing one-user/project access unchanged. ON = Owner/Admin full access; Member only grant rows (bucket+prefix+List/Download; Upload/Delete unsupported). Test order: (1) CookieAuth+CSRF (2) create/ensure bucket (3) POST member-acl-buckets (4) POST invite/{email} (omit body = defaults email/ List+Download) (5) GET members (6) invitee GET invitations + POST respond response=1 (7) GET/PUT members/{id}/bucket-grants (8) PATCH role / DELETE / reinvite / invite-link. Prefix must end with /. PUT grants:[] clears Member access + invalidates keys.",
             "name": "member-bucket-restriction"
         },
         {
@@ -13189,7 +14882,7 @@ const docTemplate = `{
             "name": "buckets"
         },
         {
-            "description": "Reserved integration vault usage: GET /api/v0/buckets/usage-totals-for-reserved — bucketName, storage (GB), objectCount per vault (Google Backup, Dropbox, etc.)",
+            "description": "Reserved integration vault usage: GET /api/v0/buckets/usage-totals-for-reserved — bucketName, storage (GB), objectCount per vault (Google Backup, Microsoft Backup, Dropbox, etc.)",
             "name": "buckets-reserved-usage"
         },
         {
@@ -13213,20 +14906,48 @@ const docTemplate = `{
             "name": "google-backup-onboarding"
         },
         {
-            "description": "Google Backup auto-sync APIs (jobs, connect, domain-users). OAuth ` + "`" + `code` + "`" + ` on ` + "`" + `POST /google-backup/connect` + "`" + ` and ` + "`" + `PUT /auto-sync/jobs/project` + "`" + ` uses ` + "`" + `GOOGLE_OAUTH_REDIRECT_URL_GOOGLE_BACKUP` + "`" + ` (same as ` + "`" + `GET /auth/google-backup` + "`" + `). ` + "`" + `POST /auto-sync/jobs` + "`" + ` sets onboarding complete on success.",
+            "description": "Microsoft Backup combined auth: ` + "`" + `GET /auth/microsoft-backup` + "`" + ` (register or login by email). Same as Google: UI builds OAuth authorize URL client-side (` + "`" + `OUTLOOK_CLIENT_ID` + "`" + `, frontend origin, ` + "`" + `MicrosoftBackupScopes` + "`" + `, ` + "`" + `prompt=consent` + "`" + `); callback exchanges ` + "`" + `code` + "`" + ` here. Returns ` + "`" + `action` + "`" + `, ` + "`" + `token` + "`" + `, ` + "`" + `onboarding` + "`" + `, and ` + "`" + `microsoft_backup` + "`" + `. Config: ` + "`" + `OUTLOOK_CLIENT_ID` + "`" + ` / ` + "`" + `OUTLOOK_CLIENT_SECRET` + "`" + ` / ` + "`" + `OUTLOOK_OAUTH_REDIRECT_URL_MICROSOFT_BACKUP` + "`" + `.",
+            "name": "microsoft-backup-onboarding"
+        },
+        {
+            "description": "Microsoft Backup product APIs under ` + "`" + `/api/v0/microsoft-backup/*` + "`" + ` → Backup-Tools ` + "`" + `/microsoft/*` + "`" + `. Job create uses stored credential ` + "`" + `account_type` + "`" + ` + ` + "`" + `tenant_id` + "`" + ` (not UI body). Services: outlook/mail, calendar, contacts, onedrive, sharepoint (+ ` + "`" + `sites[]` + "`" + `), teams (+ ` + "`" + `teams[]` + "`" + ` or ` + "`" + `backup_scope=all_tenant` + "`" + `), groups (+ ` + "`" + `groups[]` + "`" + ` or ` + "`" + `backup_scope=all_tenant` + "`" + `).",
+            "name": "microsoft-backup"
+        },
+        {
+            "description": "GET/PUT ` + "`" + `/microsoft-backup/users-groups/*` + "`" + ` → Backup-Tools ` + "`" + `/microsoft/users-groups/*` + "`" + `. Method filter: outlook, outlook_calendar, outlook_contacts, outlook_onedrive, outlook_sharepoint, outlook_teams, outlook_groups. List response splits ` + "`" + `mailboxes` + "`" + ` vs ` + "`" + `organization_resources` + "`" + ` (` + "`" + `sharepoint_sites` + "`" + `, ` + "`" + `teams` + "`" + `, ` + "`" + `groups` + "`" + `).",
+            "name": "microsoft-backup-users-groups"
+        },
+        {
+            "description": "Common backup auto-sync + policy for Google + Microsoft under ` + "`" + `/api/v0/backup/auto-sync/*` + "`" + ` → Backup-Tools ` + "`" + `/auto-sync/*` + "`" + ` (Google template until BT unifies Microsoft). Alerts and logs stay on ` + "`" + `/dashboard/*` + "`" + `.",
+            "name": "backup"
+        },
+        {
+            "description": "Live backup progress: ` + "`" + `GET /api/v0/backup/auto-sync/live` + "`" + ` → Backup-Tools ` + "`" + `GET /auto-sync/live` + "`" + ` (Google + Microsoft when BT unified).",
+            "name": "backup-autosync-live"
+        },
+        {
+            "description": "Deprecated: use ` + "`" + `/api/v0/backup/auto-sync/policy/*` + "`" + ` (common). Legacy Microsoft policy routes removed from Satellite.",
+            "name": "microsoft-backup-policy"
+        },
+        {
+            "description": "Browse Outlook mail/contacts/calendar, SharePoint sites/files, Teams, and M365 Groups via ` + "`" + `/microsoft-backup/query-messages|contacts/list|calendar/*|sharepoint/*|teams/*|groups/*` + "`" + `. Requires ` + "`" + `REFRESH_TOKEN` + "`" + ` header (or ` + "`" + `refresh_token` + "`" + ` query). SharePoint, teams, and groups browse require admin_workspace.",
+            "name": "microsoft-backup-browse"
+        },
+        {
+            "description": "Google Backup provider APIs: connect, domain-users, job create (` + "`" + `POST /google-backup/auto-sync/jobs` + "`" + `), restore. Shared list/live/policy/job-mutate use ` + "`" + `/api/v0/backup/auto-sync/*` + "`" + `.",
             "name": "google-backup"
         },
         {
-            "description": "Live backup progress poll: GET /api/v0/google-backup/auto-sync/live → Backup-Tools GET /auto-sync/live (running/failed tasks only; poll 3–5s). Not ` + "`" + `/autosync/live` + "`" + `.",
+            "description": "Deprecated: use ` + "`" + `GET /api/v0/backup/auto-sync/live` + "`" + `.",
             "name": "google-backup-autosync-live"
         },
         {
-            "description": "GET /google-backup/users-groups/*",
-            "name": "google-backup-users-groups"
+            "description": "Deprecated: use ` + "`" + `/api/v0/backup/auto-sync/policy/*` + "`" + ` (common Backup-Tools ` + "`" + `/auto-sync/policy/*` + "`" + `).",
+            "name": "google-backup-policy"
         },
         {
-            "description": "Google Backup shared policies: schedule, retention, merge (Backup-Tools /auto-sync/policy/*)",
-            "name": "google-backup-policy"
+            "description": "GET /google-backup/users-groups/* — list returns ` + "`" + `entities[].org_unit_path` + "`" + ` and ` + "`" + `org_units` + "`" + ` (Google Admin OU paths stored on jobs; no groups table). Filter ` + "`" + `org_unit_path` + "`" + `; ` + "`" + `search` + "`" + ` also matches OU path.",
+            "name": "google-backup-users-groups"
         },
         {
             "description": "Google Backup authentication: POST /google-backup/google-auth (Backup-Tools google-auth JWT)",
@@ -13237,15 +14958,15 @@ const docTemplate = `{
             "name": "google-backup-restore-manual"
         },
         {
-            "description": "Google Backup restore-all: target picker GET /restore/credentials (personal) and GET /restore/workspaces (domain tabs + mailboxes; replaces workspace-mailboxes), preflight GET /restore/prepare (optional target_email), POST /restore/all, job polling GET /restore/live|jobs|job/* (token_key only; no ACCESS_TOKEN). List/detail/live use {message,success,failed} envelope except credentials/workspaces/prepare. UI service param (gmail,drive,...) maps to DB method (gmail,google_drive,...). OAuth reconnect via POST /google-backup/connect or PUT /auto-sync/jobs/project.",
+            "description": "Google Backup restore-all: target picker GET /restore/credentials (personal) and GET /restore/workspaces (domain tabs + mailboxes; replaces workspace-mailboxes), preflight GET /restore/prepare (optional target_email), POST /restore/all, job polling GET /restore/live|jobs|job/* (token_key only; no ACCESS_TOKEN). List/detail/live use {message,success,failed} envelope except credentials/workspaces/prepare. UI service param (gmail,drive,...) maps to DB method (gmail,google_drive,...). OAuth reconnect via POST /google-backup/connect or PUT /backup/auto-sync/jobs/project.",
             "name": "google-backup-restore-cron"
         },
         {
-            "description": "GET /google-backup/backup-restore/logs",
-            "name": "google-backup-logs"
+            "description": "Protected Services overview: ` + "`" + `GET /dashboard/stats` + "`" + `, ` + "`" + `GET /dashboard/alerts` + "`" + `, ` + "`" + `GET /dashboard/backup-restore/logs` + "`" + `. Job list/live/policy use ` + "`" + `/api/v0/backup/auto-sync/*` + "`" + `.",
+            "name": "dashboard"
         },
         {
-            "description": "Logged-in account: profile (` + "`" + `GET/PATCH /auth/account` + "`" + ` — check ` + "`" + `hasPassword` + "`" + `), change-password when password exists, MFA, settings, onboarding PATCH, refresh-session, developer-access. Login: Google via ` + "`" + `/auth/google-backup` + "`" + ` or email via ` + "`" + `POST /auth/token` + "`" + `.",
+            "description": "Logged-in account: profile (` + "`" + `GET/PATCH /auth/account` + "`" + ` — check ` + "`" + `hasPassword` + "`" + `), change-password when password exists, MFA, settings, onboarding PATCH, refresh-session, developer-access. Login: Google via ` + "`" + `/auth/google-backup` + "`" + `, Microsoft via ` + "`" + `/auth/microsoft-backup` + "`" + `, or email via ` + "`" + `POST /auth/token` + "`" + `.",
             "name": "auth-account"
         },
         {

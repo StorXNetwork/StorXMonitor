@@ -75,7 +75,7 @@ func (p *PushNotificationWebhook) SendNotification(w http.ResponseWriter, r *htt
 	}
 	for field, value := range required {
 		if value == "" {
-			p.serveJSONError(w, errs.New(field+" claim is required"))
+			p.serveJSONError(w, fmt.Errorf("%s claim is required", field))
 			return
 		}
 	}

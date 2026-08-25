@@ -97,9 +97,20 @@ func (s *Service) GetGoogleBackupUsersGroupsMailboxCredentials(ctx context.Conte
 	return s.getGoogleBackupUsersGroups(ctx, tokenKey, "/users-groups/mailbox/credentials", query)
 }
 
-// GetGoogleBackupDashboardAlerts proxies Backup-Tools GET /autosync/dashboard-alerts.
+// GetDashboardAlerts proxies Backup-Tools GET /autosync/dashboard-alerts.
+// Common for Google + Microsoft health overview (same idea as GetDashboardStats → /autosync/stats).
+func (s *Service) GetDashboardAlerts(ctx context.Context, tokenKey string) (body []byte, status int, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if strings.TrimSpace(tokenKey) == "" {
+		return nil, 0, ErrUnauthorized.New("session token is required")
+	}
+	return s.backupToolsRequest(ctx, http.MethodGet, "/autosync/dashboard-alerts", tokenKey, "", nil)
+}
+
+// GetGoogleBackupDashboardAlerts is kept for the legacy google-backup path; prefer GetDashboardAlerts.
 func (s *Service) GetGoogleBackupDashboardAlerts(ctx context.Context, tokenKey string) (body []byte, status int, err error) {
-	return s.getGoogleBackupUsersGroups(ctx, tokenKey, "/autosync/dashboard-alerts", "")
+	return s.GetDashboardAlerts(ctx, tokenKey)
 }
 
 // UpdateGoogleBackupUsersGroupsJobsActive proxies Backup-Tools PUT /users-groups/jobs/active.

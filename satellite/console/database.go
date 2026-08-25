@@ -73,7 +73,9 @@ type DB interface {
 	// Entitlements is a getter for Entitlements repository.
 	Entitlements() entitlements.DB
 
-	// GoogleBackupCredentials is a getter for Google backup OAuth credentials.
+	// BackupCredentials is a getter for shared Google/Microsoft backup OAuth credentials.
+	BackupCredentials() BackupCredentials
+	// GoogleBackupCredentials is a compatibility alias for BackupCredentials (provider=google rows).
 	GoogleBackupCredentials() GoogleBackupCredentials
 
 	// AuditLogs is a getter for audit log records.

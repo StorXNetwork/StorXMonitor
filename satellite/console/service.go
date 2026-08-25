@@ -876,7 +876,7 @@ func (s *Service) ClearGoogleBackupTokensForBackupTools(ctx context.Context, req
 	}
 
 	email := strings.TrimSpace(req.Email)
-	credential, err := s.store.GoogleBackupCredentials().GetByUserIDAndGoogleEmail(ctx, userID, email)
+	credential, err := s.store.BackupCredentials().GetByUserIDProviderEmail(ctx, userID, BackupProviderGoogle, email)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil
@@ -884,7 +884,7 @@ func (s *Service) ClearGoogleBackupTokensForBackupTools(ctx context.Context, req
 		return Error.Wrap(err)
 	}
 
-	if err := s.store.GoogleBackupCredentials().ClearTokens(ctx, credential.ID); err != nil {
+	if err := s.store.BackupCredentials().ClearTokens(ctx, credential.ID); err != nil {
 		return Error.Wrap(err)
 	}
 	return nil
@@ -10477,6 +10477,7 @@ func (s *Service) fetchProtectedServicesStats(ctx context.Context, tokenGetter f
 		return nil, Error.Wrap(err)
 	}
 
+	// Common Backup-Tools stats (same for Google + Microsoft health overview).
 	body, status, err := s.backupToolsRequest(ctx, http.MethodGet, "/autosync/stats", tokenString, "", nil)
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -10497,17 +10498,17 @@ type GmailCorporateDomainUsersResponse map[string]interface{}
 
 // GetGoogleBackupOnboarding reads user_settings for the current user and returns the API onboarding block.
 // Uses GetSettings directly (not GetUserSettings) so project ownership does not auto-complete backup onboarding.
-func (s *Service) GetGoogleBackupOnboarding(ctx context.Context) (GoogleBackupOnboardingAPI, error) {
-	defer mon.Task()(&ctx)
+func (s *Service) GetGoogleBackupOnboarding(ctx context.Context) (api GoogleBackupOnboardingAPI, err error) {
+	defer mon.Task()(&ctx)(&err)
 
 	user, err := GetUser(ctx)
 	if err != nil {
-		return GoogleBackupOnboardingAPI{}, Error.Wrap(err)
+		return api, Error.Wrap(err)
 	}
 
 	settings, err := s.store.Users().GetSettings(ctx, user.ID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return GoogleBackupOnboardingAPI{}, Error.Wrap(err)
+		return api, Error.Wrap(err)
 	}
 	return GoogleBackupOnboardingAPIFromSettings(settings), nil
 }
@@ -10582,7 +10583,7 @@ func (s *Service) LoadGoogleBackupAtLogin(ctx context.Context, sessionToken stri
 		return nil, Error.Wrap(err)
 	}
 
-	credential, err := s.store.GoogleBackupCredentials().GetByUserID(ctx, user.ID)
+	credential, err := s.store.BackupCredentials().GetByUserIDAndProvider(ctx, user.ID, BackupProviderGoogle)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
@@ -10591,7 +10592,7 @@ func (s *Service) LoadGoogleBackupAtLogin(ctx context.Context, sessionToken stri
 	}
 
 	result := RegisterGoogleBackupResult{
-		GoogleEmail: credential.GoogleEmail,
+		GoogleEmail: credential.Email,
 		AccountType: credential.AccountType,
 	}
 
@@ -10609,7 +10610,7 @@ func (s *Service) LoadGoogleBackupAtLogin(ctx context.Context, sessionToken stri
 		return nil, Error.Wrap(err)
 	}
 
-	if storeErr := s.storeGoogleBackupCredential(ctx, user.ID, credential.GoogleEmail, accessToken, credential.RefreshToken, validExpiry, credential.AccountType); storeErr != nil {
+	if storeErr := s.storeGoogleBackupCredential(ctx, user.ID, credential.Email, accessToken, credential.RefreshToken, validExpiry, credential.AccountType); storeErr != nil {
 		s.log.Warn("failed to persist google tokens at login", zap.Error(storeErr))
 	}
 
@@ -10642,17 +10643,17 @@ func (s *Service) storeGoogleBackupCredential(ctx context.Context, userID uuid.U
 	}
 
 	googleEmail = strings.TrimSpace(googleEmail)
-	existing, err := s.store.GoogleBackupCredentials().GetByUserIDAndGoogleEmail(ctx, userID, googleEmail)
+	existing, err := s.store.BackupCredentials().GetByUserIDProviderEmail(ctx, userID, BackupProviderGoogle, googleEmail)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return Error.Wrap(err)
 	}
 
 	if existing != nil {
-		if err := s.store.GoogleBackupCredentials().UpdateTokens(ctx, existing.ID, accessToken, refreshToken, expiryPtr); err != nil {
+		if err := s.store.BackupCredentials().UpdateTokens(ctx, existing.ID, accessToken, refreshToken, expiryPtr); err != nil {
 			return Error.Wrap(err)
 		}
 		if accountType != "" && accountType != existing.AccountType {
-			if err := s.store.GoogleBackupCredentials().UpdateAccountType(ctx, existing.ID, accountType); err != nil {
+			if err := s.store.BackupCredentials().UpdateAccountType(ctx, existing.ID, accountType); err != nil {
 				return Error.Wrap(err)
 			}
 		}
@@ -10663,10 +10664,11 @@ func (s *Service) storeGoogleBackupCredential(ctx context.Context, userID uuid.U
 	if err != nil {
 		return Error.Wrap(err)
 	}
-	_, err = s.store.GoogleBackupCredentials().Create(ctx, GoogleBackupCredential{
+	_, err = s.store.BackupCredentials().Create(ctx, BackupCredential{
 		ID:                credentialID,
 		UserID:            userID,
-		GoogleEmail:       googleEmail,
+		Provider:          BackupProviderGoogle,
+		Email:             googleEmail,
 		AccessToken:       accessToken,
 		RefreshToken:      refreshToken,
 		AccessTokenExpiry: expiryPtr,
@@ -10717,6 +10719,20 @@ func GoogleBackupScopesPayload(granted, ungranted []string) map[string]interface
 	return out
 }
 
+// MicrosoftBackupScopesPayload is the scope-only microsoft_backup object (connect and partial responses).
+func MicrosoftBackupScopesPayload(granted, ungranted []string) map[string]interface{} {
+	out := make(map[string]interface{})
+	if granted == nil {
+		granted = []string{}
+	}
+	if ungranted == nil {
+		ungranted = []string{}
+	}
+	out["granted_scopes"] = granted
+	out["ungranted_scopes"] = ungranted
+	return out
+}
+
 // GoogleBackupRegistrationPayload merges domain-users metadata and OAuth scope summary for register-google.
 func GoogleBackupRegistrationPayload(result RegisterGoogleBackupResult) map[string]interface{} {
 	out := googleBackupDomainUsersPayload(result.DomainUsers, result.DomainError)
@@ -10740,6 +10756,11 @@ func (s *Service) fetchGmailCorporateDomainUsers(ctx context.Context, tokenKey, 
 }
 
 func (s *Service) backupToolsRequest(ctx context.Context, method, path, tokenKey, accessToken string, payload []byte) ([]byte, int, error) {
+	return s.backupToolsRequestWithHeaders(ctx, method, path, tokenKey, accessToken, "", payload)
+}
+
+// backupToolsRequestWithHeaders proxies to Backup-Tools with optional ACCESS_TOKEN and REFRESH_TOKEN headers.
+func (s *Service) backupToolsRequestWithHeaders(ctx context.Context, method, path, tokenKey, accessToken, refreshToken string, payload []byte) ([]byte, int, error) {
 	if s.backupToolsURL == "" {
 		return nil, 0, Error.New("Backup-Tools URL not configured")
 	}
@@ -10758,6 +10779,9 @@ func (s *Service) backupToolsRequest(ctx context.Context, method, path, tokenKey
 	if accessToken != "" {
 		req.Header.Set("ACCESS_TOKEN", accessToken)
 		req.Header.Set("Authorization", "Bearer "+accessToken)
+	}
+	if refreshToken != "" {
+		req.Header.Set("REFRESH_TOKEN", refreshToken)
 	}
 	req.Header.Set("Content-Type", "application/json")
 

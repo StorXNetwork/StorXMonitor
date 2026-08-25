@@ -558,7 +558,7 @@ func (b *Buckets) GetSingleBucketTotals(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
-// GetBucketTotalsForReservedBucket returns usage for reserved integration vaults (Google Backup, Dropbox, etc.).
+// GetBucketTotalsForReservedBucket returns usage for reserved integration vaults (Google Backup, Microsoft Backup, Dropbox, etc.).
 //
 // @Summary      Reserved vault usage totals
 // @Description  **Full route:** `GET /api/v0/buckets/usage-totals-for-reserved`
@@ -566,10 +566,10 @@ func (b *Buckets) GetSingleBucketTotals(w http.ResponseWriter, r *http.Request) 
 // Returns per-bucket **storage** (GB), **objectCount**, and metadata for vaults created for integrations.
 // Only buckets that exist for the project are included (no zero placeholders).
 //
-// **Reserved bucket names** (SQL filter): `gmail`, `google-drive`, `google-cloud`, `google-photos`, `google-calendar`, `google-contacts`, `dropbox`, `aws-s3`, `github`, `shopify`, `quickbooks`.
+// **Reserved bucket names** (SQL filter): `gmail`, `google-drive`, `google-cloud`, `google-photos`, `google-calendar`, `google-contacts`, `outlook`, `outlook-calendar`, `outlook-contacts`, `outlook-onedrive`, `outlook-sharepoint`, `outlook-teams`, `outlook-groups`, `dropbox`, `aws-s3`, `github`, `shopify`, `quickbooks`.
 //
-// **Protected Services overview (UI):** call this endpoint with `projectID`, then filter the array where `bucketName` is one of:
-// `gmail`, `google-drive`, `google-photos`, `google-contacts`, `google-calendar`.
+// **Microsoft Backup overview (UI):** filter where `bucketName` is one of `outlook`, `outlook-calendar`, `outlook-contacts`, `outlook-onedrive`, `outlook-sharepoint`, `outlook-teams`, `outlook-groups`.
+// **Google Backup overview (UI):** filter where `bucketName` is one of `gmail`, `google-drive`, `google-photos`, `google-contacts`, `google-calendar`.
 // Use `bucketName` as vault name, `storage` as used storage, `objectCount` as item count.
 // @Tags         buckets-reserved-usage
 // @Produce      json

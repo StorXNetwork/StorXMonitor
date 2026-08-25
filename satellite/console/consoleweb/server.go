@@ -101,8 +101,8 @@ type Config struct {
 
 	ClientOrigin string `help:"client origin for redirection URLs" default:""`
 
-	BackupToolsURL    string `help:"Backup-Tools service URL for AutoSync stats (e.g., http://localhost:8000)" default:""`
-	BackupToolsAPIKey string `help:"shared API key for Backup-Tools internal routes (X-API-Key on POST /api/v0/internal/storx-token/refresh and /api/v0/internal/google-token/clear)" default:""`
+	BackupToolsURL         string `help:"Backup-Tools service URL for AutoSync stats (e.g., http://localhost:8000)" default:""`
+	BackupToolsAPIKey      string `help:"shared API key for Backup-Tools internal routes (X-API-Key on POST /api/v0/internal/storx-token/refresh and /api/v0/internal/google-token/clear)" default:""`
 	MailExportServiceToken string `help:"Bearer token for gateway-mt mail-export internal APIs under /api/v0/internal/mail-export-jobs and /api/v0/internal/bandwidth-quota" default:""`
 
 	GoogleClientID                string `help:"client id for google oauth" default:""`
@@ -112,9 +112,9 @@ type Config struct {
 	GoogleBackupRedirectURLstring string `help:"redirect url for google oauth google-backup (GET /api/v0/auth/google-backup)" default:""`
 	GoogleSellerRedirectURLstring string `help:"redirect url for google oauth seller (GET /api/v0/seller/auth/google)" default:""`
 
-	OutlookClientID                     string `help:"client id for microsoft/outlook oauth (GET /api/v0/auth/microsoft-backup)" default:""`
-	OutlookClientSecret                 string `help:"client secret for microsoft/outlook oauth (GET /api/v0/auth/microsoft-backup)" default:""`
-	MicrosoftBackupRedirectURLstring    string `help:"redirect url for microsoft oauth microsoft-backup (GET /api/v0/auth/microsoft-backup)" default:""`
+	OutlookClientID                  string `help:"client id for microsoft/outlook oauth (GET /api/v0/auth/microsoft-backup)" default:""`
+	OutlookClientSecret              string `help:"client secret for microsoft/outlook oauth (GET /api/v0/auth/microsoft-backup)" default:""`
+	MicrosoftBackupRedirectURLstring string `help:"redirect url for microsoft oauth microsoft-backup (GET /api/v0/auth/microsoft-backup)" default:""`
 
 	FacebookClientID               string `help:"client id for facebook oauth" default:""`
 	FacebookClientSecret           string `help:"client secret for facebook oauth" default:""`
@@ -563,6 +563,36 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	dashboardRouter.Use(server.withCORS)
 	dashboardRouter.Use(server.withAuth)
 	dashboardRouter.Handle("/stats", http.HandlerFunc(dashboardController.GetDashboardStats)).Methods(http.MethodGet, http.MethodOptions)
+	dashboardRouter.Handle("/alerts", server.userIDRateLimiter.Limit(http.HandlerFunc(dashboardController.GetDashboardAlerts))).Methods(http.MethodGet, http.MethodOptions)
+	dashboardRouter.Handle("/backup-restore/logs", server.userIDRateLimiter.Limit(http.HandlerFunc(dashboardController.ListBackupRestoreLogs))).Methods(http.MethodGet, http.MethodOptions)
+
+	// Common backup auto-sync + policy (Google + Microsoft) — Backup-Tools /auto-sync/*.
+	backupController := consoleapi.NewBackupAutoSync(logger, service, server.cookieAuth)
+	backupPolicyController := consoleapi.NewBackupAutoSyncPolicy(logger, service, server.cookieAuth)
+	backupRouter := router.PathPrefix("/api/v0/backup").Subrouter()
+	backupRouter.Use(server.withCORS)
+	backupRouter.Use(server.withAuth)
+
+	backupAutoSyncRouter := backupRouter.PathPrefix("/auto-sync").Subrouter()
+	backupAutoSyncRouter.Handle("/jobs", server.userIDRateLimiter.Limit(http.HandlerFunc(backupController.ListAutoSyncJobs))).Methods(http.MethodGet, http.MethodOptions)
+	backupAutoSyncRouter.Handle("/jobs/services", server.userIDRateLimiter.Limit(http.HandlerFunc(backupController.ListAutoSyncJobServices))).Methods(http.MethodGet, http.MethodOptions)
+	backupAutoSyncRouter.Handle("/live", server.userIDRateLimiter.Limit(http.HandlerFunc(backupController.AutoSyncLive))).Methods(http.MethodGet, http.MethodOptions)
+	backupAutoSyncRouter.Handle("/jobs/project", server.userIDRateLimiter.Limit(http.HandlerFunc(backupController.UpdateAutoSyncJobsByProject))).Methods(http.MethodPut, http.MethodOptions)
+	backupAutoSyncRouter.Handle("/task/{job_id}/backup-now", server.userIDRateLimiter.Limit(http.HandlerFunc(backupController.BackupNowAutoSyncJob))).Methods(http.MethodPost, http.MethodOptions)
+	backupAutoSyncRouter.Handle("/jobs/{job_id}", server.userIDRateLimiter.Limit(http.HandlerFunc(backupController.GetAutoSyncJob))).Methods(http.MethodGet, http.MethodOptions)
+	backupAutoSyncRouter.Handle("/jobs/{job_id}", server.userIDRateLimiter.Limit(http.HandlerFunc(backupController.UpdateAutoSyncJob))).Methods(http.MethodPut, http.MethodOptions)
+
+	backupPolicyRouter := backupAutoSyncRouter.PathPrefix("/policy").Subrouter()
+	backupPolicyRouter.Handle("/options", server.userIDRateLimiter.Limit(http.HandlerFunc(backupPolicyController.GetPolicyOptions))).Methods(http.MethodGet, http.MethodOptions)
+	backupPolicyRouter.Handle("/available-assignments", server.userIDRateLimiter.Limit(http.HandlerFunc(backupPolicyController.GetAvailableAssignments))).Methods(http.MethodGet, http.MethodOptions)
+	backupPolicyRouter.Handle("/move", server.userIDRateLimiter.Limit(http.HandlerFunc(backupPolicyController.MoveAssignments))).Methods(http.MethodPost, http.MethodOptions)
+	backupPolicyRouter.Handle("/merge/preview", server.userIDRateLimiter.Limit(http.HandlerFunc(backupPolicyController.PreviewMergePolicies))).Methods(http.MethodGet, http.MethodOptions)
+	backupPolicyRouter.Handle("/merge", server.userIDRateLimiter.Limit(http.HandlerFunc(backupPolicyController.MergePolicies))).Methods(http.MethodPost, http.MethodOptions)
+	backupPolicyRouter.Handle("", server.userIDRateLimiter.Limit(http.HandlerFunc(backupPolicyController.ListPolicies))).Methods(http.MethodGet, http.MethodOptions)
+	backupPolicyRouter.Handle("", server.userIDRateLimiter.Limit(http.HandlerFunc(backupPolicyController.CreatePolicy))).Methods(http.MethodPost, http.MethodOptions)
+	backupPolicyRouter.Handle("/{policy_id}", server.userIDRateLimiter.Limit(http.HandlerFunc(backupPolicyController.GetPolicy))).Methods(http.MethodGet, http.MethodOptions)
+	backupPolicyRouter.Handle("/{policy_id}", server.userIDRateLimiter.Limit(http.HandlerFunc(backupPolicyController.UpdatePolicy))).Methods(http.MethodPut, http.MethodOptions)
+	backupPolicyRouter.Handle("/{policy_id}", server.userIDRateLimiter.Limit(http.HandlerFunc(backupPolicyController.DeletePolicy))).Methods(http.MethodDelete, http.MethodOptions)
 
 	auditLogsController := consoleapi.NewAuditLogs(logger, service)
 	auditLogsRouter := router.PathPrefix("/api/v0/audit-logs").Subrouter()
@@ -575,13 +605,13 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	googleBackupUsersGroupsRouter := router.PathPrefix("/api/v0/google-backup/users-groups").Subrouter()
 	googleBackupUsersGroupsRouter.Use(server.withCORS)
 	googleBackupUsersGroupsRouter.Use(server.withAuth)
+	// Same mailbox/users-groups surface as /microsoft-backup/users-groups (BT: /users-groups vs /microsoft/users-groups).
 	googleBackupUsersGroupsRouter.Handle("/domains", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupUsersGroupsController.GetDomains))).Methods(http.MethodGet, http.MethodOptions)
 	googleBackupUsersGroupsRouter.Handle("/mailbox/overview", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupUsersGroupsController.GetMailboxOverview))).Methods(http.MethodGet, http.MethodOptions)
 	googleBackupUsersGroupsRouter.Handle("/mailbox/services", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupUsersGroupsController.GetMailboxServices))).Methods(http.MethodGet, http.MethodOptions)
 	googleBackupUsersGroupsRouter.Handle("/mailbox/schedule", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupUsersGroupsController.GetMailboxSchedule))).Methods(http.MethodGet, http.MethodOptions)
 	googleBackupUsersGroupsRouter.Handle("/mailbox/credentials", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupUsersGroupsController.GetMailboxCredentials))).Methods(http.MethodGet, http.MethodOptions)
 	googleBackupUsersGroupsRouter.Handle("/jobs/active", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupUsersGroupsController.UpdateJobsActive))).Methods(http.MethodPut, http.MethodOptions)
-	googleBackupUsersGroupsRouter.Handle("/dashboard-alerts", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupUsersGroupsController.GetDashboardAlerts))).Methods(http.MethodGet, http.MethodOptions)
 	googleBackupUsersGroupsRouter.Handle("", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupUsersGroupsController.List))).Methods(http.MethodGet, http.MethodOptions)
 
 	googleBackupController := consoleapi.NewGoogleBackup(logger, service, server.cookieAuth)
@@ -590,30 +620,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	googleBackupRouter.Use(server.withAuth)
 	googleBackupRouter.Handle("/connect", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.ConnectGoogle))).Methods(http.MethodPost, http.MethodOptions)
 	googleBackupRouter.Handle("/domain-users", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.GetDomainUsers))).Methods(http.MethodGet, http.MethodOptions)
-	googleBackupRouter.Handle("/backup-restore/logs", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.ListBackupRestoreLogs))).Methods(http.MethodGet, http.MethodOptions)
 	googleBackupRouter.Handle("/auto-sync/jobs", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.CreateAutoSyncJobs))).Methods(http.MethodPost, http.MethodOptions)
-	googleBackupRouter.Handle("/auto-sync/jobs", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.ListAutoSyncJobs))).Methods(http.MethodGet, http.MethodOptions)
-	googleBackupRouter.Handle("/auto-sync/jobs/services", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.ListAutoSyncJobServices))).Methods(http.MethodGet, http.MethodOptions)
-	googleBackupRouter.Handle("/auto-sync/live", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.AutoSyncLive))).Methods(http.MethodGet, http.MethodOptions)
-	googleBackupRouter.Handle("/auto-sync/jobs/project", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.UpdateAutoSyncJobsByProject))).Methods(http.MethodPut, http.MethodOptions)
-	googleBackupRouter.Handle("/auto-sync/task/{job_id}/backup-now", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.BackupNowAutoSyncJob))).Methods(http.MethodPost, http.MethodOptions)
-	googleBackupRouter.Handle("/auto-sync/jobs/{job_id}", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.UpdateAutoSyncJob))).Methods(http.MethodPut, http.MethodOptions)
-	googleBackupRouter.Handle("/auto-sync/jobs/{job_id}", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.GetAutoSyncJob))).Methods(http.MethodGet, http.MethodOptions)
-
-	googleBackupPolicyController := consoleapi.NewGoogleBackupAutoSyncPolicy(logger, service, server.cookieAuth)
-	googleBackupPolicyRouter := router.PathPrefix("/api/v0/google-backup/auto-sync/policy").Subrouter()
-	googleBackupPolicyRouter.Use(server.withCORS)
-	googleBackupPolicyRouter.Use(server.withAuth)
-	googleBackupPolicyRouter.Handle("/options", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupPolicyController.GetPolicyOptions))).Methods(http.MethodGet, http.MethodOptions)
-	googleBackupPolicyRouter.Handle("/available-assignments", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupPolicyController.GetAvailableAssignments))).Methods(http.MethodGet, http.MethodOptions)
-	googleBackupPolicyRouter.Handle("/move", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupPolicyController.MoveAssignments))).Methods(http.MethodPost, http.MethodOptions)
-	googleBackupPolicyRouter.Handle("/merge/preview", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupPolicyController.PreviewMergePolicies))).Methods(http.MethodGet, http.MethodOptions)
-	googleBackupPolicyRouter.Handle("/merge", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupPolicyController.MergePolicies))).Methods(http.MethodPost, http.MethodOptions)
-	googleBackupPolicyRouter.Handle("", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupPolicyController.ListPolicies))).Methods(http.MethodGet, http.MethodOptions)
-	googleBackupPolicyRouter.Handle("", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupPolicyController.CreatePolicy))).Methods(http.MethodPost, http.MethodOptions)
-	googleBackupPolicyRouter.Handle("/{policy_id}", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupPolicyController.GetPolicy))).Methods(http.MethodGet, http.MethodOptions)
-	googleBackupPolicyRouter.Handle("/{policy_id}", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupPolicyController.UpdatePolicy))).Methods(http.MethodPut, http.MethodOptions)
-	googleBackupPolicyRouter.Handle("/{policy_id}", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupPolicyController.DeletePolicy))).Methods(http.MethodDelete, http.MethodOptions)
 
 	googleBackupRestoreController := consoleapi.NewGoogleBackupRestore(logger, service, server.cookieAuth)
 	googleBackupRouter.Handle("/google-auth", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupRestoreController.GoogleAuth))).Methods(http.MethodPost, http.MethodOptions)
@@ -632,6 +639,63 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	googleBackupRouter.Handle("/google/satellite-to-photos", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupRestoreController.ManualRestorePhotos))).Methods(http.MethodPost, http.MethodOptions)
 	googleBackupRouter.Handle("/google/satellite-to-calendar", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupRestoreController.ManualRestoreCalendar))).Methods(http.MethodPost, http.MethodOptions)
 	googleBackupRouter.Handle("/google/satellite-to-contacts", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupRestoreController.ManualRestoreContacts))).Methods(http.MethodPost, http.MethodOptions)
+
+	microsoftBackupUsersGroupsController := consoleapi.NewMicrosoftBackupUsersGroups(logger, service, server.cookieAuth)
+	microsoftBackupUsersGroupsRouter := router.PathPrefix("/api/v0/microsoft-backup/users-groups").Subrouter()
+	microsoftBackupUsersGroupsRouter.Use(server.withCORS)
+	microsoftBackupUsersGroupsRouter.Use(server.withAuth)
+	// Mirror of /google-backup/users-groups/* (domains, mailbox/*, jobs/active, list).
+	microsoftBackupUsersGroupsRouter.Handle("/domains", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupUsersGroupsController.GetDomains))).Methods(http.MethodGet, http.MethodOptions)
+	microsoftBackupUsersGroupsRouter.Handle("/mailbox/overview", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupUsersGroupsController.GetMailboxOverview))).Methods(http.MethodGet, http.MethodOptions)
+	microsoftBackupUsersGroupsRouter.Handle("/mailbox/services", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupUsersGroupsController.GetMailboxServices))).Methods(http.MethodGet, http.MethodOptions)
+	microsoftBackupUsersGroupsRouter.Handle("/mailbox/schedule", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupUsersGroupsController.GetMailboxSchedule))).Methods(http.MethodGet, http.MethodOptions)
+	microsoftBackupUsersGroupsRouter.Handle("/mailbox/credentials", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupUsersGroupsController.GetMailboxCredentials))).Methods(http.MethodGet, http.MethodOptions)
+	microsoftBackupUsersGroupsRouter.Handle("/jobs/active", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupUsersGroupsController.UpdateJobsActive))).Methods(http.MethodPut, http.MethodOptions)
+	microsoftBackupUsersGroupsRouter.Handle("", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupUsersGroupsController.List))).Methods(http.MethodGet, http.MethodOptions)
+
+	microsoftBackupRestoreAllController := consoleapi.NewMicrosoftBackupRestoreAll(logger, service, server.cookieAuth)
+	microsoftBackupController := consoleapi.NewMicrosoftBackup(logger, service, server.cookieAuth)
+	microsoftBackupRouter := router.PathPrefix("/api/v0/microsoft-backup").Subrouter()
+	microsoftBackupRouter.Use(server.withCORS)
+	microsoftBackupRouter.Use(server.withAuth)
+	microsoftBackupRouter.Handle("/connect", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.ConnectMicrosoft))).Methods(http.MethodPost, http.MethodOptions)
+	microsoftBackupRouter.Handle("/domain-users", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.GetCorporateDomainUsers))).Methods(http.MethodGet, http.MethodOptions)
+	microsoftBackupRouter.Handle("/outlook/corporate/domain-users", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.GetCorporateDomainUsers))).Methods(http.MethodGet, http.MethodOptions)
+	microsoftBackupRouter.Handle("/backup/onboarding/jobs", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.CreateAutoSyncJobs))).Methods(http.MethodPost, http.MethodOptions)
+	microsoftBackupRouter.Handle("/auto-sync/job", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.CreateAutoSyncJobs))).Methods(http.MethodPost, http.MethodOptions)
+	// Job list / live / get / update / backup-now / policy: /api/v0/backup/auto-sync/* (same as Google).
+	microsoftBackupRouter.Handle("/query-messages", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.QueryMessages))).Methods(http.MethodGet, http.MethodOptions)
+	microsoftBackupRouter.Handle("/contacts/list", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.ListContacts))).Methods(http.MethodGet, http.MethodOptions)
+	microsoftBackupRouter.Handle("/calendar/list", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.ListCalendars))).Methods(http.MethodGet, http.MethodOptions)
+	microsoftBackupRouter.Handle("/calendar/events/{calendarId}", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.ListCalendarEvents))).Methods(http.MethodGet, http.MethodOptions)
+	microsoftBackupRouter.Handle("/sharepoint/sites", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.ListSharePointSites))).Methods(http.MethodGet, http.MethodOptions)
+	microsoftBackupRouter.Handle("/sharepoint/flat-files", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.ListSharePointFlatFiles))).Methods(http.MethodGet, http.MethodOptions)
+	microsoftBackupRouter.Handle("/teams/list", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.ListTeams))).Methods(http.MethodGet, http.MethodOptions)
+	microsoftBackupRouter.Handle("/teams/channels", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.ListTeamChannels))).Methods(http.MethodGet, http.MethodOptions)
+	microsoftBackupRouter.Handle("/teams/flat-messages", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.ListTeamsFlatMessages))).Methods(http.MethodGet, http.MethodOptions)
+	microsoftBackupRouter.Handle("/groups/list", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.ListGroups))).Methods(http.MethodGet, http.MethodOptions)
+	microsoftBackupRouter.Handle("/groups/flat-conversations", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.ListGroupsFlatConversations))).Methods(http.MethodGet, http.MethodOptions)
+	// Restore auth first (mirrors /google-backup/google-auth), then office365/satellite-to-*.
+	// Restore auth for all Microsoft Graph services (mirrors /google-backup/google-auth), then office365/satellite-to-*.
+	microsoftBackupRouter.Handle("/microsoft-auth", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.MicrosoftAuth))).Methods(http.MethodPost, http.MethodOptions)
+	// Restore-all (mirrors /google-backup/restore/*); token_key only — Graph auth from stored credential.
+	microsoftBackupRouter.Handle("/restore/credentials", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupRestoreAllController.RestoreCredentials))).Methods(http.MethodGet, http.MethodOptions)
+	microsoftBackupRouter.Handle("/restore/workspaces", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupRestoreAllController.RestoreWorkspaces))).Methods(http.MethodGet, http.MethodOptions)
+	microsoftBackupRouter.Handle("/restore/prepare", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupRestoreAllController.RestorePrepare))).Methods(http.MethodGet, http.MethodOptions)
+	microsoftBackupRouter.Handle("/restore/all", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupRestoreAllController.RestoreAll))).Methods(http.MethodPost, http.MethodOptions)
+	microsoftBackupRouter.Handle("/restore/live", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupRestoreAllController.RestoreLive))).Methods(http.MethodGet, http.MethodOptions)
+	microsoftBackupRouter.Handle("/restore/jobs", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupRestoreAllController.RestoreJobs))).Methods(http.MethodGet, http.MethodOptions)
+	microsoftBackupRouter.Handle("/restore/job/{job_id}", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupRestoreAllController.GetRestoreJob))).Methods(http.MethodGet, http.MethodOptions)
+	microsoftBackupRouter.Handle("/restore/job/{job_id}/cancel", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupRestoreAllController.CancelRestoreJob))).Methods(http.MethodPost, http.MethodOptions)
+	microsoftBackupRouter.Handle("/restore/job/{job_id}/dead-items", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupRestoreAllController.ListRestoreDeadItems))).Methods(http.MethodGet, http.MethodOptions)
+	// Manual select-and-restore (≤10 vault keys), mirrors /google-backup/google/satellite-to-*.
+	microsoftBackupRouter.Handle("/office365/satellite-to-outlook", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.ManualRestoreOutlook))).Methods(http.MethodPost, http.MethodOptions)
+	microsoftBackupRouter.Handle("/office365/satellite-to-outlook-calendar", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.ManualRestoreOutlookCalendar))).Methods(http.MethodPost, http.MethodOptions)
+	microsoftBackupRouter.Handle("/office365/satellite-to-outlook-contacts", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.ManualRestoreOutlookContacts))).Methods(http.MethodPost, http.MethodOptions)
+	microsoftBackupRouter.Handle("/office365/satellite-to-onedrive", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.ManualRestoreOneDrive))).Methods(http.MethodPost, http.MethodOptions)
+	microsoftBackupRouter.Handle("/office365/satellite-to-sharepoint", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.ManualRestoreSharePoint))).Methods(http.MethodPost, http.MethodOptions)
+	microsoftBackupRouter.Handle("/office365/satellite-to-teams", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.ManualRestoreTeams))).Methods(http.MethodPost, http.MethodOptions)
+	microsoftBackupRouter.Handle("/office365/satellite-to-groups", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.ManualRestoreGroups))).Methods(http.MethodPost, http.MethodOptions)
 
 	// User developer access management
 	authRouter.Handle("/developer-access", server.withAuth(http.HandlerFunc(authController.GetUserDeveloperAccess))).Methods(http.MethodGet, http.MethodOptions)                           // Alias for frontend compatibility

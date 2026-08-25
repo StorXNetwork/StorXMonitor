@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"go.uber.org/zap"
 
@@ -19,10 +20,10 @@ import (
 // MicrosoftBackupAuth handles combined Microsoft OAuth register-or-login for Microsoft Backup.
 //
 // @Summary      Microsoft Backup auth (register or login)
-// @Description  **Route:** `GET /api/v0/auth/microsoft-backup`. Accepts MSAL `idToken`/`accessToken` (or OAuth `code`) as `code`. Validates via Graph/JWKS or exchanges with Microsoft token API. If email exists, logs in; otherwise registers (`Source: Microsoft`). Returns JSON with `action`, `token`, `onboarding`, and `microsoft_backup`. Sets session cookie.
+// @Description  **Route:** `GET /api/v0/auth/microsoft-backup`. Same pattern as `GET /auth/google-backup`: UI builds the Microsoft authorize URL client-side (`OUTLOOK_CLIENT_ID`, frontend origin as `redirect_uri`, `MicrosoftBackupScopes`, `prompt=consent`, `offline_access`), then redirects here with OAuth `code`. `redirect_uri` on token exchange is derived server-side from request Host (or `OUTLOOK_OAUTH_REDIRECT_URL_MICROSOFT_BACKUP`). MSAL JWT-as-code still works for login but will not yield refresh_token. Returns `action`, `token`, `onboarding`, and `microsoft_backup` (`email`, `account_type` for consumer mail, `has_refresh_token`). Sets session cookie.
 // @Tags         microsoft-backup-onboarding
 // @Produce      json
-// @Param        code         query  string  true   "MSAL idToken/accessToken or Microsoft OAuth code"
+// @Param        code         query  string  true   "Microsoft OAuth authorization code (preferred) or MSAL idToken/accessToken"
 // @Param        state        query  string  false  "OAuth state (UTM / verifier payload)"
 // @Param        zoho-insert  query  bool    false  "When true, inserts CRM lead in Zoho"
 // @Success      200          {object}  MicrosoftBackupAuthSuccess  "Set-Cookie: _tokenKey"
@@ -190,6 +191,26 @@ func (a *Auth) completeMicrosoftBackupRegister(w http.ResponseWriter, r *http.Re
 		a.log.Warn("failed to init microsoft backup onboarding status", zap.Error(err))
 	}
 
+	var microsoftBackup map[string]interface{}
+	if tokens == nil {
+		tokens = &socialmedia.MicrosoftOauthToken{}
+	}
+	backupResult, backupErr := a.service.RegisterMicrosoftBackupCredential(
+		authed,
+		msUser.Email,
+		tokens.Access_token,
+		tokens.Refresh_token,
+		tokens.Scope,
+		tokens.ExpiresAt,
+		sessionToken,
+	)
+	if backupErr != nil {
+		a.log.Warn("failed to register microsoft backup credentials", zap.Error(backupErr))
+		microsoftBackup = microsoftBackupPayload(msUser.Email, tokens)
+	} else {
+		microsoftBackup = console.MicrosoftBackupRegistrationPayload(backupResult)
+	}
+
 	onboarding, err := a.service.GetMicrosoftBackupOnboarding(authed)
 	if err != nil {
 		a.log.Warn("failed to read onboarding after microsoft registration", zap.Error(err))
@@ -202,7 +223,7 @@ func (a *Auth) completeMicrosoftBackupRegister(w http.ResponseWriter, r *http.Re
 	}
 
 	a.service.RecordUserAudit(authed, "AUTH_MICROSOFT_BACKUP", "Microsoft Backup", "Microsoft Backup registration completed", nil)
-	a.writeMicrosoftBackupAuthSuccess(w, socialmedia.MicrosoftAuthActionRegistered, sessionToken, onboarding, microsoftBackupPayload(msUser.Email, tokens))
+	a.writeMicrosoftBackupAuthSuccess(w, socialmedia.MicrosoftAuthActionRegistered, sessionToken, onboarding, microsoftBackup)
 }
 
 func (a *Auth) completeMicrosoftBackupLogin(w http.ResponseWriter, r *http.Request, ctx context.Context, user *console.User, msUser *socialmedia.MicrosoftUserResult, tokens *socialmedia.MicrosoftOauthToken) {
@@ -214,6 +235,36 @@ func (a *Auth) completeMicrosoftBackupLogin(w http.ResponseWriter, r *http.Reque
 
 	authed := console.WithUser(ctx, user)
 
+	var microsoftBackup map[string]interface{}
+	if tokens == nil {
+		tokens = &socialmedia.MicrosoftOauthToken{}
+	}
+	hasFreshTokens := strings.TrimSpace(tokens.Access_token) != "" || strings.TrimSpace(tokens.Refresh_token) != ""
+	if hasFreshTokens {
+		backupResult, backupErr := a.service.RegisterMicrosoftBackupCredential(
+			authed,
+			msUser.Email,
+			tokens.Access_token,
+			tokens.Refresh_token,
+			tokens.Scope,
+			tokens.ExpiresAt,
+			sessionToken,
+		)
+		if backupErr != nil {
+			a.log.Warn("failed to register microsoft backup credentials at login", zap.Error(backupErr))
+			microsoftBackup = microsoftBackupPayload(msUser.Email, tokens)
+		} else {
+			microsoftBackup = console.MicrosoftBackupRegistrationPayload(backupResult)
+		}
+	} else {
+		backupPayload, backupErr := a.service.LoadMicrosoftBackupAtLogin(authed, sessionToken)
+		if backupErr != nil {
+			a.log.Warn("failed to load microsoft backup credentials at login", zap.Error(backupErr))
+		} else {
+			microsoftBackup = backupPayload
+		}
+	}
+
 	onboarding, err := a.service.GetMicrosoftBackupOnboarding(authed)
 	if err != nil {
 		a.log.Warn("failed to read onboarding at microsoft login", zap.Error(err))
@@ -221,23 +272,21 @@ func (a *Auth) completeMicrosoftBackupLogin(w http.ResponseWriter, r *http.Reque
 	}
 
 	a.service.RecordUserAudit(authed, "AUTH_MICROSOFT_BACKUP", "Microsoft Backup", "Microsoft Backup login completed", nil)
-	a.writeMicrosoftBackupAuthSuccess(w, socialmedia.MicrosoftAuthActionLoggedIn, sessionToken, onboarding, microsoftBackupPayload(msUser.Email, tokens))
+	a.writeMicrosoftBackupAuthSuccess(w, socialmedia.MicrosoftAuthActionLoggedIn, sessionToken, onboarding, microsoftBackup)
 }
 
 func microsoftBackupPayload(email string, tokens *socialmedia.MicrosoftOauthToken) map[string]interface{} {
 	payload := map[string]interface{}{
 		"email": email,
 	}
+	if accountType := console.InferMicrosoftAccountTypeFromEmail(email); accountType != "" {
+		payload["account_type"] = accountType
+	}
 	if tokens == nil {
+		payload["has_refresh_token"] = false
 		return payload
 	}
-	token := tokens.Access_token
-	if token == "" {
-		token = tokens.Id_token
-	}
-	if token != "" {
-		payload["token"] = token
-	}
+	payload["has_refresh_token"] = strings.TrimSpace(tokens.Refresh_token) != ""
 	return payload
 }
 

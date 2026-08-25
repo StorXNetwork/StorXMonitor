@@ -49,7 +49,7 @@ package consoleweb
 // @tag.description Bucket management: usage-totals (paginated per-bucket usage), usage-totals-for-reserved, and bucket APIs
 
 // @tag.name buckets-reserved-usage
-// @tag.description Reserved integration vault usage: GET /api/v0/buckets/usage-totals-for-reserved — bucketName, storage (GB), objectCount per vault (Google Backup, Dropbox, etc.)
+// @tag.description Reserved integration vault usage: GET /api/v0/buckets/usage-totals-for-reserved — bucketName, storage (GB), objectCount per vault (Google Backup, Microsoft Backup, Dropbox, etc.)
 
 // @tag.name buckets-quota-check
 // @tag.description Storage & bandwidth quota popup: POST /api/v0/buckets/check-upload — usage percents, allow_upload/download, popup_show + message (login, upload, download). Same usage data as dashboard quota cards.
@@ -67,19 +67,37 @@ package consoleweb
 // @tag.description Google Backup combined auth: `GET /auth/google-backup` (register or login by email). Returns `action`, `onboarding` block, and `google_backup`. OAuth redirect = `GOOGLE_OAUTH_REDIRECT_URL_GOOGLE_BACKUP`.
 
 // @tag.name microsoft-backup-onboarding
-// @tag.description Microsoft Backup combined auth: `GET /auth/microsoft-backup` (register or login by email). Accepts MSAL idToken/accessToken or OAuth code as `code`. Returns `action`, `token`, `onboarding`, and `microsoft_backup`. Config: `OUTLOOK_CLIENT_ID` / `OUTLOOK_CLIENT_SECRET`.
+// @tag.description Microsoft Backup combined auth: `GET /auth/microsoft-backup` (register or login by email). Same as Google: UI builds OAuth authorize URL client-side (`OUTLOOK_CLIENT_ID`, frontend origin, `MicrosoftBackupScopes`, `prompt=consent`); callback exchanges `code` here. Returns `action`, `token`, `onboarding`, and `microsoft_backup`. Config: `OUTLOOK_CLIENT_ID` / `OUTLOOK_CLIENT_SECRET` / `OUTLOOK_OAUTH_REDIRECT_URL_MICROSOFT_BACKUP`.
+
+// @tag.name microsoft-backup
+// @tag.description Microsoft Backup product APIs under `/api/v0/microsoft-backup/*` → Backup-Tools `/microsoft/*`. Job create uses stored credential `account_type` + `tenant_id` (not UI body). Services: outlook/mail, calendar, contacts, onedrive, sharepoint (+ `sites[]`), teams (+ `teams[]` or `backup_scope=all_tenant`), groups (+ `groups[]` or `backup_scope=all_tenant`).
+
+// @tag.name microsoft-backup-users-groups
+// @tag.description GET/PUT `/microsoft-backup/users-groups/*` → Backup-Tools `/microsoft/users-groups/*`. Method filter: outlook, outlook_calendar, outlook_contacts, outlook_onedrive, outlook_sharepoint, outlook_teams, outlook_groups. List response splits `mailboxes` vs `organization_resources` (`sharepoint_sites`, `teams`, `groups`).
+
+// @tag.name backup
+// @tag.description Common backup auto-sync + policy for Google + Microsoft under `/api/v0/backup/auto-sync/*` → Backup-Tools `/auto-sync/*` (Google template until BT unifies Microsoft). Alerts and logs stay on `/dashboard/*`.
+
+// @tag.name backup-autosync-live
+// @tag.description Live backup progress: `GET /api/v0/backup/auto-sync/live` → Backup-Tools `GET /auto-sync/live` (Google + Microsoft when BT unified).
+
+// @tag.name microsoft-backup-policy
+// @tag.description Deprecated: use `/api/v0/backup/auto-sync/policy/*` (common). Legacy Microsoft policy routes removed from Satellite.
+
+// @tag.name microsoft-backup-browse
+// @tag.description Browse Outlook mail/contacts/calendar, SharePoint sites/files, Teams, and M365 Groups via `/microsoft-backup/query-messages|contacts/list|calendar/*|sharepoint/*|teams/*|groups/*`. Requires `REFRESH_TOKEN` header (or `refresh_token` query). SharePoint, teams, and groups browse require admin_workspace.
 
 // @tag.name google-backup
-// @tag.description Google Backup auto-sync APIs (jobs, connect, domain-users). `GET /google-backup/domain-users` forwards Backup-Tools Workspace OU tree as `google_backup.organizational_units` and `google_backup.org_units` (plus legacy `grouped_emails`). `POST /auto-sync/jobs` accepts `policy_scope`, `email_org_units`, `org_unit_schedules` and forwards them to Backup-Tools. OAuth `code` on `POST /google-backup/connect` and `PUT /auto-sync/jobs/project` uses `GOOGLE_OAUTH_REDIRECT_URL_GOOGLE_BACKUP` (same as `GET /auth/google-backup`). `POST /auto-sync/jobs` sets onboarding complete on success.
+// @tag.description Google Backup provider APIs: connect, domain-users, job create (`POST /google-backup/auto-sync/jobs`), restore. Shared list/live/policy/job-mutate use `/api/v0/backup/auto-sync/*`.
 
 // @tag.name google-backup-autosync-live
-// @tag.description Live backup progress poll: GET /api/v0/google-backup/auto-sync/live → Backup-Tools GET /auto-sync/live (running/failed tasks only; poll 3–5s). Not `/autosync/live`.
+// @tag.description Deprecated: use `GET /api/v0/backup/auto-sync/live`.
+
+// @tag.name google-backup-policy
+// @tag.description Deprecated: use `/api/v0/backup/auto-sync/policy/*` (common Backup-Tools `/auto-sync/policy/*`).
 
 // @tag.name google-backup-users-groups
 // @tag.description GET /google-backup/users-groups/* — list returns `entities[].org_unit_path` and `org_units` (Google Admin OU paths stored on jobs; no groups table). Filter `org_unit_path`; `search` also matches OU path.
-
-// @tag.name google-backup-policy
-// @tag.description Google Backup shared policies: schedule, retention, merge (Backup-Tools /auto-sync/policy/*)
 
 // @tag.name google-backup-auth
 // @tag.description Google Backup authentication: POST /google-backup/google-auth (Backup-Tools google-auth JWT)
@@ -88,10 +106,10 @@ package consoleweb
 // @tag.description Google Backup manual restore: POST /google-backup/google/* (1–10 vault keys per request; same body for single or multiple items). Authorization header = Backup-Tools JWT from POST /google-backup/google-auth. No ACCESS_TOKEN (StorX from DB). Session cookie required.
 
 // @tag.name google-backup-restore-cron
-// @tag.description Google Backup restore-all: target picker GET /restore/credentials (personal) and GET /restore/workspaces (domain tabs + mailboxes; replaces workspace-mailboxes), preflight GET /restore/prepare (optional target_email), POST /restore/all, job polling GET /restore/live|jobs|job/* (token_key only; no ACCESS_TOKEN). List/detail/live use {message,success,failed} envelope except credentials/workspaces/prepare. UI service param (gmail,drive,...) maps to DB method (gmail,google_drive,...). OAuth reconnect via POST /google-backup/connect or PUT /auto-sync/jobs/project.
+// @tag.description Google Backup restore-all: target picker GET /restore/credentials (personal) and GET /restore/workspaces (domain tabs + mailboxes; replaces workspace-mailboxes), preflight GET /restore/prepare (optional target_email), POST /restore/all, job polling GET /restore/live|jobs|job/* (token_key only; no ACCESS_TOKEN). List/detail/live use {message,success,failed} envelope except credentials/workspaces/prepare. UI service param (gmail,drive,...) maps to DB method (gmail,google_drive,...). OAuth reconnect via POST /google-backup/connect or PUT /backup/auto-sync/jobs/project.
 
-// @tag.name google-backup-logs
-// @tag.description GET /google-backup/backup-restore/logs
+// @tag.name dashboard
+// @tag.description Protected Services overview: `GET /dashboard/stats`, `GET /dashboard/alerts`, `GET /dashboard/backup-restore/logs`. Job list/live/policy use `/api/v0/backup/auto-sync/*`.
 
 // @tag.name auth-account
 // @tag.description Logged-in account: profile (`GET/PATCH /auth/account` — check `hasPassword`), change-password when password exists, MFA, settings, onboarding PATCH, refresh-session, developer-access. Login: Google via `/auth/google-backup`, Microsoft via `/auth/microsoft-backup`, or email via `POST /auth/token`.

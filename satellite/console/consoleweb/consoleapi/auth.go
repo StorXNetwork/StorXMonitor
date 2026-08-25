@@ -233,7 +233,7 @@ func (a *Auth) getExternalAddress(ctx context.Context) string {
 }
 
 func (a *Auth) recordFailedLoginByEmail(ctx context.Context, email, failureMessage string) {
-	a.service.RecordUserAuditForEmail(ctx, email, "AUTH_LOGIN", "Session", "User logged in", console.ErrLoginCredentials.New(failureMessage))
+	a.service.RecordUserAuditForEmail(ctx, email, "AUTH_LOGIN", "Session", "User logged in", console.ErrLoginCredentials.New("%s", failureMessage))
 }
 
 // Register creates a new user account with email and password.

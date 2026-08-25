@@ -25,3 +25,22 @@ type MicrosoftBackupAuthError struct {
 	Success bool   `json:"success" example:"false"`
 	Error   string `json:"error" example:"Error getting token from Microsoft!"`
 }
+
+// MicrosoftBackupConnectSwaggerRequest is the body for POST /microsoft-backup/connect.
+type MicrosoftBackupConnectSwaggerRequest struct {
+	Code string `json:"code" example:"0.AXo..."`
+}
+
+// MicrosoftBackupConnectSwaggerResponse is returned after connecting Microsoft for backup.
+type MicrosoftBackupConnectSwaggerResponse struct {
+	Success         bool                   `json:"success" example:"true"`
+	MicrosoftEmail  string                 `json:"microsoft_email" example:"user@contoso.com"`
+	Created         bool                   `json:"created" example:"true"`
+	HasRefreshToken bool                   `json:"has_refresh_token" example:"true"`
+	MicrosoftBackup map[string]interface{} `json:"microsoft_backup,omitempty" swaggertype:"object"`
+}
+
+// MicrosoftBackupDomainUsersSwaggerResponse is returned from GET /microsoft-backup/domain-users.
+type MicrosoftBackupDomainUsersSwaggerResponse struct {
+	MicrosoftBackup map[string]interface{} `json:"microsoft_backup,omitempty" swaggertype:"object"`
+}
