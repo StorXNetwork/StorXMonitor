@@ -145,7 +145,7 @@ func (s *Service) CreateGoogleBackupAutoSyncJobs(ctx context.Context, req Create
 		return nil, 0, Error.Wrap(err)
 	}
 
-	credential, err := s.store.GoogleBackupCredentials().GetByUserID(ctx, user.ID)
+	credential, err := s.store.BackupCredentials().GetByUserIDAndProvider(ctx, user.ID, BackupProviderGoogle)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, 0, ErrNotFound.New("google backup credentials not found")
@@ -179,7 +179,7 @@ func (s *Service) CreateGoogleBackupAutoSyncJobs(ctx context.Context, req Create
 	}
 	project := projects[0]
 	payload := map[string]interface{}{
-		"google_email":      credential.GoogleEmail,
+		"google_email":      credential.Email,
 		"account_type":      credential.AccountType,
 		"project_id":        project.PublicID.String(),
 		"satellite_user_id": user.ID.String(),
@@ -697,7 +697,7 @@ func googleBackupGmailEmails(services, emails []string, credential *GoogleBackup
 		return out, nil
 	}
 	if len(out) == 0 {
-		return []string{credential.GoogleEmail}, nil
+		return []string{credential.Email}, nil
 	}
 	return out, nil
 }
@@ -747,7 +747,7 @@ func (s *Service) ConnectGoogleBackupCredential(ctx context.Context, code, redir
 		return result, Error.Wrap(err)
 	}
 
-	existing, lookupErr := s.store.GoogleBackupCredentials().GetByUserIDAndGoogleEmail(ctx, user.ID, googleUser.Email)
+	existing, lookupErr := s.store.BackupCredentials().GetByUserIDProviderEmail(ctx, user.ID, BackupProviderGoogle, googleUser.Email)
 	if lookupErr != nil && !errors.Is(lookupErr, sql.ErrNoRows) {
 		return result, Error.Wrap(lookupErr)
 	}
@@ -795,11 +795,11 @@ func (s *Service) GetGoogleBackupDomainUsers(ctx context.Context, tokenKey, goog
 	}
 
 	googleEmail = strings.TrimSpace(googleEmail)
-	var credential *GoogleBackupCredential
+	var credential *BackupCredential
 	if googleEmail != "" {
-		credential, err = s.store.GoogleBackupCredentials().GetByUserIDAndGoogleEmail(ctx, user.ID, googleEmail)
+		credential, err = s.store.BackupCredentials().GetByUserIDProviderEmail(ctx, user.ID, BackupProviderGoogle, googleEmail)
 	} else {
-		credential, err = s.store.GoogleBackupCredentials().GetByUserID(ctx, user.ID)
+		credential, err = s.store.BackupCredentials().GetByUserIDAndProvider(ctx, user.ID, BackupProviderGoogle)
 	}
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -821,7 +821,7 @@ func (s *Service) GetGoogleBackupDomainUsers(ctx context.Context, tokenKey, goog
 		return nil, ErrValidation.Wrap(err)
 	}
 
-	if storeErr := s.storeGoogleBackupCredential(ctx, user.ID, credential.GoogleEmail, accessToken, credential.RefreshToken, validExpiry, credential.AccountType); storeErr != nil {
+	if storeErr := s.storeGoogleBackupCredential(ctx, user.ID, credential.Email, accessToken, credential.RefreshToken, validExpiry, credential.AccountType); storeErr != nil {
 		s.log.Warn("failed to persist google tokens before domain-users", zap.Error(storeErr))
 	}
 
@@ -831,7 +831,7 @@ func (s *Service) GetGoogleBackupDomainUsers(ctx context.Context, tokenKey, goog
 		s.log.Warn("domain-users call failed", zap.Error(domainErr))
 		domainError = domainErr.Error()
 	} else if accountType, ok := domainUsers["account_type"].(string); ok && accountType != "" && accountType != credential.AccountType {
-		if err := s.store.GoogleBackupCredentials().UpdateAccountType(ctx, credential.ID, accountType); err != nil {
+		if err := s.store.BackupCredentials().UpdateAccountType(ctx, credential.ID, accountType); err != nil {
 			s.log.Warn("failed to update google backup account type from domain-users", zap.Error(err))
 		}
 	}

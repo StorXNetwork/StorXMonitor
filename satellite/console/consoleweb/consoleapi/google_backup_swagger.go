@@ -17,10 +17,12 @@ type GoogleBackupOnboardingSwagger struct {
 
 // GoogleBackupAuthSuccess is returned from GET /auth/google-backup on success.
 type GoogleBackupAuthSuccess struct {
-	Success      bool                          `json:"success" example:"true"`
-	Action       string                        `json:"action" example:"registered" enums:"registered,logged_in"`
-	Onboarding   GoogleBackupOnboardingSwagger `json:"onboarding"`
-	GoogleBackup map[string]interface{}        `json:"google_backup,omitempty" swaggertype:"object"`
+	Success                 bool                          `json:"success" example:"true"`
+	Action                  string                        `json:"action" example:"registered" enums:"registered,logged_in"`
+	Onboarding              GoogleBackupOnboardingSwagger `json:"onboarding"`
+	GoogleBackup            map[string]interface{}        `json:"google_backup,omitempty" swaggertype:"object"`
+	AccountPendingDeletion  bool                          `json:"account_pending_deletion,omitempty"`
+	DeleteAt                *time.Time                    `json:"delete_at,omitempty"`
 }
 
 // GoogleBackupAuthError is returned when GET /auth/google-backup fails.

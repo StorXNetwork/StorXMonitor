@@ -217,7 +217,7 @@ func TestMemberBucketACL_AccessMatrix(t *testing.T) {
 		prefix := memberEmail + "/"
 		_, err = service.ReplaceMemberBucketGrants(ownerCtx, project.ID, member.ID, []console.MemberBucketGrantInput{{
 			Bucket: "gmail", Prefix: prefix, AllowList: true, AllowDownload: true,
-		}})
+		}}, "")
 		require.NoError(t, err)
 
 		agCases := []struct {
@@ -325,7 +325,7 @@ func TestMemberBucketACL_AccessMatrix(t *testing.T) {
 		})
 
 		t.Run("grants empty clears member access", func(t *testing.T) {
-			_, err := service.ReplaceMemberBucketGrants(ownerCtx, project.ID, member.ID, []console.MemberBucketGrantInput{})
+			_, err := service.ReplaceMemberBucketGrants(ownerCtx, project.ID, member.ID, []console.MemberBucketGrantInput{}, "")
 			require.NoError(t, err)
 
 			_, err = service.CreateAccessGrantForProject(memberCtx, project.ID, "passphrase",

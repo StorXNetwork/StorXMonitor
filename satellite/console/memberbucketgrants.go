@@ -40,6 +40,8 @@ type MemberBucketGrant struct {
 	AllowDelete   bool       `json:"allowDelete"` // always false
 	CreatedAt     time.Time  `json:"createdAt"`
 	UpdatedAt     time.Time  `json:"updatedAt"`
+	// ExpiresAt is when vault folder access from this grant ends (nil = no expiry).
+	ExpiresAt *time.Time `json:"expiresAt,omitempty"`
 }
 
 // MemberBucketGrantInput is the Admin-supplied grant shape for PUT/invite.
@@ -55,10 +57,12 @@ type MemberBucketGrantInput struct {
 
 // MemberBucketGrants persists Member prefix ACL rows.
 type MemberBucketGrants interface {
-	CreatePending(ctx context.Context, projectID uuid.UUID, inviteEmail string, grants []MemberBucketGrantInput) ([]MemberBucketGrant, error)
+	CreatePending(ctx context.Context, projectID uuid.UUID, inviteEmail string, grants []MemberBucketGrantInput, expiresAt *time.Time) ([]MemberBucketGrant, error)
 	GetByMember(ctx context.Context, projectID, memberID uuid.UUID) ([]MemberBucketGrant, error)
 	GetByInviteEmail(ctx context.Context, projectID uuid.UUID, inviteEmail string) ([]MemberBucketGrant, error)
-	ReplaceForMember(ctx context.Context, projectID, memberID uuid.UUID, inviteEmail string, grants []MemberBucketGrantInput) ([]MemberBucketGrant, error)
+	ReplaceForMember(ctx context.Context, projectID, memberID uuid.UUID, inviteEmail string, grants []MemberBucketGrantInput, expiresAt *time.Time) ([]MemberBucketGrant, error)
+	// ReplacePendingForInviteEmail deletes existing pending grants for the invite email, then creates the new set.
+	ReplacePendingForInviteEmail(ctx context.Context, projectID uuid.UUID, inviteEmail string, grants []MemberBucketGrantInput, expiresAt *time.Time) ([]MemberBucketGrant, error)
 	BindPendingToMember(ctx context.Context, projectID uuid.UUID, inviteEmail string, memberID uuid.UUID) error
 	DeleteByMember(ctx context.Context, projectID, memberID uuid.UUID) error
 	DeleteByInviteEmail(ctx context.Context, projectID uuid.UUID, inviteEmail string) error

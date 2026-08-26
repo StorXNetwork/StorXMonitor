@@ -471,5 +471,5 @@ func CreateService(log *zap.Logger, store console.DB, restKeys restapikeys.DB, o
 		},
 		cfg, pc.StripeCoinPayments.SkuEnabled, loginURL, cw.SupportURL(), bucketEventing,
 		entitlementsService, entitlementsConfig, pc.PlacementPriceOverrides.ToMap(), productModels,
-		pc.MinimumCharge.Amount, minimumChargeDate, pc.PackagePlans.Packages, cw.BackupToolsURL, nil)
+		pc.MinimumCharge.Amount, minimumChargeDate, pc.PackagePlans.Packages, cw.BackupToolsURL, cw.BackupToolsAPIKey, nil)
 }

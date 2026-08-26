@@ -1316,6 +1316,42 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 					`CREATE INDEX member_bucket_grants_project_id_invite_email_index ON member_bucket_grants ( project_id, invite_email )`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "rename google_backup_credentials to shared backup_credentials with provider",
+				Version:     136,
+				Action: migrate.SQL{
+					`CREATE TABLE backup_credentials (
+						id BYTES(MAX) NOT NULL,
+						user_id BYTES(MAX) NOT NULL,
+						provider STRING(MAX) NOT NULL,
+						email STRING(MAX) NOT NULL,
+						access_token STRING(MAX) NOT NULL,
+						refresh_token STRING(MAX),
+						access_token_expiry TIMESTAMP,
+						account_type STRING(MAX),
+						created_at TIMESTAMP NOT NULL,
+						updated_at TIMESTAMP NOT NULL OPTIONS (allow_commit_timestamp = TRUE),
+						CONSTRAINT backup_credentials_user_id_fkey FOREIGN KEY (user_id) REFERENCES users (id)
+					) PRIMARY KEY ( id )`,
+					`CREATE UNIQUE INDEX backup_credentials_user_id_provider_email_unique ON backup_credentials ( user_id, provider, email )`,
+					`CREATE INDEX backup_credentials_user_id_index ON backup_credentials ( user_id )`,
+					`CREATE INDEX backup_credentials_user_id_provider_index ON backup_credentials ( user_id, provider )`,
+					`INSERT INTO backup_credentials (id, user_id, provider, email, access_token, refresh_token, access_token_expiry, account_type, created_at, updated_at)
+					 SELECT id, user_id, 'google', google_email, access_token, refresh_token, access_token_expiry, account_type, created_at, updated_at
+					 FROM google_backup_credentials`,
+					`DROP TABLE google_backup_credentials`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add tenant_id and tenant_name to backup_credentials",
+				Version:     137,
+				Action: migrate.SQL{
+					`ALTER TABLE backup_credentials ADD COLUMN IF NOT EXISTS tenant_id STRING(MAX);`,
+					`ALTER TABLE backup_credentials ADD COLUMN IF NOT EXISTS tenant_name STRING(MAX);`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
@@ -5386,6 +5422,40 @@ true, NOW(), NOW());`,
 					);`,
 					`CREATE INDEX IF NOT EXISTS member_bucket_grants_project_id_member_id_index ON member_bucket_grants ( project_id, member_id );`,
 					`CREATE INDEX IF NOT EXISTS member_bucket_grants_project_id_invite_email_index ON member_bucket_grants ( project_id, invite_email );`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "rename google_backup_credentials to shared backup_credentials with provider",
+				Version:     386,
+				Action: migrate.SQL{
+					`ALTER TABLE google_backup_credentials ADD COLUMN IF NOT EXISTS provider text;`,
+					`UPDATE google_backup_credentials SET provider = 'google' WHERE provider IS NULL OR provider = '';`,
+					`ALTER TABLE google_backup_credentials ALTER COLUMN provider SET NOT NULL;`,
+					`ALTER TABLE google_backup_credentials RENAME COLUMN google_email TO email;`,
+					`ALTER TABLE google_backup_credentials DROP CONSTRAINT IF EXISTS google_backup_credentials_user_id_google_email_key;`,
+					`ALTER TABLE google_backup_credentials RENAME TO backup_credentials;`,
+					`CREATE UNIQUE INDEX IF NOT EXISTS backup_credentials_user_id_provider_email_unique ON backup_credentials ( user_id, provider, email );`,
+					`CREATE INDEX IF NOT EXISTS backup_credentials_user_id_index ON backup_credentials ( user_id );`,
+					`CREATE INDEX IF NOT EXISTS backup_credentials_user_id_provider_index ON backup_credentials ( user_id, provider );`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add tenant_id and tenant_name to backup_credentials",
+				Version:     387,
+				Action: migrate.SQL{
+					`ALTER TABLE backup_credentials ADD COLUMN IF NOT EXISTS tenant_id text;`,
+					`ALTER TABLE backup_credentials ADD COLUMN IF NOT EXISTS tenant_name text;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add expires_at to project_invitations and member_bucket_grants",
+				Version:     388,
+				Action: migrate.SQL{
+					`ALTER TABLE project_invitations ADD COLUMN IF NOT EXISTS expires_at timestamp with time zone;`,
+					`ALTER TABLE member_bucket_grants ADD COLUMN IF NOT EXISTS expires_at timestamp with time zone;`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run

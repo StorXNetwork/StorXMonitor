@@ -18,6 +18,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -102,7 +103,7 @@ type Config struct {
 	ClientOrigin string `help:"client origin for redirection URLs" default:""`
 
 	BackupToolsURL    string `help:"Backup-Tools service URL for AutoSync stats (e.g., http://localhost:8000)" default:""`
-	BackupToolsAPIKey string `help:"shared API key for Backup-Tools internal routes (X-API-Key on POST /api/v0/internal/storx-token/refresh and /api/v0/internal/google-token/clear)" default:""`
+	BackupToolsAPIKey string `help:"shared API key for Backup-Tools (X-API-Key on Satellite internal routes and Satellite→BT /internal/account/* lifecycle calls)" default:""`
 	MailExportServiceToken string `help:"Bearer token for gateway-mt mail-export internal APIs under /api/v0/internal/mail-export-jobs and /api/v0/internal/bandwidth-quota" default:""`
 
 	GoogleClientID                string `help:"client id for google oauth" default:""`
@@ -454,6 +455,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	projectsRouter.Handle("/{id}/members/{memberID}/bucket-grants", http.HandlerFunc(memberACLController.GetMemberGrants)).Methods(http.MethodGet, http.MethodOptions)
 	projectsRouter.Handle("/{id}/members/{memberID}/bucket-grants", server.withCSRFProtection(http.HandlerFunc(memberACLController.PutMemberGrants))).Methods(http.MethodPut, http.MethodOptions)
 	projectsRouter.Handle("/{id}/invite/{email}", server.withCSRFProtection(server.userIDRateLimiter.Limit(http.HandlerFunc(projectsController.InviteUser)))).Methods(http.MethodPost, http.MethodOptions)
+	projectsRouter.Handle("/{id}/invite/{email}", server.withCSRFProtection(server.userIDRateLimiter.Limit(http.HandlerFunc(projectsController.UpdatePendingInviteAccess)))).Methods(http.MethodPut, http.MethodOptions)
 	projectsRouter.Handle("/{id}/invites", server.withCSRFProtection(server.userIDRateLimiter.Limit(http.HandlerFunc(projectsController.InviteUsers)))).Methods(http.MethodPost, http.MethodOptions)
 	projectsRouter.Handle("/{id}/reinvite", server.withCSRFProtection(server.userIDRateLimiter.Limit(http.HandlerFunc(projectsController.ReinviteUsers)))).Methods(http.MethodPost, http.MethodOptions)
 	projectsRouter.Handle("/{id}/invite-link", http.HandlerFunc(projectsController.GetInviteLink)).Methods(http.MethodGet, http.MethodOptions)
@@ -545,6 +547,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	authRouter.Handle("/account/info", server.withAuth(http.HandlerFunc(authController.UpdateAccountInfo))).Methods(http.MethodPatch, http.MethodOptions)
 	authRouter.Handle("/account/freezestatus", server.withAuth(http.HandlerFunc(authController.GetFreezeStatus))).Methods(http.MethodGet, http.MethodOptions)
 	authRouter.Handle("/account/delete-request", server.withAuth(http.HandlerFunc(authController.DeleteAccountRequest))).Methods(http.MethodPost, http.MethodOptions)
+	authRouter.Handle("/account/cancel-delete-request", server.withAuth(http.HandlerFunc(authController.CancelAccountDeleteRequest))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/account/change-password", server.withAuth(server.userIDRateLimiter.Limit(http.HandlerFunc(authController.ChangePassword)))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/account/settings", server.withAuth(http.HandlerFunc(authController.GetUserSettings))).Methods(http.MethodGet, http.MethodOptions)
 	authRouter.Handle("/account/settings", server.withAuth(http.HandlerFunc(authController.SetUserSettings))).Methods(http.MethodPatch, http.MethodOptions)
@@ -1317,8 +1320,52 @@ func (server *Server) withAuth(handler http.Handler) http.Handler {
 			}
 		}
 
+		if blockErr := server.enforcePendingDeletionAPIAllowlist(ctx, r); blockErr != nil {
+			web.ServeJSONError(ctx, server.log, w, http.StatusForbidden, blockErr)
+			return
+		}
+
 		handler.ServeHTTP(w, r.Clone(ctx))
 	})
+}
+
+// enforcePendingDeletionAPIAllowlist blocks all authenticated console APIs while the account is
+// PendingDeletion, including direct Postman/curl calls with a valid session cookie or _tokenKey header.
+// Only cancel-deletion and read-only account/status endpoints (plus logout and CORS preflight) are allowed.
+func (server *Server) enforcePendingDeletionAPIAllowlist(ctx context.Context, r *http.Request) error {
+	user, err := console.GetUser(ctx)
+	if err != nil || user == nil || user.Status != console.PendingDeletion {
+		return nil
+	}
+	if r.Method == http.MethodOptions {
+		return nil
+	}
+
+	path := path.Clean("/" + strings.TrimPrefix(r.URL.Path, "/"))
+	allowed := isPendingDeletionAllowedRoute(r.Method, path)
+	if !allowed {
+		return console.ErrForbidden.New("account pending deletion; only cancel-deletion and account status are allowed")
+	}
+	return nil
+}
+
+// isPendingDeletionAllowedRoute is the deny-by-default allowlist for PendingDeletion sessions.
+func isPendingDeletionAllowedRoute(method, cleanPath string) bool {
+	switch cleanPath {
+	case "/api/v0/auth/account/cancel-delete-request":
+		return method == http.MethodPost
+	case "/api/v0/auth/logout":
+		return method == http.MethodPost
+	case "/api/v0/auth/account":
+		return method == http.MethodGet
+	case "/api/v0/auth/account/freezestatus":
+		return method == http.MethodGet
+	case "/api/v0/auth/account/settings":
+		// Read-only: cancel-deletion UI may need settings; mutations are blocked.
+		return method == http.MethodGet
+	default:
+		return false
+	}
 }
 
 // withAuthDeveloper middleware moved to satellite/developer/server.go

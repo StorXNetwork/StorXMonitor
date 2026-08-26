@@ -229,7 +229,8 @@ func (c *MemberBucketGrants) PutMemberGrants(w http.ResponseWriter, r *http.Requ
 	}
 
 	var body struct {
-		Grants []console.MemberBucketGrantInput `json:"grants"`
+		Grants          []console.MemberBucketGrantInput `json:"grants"`
+		VaultExpiration string                           `json:"vault_expiration"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		c.serveJSONError(ctx, w, http.StatusBadRequest, err)
@@ -239,7 +240,7 @@ func (c *MemberBucketGrants) PutMemberGrants(w http.ResponseWriter, r *http.Requ
 		body.Grants = []console.MemberBucketGrantInput{}
 	}
 
-	grants, err := c.service.ReplaceMemberBucketGrants(ctx, projectID, memberID, body.Grants)
+	grants, err := c.service.ReplaceMemberBucketGrants(ctx, projectID, memberID, body.Grants, body.VaultExpiration)
 	if err != nil {
 		c.serveMemberACLError(ctx, w, err)
 		return

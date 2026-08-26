@@ -52,13 +52,22 @@ type Member struct {
 	Email     string                    `json:"email"`
 	Role      console.ProjectMemberRole `json:"role"`
 	JoinedAt  time.Time                 `json:"joinedAt"`
+	// IsOwner is true when this member is projects.owner_id (ownership, not a stored role).
+	IsOwner bool `json:"isOwner"`
+	// Vaults are distinct bucket names from member_bucket_grants (active member ACL).
+	Vaults []string `json:"vaults,omitempty"`
+	// VaultExpiresAt is the earliest grant expiry (omit when none expire).
+	VaultExpiresAt *time.Time `json:"vaultExpiresAt,omitempty"`
 }
 
 // Invitation is a project invitation in a ProjectMembersPage.
 type Invitation struct {
-	Email     string    `json:"email"`
-	CreatedAt time.Time `json:"createdAt"`
-	Expired   bool      `json:"expired"`
+	Email          string     `json:"email"`
+	CreatedAt      time.Time  `json:"createdAt"`
+	Expired        bool       `json:"expired"`
+	LinkExpiresAt  time.Time  `json:"linkExpiresAt"`
+	VaultExpiresAt *time.Time `json:"vaultExpiresAt,omitempty"`
+	Vaults         []string   `json:"vaults,omitempty"`
 }
 
 // NewProjects is a constructor for api analytics controller.
@@ -417,6 +426,10 @@ func (p *Projects) CreateProject(w http.ResponseWriter, r *http.Request) {
 // @Param        search           query  string  false  "Search by name/email"
 // @Param        order            query  int     false  "Sort field: 1=name, 2=email, 3=created" default(1)
 // @Param        order-direction  query  int     false  "1=asc, 2=desc" default(1)
+// @Param        kind             query  string  false  "all|members|pending|admins"
+// @Param        role             query  string  false  "admin|member or 0|1 (members only; excludes owner)"
+// @Param        status           query  string  false  "all|active|pending|expired"
+// @Param        vault            query  string  false  "Filter by vault bucket name with ACL grant"
 // @Success      200  {object}  ProjectMembersPageSwaggerResponse
 // @Failure      400  {object}  SwaggerErrorResponse
 // @Failure      401  {object}  SwaggerErrorResponse
@@ -439,6 +452,7 @@ func (p *Projects) GetMembersAndInvitations(w http.ResponseWriter, r *http.Reque
 	publicID, err := uuid.FromString(idParam)
 	if err != nil {
 		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
 	}
 
 	project, err := p.service.GetProject(ctx, publicID)
@@ -495,6 +509,36 @@ func (p *Projects) GetMembersAndInvitations(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	kind := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("kind")))
+	switch kind {
+	case "", console.ProjectMemberListKindAll, console.ProjectMemberListKindMembers,
+		console.ProjectMemberListKindPending, console.ProjectMemberListKindAdmins:
+	default:
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("invalid kind parameter: %s", kind))
+		return
+	}
+
+	status := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("status")))
+	switch status {
+	case "", console.ProjectMemberListStatusAll, console.ProjectMemberListStatusActive,
+		console.ProjectMemberListStatusPending, console.ProjectMemberListStatusExpired:
+	default:
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("invalid status parameter: %s", status))
+		return
+	}
+
+	vaultFilter := strings.TrimSpace(r.URL.Query().Get("vault"))
+
+	var roleFilter *console.ProjectMemberRole
+	if roleStr := strings.TrimSpace(r.URL.Query().Get("role")); roleStr != "" {
+		parsed, parseErr := parseProjectMemberRoleQuery(roleStr)
+		if parseErr != nil {
+			p.serveJSONError(ctx, w, http.StatusBadRequest, parseErr)
+			return
+		}
+		roleFilter = &parsed
+	}
+
 	var memberPage ProjectMembersPage
 	membersAndInvitations, err := p.service.GetProjectMembersAndInvitations(ctx, project.ID, console.ProjectMembersCursor{
 		Search:         search,
@@ -502,6 +546,10 @@ func (p *Projects) GetMembersAndInvitations(w http.ResponseWriter, r *http.Reque
 		Page:           uint(page),
 		Order:          console.ProjectMemberOrder(order),
 		OrderDirection: console.OrderDirection(orderDir),
+		Kind:           kind,
+		Role:           roleFilter,
+		Status:         status,
+		Vault:          vaultFilter,
 	})
 	if err != nil {
 		p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
@@ -531,14 +579,22 @@ func (p *Projects) GetMembersAndInvitations(w http.ResponseWriter, r *http.Reque
 			Email:     user.Email,
 			Role:      m.Role,
 			JoinedAt:  m.CreatedAt,
+			IsOwner:   m.MemberID == project.OwnerID,
+		}
+		if grants, gErr := p.service.GetMemberBucketGrants(ctx, project.ID, m.MemberID); gErr == nil {
+			member.Vaults, member.VaultExpiresAt = console.SummarizeVaultGrants(grants)
 		}
 		memberPage.Members = append(memberPage.Members, member)
 	}
 	for _, inv := range membersAndInvitations.ProjectInvitations {
 		invitee := Invitation{
-			Email:     inv.Email,
-			CreatedAt: inv.CreatedAt,
-			Expired:   p.service.IsProjectInvitationExpired(&inv),
+			Email:         inv.Email,
+			CreatedAt:     inv.CreatedAt,
+			Expired:       p.service.IsProjectInvitationExpired(&inv),
+			LinkExpiresAt: p.service.InviteLinkExpiresAt(&inv),
+		}
+		if grants, gErr := p.service.GetPendingInviteBucketGrants(ctx, project.ID, inv.Email); gErr == nil {
+			invitee.Vaults, invitee.VaultExpiresAt = console.SummarizeVaultGrants(grants)
 		}
 		memberPage.Invitations = append(memberPage.Invitations, invitee)
 	}
@@ -964,9 +1020,12 @@ func (p *Projects) InviteUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var grants []console.MemberBucketGrantInput
+	var linkExpiration, vaultExpiration string
 	if r.Body != nil && r.ContentLength != 0 {
 		var body struct {
-			Grants []console.MemberBucketGrantInput `json:"grants"`
+			Grants          []console.MemberBucketGrantInput `json:"grants"`
+			LinkExpiration  string                           `json:"link_expiration"`
+			VaultExpiration string                           `json:"vault_expiration"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil && err != io.EOF {
 			p.serveJSONError(ctx, w, http.StatusBadRequest, err)
@@ -976,9 +1035,15 @@ func (p *Projects) InviteUser(w http.ResponseWriter, r *http.Request) {
 		if body.Grants != nil {
 			grants = body.Grants
 		}
+		linkExpiration = body.LinkExpiration
+		vaultExpiration = body.VaultExpiration
 	}
 
-	_, err = p.service.InviteNewProjectMember(ctx, id, email, grants)
+	result, err := p.service.InviteNewProjectMemberDetailed(ctx, id, email, console.InviteProjectMemberParams{
+		Grants:          grants,
+		LinkExpiration:  linkExpiration,
+		VaultExpiration: vaultExpiration,
+	})
 	p.service.RecordUserAudit(ctx, "PROJECT_INVITE", "Project member", "Project member invited", err)
 	if err != nil {
 		status := http.StatusInternalServerError
@@ -990,8 +1055,103 @@ func (p *Projects) InviteUser(w http.ResponseWriter, r *http.Request) {
 			status = http.StatusBadRequest
 		} else if console.ErrForbidden.Has(err) {
 			status = http.StatusForbidden
+		} else if console.ErrAlreadyInvited.Has(err) || console.ErrAlreadyMember.Has(err) {
+			status = http.StatusConflict
 		}
 		p.serveJSONError(ctx, w, status, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	err = json.NewEncoder(w).Encode(result)
+	if err != nil {
+		p.log.Error("could not write invite response", zap.Error(err))
+	}
+}
+
+// UpdatePendingInviteAccess updates link expiry and/or vault grants for a pending invite.
+//
+// @Summary      Update pending invite access
+// @Description  **Full route:** `PUT /api/v0/projects/{id}/invite/{email}`
+//
+// Owner/Admin can change `link_expiration` (24h|3d|7d|30d), `vault_expiration`, and `grants` (nil = leave grants; [] = clear). Optional `resend:true` re-delivers the invite email.
+// @Tags         member-bucket-restriction
+// @Accept       json
+// @Produce      json
+// @Param        id     path  string  true  "Project UUID"
+// @Param        email  path  string  true  "Invitee email"
+// @Param        body   body  object  true  "Update fields"
+// @Success      200  {object}  console.InviteProjectMemberResult
+// @Failure      400  {object}  SwaggerErrorResponse
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Failure      403  {object}  SwaggerErrorResponse
+// @Failure      500  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Security     CSRFAuth
+// @Router       /projects/{id}/invite/{email} [put]
+func (p *Projects) UpdatePendingInviteAccess(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	idParam, ok := mux.Vars(r)["id"]
+	if !ok {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing project id route param"))
+		return
+	}
+	id, err := uuid.FromString(idParam)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	email, ok := mux.Vars(r)["email"]
+	if !ok {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing email route param"))
+		return
+	}
+	email = strings.TrimSpace(email)
+	if !utils.ValidateEmail(email) {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, console.ErrValidation.Wrap(errs.New("Invalid email.")))
+		return
+	}
+
+	var body struct {
+		Grants          *[]console.MemberBucketGrantInput `json:"grants"`
+		LinkExpiration  string                            `json:"link_expiration"`
+		VaultExpiration string                            `json:"vault_expiration"`
+		Resend          bool                              `json:"resend"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	result, err := p.service.UpdatePendingInviteAccess(ctx, id, email, console.UpdatePendingInviteParams{
+		LinkExpiration:  body.LinkExpiration,
+		VaultExpiration: body.VaultExpiration,
+		Grants:          body.Grants,
+		Resend:          body.Resend,
+	})
+	p.service.RecordUserAudit(ctx, "PROJECT_INVITE_UPDATE", "Project member", "Pending invite access updated", err)
+	if err != nil {
+		status := http.StatusInternalServerError
+		switch {
+		case console.ErrUnauthorized.Has(err), console.ErrNoMembership.Has(err):
+			status = http.StatusUnauthorized
+		case console.ErrForbidden.Has(err):
+			status = http.StatusForbidden
+		case console.ErrValidation.Has(err), console.ErrMemberBucketGrant.Has(err), console.ErrProjectInviteInvalid.Has(err):
+			status = http.StatusBadRequest
+		}
+		p.serveJSONError(ctx, w, status, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(result); err != nil {
+		p.log.Error("could not write update pending invite response", zap.Error(err))
 	}
 }
 
@@ -1119,7 +1279,8 @@ func (p *Projects) ReinviteUsers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var data struct {
-		Emails []string `json:"emails"`
+		Emails         []string `json:"emails"`
+		LinkExpiration string   `json:"link_expiration"`
 	}
 
 	err = json.NewDecoder(r.Body).Decode(&data)
@@ -1132,7 +1293,10 @@ func (p *Projects) ReinviteUsers(w http.ResponseWriter, r *http.Request) {
 		data.Emails[i] = strings.TrimSpace(email)
 	}
 
-	_, err = p.service.ReinviteProjectMembers(ctx, id, data.Emails)
+	_, err = p.service.ReinviteProjectMembersDetailed(ctx, id, console.ReinviteProjectMembersParams{
+		Emails:         data.Emails,
+		LinkExpiration: data.LinkExpiration,
+	})
 	p.service.RecordUserAudit(ctx, "PROJECT_REINVITE", "Project member", "Project members reinvited", err)
 	if err != nil {
 		status := http.StatusInternalServerError
@@ -1140,6 +1304,8 @@ func (p *Projects) ReinviteUsers(w http.ResponseWriter, r *http.Request) {
 			status = http.StatusUnauthorized
 		} else if console.ErrNotPaidTier.Has(err) {
 			status = http.StatusPaymentRequired
+		} else if console.ErrValidation.Has(err) {
+			status = http.StatusBadRequest
 		}
 		p.serveJSONError(ctx, w, status, err)
 	}
@@ -1230,11 +1396,14 @@ func (p *Projects) GetUserInvitations(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type jsonInvite struct {
-		ProjectID          uuid.UUID `json:"projectID"`
-		ProjectName        string    `json:"projectName"`
-		ProjectDescription string    `json:"projectDescription"`
-		InviterEmail       string    `json:"inviterEmail"`
-		CreatedAt          time.Time `json:"createdAt"`
+		ProjectID          uuid.UUID  `json:"projectID"`
+		ProjectName        string     `json:"projectName"`
+		ProjectDescription string     `json:"projectDescription"`
+		InviterEmail       string     `json:"inviterEmail"`
+		CreatedAt          time.Time  `json:"createdAt"`
+		LinkExpiresAt      time.Time  `json:"linkExpiresAt"`
+		VaultExpiresAt     *time.Time `json:"vaultExpiresAt,omitempty"`
+		Vaults             []string   `json:"vaults,omitempty"`
 	}
 
 	response := []jsonInvite{}
@@ -1251,6 +1420,7 @@ func (p *Projects) GetUserInvitations(w http.ResponseWriter, r *http.Request) {
 			ProjectName:        proj.Name,
 			ProjectDescription: proj.Description,
 			CreatedAt:          invite.CreatedAt,
+			LinkExpiresAt:      p.service.InviteLinkExpiresAt(&invite),
 		}
 
 		if invite.InviterID != nil {
@@ -1260,6 +1430,10 @@ func (p *Projects) GetUserInvitations(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			respInvite.InviterEmail = inviter.Email
+		}
+
+		if grants, gErr := p.service.GetPendingInviteBucketGrants(ctx, invite.ProjectID, invite.Email); gErr == nil {
+			respInvite.Vaults, respInvite.VaultExpiresAt = console.SummarizeVaultGrants(grants)
 		}
 
 		response = append(response, respInvite)
@@ -1452,6 +1626,17 @@ func (p *Projects) GetProjectIDFromAccessGrant(w http.ResponseWriter, r *http.Re
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
+	}
+}
+
+func parseProjectMemberRoleQuery(roleStr string) (console.ProjectMemberRole, error) {
+	switch strings.ToLower(strings.TrimSpace(roleStr)) {
+	case "0", "admin":
+		return console.RoleAdmin, nil
+	case "1", "member":
+		return console.RoleMember, nil
+	default:
+		return 0, errs.New("invalid role parameter: %s", roleStr)
 	}
 }
 

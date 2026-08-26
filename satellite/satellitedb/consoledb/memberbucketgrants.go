@@ -5,6 +5,7 @@ package consoledb
 
 import (
 	"context"
+	"time"
 
 	"github.com/StorXNetwork/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console"
@@ -17,7 +18,7 @@ type memberBucketGrants struct {
 	db dbx.DriverMethods
 }
 
-func (r *memberBucketGrants) CreatePending(ctx context.Context, projectID uuid.UUID, inviteEmail string, grants []console.MemberBucketGrantInput) (out []console.MemberBucketGrant, err error) {
+func (r *memberBucketGrants) CreatePending(ctx context.Context, projectID uuid.UUID, inviteEmail string, grants []console.MemberBucketGrantInput, expiresAt *time.Time) (out []console.MemberBucketGrant, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	email := normalizeEmail(inviteEmail)
@@ -26,6 +27,12 @@ func (r *memberBucketGrants) CreatePending(ctx context.Context, projectID uuid.U
 		id, err := uuid.New()
 		if err != nil {
 			return nil, err
+		}
+		createFields := dbx.MemberBucketGrant_Create_Fields{
+			MemberId: dbx.MemberBucketGrant_MemberId_Null(),
+		}
+		if expiresAt != nil {
+			createFields.ExpiresAt = dbx.MemberBucketGrant_ExpiresAt(*expiresAt)
 		}
 		row, err := r.db.Create_MemberBucketGrant(ctx,
 			dbx.MemberBucketGrant_Id(id[:]),
@@ -38,9 +45,7 @@ func (r *memberBucketGrants) CreatePending(ctx context.Context, projectID uuid.U
 			// Member ACL supports List + Download only.
 			dbx.MemberBucketGrant_AllowUpload(false),
 			dbx.MemberBucketGrant_AllowDelete(false),
-			dbx.MemberBucketGrant_Create_Fields{
-				MemberId: dbx.MemberBucketGrant_MemberId_Null(),
-			},
+			createFields,
 		)
 		if err != nil {
 			return nil, err
@@ -80,7 +85,16 @@ func (r *memberBucketGrants) GetByInviteEmail(ctx context.Context, projectID uui
 	return memberBucketGrantSliceFromDBX(rows)
 }
 
-func (r *memberBucketGrants) ReplaceForMember(ctx context.Context, projectID, memberID uuid.UUID, inviteEmail string, grants []console.MemberBucketGrantInput) (out []console.MemberBucketGrant, err error) {
+func (r *memberBucketGrants) ReplacePendingForInviteEmail(ctx context.Context, projectID uuid.UUID, inviteEmail string, grants []console.MemberBucketGrantInput, expiresAt *time.Time) (out []console.MemberBucketGrant, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err = r.DeleteByInviteEmail(ctx, projectID, inviteEmail); err != nil {
+		return nil, err
+	}
+	return r.CreatePending(ctx, projectID, inviteEmail, grants, expiresAt)
+}
+
+func (r *memberBucketGrants) ReplaceForMember(ctx context.Context, projectID, memberID uuid.UUID, inviteEmail string, grants []console.MemberBucketGrantInput, expiresAt *time.Time) (out []console.MemberBucketGrant, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err = r.DeleteByMember(ctx, projectID, memberID); err != nil {
@@ -94,6 +108,12 @@ func (r *memberBucketGrants) ReplaceForMember(ctx context.Context, projectID, me
 		if err != nil {
 			return nil, err
 		}
+		createFields := dbx.MemberBucketGrant_Create_Fields{
+			MemberId: dbx.MemberBucketGrant_MemberId(memberID[:]),
+		}
+		if expiresAt != nil {
+			createFields.ExpiresAt = dbx.MemberBucketGrant_ExpiresAt(*expiresAt)
+		}
 		row, err := r.db.Create_MemberBucketGrant(ctx,
 			dbx.MemberBucketGrant_Id(id[:]),
 			dbx.MemberBucketGrant_ProjectId(projectID[:]),
@@ -105,9 +125,7 @@ func (r *memberBucketGrants) ReplaceForMember(ctx context.Context, projectID, me
 			// Member ACL supports List + Download only.
 			dbx.MemberBucketGrant_AllowUpload(false),
 			dbx.MemberBucketGrant_AllowDelete(false),
-			dbx.MemberBucketGrant_Create_Fields{
-				MemberId: dbx.MemberBucketGrant_MemberId(memberID[:]),
-			},
+			createFields,
 		)
 		if err != nil {
 			return nil, err
@@ -211,5 +229,6 @@ func memberBucketGrantFromDBX(row *dbx.MemberBucketGrant) (*console.MemberBucket
 		AllowDelete:   row.AllowDelete,
 		CreatedAt:     row.CreatedAt,
 		UpdatedAt:     row.UpdatedAt,
+		ExpiresAt:     row.ExpiresAt,
 	}, nil
 }

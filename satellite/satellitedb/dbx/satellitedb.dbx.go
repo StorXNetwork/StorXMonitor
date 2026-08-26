@@ -1369,6 +1369,23 @@ func (obj *pgxDB) Schema() []string {
 	UNIQUE ( name, project_id )
 )`,
 
+		`CREATE TABLE backup_credentials (
+	id bytea NOT NULL,
+	user_id bytea NOT NULL REFERENCES users( id ),
+	provider text NOT NULL,
+	email text NOT NULL,
+	access_token text NOT NULL,
+	refresh_token text,
+	access_token_expiry timestamp with time zone,
+	account_type text,
+	tenant_id text,
+	tenant_name text,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( user_id, provider, email )
+)`,
+
 		`CREATE TABLE bucket_metainfos (
 	id bytea NOT NULL,
 	project_id bytea NOT NULL REFERENCES projects( id ),
@@ -1424,20 +1441,6 @@ func (obj *pgxDB) Schema() []string {
 	PRIMARY KEY ( project_id, subdomain )
 )`,
 
-		`CREATE TABLE google_backup_credentials (
-	id bytea NOT NULL,
-	user_id bytea NOT NULL REFERENCES users( id ),
-	google_email text NOT NULL,
-	access_token text NOT NULL,
-	refresh_token text,
-	access_token_expiry timestamp with time zone,
-	account_type text,
-	created_at timestamp with time zone NOT NULL,
-	updated_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( id ),
-	UNIQUE ( user_id, google_email )
-)`,
-
 		`CREATE TABLE member_bucket_grants (
 	id bytea NOT NULL,
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
@@ -1451,6 +1454,7 @@ func (obj *pgxDB) Schema() []string {
 	allow_delete boolean NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	updated_at timestamp with time zone NOT NULL,
+	expires_at timestamp with time zone,
 	PRIMARY KEY ( id ),
 	UNIQUE ( project_id, invite_email, bucket, prefix )
 )`,
@@ -1460,6 +1464,7 @@ func (obj *pgxDB) Schema() []string {
 	email text NOT NULL,
 	inviter_id bytea REFERENCES users( id ) ON DELETE CASCADE,
 	created_at timestamp with time zone NOT NULL,
+	expires_at timestamp with time zone,
 	PRIMARY KEY ( project_id, email )
 )`,
 
@@ -1643,9 +1648,11 @@ func (obj *pgxDB) Schema() []string {
 
 		`CREATE INDEX webapp_session_resellers_reseller_id_index ON webapp_session_resellers ( reseller_id )`,
 
-		`CREATE INDEX bucket_migrations_state_created_at_index ON bucket_migrations ( state, created_at )`,
+		`CREATE INDEX backup_credentials_user_id_index ON backup_credentials ( user_id )`,
 
-		`CREATE INDEX google_backup_credentials_user_id_index ON google_backup_credentials ( user_id )`,
+		`CREATE INDEX backup_credentials_user_id_provider_index ON backup_credentials ( user_id, provider )`,
+
+		`CREATE INDEX bucket_migrations_state_created_at_index ON bucket_migrations ( state, created_at )`,
 
 		`CREATE INDEX member_bucket_grants_project_id_member_id_index ON member_bucket_grants ( project_id, member_id )`,
 
@@ -1682,13 +1689,13 @@ func (obj *pgxDB) DropSchema() []string {
 
 		`DROP TABLE IF EXISTS member_bucket_grants`,
 
-		`DROP TABLE IF EXISTS google_backup_credentials`,
-
 		`DROP TABLE IF EXISTS domains`,
 
 		`DROP TABLE IF EXISTS bucket_migrations`,
 
 		`DROP TABLE IF EXISTS bucket_metainfos`,
+
+		`DROP TABLE IF EXISTS backup_credentials`,
 
 		`DROP TABLE IF EXISTS api_keys`,
 
@@ -2954,6 +2961,23 @@ func (obj *pgxcockroachDB) Schema() []string {
 	UNIQUE ( name, project_id )
 )`,
 
+		`CREATE TABLE backup_credentials (
+	id bytea NOT NULL,
+	user_id bytea NOT NULL REFERENCES users( id ),
+	provider text NOT NULL,
+	email text NOT NULL,
+	access_token text NOT NULL,
+	refresh_token text,
+	access_token_expiry timestamp with time zone,
+	account_type text,
+	tenant_id text,
+	tenant_name text,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( user_id, provider, email )
+)`,
+
 		`CREATE TABLE bucket_metainfos (
 	id bytea NOT NULL,
 	project_id bytea NOT NULL REFERENCES projects( id ),
@@ -3009,20 +3033,6 @@ func (obj *pgxcockroachDB) Schema() []string {
 	PRIMARY KEY ( project_id, subdomain )
 )`,
 
-		`CREATE TABLE google_backup_credentials (
-	id bytea NOT NULL,
-	user_id bytea NOT NULL REFERENCES users( id ),
-	google_email text NOT NULL,
-	access_token text NOT NULL,
-	refresh_token text,
-	access_token_expiry timestamp with time zone,
-	account_type text,
-	created_at timestamp with time zone NOT NULL,
-	updated_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( id ),
-	UNIQUE ( user_id, google_email )
-)`,
-
 		`CREATE TABLE member_bucket_grants (
 	id bytea NOT NULL,
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
@@ -3036,6 +3046,7 @@ func (obj *pgxcockroachDB) Schema() []string {
 	allow_delete boolean NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	updated_at timestamp with time zone NOT NULL,
+	expires_at timestamp with time zone,
 	PRIMARY KEY ( id ),
 	UNIQUE ( project_id, invite_email, bucket, prefix )
 )`,
@@ -3045,6 +3056,7 @@ func (obj *pgxcockroachDB) Schema() []string {
 	email text NOT NULL,
 	inviter_id bytea REFERENCES users( id ) ON DELETE CASCADE,
 	created_at timestamp with time zone NOT NULL,
+	expires_at timestamp with time zone,
 	PRIMARY KEY ( project_id, email )
 )`,
 
@@ -3228,9 +3240,11 @@ func (obj *pgxcockroachDB) Schema() []string {
 
 		`CREATE INDEX webapp_session_resellers_reseller_id_index ON webapp_session_resellers ( reseller_id )`,
 
-		`CREATE INDEX bucket_migrations_state_created_at_index ON bucket_migrations ( state, created_at )`,
+		`CREATE INDEX backup_credentials_user_id_index ON backup_credentials ( user_id )`,
 
-		`CREATE INDEX google_backup_credentials_user_id_index ON google_backup_credentials ( user_id )`,
+		`CREATE INDEX backup_credentials_user_id_provider_index ON backup_credentials ( user_id, provider )`,
+
+		`CREATE INDEX bucket_migrations_state_created_at_index ON bucket_migrations ( state, created_at )`,
 
 		`CREATE INDEX member_bucket_grants_project_id_member_id_index ON member_bucket_grants ( project_id, member_id )`,
 
@@ -3267,13 +3281,13 @@ func (obj *pgxcockroachDB) DropSchema() []string {
 
 		`DROP TABLE IF EXISTS member_bucket_grants`,
 
-		`DROP TABLE IF EXISTS google_backup_credentials`,
-
 		`DROP TABLE IF EXISTS domains`,
 
 		`DROP TABLE IF EXISTS bucket_migrations`,
 
 		`DROP TABLE IF EXISTS bucket_metainfos`,
+
+		`DROP TABLE IF EXISTS backup_credentials`,
 
 		`DROP TABLE IF EXISTS api_keys`,
 
@@ -4488,6 +4502,24 @@ func (obj *spannerDB) Schema() []string {
 
 		`CREATE UNIQUE INDEX index_api_keys_name_project_id ON api_keys ( name, project_id )`,
 
+		`CREATE TABLE backup_credentials (
+	id BYTES(MAX) NOT NULL,
+	user_id BYTES(MAX) NOT NULL,
+	provider STRING(MAX) NOT NULL,
+	email STRING(MAX) NOT NULL,
+	access_token STRING(MAX) NOT NULL,
+	refresh_token STRING(MAX),
+	access_token_expiry TIMESTAMP,
+	account_type STRING(MAX),
+	tenant_id STRING(MAX),
+	tenant_name STRING(MAX),
+	created_at TIMESTAMP NOT NULL,
+	updated_at TIMESTAMP NOT NULL,
+	CONSTRAINT backup_credentials_user_id_fkey FOREIGN KEY (user_id) REFERENCES users (id)
+) PRIMARY KEY ( id )`,
+
+		`CREATE UNIQUE INDEX index_backup_credentials_user_id_provider_email ON backup_credentials ( user_id, provider, email )`,
+
 		`CREATE TABLE bucket_metainfos (
 	id BYTES(MAX) NOT NULL,
 	project_id BYTES(MAX) NOT NULL,
@@ -4545,21 +4577,6 @@ func (obj *spannerDB) Schema() []string {
 	CONSTRAINT domains_created_by_fkey FOREIGN KEY (created_by) REFERENCES users (id)
 ) PRIMARY KEY ( project_id, subdomain )`,
 
-		`CREATE TABLE google_backup_credentials (
-	id BYTES(MAX) NOT NULL,
-	user_id BYTES(MAX) NOT NULL,
-	google_email STRING(MAX) NOT NULL,
-	access_token STRING(MAX) NOT NULL,
-	refresh_token STRING(MAX),
-	access_token_expiry TIMESTAMP,
-	account_type STRING(MAX),
-	created_at TIMESTAMP NOT NULL,
-	updated_at TIMESTAMP NOT NULL,
-	CONSTRAINT google_backup_credentials_user_id_fkey FOREIGN KEY (user_id) REFERENCES users (id)
-) PRIMARY KEY ( id )`,
-
-		`CREATE UNIQUE INDEX index_google_backup_credentials_user_id_google_email ON google_backup_credentials ( user_id, google_email )`,
-
 		`CREATE TABLE member_bucket_grants (
 	id BYTES(MAX) NOT NULL,
 	project_id BYTES(MAX) NOT NULL,
@@ -4573,6 +4590,7 @@ func (obj *spannerDB) Schema() []string {
 	allow_delete BOOL NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	updated_at TIMESTAMP NOT NULL,
+	expires_at TIMESTAMP,
 	CONSTRAINT member_bucket_grants_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE ,
 	CONSTRAINT member_bucket_grants_member_id_fkey FOREIGN KEY (member_id) REFERENCES users (id) ON DELETE CASCADE 
 ) PRIMARY KEY ( id )`,
@@ -4584,6 +4602,7 @@ func (obj *spannerDB) Schema() []string {
 	email STRING(MAX) NOT NULL,
 	inviter_id BYTES(MAX),
 	created_at TIMESTAMP NOT NULL,
+	expires_at TIMESTAMP,
 	CONSTRAINT project_invitations_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE ,
 	CONSTRAINT project_invitations_inviter_id_fkey FOREIGN KEY (inviter_id) REFERENCES users (id) ON DELETE CASCADE 
 ) PRIMARY KEY ( project_id, email )`,
@@ -4770,9 +4789,11 @@ func (obj *spannerDB) Schema() []string {
 
 		`CREATE INDEX webapp_session_resellers_reseller_id_index ON webapp_session_resellers ( reseller_id )`,
 
-		`CREATE INDEX bucket_migrations_state_created_at_index ON bucket_migrations ( state, created_at )`,
+		`CREATE INDEX backup_credentials_user_id_index ON backup_credentials ( user_id )`,
 
-		`CREATE INDEX google_backup_credentials_user_id_index ON google_backup_credentials ( user_id )`,
+		`CREATE INDEX backup_credentials_user_id_provider_index ON backup_credentials ( user_id, provider )`,
+
+		`CREATE INDEX bucket_migrations_state_created_at_index ON bucket_migrations ( state, created_at )`,
 
 		`CREATE INDEX member_bucket_grants_project_id_member_id_index ON member_bucket_grants ( project_id, member_id )`,
 
@@ -4819,10 +4840,6 @@ func (obj *spannerDB) DropSchema() []string {
 
 		`DROP INDEX IF EXISTS index_member_bucket_grants_project_id_invite_email_bucket_prefix`,
 
-		`ALTER TABLE google_backup_credentials DROP CONSTRAINT google_backup_credentials_user_id_fkey`,
-
-		`DROP INDEX IF EXISTS index_google_backup_credentials_user_id_google_email`,
-
 		`ALTER TABLE domains DROP CONSTRAINT domains_project_id_fkey`,
 
 		`ALTER TABLE domains DROP CONSTRAINT domains_created_by_fkey`,
@@ -4832,6 +4849,10 @@ func (obj *spannerDB) DropSchema() []string {
 		`ALTER TABLE bucket_metainfos DROP CONSTRAINT bucket_metainfos_project_id_fkey`,
 
 		`ALTER TABLE bucket_metainfos DROP CONSTRAINT bucket_metainfos_created_by_fkey`,
+
+		`ALTER TABLE backup_credentials DROP CONSTRAINT backup_credentials_user_id_fkey`,
+
+		`DROP INDEX IF EXISTS index_backup_credentials_user_id_provider_email`,
 
 		`ALTER TABLE api_keys DROP CONSTRAINT api_keys_project_id_fkey`,
 
@@ -5009,9 +5030,11 @@ func (obj *spannerDB) DropSchema() []string {
 
 		`DROP INDEX IF EXISTS webapp_session_resellers_reseller_id_index`,
 
-		`DROP INDEX IF EXISTS bucket_migrations_state_created_at_index`,
+		`DROP INDEX IF EXISTS backup_credentials_user_id_index`,
 
-		`DROP INDEX IF EXISTS google_backup_credentials_user_id_index`,
+		`DROP INDEX IF EXISTS backup_credentials_user_id_provider_index`,
+
+		`DROP INDEX IF EXISTS bucket_migrations_state_created_at_index`,
 
 		`DROP INDEX IF EXISTS member_bucket_grants_project_id_member_id_index`,
 
@@ -5083,12 +5106,6 @@ func (obj *spannerDB) DropSchema() []string {
 
 		`DROP TABLE IF EXISTS member_bucket_grants`,
 
-		`ALTER TABLE  google_backup_credentials ALTER id SET DEFAULT (null)`,
-
-		`DROP SEQUENCE IF EXISTS google_backup_credentials_id`,
-
-		`DROP TABLE IF EXISTS google_backup_credentials`,
-
 		`ALTER TABLE  domains ALTER project_id SET DEFAULT (null)`,
 
 		`DROP SEQUENCE IF EXISTS domains_project_id`,
@@ -5114,6 +5131,12 @@ func (obj *spannerDB) DropSchema() []string {
 		`DROP SEQUENCE IF EXISTS bucket_metainfos_name`,
 
 		`DROP TABLE IF EXISTS bucket_metainfos`,
+
+		`ALTER TABLE  backup_credentials ALTER id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS backup_credentials_id`,
+
+		`DROP TABLE IF EXISTS backup_credentials`,
 
 		`ALTER TABLE  api_keys ALTER id SET DEFAULT (null)`,
 
@@ -21921,6 +21944,317 @@ func (f ApiKey_Version_Field) value() any {
 	return f._value
 }
 
+type BackupCredentials struct {
+	Id                []byte
+	UserId            []byte
+	Provider          string
+	Email             string
+	AccessToken       string
+	RefreshToken      *string
+	AccessTokenExpiry *time.Time
+	AccountType       *string
+	TenantId          *string
+	TenantName        *string
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+}
+
+func (BackupCredentials) _Table() string { return "backup_credentials" }
+
+type BackupCredentials_Create_Fields struct {
+	RefreshToken      BackupCredentials_RefreshToken_Field
+	AccessTokenExpiry BackupCredentials_AccessTokenExpiry_Field
+	AccountType       BackupCredentials_AccountType_Field
+	TenantId          BackupCredentials_TenantId_Field
+	TenantName        BackupCredentials_TenantName_Field
+}
+
+type BackupCredentials_Update_Fields struct {
+	AccessToken       BackupCredentials_AccessToken_Field
+	RefreshToken      BackupCredentials_RefreshToken_Field
+	AccessTokenExpiry BackupCredentials_AccessTokenExpiry_Field
+	AccountType       BackupCredentials_AccountType_Field
+	TenantId          BackupCredentials_TenantId_Field
+	TenantName        BackupCredentials_TenantName_Field
+}
+
+type BackupCredentials_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func BackupCredentials_Id(v []byte) BackupCredentials_Id_Field {
+	return BackupCredentials_Id_Field{_set: true, _value: v}
+}
+
+func (f BackupCredentials_Id_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type BackupCredentials_UserId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func BackupCredentials_UserId(v []byte) BackupCredentials_UserId_Field {
+	return BackupCredentials_UserId_Field{_set: true, _value: v}
+}
+
+func (f BackupCredentials_UserId_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type BackupCredentials_Provider_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func BackupCredentials_Provider(v string) BackupCredentials_Provider_Field {
+	return BackupCredentials_Provider_Field{_set: true, _value: v}
+}
+
+func (f BackupCredentials_Provider_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type BackupCredentials_Email_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func BackupCredentials_Email(v string) BackupCredentials_Email_Field {
+	return BackupCredentials_Email_Field{_set: true, _value: v}
+}
+
+func (f BackupCredentials_Email_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type BackupCredentials_AccessToken_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func BackupCredentials_AccessToken(v string) BackupCredentials_AccessToken_Field {
+	return BackupCredentials_AccessToken_Field{_set: true, _value: v}
+}
+
+func (f BackupCredentials_AccessToken_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type BackupCredentials_RefreshToken_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func BackupCredentials_RefreshToken(v string) BackupCredentials_RefreshToken_Field {
+	return BackupCredentials_RefreshToken_Field{_set: true, _value: &v}
+}
+
+func BackupCredentials_RefreshToken_Raw(v *string) BackupCredentials_RefreshToken_Field {
+	if v == nil {
+		return BackupCredentials_RefreshToken_Null()
+	}
+	return BackupCredentials_RefreshToken(*v)
+}
+
+func BackupCredentials_RefreshToken_Null() BackupCredentials_RefreshToken_Field {
+	return BackupCredentials_RefreshToken_Field{_set: true, _null: true}
+}
+
+func (f BackupCredentials_RefreshToken_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f BackupCredentials_RefreshToken_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type BackupCredentials_AccessTokenExpiry_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func BackupCredentials_AccessTokenExpiry(v time.Time) BackupCredentials_AccessTokenExpiry_Field {
+	return BackupCredentials_AccessTokenExpiry_Field{_set: true, _value: &v}
+}
+
+func BackupCredentials_AccessTokenExpiry_Raw(v *time.Time) BackupCredentials_AccessTokenExpiry_Field {
+	if v == nil {
+		return BackupCredentials_AccessTokenExpiry_Null()
+	}
+	return BackupCredentials_AccessTokenExpiry(*v)
+}
+
+func BackupCredentials_AccessTokenExpiry_Null() BackupCredentials_AccessTokenExpiry_Field {
+	return BackupCredentials_AccessTokenExpiry_Field{_set: true, _null: true}
+}
+
+func (f BackupCredentials_AccessTokenExpiry_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f BackupCredentials_AccessTokenExpiry_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type BackupCredentials_AccountType_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func BackupCredentials_AccountType(v string) BackupCredentials_AccountType_Field {
+	return BackupCredentials_AccountType_Field{_set: true, _value: &v}
+}
+
+func BackupCredentials_AccountType_Raw(v *string) BackupCredentials_AccountType_Field {
+	if v == nil {
+		return BackupCredentials_AccountType_Null()
+	}
+	return BackupCredentials_AccountType(*v)
+}
+
+func BackupCredentials_AccountType_Null() BackupCredentials_AccountType_Field {
+	return BackupCredentials_AccountType_Field{_set: true, _null: true}
+}
+
+func (f BackupCredentials_AccountType_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f BackupCredentials_AccountType_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type BackupCredentials_TenantId_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func BackupCredentials_TenantId(v string) BackupCredentials_TenantId_Field {
+	return BackupCredentials_TenantId_Field{_set: true, _value: &v}
+}
+
+func BackupCredentials_TenantId_Raw(v *string) BackupCredentials_TenantId_Field {
+	if v == nil {
+		return BackupCredentials_TenantId_Null()
+	}
+	return BackupCredentials_TenantId(*v)
+}
+
+func BackupCredentials_TenantId_Null() BackupCredentials_TenantId_Field {
+	return BackupCredentials_TenantId_Field{_set: true, _null: true}
+}
+
+func (f BackupCredentials_TenantId_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f BackupCredentials_TenantId_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type BackupCredentials_TenantName_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func BackupCredentials_TenantName(v string) BackupCredentials_TenantName_Field {
+	return BackupCredentials_TenantName_Field{_set: true, _value: &v}
+}
+
+func BackupCredentials_TenantName_Raw(v *string) BackupCredentials_TenantName_Field {
+	if v == nil {
+		return BackupCredentials_TenantName_Null()
+	}
+	return BackupCredentials_TenantName(*v)
+}
+
+func BackupCredentials_TenantName_Null() BackupCredentials_TenantName_Field {
+	return BackupCredentials_TenantName_Field{_set: true, _null: true}
+}
+
+func (f BackupCredentials_TenantName_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f BackupCredentials_TenantName_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type BackupCredentials_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func BackupCredentials_CreatedAt(v time.Time) BackupCredentials_CreatedAt_Field {
+	return BackupCredentials_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f BackupCredentials_CreatedAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type BackupCredentials_UpdatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func BackupCredentials_UpdatedAt(v time.Time) BackupCredentials_UpdatedAt_Field {
+	return BackupCredentials_UpdatedAt_Field{_set: true, _value: v}
+}
+
+func (f BackupCredentials_UpdatedAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
 type BucketMetainfo struct {
 	Id                              []byte
 	ProjectId                       []byte
@@ -22906,231 +23240,6 @@ func (f Domain_CreatedAt_Field) value() any {
 	return f._value
 }
 
-type GoogleBackupCredentials struct {
-	Id                []byte
-	UserId            []byte
-	GoogleEmail       string
-	AccessToken       string
-	RefreshToken      *string
-	AccessTokenExpiry *time.Time
-	AccountType       *string
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
-}
-
-func (GoogleBackupCredentials) _Table() string { return "google_backup_credentials" }
-
-type GoogleBackupCredentials_Create_Fields struct {
-	RefreshToken      GoogleBackupCredentials_RefreshToken_Field
-	AccessTokenExpiry GoogleBackupCredentials_AccessTokenExpiry_Field
-	AccountType       GoogleBackupCredentials_AccountType_Field
-}
-
-type GoogleBackupCredentials_Update_Fields struct {
-	AccessToken       GoogleBackupCredentials_AccessToken_Field
-	RefreshToken      GoogleBackupCredentials_RefreshToken_Field
-	AccessTokenExpiry GoogleBackupCredentials_AccessTokenExpiry_Field
-	AccountType       GoogleBackupCredentials_AccountType_Field
-}
-
-type GoogleBackupCredentials_Id_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func GoogleBackupCredentials_Id(v []byte) GoogleBackupCredentials_Id_Field {
-	return GoogleBackupCredentials_Id_Field{_set: true, _value: v}
-}
-
-func (f GoogleBackupCredentials_Id_Field) value() any {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-type GoogleBackupCredentials_UserId_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func GoogleBackupCredentials_UserId(v []byte) GoogleBackupCredentials_UserId_Field {
-	return GoogleBackupCredentials_UserId_Field{_set: true, _value: v}
-}
-
-func (f GoogleBackupCredentials_UserId_Field) value() any {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-type GoogleBackupCredentials_GoogleEmail_Field struct {
-	_set   bool
-	_null  bool
-	_value string
-}
-
-func GoogleBackupCredentials_GoogleEmail(v string) GoogleBackupCredentials_GoogleEmail_Field {
-	return GoogleBackupCredentials_GoogleEmail_Field{_set: true, _value: v}
-}
-
-func (f GoogleBackupCredentials_GoogleEmail_Field) value() any {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-type GoogleBackupCredentials_AccessToken_Field struct {
-	_set   bool
-	_null  bool
-	_value string
-}
-
-func GoogleBackupCredentials_AccessToken(v string) GoogleBackupCredentials_AccessToken_Field {
-	return GoogleBackupCredentials_AccessToken_Field{_set: true, _value: v}
-}
-
-func (f GoogleBackupCredentials_AccessToken_Field) value() any {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-type GoogleBackupCredentials_RefreshToken_Field struct {
-	_set   bool
-	_null  bool
-	_value *string
-}
-
-func GoogleBackupCredentials_RefreshToken(v string) GoogleBackupCredentials_RefreshToken_Field {
-	return GoogleBackupCredentials_RefreshToken_Field{_set: true, _value: &v}
-}
-
-func GoogleBackupCredentials_RefreshToken_Raw(v *string) GoogleBackupCredentials_RefreshToken_Field {
-	if v == nil {
-		return GoogleBackupCredentials_RefreshToken_Null()
-	}
-	return GoogleBackupCredentials_RefreshToken(*v)
-}
-
-func GoogleBackupCredentials_RefreshToken_Null() GoogleBackupCredentials_RefreshToken_Field {
-	return GoogleBackupCredentials_RefreshToken_Field{_set: true, _null: true}
-}
-
-func (f GoogleBackupCredentials_RefreshToken_Field) isnull() bool {
-	return !f._set || f._null || f._value == nil
-}
-
-func (f GoogleBackupCredentials_RefreshToken_Field) value() any {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-type GoogleBackupCredentials_AccessTokenExpiry_Field struct {
-	_set   bool
-	_null  bool
-	_value *time.Time
-}
-
-func GoogleBackupCredentials_AccessTokenExpiry(v time.Time) GoogleBackupCredentials_AccessTokenExpiry_Field {
-	return GoogleBackupCredentials_AccessTokenExpiry_Field{_set: true, _value: &v}
-}
-
-func GoogleBackupCredentials_AccessTokenExpiry_Raw(v *time.Time) GoogleBackupCredentials_AccessTokenExpiry_Field {
-	if v == nil {
-		return GoogleBackupCredentials_AccessTokenExpiry_Null()
-	}
-	return GoogleBackupCredentials_AccessTokenExpiry(*v)
-}
-
-func GoogleBackupCredentials_AccessTokenExpiry_Null() GoogleBackupCredentials_AccessTokenExpiry_Field {
-	return GoogleBackupCredentials_AccessTokenExpiry_Field{_set: true, _null: true}
-}
-
-func (f GoogleBackupCredentials_AccessTokenExpiry_Field) isnull() bool {
-	return !f._set || f._null || f._value == nil
-}
-
-func (f GoogleBackupCredentials_AccessTokenExpiry_Field) value() any {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-type GoogleBackupCredentials_AccountType_Field struct {
-	_set   bool
-	_null  bool
-	_value *string
-}
-
-func GoogleBackupCredentials_AccountType(v string) GoogleBackupCredentials_AccountType_Field {
-	return GoogleBackupCredentials_AccountType_Field{_set: true, _value: &v}
-}
-
-func GoogleBackupCredentials_AccountType_Raw(v *string) GoogleBackupCredentials_AccountType_Field {
-	if v == nil {
-		return GoogleBackupCredentials_AccountType_Null()
-	}
-	return GoogleBackupCredentials_AccountType(*v)
-}
-
-func GoogleBackupCredentials_AccountType_Null() GoogleBackupCredentials_AccountType_Field {
-	return GoogleBackupCredentials_AccountType_Field{_set: true, _null: true}
-}
-
-func (f GoogleBackupCredentials_AccountType_Field) isnull() bool {
-	return !f._set || f._null || f._value == nil
-}
-
-func (f GoogleBackupCredentials_AccountType_Field) value() any {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-type GoogleBackupCredentials_CreatedAt_Field struct {
-	_set   bool
-	_null  bool
-	_value time.Time
-}
-
-func GoogleBackupCredentials_CreatedAt(v time.Time) GoogleBackupCredentials_CreatedAt_Field {
-	return GoogleBackupCredentials_CreatedAt_Field{_set: true, _value: v}
-}
-
-func (f GoogleBackupCredentials_CreatedAt_Field) value() any {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-type GoogleBackupCredentials_UpdatedAt_Field struct {
-	_set   bool
-	_null  bool
-	_value time.Time
-}
-
-func GoogleBackupCredentials_UpdatedAt(v time.Time) GoogleBackupCredentials_UpdatedAt_Field {
-	return GoogleBackupCredentials_UpdatedAt_Field{_set: true, _value: v}
-}
-
-func (f GoogleBackupCredentials_UpdatedAt_Field) value() any {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
 type MemberBucketGrant struct {
 	Id            []byte
 	ProjectId     []byte
@@ -23144,12 +23253,14 @@ type MemberBucketGrant struct {
 	AllowDelete   bool
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
+	ExpiresAt     *time.Time
 }
 
 func (MemberBucketGrant) _Table() string { return "member_bucket_grants" }
 
 type MemberBucketGrant_Create_Fields struct {
-	MemberId MemberBucketGrant_MemberId_Field
+	MemberId  MemberBucketGrant_MemberId_Field
+	ExpiresAt MemberBucketGrant_ExpiresAt_Field
 }
 
 type MemberBucketGrant_Update_Fields struct {
@@ -23158,6 +23269,7 @@ type MemberBucketGrant_Update_Fields struct {
 	AllowDownload MemberBucketGrant_AllowDownload_Field
 	AllowUpload   MemberBucketGrant_AllowUpload_Field
 	AllowDelete   MemberBucketGrant_AllowDelete_Field
+	ExpiresAt     MemberBucketGrant_ExpiresAt_Field
 }
 
 type MemberBucketGrant_Id_Field struct {
@@ -23377,22 +23489,57 @@ func (f MemberBucketGrant_UpdatedAt_Field) value() any {
 	return f._value
 }
 
+type MemberBucketGrant_ExpiresAt_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func MemberBucketGrant_ExpiresAt(v time.Time) MemberBucketGrant_ExpiresAt_Field {
+	return MemberBucketGrant_ExpiresAt_Field{_set: true, _value: &v}
+}
+
+func MemberBucketGrant_ExpiresAt_Raw(v *time.Time) MemberBucketGrant_ExpiresAt_Field {
+	if v == nil {
+		return MemberBucketGrant_ExpiresAt_Null()
+	}
+	return MemberBucketGrant_ExpiresAt(*v)
+}
+
+func MemberBucketGrant_ExpiresAt_Null() MemberBucketGrant_ExpiresAt_Field {
+	return MemberBucketGrant_ExpiresAt_Field{_set: true, _null: true}
+}
+
+func (f MemberBucketGrant_ExpiresAt_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f MemberBucketGrant_ExpiresAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
 type ProjectInvitation struct {
 	ProjectId []byte
 	Email     string
 	InviterId []byte
 	CreatedAt time.Time
+	ExpiresAt *time.Time
 }
 
 func (ProjectInvitation) _Table() string { return "project_invitations" }
 
 type ProjectInvitation_Create_Fields struct {
 	InviterId ProjectInvitation_InviterId_Field
+	ExpiresAt ProjectInvitation_ExpiresAt_Field
 }
 
 type ProjectInvitation_Update_Fields struct {
 	InviterId ProjectInvitation_InviterId_Field
 	CreatedAt ProjectInvitation_CreatedAt_Field
+	ExpiresAt ProjectInvitation_ExpiresAt_Field
 }
 
 type ProjectInvitation_ProjectId_Field struct {
@@ -23472,6 +23619,38 @@ func ProjectInvitation_CreatedAt(v time.Time) ProjectInvitation_CreatedAt_Field 
 }
 
 func (f ProjectInvitation_CreatedAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ProjectInvitation_ExpiresAt_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func ProjectInvitation_ExpiresAt(v time.Time) ProjectInvitation_ExpiresAt_Field {
+	return ProjectInvitation_ExpiresAt_Field{_set: true, _value: &v}
+}
+
+func ProjectInvitation_ExpiresAt_Raw(v *time.Time) ProjectInvitation_ExpiresAt_Field {
+	if v == nil {
+		return ProjectInvitation_ExpiresAt_Null()
+	}
+	return ProjectInvitation_ExpiresAt(*v)
+}
+
+func ProjectInvitation_ExpiresAt_Null() ProjectInvitation_ExpiresAt_Field {
+	return ProjectInvitation_ExpiresAt_Field{_set: true, _null: true}
+}
+
+func (f ProjectInvitation_ExpiresAt_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f ProjectInvitation_ExpiresAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -26407,43 +26586,47 @@ func (obj *pgxImpl) CreateNoReturn_OauthToken(ctx context.Context,
 
 }
 
-func (obj *pgxImpl) Create_GoogleBackupCredentials(ctx context.Context,
-	google_backup_credentials_id GoogleBackupCredentials_Id_Field,
-	google_backup_credentials_user_id GoogleBackupCredentials_UserId_Field,
-	google_backup_credentials_google_email GoogleBackupCredentials_GoogleEmail_Field,
-	google_backup_credentials_access_token GoogleBackupCredentials_AccessToken_Field,
-	optional GoogleBackupCredentials_Create_Fields) (
-	google_backup_credentials *GoogleBackupCredentials, err error) {
+func (obj *pgxImpl) Create_BackupCredentials(ctx context.Context,
+	backup_credentials_id BackupCredentials_Id_Field,
+	backup_credentials_user_id BackupCredentials_UserId_Field,
+	backup_credentials_provider BackupCredentials_Provider_Field,
+	backup_credentials_email BackupCredentials_Email_Field,
+	backup_credentials_access_token BackupCredentials_AccessToken_Field,
+	optional BackupCredentials_Create_Fields) (
+	backup_credentials *BackupCredentials, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !obj.txn && txutil.IsInsideTx(ctx) {
 		panic("using DB when inside of a transaction")
 	}
 
 	__now := obj.db.Hooks.Now().UTC()
-	__id_val := google_backup_credentials_id.value()
-	__user_id_val := google_backup_credentials_user_id.value()
-	__google_email_val := google_backup_credentials_google_email.value()
-	__access_token_val := google_backup_credentials_access_token.value()
+	__id_val := backup_credentials_id.value()
+	__user_id_val := backup_credentials_user_id.value()
+	__provider_val := backup_credentials_provider.value()
+	__email_val := backup_credentials_email.value()
+	__access_token_val := backup_credentials_access_token.value()
 	__refresh_token_val := optional.RefreshToken.value()
 	__access_token_expiry_val := optional.AccessTokenExpiry.value()
 	__account_type_val := optional.AccountType.value()
+	__tenant_id_val := optional.TenantId.value()
+	__tenant_name_val := optional.TenantName.value()
 	__created_at_val := __now
 	__updated_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO google_backup_credentials ( id, user_id, google_email, access_token, refresh_token, access_token_expiry, account_type, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING google_backup_credentials.id, google_backup_credentials.user_id, google_backup_credentials.google_email, google_backup_credentials.access_token, google_backup_credentials.refresh_token, google_backup_credentials.access_token_expiry, google_backup_credentials.account_type, google_backup_credentials.created_at, google_backup_credentials.updated_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO backup_credentials ( id, user_id, provider, email, access_token, refresh_token, access_token_expiry, account_type, tenant_id, tenant_name, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at")
 
 	var __values []any
-	__values = append(__values, __id_val, __user_id_val, __google_email_val, __access_token_val, __refresh_token_val, __access_token_expiry_val, __account_type_val, __created_at_val, __updated_at_val)
+	__values = append(__values, __id_val, __user_id_val, __provider_val, __email_val, __access_token_val, __refresh_token_val, __access_token_expiry_val, __account_type_val, __tenant_id_val, __tenant_name_val, __created_at_val, __updated_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	google_backup_credentials = &GoogleBackupCredentials{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&google_backup_credentials.Id, &google_backup_credentials.UserId, &google_backup_credentials.GoogleEmail, &google_backup_credentials.AccessToken, &google_backup_credentials.RefreshToken, &google_backup_credentials.AccessTokenExpiry, &google_backup_credentials.AccountType, &google_backup_credentials.CreatedAt, &google_backup_credentials.UpdatedAt)
+	backup_credentials = &BackupCredentials{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
-	return google_backup_credentials, nil
+	return backup_credentials, nil
 
 }
 
@@ -26616,17 +26799,18 @@ func (obj *pgxImpl) Replace_ProjectInvitation(ctx context.Context,
 	__email_val := project_invitation_email.value()
 	__inviter_id_val := optional.InviterId.value()
 	__created_at_val := __now
+	__expires_at_val := optional.ExpiresAt.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO project_invitations ( project_id, email, inviter_id, created_at ) VALUES ( ?, ?, ?, ? ) ON CONFLICT ( project_id, email ) DO UPDATE SET project_id = EXCLUDED.project_id, email = EXCLUDED.email, inviter_id = EXCLUDED.inviter_id, created_at = EXCLUDED.created_at RETURNING project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO project_invitations ( project_id, email, inviter_id, created_at, expires_at ) VALUES ( ?, ?, ?, ?, ? ) ON CONFLICT ( project_id, email ) DO UPDATE SET project_id = EXCLUDED.project_id, email = EXCLUDED.email, inviter_id = EXCLUDED.inviter_id, created_at = EXCLUDED.created_at, expires_at = EXCLUDED.expires_at RETURNING project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at, project_invitations.expires_at")
 
 	var __values []any
-	__values = append(__values, __project_id_val, __email_val, __inviter_id_val, __created_at_val)
+	__values = append(__values, __project_id_val, __email_val, __inviter_id_val, __created_at_val, __expires_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	project_invitation = &ProjectInvitation{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt, &project_invitation.ExpiresAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -26790,17 +26974,18 @@ func (obj *pgxImpl) Create_MemberBucketGrant(ctx context.Context,
 	__allow_delete_val := member_bucket_grant_allow_delete.value()
 	__created_at_val := __now
 	__updated_at_val := __now
+	__expires_at_val := optional.ExpiresAt.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO member_bucket_grants ( id, project_id, member_id, invite_email, bucket, prefix, allow_list, allow_download, allow_upload, allow_delete, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO member_bucket_grants ( id, project_id, member_id, invite_email, bucket, prefix, allow_list, allow_download, allow_upload, allow_delete, created_at, updated_at, expires_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at")
 
 	var __values []any
-	__values = append(__values, __id_val, __project_id_val, __member_id_val, __invite_email_val, __bucket_val, __prefix_val, __allow_list_val, __allow_download_val, __allow_upload_val, __allow_delete_val, __created_at_val, __updated_at_val)
+	__values = append(__values, __id_val, __project_id_val, __member_id_val, __invite_email_val, __bucket_val, __prefix_val, __allow_list_val, __allow_download_val, __allow_upload_val, __allow_delete_val, __created_at_val, __updated_at_val, __expires_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	member_bucket_grant = &MemberBucketGrant{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -32346,49 +32531,49 @@ func (obj *pgxImpl) Get_OauthToken_By_Kind_And_Token(ctx context.Context,
 
 }
 
-func (obj *pgxImpl) Get_GoogleBackupCredentials_By_Id(ctx context.Context,
-	google_backup_credentials_id GoogleBackupCredentials_Id_Field) (
-	google_backup_credentials *GoogleBackupCredentials, err error) {
+func (obj *pgxImpl) Get_BackupCredentials_By_Id(ctx context.Context,
+	backup_credentials_id BackupCredentials_Id_Field) (
+	backup_credentials *BackupCredentials, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !obj.txn && txutil.IsInsideTx(ctx) {
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT google_backup_credentials.id, google_backup_credentials.user_id, google_backup_credentials.google_email, google_backup_credentials.access_token, google_backup_credentials.refresh_token, google_backup_credentials.access_token_expiry, google_backup_credentials.account_type, google_backup_credentials.created_at, google_backup_credentials.updated_at FROM google_backup_credentials WHERE google_backup_credentials.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at FROM backup_credentials WHERE backup_credentials.id = ?")
 
 	var __values []any
-	__values = append(__values, google_backup_credentials_id.value())
+	__values = append(__values, backup_credentials_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	google_backup_credentials = &GoogleBackupCredentials{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&google_backup_credentials.Id, &google_backup_credentials.UserId, &google_backup_credentials.GoogleEmail, &google_backup_credentials.AccessToken, &google_backup_credentials.RefreshToken, &google_backup_credentials.AccessTokenExpiry, &google_backup_credentials.AccountType, &google_backup_credentials.CreatedAt, &google_backup_credentials.UpdatedAt)
+	backup_credentials = &BackupCredentials{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
 	if err != nil {
-		return (*GoogleBackupCredentials)(nil), obj.makeErr(err)
+		return (*BackupCredentials)(nil), obj.makeErr(err)
 	}
-	return google_backup_credentials, nil
+	return backup_credentials, nil
 
 }
 
-func (obj *pgxImpl) All_GoogleBackupCredentials_By_UserId(ctx context.Context,
-	google_backup_credentials_user_id GoogleBackupCredentials_UserId_Field) (
-	rows []*GoogleBackupCredentials, err error) {
+func (obj *pgxImpl) All_BackupCredentials_By_UserId(ctx context.Context,
+	backup_credentials_user_id BackupCredentials_UserId_Field) (
+	rows []*BackupCredentials, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !obj.txn && txutil.IsInsideTx(ctx) {
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT google_backup_credentials.id, google_backup_credentials.user_id, google_backup_credentials.google_email, google_backup_credentials.access_token, google_backup_credentials.refresh_token, google_backup_credentials.access_token_expiry, google_backup_credentials.account_type, google_backup_credentials.created_at, google_backup_credentials.updated_at FROM google_backup_credentials WHERE google_backup_credentials.user_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at FROM backup_credentials WHERE backup_credentials.user_id = ?")
 
 	var __values []any
-	__values = append(__values, google_backup_credentials_user_id.value())
+	__values = append(__values, backup_credentials_user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	for {
-		rows, err = func() (rows []*GoogleBackupCredentials, err error) {
+		rows, err = func() (rows []*BackupCredentials, err error) {
 			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 			if err != nil {
 				return nil, err
@@ -32396,12 +32581,58 @@ func (obj *pgxImpl) All_GoogleBackupCredentials_By_UserId(ctx context.Context,
 			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
-				google_backup_credentials := &GoogleBackupCredentials{}
-				err = __rows.Scan(&google_backup_credentials.Id, &google_backup_credentials.UserId, &google_backup_credentials.GoogleEmail, &google_backup_credentials.AccessToken, &google_backup_credentials.RefreshToken, &google_backup_credentials.AccessTokenExpiry, &google_backup_credentials.AccountType, &google_backup_credentials.CreatedAt, &google_backup_credentials.UpdatedAt)
+				backup_credentials := &BackupCredentials{}
+				err = __rows.Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
 				if err != nil {
 					return nil, err
 				}
-				rows = append(rows, google_backup_credentials)
+				rows = append(rows, backup_credentials)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) All_BackupCredentials_By_UserId_And_Provider(ctx context.Context,
+	backup_credentials_user_id BackupCredentials_UserId_Field,
+	backup_credentials_provider BackupCredentials_Provider_Field) (
+	rows []*BackupCredentials, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at FROM backup_credentials WHERE backup_credentials.user_id = ? AND backup_credentials.provider = ?")
+
+	var __values []any
+	__values = append(__values, backup_credentials_user_id.value(), backup_credentials_provider.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*BackupCredentials, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				backup_credentials := &BackupCredentials{}
+				err = __rows.Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, backup_credentials)
 			}
 			return rows, nil
 		}()
@@ -33324,7 +33555,7 @@ func (obj *pgxImpl) Get_ProjectInvitation_By_ProjectId_And_Email(ctx context.Con
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at FROM project_invitations WHERE project_invitations.project_id = ? AND project_invitations.email = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at, project_invitations.expires_at FROM project_invitations WHERE project_invitations.project_id = ? AND project_invitations.email = ?")
 
 	var __values []any
 	__values = append(__values, project_invitation_project_id.value(), project_invitation_email.value())
@@ -33333,7 +33564,7 @@ func (obj *pgxImpl) Get_ProjectInvitation_By_ProjectId_And_Email(ctx context.Con
 	obj.logStmt(__stmt, __values...)
 
 	project_invitation = &ProjectInvitation{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt, &project_invitation.ExpiresAt)
 	if err != nil {
 		return (*ProjectInvitation)(nil), obj.makeErr(err)
 	}
@@ -33349,7 +33580,7 @@ func (obj *pgxImpl) All_ProjectInvitation_By_Email(ctx context.Context,
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at FROM project_invitations WHERE project_invitations.email = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at, project_invitations.expires_at FROM project_invitations WHERE project_invitations.email = ?")
 
 	var __values []any
 	__values = append(__values, project_invitation_email.value())
@@ -33367,7 +33598,7 @@ func (obj *pgxImpl) All_ProjectInvitation_By_Email(ctx context.Context,
 
 			for __rows.Next() {
 				project_invitation := &ProjectInvitation{}
-				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt, &project_invitation.ExpiresAt)
 				if err != nil {
 					return nil, err
 				}
@@ -33397,7 +33628,7 @@ func (obj *pgxImpl) All_ProjectInvitation_By_Project_Status_And_ProjectInvitatio
 
 	var __cond_0 = &__sqlbundle_Condition{Left: "projects.status", Equal: true, Right: "?", Null: true}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at FROM project_invitations  JOIN projects ON project_invitations.project_id = projects.id WHERE "), __cond_0, __sqlbundle_Literal(" AND project_invitations.email = ?")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at, project_invitations.expires_at FROM project_invitations  JOIN projects ON project_invitations.project_id = projects.id WHERE "), __cond_0, __sqlbundle_Literal(" AND project_invitations.email = ?")}}
 
 	var __values []any
 	if !project_status.isnull() {
@@ -33419,7 +33650,7 @@ func (obj *pgxImpl) All_ProjectInvitation_By_Project_Status_And_ProjectInvitatio
 
 			for __rows.Next() {
 				project_invitation := &ProjectInvitation{}
-				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt, &project_invitation.ExpiresAt)
 				if err != nil {
 					return nil, err
 				}
@@ -33451,7 +33682,7 @@ func (obj *pgxImpl) All_ProjectInvitation_By_Project_Status_And_ProjectInvitatio
 	var __cond_0 = &__sqlbundle_Condition{Left: "projects.status", Equal: true, Right: "?", Null: true}
 	var __cond_1 = &__sqlbundle_Condition{Left: "users.tenant_id", Equal: true, Right: "?", Null: true}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at FROM project_invitations  JOIN projects ON project_invitations.project_id = projects.id  JOIN users ON project_invitations.inviter_id = users.id WHERE "), __cond_0, __sqlbundle_Literal(" AND project_invitations.email = ? AND "), __cond_1}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at, project_invitations.expires_at FROM project_invitations  JOIN projects ON project_invitations.project_id = projects.id  JOIN users ON project_invitations.inviter_id = users.id WHERE "), __cond_0, __sqlbundle_Literal(" AND project_invitations.email = ? AND "), __cond_1}}
 
 	var __values []any
 	if !project_status.isnull() {
@@ -33477,7 +33708,7 @@ func (obj *pgxImpl) All_ProjectInvitation_By_Project_Status_And_ProjectInvitatio
 
 			for __rows.Next() {
 				project_invitation := &ProjectInvitation{}
-				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt, &project_invitation.ExpiresAt)
 				if err != nil {
 					return nil, err
 				}
@@ -33504,7 +33735,7 @@ func (obj *pgxImpl) All_ProjectInvitation_By_ProjectId(ctx context.Context,
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at FROM project_invitations WHERE project_invitations.project_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at, project_invitations.expires_at FROM project_invitations WHERE project_invitations.project_id = ?")
 
 	var __values []any
 	__values = append(__values, project_invitation_project_id.value())
@@ -33522,7 +33753,7 @@ func (obj *pgxImpl) All_ProjectInvitation_By_ProjectId(ctx context.Context,
 
 			for __rows.Next() {
 				project_invitation := &ProjectInvitation{}
-				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt, &project_invitation.ExpiresAt)
 				if err != nil {
 					return nil, err
 				}
@@ -33724,7 +33955,7 @@ func (obj *pgxImpl) All_MemberBucketGrant_By_ProjectId_And_MemberId(ctx context.
 
 	var __cond_0 = &__sqlbundle_Condition{Left: "member_bucket_grants.member_id", Equal: true, Right: "?", Null: true}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at FROM member_bucket_grants WHERE member_bucket_grants.project_id = ? AND "), __cond_0}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at FROM member_bucket_grants WHERE member_bucket_grants.project_id = ? AND "), __cond_0}}
 
 	var __values []any
 	__values = append(__values, member_bucket_grant_project_id.value())
@@ -33746,7 +33977,7 @@ func (obj *pgxImpl) All_MemberBucketGrant_By_ProjectId_And_MemberId(ctx context.
 
 			for __rows.Next() {
 				member_bucket_grant := &MemberBucketGrant{}
-				err = __rows.Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt)
+				err = __rows.Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt)
 				if err != nil {
 					return nil, err
 				}
@@ -33774,7 +34005,7 @@ func (obj *pgxImpl) All_MemberBucketGrant_By_ProjectId_And_InviteEmail(ctx conte
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at FROM member_bucket_grants WHERE member_bucket_grants.project_id = ? AND member_bucket_grants.invite_email = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at FROM member_bucket_grants WHERE member_bucket_grants.project_id = ? AND member_bucket_grants.invite_email = ?")
 
 	var __values []any
 	__values = append(__values, member_bucket_grant_project_id.value(), member_bucket_grant_invite_email.value())
@@ -33792,7 +34023,7 @@ func (obj *pgxImpl) All_MemberBucketGrant_By_ProjectId_And_InviteEmail(ctx conte
 
 			for __rows.Next() {
 				member_bucket_grant := &MemberBucketGrant{}
-				err = __rows.Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt)
+				err = __rows.Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt)
 				if err != nil {
 					return nil, err
 				}
@@ -33819,7 +34050,7 @@ func (obj *pgxImpl) Get_MemberBucketGrant_By_Id(ctx context.Context,
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at FROM member_bucket_grants WHERE member_bucket_grants.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at FROM member_bucket_grants WHERE member_bucket_grants.id = ?")
 
 	var __values []any
 	__values = append(__values, member_bucket_grant_id.value())
@@ -33828,7 +34059,7 @@ func (obj *pgxImpl) Get_MemberBucketGrant_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	member_bucket_grant = &MemberBucketGrant{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt)
 	if err != nil {
 		return (*MemberBucketGrant)(nil), obj.makeErr(err)
 	}
@@ -39028,10 +39259,10 @@ func (obj *pgxImpl) UpdateNoReturn_OauthToken_By_Token_And_Kind(ctx context.Cont
 	return nil
 }
 
-func (obj *pgxImpl) Update_GoogleBackupCredentials_By_Id(ctx context.Context,
-	google_backup_credentials_id GoogleBackupCredentials_Id_Field,
-	update GoogleBackupCredentials_Update_Fields) (
-	google_backup_credentials *GoogleBackupCredentials, err error) {
+func (obj *pgxImpl) Update_BackupCredentials_By_Id(ctx context.Context,
+	backup_credentials_id BackupCredentials_Id_Field,
+	update BackupCredentials_Update_Fields) (
+	backup_credentials *BackupCredentials, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !obj.txn && txutil.IsInsideTx(ctx) {
 		panic("using DB when inside of a transaction")
@@ -39039,7 +39270,7 @@ func (obj *pgxImpl) Update_GoogleBackupCredentials_By_Id(ctx context.Context,
 
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE google_backup_credentials SET "), __sets, __sqlbundle_Literal(" WHERE google_backup_credentials.id = ? RETURNING google_backup_credentials.id, google_backup_credentials.user_id, google_backup_credentials.google_email, google_backup_credentials.access_token, google_backup_credentials.refresh_token, google_backup_credentials.access_token_expiry, google_backup_credentials.account_type, google_backup_credentials.created_at, google_backup_credentials.updated_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE backup_credentials SET "), __sets, __sqlbundle_Literal(" WHERE backup_credentials.id = ? RETURNING backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []any
@@ -39065,12 +39296,22 @@ func (obj *pgxImpl) Update_GoogleBackupCredentials_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("account_type = ?"))
 	}
 
+	if update.TenantId._set {
+		__values = append(__values, update.TenantId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("tenant_id = ?"))
+	}
+
+	if update.TenantName._set {
+		__values = append(__values, update.TenantName.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("tenant_name = ?"))
+	}
+
 	__now := obj.db.Hooks.Now().UTC()
 
 	__values = append(__values, __now)
 	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
 
-	__args = append(__args, google_backup_credentials_id.value())
+	__args = append(__args, backup_credentials_id.value())
 
 	__values = append(__values, __args...)
 	__sets.SQL = __sets_sql
@@ -39078,15 +39319,15 @@ func (obj *pgxImpl) Update_GoogleBackupCredentials_By_Id(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	google_backup_credentials = &GoogleBackupCredentials{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&google_backup_credentials.Id, &google_backup_credentials.UserId, &google_backup_credentials.GoogleEmail, &google_backup_credentials.AccessToken, &google_backup_credentials.RefreshToken, &google_backup_credentials.AccessTokenExpiry, &google_backup_credentials.AccountType, &google_backup_credentials.CreatedAt, &google_backup_credentials.UpdatedAt)
+	backup_credentials = &BackupCredentials{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
-	return google_backup_credentials, nil
+	return backup_credentials, nil
 }
 
 func (obj *pgxImpl) Update_Project_By_Id(ctx context.Context,
@@ -39342,7 +39583,7 @@ func (obj *pgxImpl) Update_ProjectInvitation_By_ProjectId_And_Email(ctx context.
 
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE project_invitations SET "), __sets, __sqlbundle_Literal(" WHERE project_invitations.project_id = ? AND project_invitations.email = ? RETURNING project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE project_invitations SET "), __sets, __sqlbundle_Literal(" WHERE project_invitations.project_id = ? AND project_invitations.email = ? RETURNING project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at, project_invitations.expires_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []any
@@ -39358,6 +39599,11 @@ func (obj *pgxImpl) Update_ProjectInvitation_By_ProjectId_And_Email(ctx context.
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("created_at = ?"))
 	}
 
+	if update.ExpiresAt._set {
+		__values = append(__values, update.ExpiresAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("expires_at = ?"))
+	}
+
 	if len(__sets_sql.SQLs) == 0 {
 		return nil, emptyUpdate()
 	}
@@ -39371,7 +39617,7 @@ func (obj *pgxImpl) Update_ProjectInvitation_By_ProjectId_And_Email(ctx context.
 	obj.logStmt(__stmt, __values...)
 
 	project_invitation = &ProjectInvitation{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt, &project_invitation.ExpiresAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -39433,7 +39679,7 @@ func (obj *pgxImpl) Update_MemberBucketGrant_By_Id(ctx context.Context,
 
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE member_bucket_grants SET "), __sets, __sqlbundle_Literal(" WHERE member_bucket_grants.id = ? RETURNING member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE member_bucket_grants SET "), __sets, __sqlbundle_Literal(" WHERE member_bucket_grants.id = ? RETURNING member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []any
@@ -39464,6 +39710,11 @@ func (obj *pgxImpl) Update_MemberBucketGrant_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("allow_delete = ?"))
 	}
 
+	if update.ExpiresAt._set {
+		__values = append(__values, update.ExpiresAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("expires_at = ?"))
+	}
+
 	__now := obj.db.Hooks.Now().UTC()
 
 	__values = append(__values, __now)
@@ -39478,7 +39729,7 @@ func (obj *pgxImpl) Update_MemberBucketGrant_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	member_bucket_grant = &MemberBucketGrant{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -43270,16 +43521,6 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM google_backup_credentials;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM domains;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -43301,6 +43542,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM bucket_metainfos;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM backup_credentials;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -45929,43 +46180,47 @@ func (obj *pgxcockroachImpl) CreateNoReturn_OauthToken(ctx context.Context,
 
 }
 
-func (obj *pgxcockroachImpl) Create_GoogleBackupCredentials(ctx context.Context,
-	google_backup_credentials_id GoogleBackupCredentials_Id_Field,
-	google_backup_credentials_user_id GoogleBackupCredentials_UserId_Field,
-	google_backup_credentials_google_email GoogleBackupCredentials_GoogleEmail_Field,
-	google_backup_credentials_access_token GoogleBackupCredentials_AccessToken_Field,
-	optional GoogleBackupCredentials_Create_Fields) (
-	google_backup_credentials *GoogleBackupCredentials, err error) {
+func (obj *pgxcockroachImpl) Create_BackupCredentials(ctx context.Context,
+	backup_credentials_id BackupCredentials_Id_Field,
+	backup_credentials_user_id BackupCredentials_UserId_Field,
+	backup_credentials_provider BackupCredentials_Provider_Field,
+	backup_credentials_email BackupCredentials_Email_Field,
+	backup_credentials_access_token BackupCredentials_AccessToken_Field,
+	optional BackupCredentials_Create_Fields) (
+	backup_credentials *BackupCredentials, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !obj.txn && txutil.IsInsideTx(ctx) {
 		panic("using DB when inside of a transaction")
 	}
 
 	__now := obj.db.Hooks.Now().UTC()
-	__id_val := google_backup_credentials_id.value()
-	__user_id_val := google_backup_credentials_user_id.value()
-	__google_email_val := google_backup_credentials_google_email.value()
-	__access_token_val := google_backup_credentials_access_token.value()
+	__id_val := backup_credentials_id.value()
+	__user_id_val := backup_credentials_user_id.value()
+	__provider_val := backup_credentials_provider.value()
+	__email_val := backup_credentials_email.value()
+	__access_token_val := backup_credentials_access_token.value()
 	__refresh_token_val := optional.RefreshToken.value()
 	__access_token_expiry_val := optional.AccessTokenExpiry.value()
 	__account_type_val := optional.AccountType.value()
+	__tenant_id_val := optional.TenantId.value()
+	__tenant_name_val := optional.TenantName.value()
 	__created_at_val := __now
 	__updated_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO google_backup_credentials ( id, user_id, google_email, access_token, refresh_token, access_token_expiry, account_type, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING google_backup_credentials.id, google_backup_credentials.user_id, google_backup_credentials.google_email, google_backup_credentials.access_token, google_backup_credentials.refresh_token, google_backup_credentials.access_token_expiry, google_backup_credentials.account_type, google_backup_credentials.created_at, google_backup_credentials.updated_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO backup_credentials ( id, user_id, provider, email, access_token, refresh_token, access_token_expiry, account_type, tenant_id, tenant_name, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at")
 
 	var __values []any
-	__values = append(__values, __id_val, __user_id_val, __google_email_val, __access_token_val, __refresh_token_val, __access_token_expiry_val, __account_type_val, __created_at_val, __updated_at_val)
+	__values = append(__values, __id_val, __user_id_val, __provider_val, __email_val, __access_token_val, __refresh_token_val, __access_token_expiry_val, __account_type_val, __tenant_id_val, __tenant_name_val, __created_at_val, __updated_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	google_backup_credentials = &GoogleBackupCredentials{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&google_backup_credentials.Id, &google_backup_credentials.UserId, &google_backup_credentials.GoogleEmail, &google_backup_credentials.AccessToken, &google_backup_credentials.RefreshToken, &google_backup_credentials.AccessTokenExpiry, &google_backup_credentials.AccountType, &google_backup_credentials.CreatedAt, &google_backup_credentials.UpdatedAt)
+	backup_credentials = &BackupCredentials{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
-	return google_backup_credentials, nil
+	return backup_credentials, nil
 
 }
 
@@ -46138,17 +46393,18 @@ func (obj *pgxcockroachImpl) Replace_ProjectInvitation(ctx context.Context,
 	__email_val := project_invitation_email.value()
 	__inviter_id_val := optional.InviterId.value()
 	__created_at_val := __now
+	__expires_at_val := optional.ExpiresAt.value()
 
-	var __embed_stmt = __sqlbundle_Literal("UPSERT INTO project_invitations ( project_id, email, inviter_id, created_at ) VALUES ( ?, ?, ?, ? ) RETURNING project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at")
+	var __embed_stmt = __sqlbundle_Literal("UPSERT INTO project_invitations ( project_id, email, inviter_id, created_at, expires_at ) VALUES ( ?, ?, ?, ?, ? ) RETURNING project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at, project_invitations.expires_at")
 
 	var __values []any
-	__values = append(__values, __project_id_val, __email_val, __inviter_id_val, __created_at_val)
+	__values = append(__values, __project_id_val, __email_val, __inviter_id_val, __created_at_val, __expires_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	project_invitation = &ProjectInvitation{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt, &project_invitation.ExpiresAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -46312,17 +46568,18 @@ func (obj *pgxcockroachImpl) Create_MemberBucketGrant(ctx context.Context,
 	__allow_delete_val := member_bucket_grant_allow_delete.value()
 	__created_at_val := __now
 	__updated_at_val := __now
+	__expires_at_val := optional.ExpiresAt.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO member_bucket_grants ( id, project_id, member_id, invite_email, bucket, prefix, allow_list, allow_download, allow_upload, allow_delete, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO member_bucket_grants ( id, project_id, member_id, invite_email, bucket, prefix, allow_list, allow_download, allow_upload, allow_delete, created_at, updated_at, expires_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at")
 
 	var __values []any
-	__values = append(__values, __id_val, __project_id_val, __member_id_val, __invite_email_val, __bucket_val, __prefix_val, __allow_list_val, __allow_download_val, __allow_upload_val, __allow_delete_val, __created_at_val, __updated_at_val)
+	__values = append(__values, __id_val, __project_id_val, __member_id_val, __invite_email_val, __bucket_val, __prefix_val, __allow_list_val, __allow_download_val, __allow_upload_val, __allow_delete_val, __created_at_val, __updated_at_val, __expires_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	member_bucket_grant = &MemberBucketGrant{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -51868,49 +52125,49 @@ func (obj *pgxcockroachImpl) Get_OauthToken_By_Kind_And_Token(ctx context.Contex
 
 }
 
-func (obj *pgxcockroachImpl) Get_GoogleBackupCredentials_By_Id(ctx context.Context,
-	google_backup_credentials_id GoogleBackupCredentials_Id_Field) (
-	google_backup_credentials *GoogleBackupCredentials, err error) {
+func (obj *pgxcockroachImpl) Get_BackupCredentials_By_Id(ctx context.Context,
+	backup_credentials_id BackupCredentials_Id_Field) (
+	backup_credentials *BackupCredentials, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !obj.txn && txutil.IsInsideTx(ctx) {
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT google_backup_credentials.id, google_backup_credentials.user_id, google_backup_credentials.google_email, google_backup_credentials.access_token, google_backup_credentials.refresh_token, google_backup_credentials.access_token_expiry, google_backup_credentials.account_type, google_backup_credentials.created_at, google_backup_credentials.updated_at FROM google_backup_credentials WHERE google_backup_credentials.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at FROM backup_credentials WHERE backup_credentials.id = ?")
 
 	var __values []any
-	__values = append(__values, google_backup_credentials_id.value())
+	__values = append(__values, backup_credentials_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	google_backup_credentials = &GoogleBackupCredentials{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&google_backup_credentials.Id, &google_backup_credentials.UserId, &google_backup_credentials.GoogleEmail, &google_backup_credentials.AccessToken, &google_backup_credentials.RefreshToken, &google_backup_credentials.AccessTokenExpiry, &google_backup_credentials.AccountType, &google_backup_credentials.CreatedAt, &google_backup_credentials.UpdatedAt)
+	backup_credentials = &BackupCredentials{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
 	if err != nil {
-		return (*GoogleBackupCredentials)(nil), obj.makeErr(err)
+		return (*BackupCredentials)(nil), obj.makeErr(err)
 	}
-	return google_backup_credentials, nil
+	return backup_credentials, nil
 
 }
 
-func (obj *pgxcockroachImpl) All_GoogleBackupCredentials_By_UserId(ctx context.Context,
-	google_backup_credentials_user_id GoogleBackupCredentials_UserId_Field) (
-	rows []*GoogleBackupCredentials, err error) {
+func (obj *pgxcockroachImpl) All_BackupCredentials_By_UserId(ctx context.Context,
+	backup_credentials_user_id BackupCredentials_UserId_Field) (
+	rows []*BackupCredentials, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !obj.txn && txutil.IsInsideTx(ctx) {
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT google_backup_credentials.id, google_backup_credentials.user_id, google_backup_credentials.google_email, google_backup_credentials.access_token, google_backup_credentials.refresh_token, google_backup_credentials.access_token_expiry, google_backup_credentials.account_type, google_backup_credentials.created_at, google_backup_credentials.updated_at FROM google_backup_credentials WHERE google_backup_credentials.user_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at FROM backup_credentials WHERE backup_credentials.user_id = ?")
 
 	var __values []any
-	__values = append(__values, google_backup_credentials_user_id.value())
+	__values = append(__values, backup_credentials_user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	for {
-		rows, err = func() (rows []*GoogleBackupCredentials, err error) {
+		rows, err = func() (rows []*BackupCredentials, err error) {
 			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 			if err != nil {
 				return nil, err
@@ -51918,12 +52175,58 @@ func (obj *pgxcockroachImpl) All_GoogleBackupCredentials_By_UserId(ctx context.C
 			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
-				google_backup_credentials := &GoogleBackupCredentials{}
-				err = __rows.Scan(&google_backup_credentials.Id, &google_backup_credentials.UserId, &google_backup_credentials.GoogleEmail, &google_backup_credentials.AccessToken, &google_backup_credentials.RefreshToken, &google_backup_credentials.AccessTokenExpiry, &google_backup_credentials.AccountType, &google_backup_credentials.CreatedAt, &google_backup_credentials.UpdatedAt)
+				backup_credentials := &BackupCredentials{}
+				err = __rows.Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
 				if err != nil {
 					return nil, err
 				}
-				rows = append(rows, google_backup_credentials)
+				rows = append(rows, backup_credentials)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) All_BackupCredentials_By_UserId_And_Provider(ctx context.Context,
+	backup_credentials_user_id BackupCredentials_UserId_Field,
+	backup_credentials_provider BackupCredentials_Provider_Field) (
+	rows []*BackupCredentials, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at FROM backup_credentials WHERE backup_credentials.user_id = ? AND backup_credentials.provider = ?")
+
+	var __values []any
+	__values = append(__values, backup_credentials_user_id.value(), backup_credentials_provider.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*BackupCredentials, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				backup_credentials := &BackupCredentials{}
+				err = __rows.Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, backup_credentials)
 			}
 			return rows, nil
 		}()
@@ -52846,7 +53149,7 @@ func (obj *pgxcockroachImpl) Get_ProjectInvitation_By_ProjectId_And_Email(ctx co
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at FROM project_invitations WHERE project_invitations.project_id = ? AND project_invitations.email = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at, project_invitations.expires_at FROM project_invitations WHERE project_invitations.project_id = ? AND project_invitations.email = ?")
 
 	var __values []any
 	__values = append(__values, project_invitation_project_id.value(), project_invitation_email.value())
@@ -52855,7 +53158,7 @@ func (obj *pgxcockroachImpl) Get_ProjectInvitation_By_ProjectId_And_Email(ctx co
 	obj.logStmt(__stmt, __values...)
 
 	project_invitation = &ProjectInvitation{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt, &project_invitation.ExpiresAt)
 	if err != nil {
 		return (*ProjectInvitation)(nil), obj.makeErr(err)
 	}
@@ -52871,7 +53174,7 @@ func (obj *pgxcockroachImpl) All_ProjectInvitation_By_Email(ctx context.Context,
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at FROM project_invitations WHERE project_invitations.email = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at, project_invitations.expires_at FROM project_invitations WHERE project_invitations.email = ?")
 
 	var __values []any
 	__values = append(__values, project_invitation_email.value())
@@ -52889,7 +53192,7 @@ func (obj *pgxcockroachImpl) All_ProjectInvitation_By_Email(ctx context.Context,
 
 			for __rows.Next() {
 				project_invitation := &ProjectInvitation{}
-				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt, &project_invitation.ExpiresAt)
 				if err != nil {
 					return nil, err
 				}
@@ -52919,7 +53222,7 @@ func (obj *pgxcockroachImpl) All_ProjectInvitation_By_Project_Status_And_Project
 
 	var __cond_0 = &__sqlbundle_Condition{Left: "projects.status", Equal: true, Right: "?", Null: true}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at FROM project_invitations  JOIN projects ON project_invitations.project_id = projects.id WHERE "), __cond_0, __sqlbundle_Literal(" AND project_invitations.email = ?")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at, project_invitations.expires_at FROM project_invitations  JOIN projects ON project_invitations.project_id = projects.id WHERE "), __cond_0, __sqlbundle_Literal(" AND project_invitations.email = ?")}}
 
 	var __values []any
 	if !project_status.isnull() {
@@ -52941,7 +53244,7 @@ func (obj *pgxcockroachImpl) All_ProjectInvitation_By_Project_Status_And_Project
 
 			for __rows.Next() {
 				project_invitation := &ProjectInvitation{}
-				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt, &project_invitation.ExpiresAt)
 				if err != nil {
 					return nil, err
 				}
@@ -52973,7 +53276,7 @@ func (obj *pgxcockroachImpl) All_ProjectInvitation_By_Project_Status_And_Project
 	var __cond_0 = &__sqlbundle_Condition{Left: "projects.status", Equal: true, Right: "?", Null: true}
 	var __cond_1 = &__sqlbundle_Condition{Left: "users.tenant_id", Equal: true, Right: "?", Null: true}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at FROM project_invitations  JOIN projects ON project_invitations.project_id = projects.id  JOIN users ON project_invitations.inviter_id = users.id WHERE "), __cond_0, __sqlbundle_Literal(" AND project_invitations.email = ? AND "), __cond_1}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at, project_invitations.expires_at FROM project_invitations  JOIN projects ON project_invitations.project_id = projects.id  JOIN users ON project_invitations.inviter_id = users.id WHERE "), __cond_0, __sqlbundle_Literal(" AND project_invitations.email = ? AND "), __cond_1}}
 
 	var __values []any
 	if !project_status.isnull() {
@@ -52999,7 +53302,7 @@ func (obj *pgxcockroachImpl) All_ProjectInvitation_By_Project_Status_And_Project
 
 			for __rows.Next() {
 				project_invitation := &ProjectInvitation{}
-				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt, &project_invitation.ExpiresAt)
 				if err != nil {
 					return nil, err
 				}
@@ -53026,7 +53329,7 @@ func (obj *pgxcockroachImpl) All_ProjectInvitation_By_ProjectId(ctx context.Cont
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at FROM project_invitations WHERE project_invitations.project_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at, project_invitations.expires_at FROM project_invitations WHERE project_invitations.project_id = ?")
 
 	var __values []any
 	__values = append(__values, project_invitation_project_id.value())
@@ -53044,7 +53347,7 @@ func (obj *pgxcockroachImpl) All_ProjectInvitation_By_ProjectId(ctx context.Cont
 
 			for __rows.Next() {
 				project_invitation := &ProjectInvitation{}
-				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt, &project_invitation.ExpiresAt)
 				if err != nil {
 					return nil, err
 				}
@@ -53246,7 +53549,7 @@ func (obj *pgxcockroachImpl) All_MemberBucketGrant_By_ProjectId_And_MemberId(ctx
 
 	var __cond_0 = &__sqlbundle_Condition{Left: "member_bucket_grants.member_id", Equal: true, Right: "?", Null: true}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at FROM member_bucket_grants WHERE member_bucket_grants.project_id = ? AND "), __cond_0}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at FROM member_bucket_grants WHERE member_bucket_grants.project_id = ? AND "), __cond_0}}
 
 	var __values []any
 	__values = append(__values, member_bucket_grant_project_id.value())
@@ -53268,7 +53571,7 @@ func (obj *pgxcockroachImpl) All_MemberBucketGrant_By_ProjectId_And_MemberId(ctx
 
 			for __rows.Next() {
 				member_bucket_grant := &MemberBucketGrant{}
-				err = __rows.Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt)
+				err = __rows.Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt)
 				if err != nil {
 					return nil, err
 				}
@@ -53296,7 +53599,7 @@ func (obj *pgxcockroachImpl) All_MemberBucketGrant_By_ProjectId_And_InviteEmail(
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at FROM member_bucket_grants WHERE member_bucket_grants.project_id = ? AND member_bucket_grants.invite_email = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at FROM member_bucket_grants WHERE member_bucket_grants.project_id = ? AND member_bucket_grants.invite_email = ?")
 
 	var __values []any
 	__values = append(__values, member_bucket_grant_project_id.value(), member_bucket_grant_invite_email.value())
@@ -53314,7 +53617,7 @@ func (obj *pgxcockroachImpl) All_MemberBucketGrant_By_ProjectId_And_InviteEmail(
 
 			for __rows.Next() {
 				member_bucket_grant := &MemberBucketGrant{}
-				err = __rows.Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt)
+				err = __rows.Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt)
 				if err != nil {
 					return nil, err
 				}
@@ -53341,7 +53644,7 @@ func (obj *pgxcockroachImpl) Get_MemberBucketGrant_By_Id(ctx context.Context,
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at FROM member_bucket_grants WHERE member_bucket_grants.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at FROM member_bucket_grants WHERE member_bucket_grants.id = ?")
 
 	var __values []any
 	__values = append(__values, member_bucket_grant_id.value())
@@ -53350,7 +53653,7 @@ func (obj *pgxcockroachImpl) Get_MemberBucketGrant_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	member_bucket_grant = &MemberBucketGrant{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt)
 	if err != nil {
 		return (*MemberBucketGrant)(nil), obj.makeErr(err)
 	}
@@ -58550,10 +58853,10 @@ func (obj *pgxcockroachImpl) UpdateNoReturn_OauthToken_By_Token_And_Kind(ctx con
 	return nil
 }
 
-func (obj *pgxcockroachImpl) Update_GoogleBackupCredentials_By_Id(ctx context.Context,
-	google_backup_credentials_id GoogleBackupCredentials_Id_Field,
-	update GoogleBackupCredentials_Update_Fields) (
-	google_backup_credentials *GoogleBackupCredentials, err error) {
+func (obj *pgxcockroachImpl) Update_BackupCredentials_By_Id(ctx context.Context,
+	backup_credentials_id BackupCredentials_Id_Field,
+	update BackupCredentials_Update_Fields) (
+	backup_credentials *BackupCredentials, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !obj.txn && txutil.IsInsideTx(ctx) {
 		panic("using DB when inside of a transaction")
@@ -58561,7 +58864,7 @@ func (obj *pgxcockroachImpl) Update_GoogleBackupCredentials_By_Id(ctx context.Co
 
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE google_backup_credentials SET "), __sets, __sqlbundle_Literal(" WHERE google_backup_credentials.id = ? RETURNING google_backup_credentials.id, google_backup_credentials.user_id, google_backup_credentials.google_email, google_backup_credentials.access_token, google_backup_credentials.refresh_token, google_backup_credentials.access_token_expiry, google_backup_credentials.account_type, google_backup_credentials.created_at, google_backup_credentials.updated_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE backup_credentials SET "), __sets, __sqlbundle_Literal(" WHERE backup_credentials.id = ? RETURNING backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []any
@@ -58587,12 +58890,22 @@ func (obj *pgxcockroachImpl) Update_GoogleBackupCredentials_By_Id(ctx context.Co
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("account_type = ?"))
 	}
 
+	if update.TenantId._set {
+		__values = append(__values, update.TenantId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("tenant_id = ?"))
+	}
+
+	if update.TenantName._set {
+		__values = append(__values, update.TenantName.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("tenant_name = ?"))
+	}
+
 	__now := obj.db.Hooks.Now().UTC()
 
 	__values = append(__values, __now)
 	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
 
-	__args = append(__args, google_backup_credentials_id.value())
+	__args = append(__args, backup_credentials_id.value())
 
 	__values = append(__values, __args...)
 	__sets.SQL = __sets_sql
@@ -58600,15 +58913,15 @@ func (obj *pgxcockroachImpl) Update_GoogleBackupCredentials_By_Id(ctx context.Co
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	google_backup_credentials = &GoogleBackupCredentials{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&google_backup_credentials.Id, &google_backup_credentials.UserId, &google_backup_credentials.GoogleEmail, &google_backup_credentials.AccessToken, &google_backup_credentials.RefreshToken, &google_backup_credentials.AccessTokenExpiry, &google_backup_credentials.AccountType, &google_backup_credentials.CreatedAt, &google_backup_credentials.UpdatedAt)
+	backup_credentials = &BackupCredentials{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
-	return google_backup_credentials, nil
+	return backup_credentials, nil
 }
 
 func (obj *pgxcockroachImpl) Update_Project_By_Id(ctx context.Context,
@@ -58864,7 +59177,7 @@ func (obj *pgxcockroachImpl) Update_ProjectInvitation_By_ProjectId_And_Email(ctx
 
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE project_invitations SET "), __sets, __sqlbundle_Literal(" WHERE project_invitations.project_id = ? AND project_invitations.email = ? RETURNING project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE project_invitations SET "), __sets, __sqlbundle_Literal(" WHERE project_invitations.project_id = ? AND project_invitations.email = ? RETURNING project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at, project_invitations.expires_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []any
@@ -58880,6 +59193,11 @@ func (obj *pgxcockroachImpl) Update_ProjectInvitation_By_ProjectId_And_Email(ctx
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("created_at = ?"))
 	}
 
+	if update.ExpiresAt._set {
+		__values = append(__values, update.ExpiresAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("expires_at = ?"))
+	}
+
 	if len(__sets_sql.SQLs) == 0 {
 		return nil, emptyUpdate()
 	}
@@ -58893,7 +59211,7 @@ func (obj *pgxcockroachImpl) Update_ProjectInvitation_By_ProjectId_And_Email(ctx
 	obj.logStmt(__stmt, __values...)
 
 	project_invitation = &ProjectInvitation{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt, &project_invitation.ExpiresAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -58955,7 +59273,7 @@ func (obj *pgxcockroachImpl) Update_MemberBucketGrant_By_Id(ctx context.Context,
 
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE member_bucket_grants SET "), __sets, __sqlbundle_Literal(" WHERE member_bucket_grants.id = ? RETURNING member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE member_bucket_grants SET "), __sets, __sqlbundle_Literal(" WHERE member_bucket_grants.id = ? RETURNING member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []any
@@ -58986,6 +59304,11 @@ func (obj *pgxcockroachImpl) Update_MemberBucketGrant_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("allow_delete = ?"))
 	}
 
+	if update.ExpiresAt._set {
+		__values = append(__values, update.ExpiresAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("expires_at = ?"))
+	}
+
 	__now := obj.db.Hooks.Now().UTC()
 
 	__values = append(__values, __now)
@@ -59000,7 +59323,7 @@ func (obj *pgxcockroachImpl) Update_MemberBucketGrant_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	member_bucket_grant = &MemberBucketGrant{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -62792,16 +63115,6 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM google_backup_credentials;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM domains;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -62823,6 +63136,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM bucket_metainfos;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM backup_credentials;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -65675,49 +65998,53 @@ func (obj *spannerImpl) CreateNoReturn_OauthToken(ctx context.Context,
 
 }
 
-func (obj *spannerImpl) Create_GoogleBackupCredentials(ctx context.Context,
-	google_backup_credentials_id GoogleBackupCredentials_Id_Field,
-	google_backup_credentials_user_id GoogleBackupCredentials_UserId_Field,
-	google_backup_credentials_google_email GoogleBackupCredentials_GoogleEmail_Field,
-	google_backup_credentials_access_token GoogleBackupCredentials_AccessToken_Field,
-	optional GoogleBackupCredentials_Create_Fields) (
-	google_backup_credentials *GoogleBackupCredentials, err error) {
+func (obj *spannerImpl) Create_BackupCredentials(ctx context.Context,
+	backup_credentials_id BackupCredentials_Id_Field,
+	backup_credentials_user_id BackupCredentials_UserId_Field,
+	backup_credentials_provider BackupCredentials_Provider_Field,
+	backup_credentials_email BackupCredentials_Email_Field,
+	backup_credentials_access_token BackupCredentials_AccessToken_Field,
+	optional BackupCredentials_Create_Fields) (
+	backup_credentials *BackupCredentials, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !obj.txn && txutil.IsInsideTx(ctx) {
 		panic("using DB when inside of a transaction")
 	}
 
 	__now := obj.db.Hooks.Now().UTC()
-	__id_val := google_backup_credentials_id.value()
-	__user_id_val := google_backup_credentials_user_id.value()
-	__google_email_val := google_backup_credentials_google_email.value()
-	__access_token_val := google_backup_credentials_access_token.value()
+	__id_val := backup_credentials_id.value()
+	__user_id_val := backup_credentials_user_id.value()
+	__provider_val := backup_credentials_provider.value()
+	__email_val := backup_credentials_email.value()
+	__access_token_val := backup_credentials_access_token.value()
 	__refresh_token_val := optional.RefreshToken.value()
 	__access_token_expiry_val := optional.AccessTokenExpiry.value()
 	__account_type_val := optional.AccountType.value()
+	__tenant_id_val := optional.TenantId.value()
+	__tenant_name_val := optional.TenantName.value()
 	__created_at_val := __now
 	__updated_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO google_backup_credentials ( id, user_id, google_email, access_token, refresh_token, access_token_expiry, account_type, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? ) THEN RETURN google_backup_credentials.id, google_backup_credentials.user_id, google_backup_credentials.google_email, google_backup_credentials.access_token, google_backup_credentials.refresh_token, google_backup_credentials.access_token_expiry, google_backup_credentials.account_type, google_backup_credentials.created_at, google_backup_credentials.updated_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO backup_credentials ( id, user_id, provider, email, access_token, refresh_token, access_token_expiry, account_type, tenant_id, tenant_name, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) THEN RETURN backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at")
 
 	var __values []any
-	__values = append(__values, __id_val, __user_id_val, __google_email_val, __access_token_val, __refresh_token_val, __access_token_expiry_val, __account_type_val, __created_at_val, __updated_at_val)
+	__values = append(__values, __id_val, __user_id_val, __provider_val, __email_val, __access_token_val, __refresh_token_val, __access_token_expiry_val, __account_type_val, __tenant_id_val, __tenant_name_val, __created_at_val, __updated_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	google_backup_credentials = &GoogleBackupCredentials{}
+	backup_credentials = &BackupCredentials{}
 	if !obj.txn {
 		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
-			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&google_backup_credentials.Id, &google_backup_credentials.UserId, &google_backup_credentials.GoogleEmail, &google_backup_credentials.AccessToken, &google_backup_credentials.RefreshToken, &google_backup_credentials.AccessTokenExpiry, &google_backup_credentials.AccountType, &google_backup_credentials.CreatedAt, &google_backup_credentials.UpdatedAt)
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
 		})
 	} else {
-		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&google_backup_credentials.Id, &google_backup_credentials.UserId, &google_backup_credentials.GoogleEmail, &google_backup_credentials.AccessToken, &google_backup_credentials.RefreshToken, &google_backup_credentials.AccessTokenExpiry, &google_backup_credentials.AccountType, &google_backup_credentials.CreatedAt, &google_backup_credentials.UpdatedAt)
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
 	}
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
-	return google_backup_credentials, nil
+	return backup_credentials, nil
 
 }
 
@@ -65919,11 +66246,12 @@ func (obj *spannerImpl) Replace_ProjectInvitation(ctx context.Context,
 	__email_val := project_invitation_email.value()
 	__inviter_id_val := optional.InviterId.value()
 	__created_at_val := __now
+	__expires_at_val := optional.ExpiresAt.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT OR UPDATE INTO project_invitations ( project_id, email, inviter_id, created_at ) VALUES ( ?, ?, ?, ? ) THEN RETURN project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT OR UPDATE INTO project_invitations ( project_id, email, inviter_id, created_at, expires_at ) VALUES ( ?, ?, ?, ?, ? ) THEN RETURN project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at, project_invitations.expires_at")
 
 	var __values []any
-	__values = append(__values, __project_id_val, __email_val, __inviter_id_val, __created_at_val)
+	__values = append(__values, __project_id_val, __email_val, __inviter_id_val, __created_at_val, __expires_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -65931,10 +66259,10 @@ func (obj *spannerImpl) Replace_ProjectInvitation(ctx context.Context,
 	project_invitation = &ProjectInvitation{}
 	if !obj.txn {
 		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
-			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt, &project_invitation.ExpiresAt)
 		})
 	} else {
-		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt, &project_invitation.ExpiresAt)
 	}
 	if err != nil {
 		return nil, obj.makeErr(err)
@@ -66121,11 +66449,12 @@ func (obj *spannerImpl) Create_MemberBucketGrant(ctx context.Context,
 	__allow_delete_val := member_bucket_grant_allow_delete.value()
 	__created_at_val := __now
 	__updated_at_val := __now
+	__expires_at_val := optional.ExpiresAt.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO member_bucket_grants ( id, project_id, member_id, invite_email, bucket, prefix, allow_list, allow_download, allow_upload, allow_delete, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) THEN RETURN member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO member_bucket_grants ( id, project_id, member_id, invite_email, bucket, prefix, allow_list, allow_download, allow_upload, allow_delete, created_at, updated_at, expires_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) THEN RETURN member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at")
 
 	var __values []any
-	__values = append(__values, __id_val, __project_id_val, __member_id_val, __invite_email_val, __bucket_val, __prefix_val, __allow_list_val, __allow_download_val, __allow_upload_val, __allow_delete_val, __created_at_val, __updated_at_val)
+	__values = append(__values, __id_val, __project_id_val, __member_id_val, __invite_email_val, __bucket_val, __prefix_val, __allow_list_val, __allow_download_val, __allow_upload_val, __allow_delete_val, __created_at_val, __updated_at_val, __expires_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -66133,10 +66462,10 @@ func (obj *spannerImpl) Create_MemberBucketGrant(ctx context.Context,
 	member_bucket_grant = &MemberBucketGrant{}
 	if !obj.txn {
 		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
-			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt)
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt)
 		})
 	} else {
-		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt)
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt)
 	}
 	if err != nil {
 		return nil, obj.makeErr(err)
@@ -71908,49 +72237,49 @@ func (obj *spannerImpl) Get_OauthToken_By_Kind_And_Token(ctx context.Context,
 
 }
 
-func (obj *spannerImpl) Get_GoogleBackupCredentials_By_Id(ctx context.Context,
-	google_backup_credentials_id GoogleBackupCredentials_Id_Field) (
-	google_backup_credentials *GoogleBackupCredentials, err error) {
+func (obj *spannerImpl) Get_BackupCredentials_By_Id(ctx context.Context,
+	backup_credentials_id BackupCredentials_Id_Field) (
+	backup_credentials *BackupCredentials, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !obj.txn && txutil.IsInsideTx(ctx) {
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT google_backup_credentials.id, google_backup_credentials.user_id, google_backup_credentials.google_email, google_backup_credentials.access_token, google_backup_credentials.refresh_token, google_backup_credentials.access_token_expiry, google_backup_credentials.account_type, google_backup_credentials.created_at, google_backup_credentials.updated_at FROM google_backup_credentials WHERE google_backup_credentials.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at FROM backup_credentials WHERE backup_credentials.id = ?")
 
 	var __values []any
-	__values = append(__values, google_backup_credentials_id.value())
+	__values = append(__values, backup_credentials_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	google_backup_credentials = &GoogleBackupCredentials{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&google_backup_credentials.Id, &google_backup_credentials.UserId, &google_backup_credentials.GoogleEmail, &google_backup_credentials.AccessToken, &google_backup_credentials.RefreshToken, &google_backup_credentials.AccessTokenExpiry, &google_backup_credentials.AccountType, &google_backup_credentials.CreatedAt, &google_backup_credentials.UpdatedAt)
+	backup_credentials = &BackupCredentials{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
 	if err != nil {
-		return (*GoogleBackupCredentials)(nil), obj.makeErr(err)
+		return (*BackupCredentials)(nil), obj.makeErr(err)
 	}
-	return google_backup_credentials, nil
+	return backup_credentials, nil
 
 }
 
-func (obj *spannerImpl) All_GoogleBackupCredentials_By_UserId(ctx context.Context,
-	google_backup_credentials_user_id GoogleBackupCredentials_UserId_Field) (
-	rows []*GoogleBackupCredentials, err error) {
+func (obj *spannerImpl) All_BackupCredentials_By_UserId(ctx context.Context,
+	backup_credentials_user_id BackupCredentials_UserId_Field) (
+	rows []*BackupCredentials, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !obj.txn && txutil.IsInsideTx(ctx) {
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT google_backup_credentials.id, google_backup_credentials.user_id, google_backup_credentials.google_email, google_backup_credentials.access_token, google_backup_credentials.refresh_token, google_backup_credentials.access_token_expiry, google_backup_credentials.account_type, google_backup_credentials.created_at, google_backup_credentials.updated_at FROM google_backup_credentials WHERE google_backup_credentials.user_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at FROM backup_credentials WHERE backup_credentials.user_id = ?")
 
 	var __values []any
-	__values = append(__values, google_backup_credentials_user_id.value())
+	__values = append(__values, backup_credentials_user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	for {
-		rows, err = func() (rows []*GoogleBackupCredentials, err error) {
+		rows, err = func() (rows []*BackupCredentials, err error) {
 			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 			if err != nil {
 				return nil, err
@@ -71958,12 +72287,58 @@ func (obj *spannerImpl) All_GoogleBackupCredentials_By_UserId(ctx context.Contex
 			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
-				google_backup_credentials := &GoogleBackupCredentials{}
-				err = __rows.Scan(&google_backup_credentials.Id, &google_backup_credentials.UserId, &google_backup_credentials.GoogleEmail, &google_backup_credentials.AccessToken, &google_backup_credentials.RefreshToken, &google_backup_credentials.AccessTokenExpiry, &google_backup_credentials.AccountType, &google_backup_credentials.CreatedAt, &google_backup_credentials.UpdatedAt)
+				backup_credentials := &BackupCredentials{}
+				err = __rows.Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
 				if err != nil {
 					return nil, err
 				}
-				rows = append(rows, google_backup_credentials)
+				rows = append(rows, backup_credentials)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) All_BackupCredentials_By_UserId_And_Provider(ctx context.Context,
+	backup_credentials_user_id BackupCredentials_UserId_Field,
+	backup_credentials_provider BackupCredentials_Provider_Field) (
+	rows []*BackupCredentials, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at FROM backup_credentials WHERE backup_credentials.user_id = ? AND backup_credentials.provider = ?")
+
+	var __values []any
+	__values = append(__values, backup_credentials_user_id.value(), backup_credentials_provider.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*BackupCredentials, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				backup_credentials := &BackupCredentials{}
+				err = __rows.Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, backup_credentials)
 			}
 			return rows, nil
 		}()
@@ -72886,7 +73261,7 @@ func (obj *spannerImpl) Get_ProjectInvitation_By_ProjectId_And_Email(ctx context
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at FROM project_invitations WHERE project_invitations.project_id = ? AND project_invitations.email = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at, project_invitations.expires_at FROM project_invitations WHERE project_invitations.project_id = ? AND project_invitations.email = ?")
 
 	var __values []any
 	__values = append(__values, project_invitation_project_id.value(), project_invitation_email.value())
@@ -72895,7 +73270,7 @@ func (obj *spannerImpl) Get_ProjectInvitation_By_ProjectId_And_Email(ctx context
 	obj.logStmt(__stmt, __values...)
 
 	project_invitation = &ProjectInvitation{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt, &project_invitation.ExpiresAt)
 	if err != nil {
 		return (*ProjectInvitation)(nil), obj.makeErr(err)
 	}
@@ -72911,7 +73286,7 @@ func (obj *spannerImpl) All_ProjectInvitation_By_Email(ctx context.Context,
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at FROM project_invitations WHERE project_invitations.email = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at, project_invitations.expires_at FROM project_invitations WHERE project_invitations.email = ?")
 
 	var __values []any
 	__values = append(__values, project_invitation_email.value())
@@ -72929,7 +73304,7 @@ func (obj *spannerImpl) All_ProjectInvitation_By_Email(ctx context.Context,
 
 			for __rows.Next() {
 				project_invitation := &ProjectInvitation{}
-				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt, &project_invitation.ExpiresAt)
 				if err != nil {
 					return nil, err
 				}
@@ -72959,7 +73334,7 @@ func (obj *spannerImpl) All_ProjectInvitation_By_Project_Status_And_ProjectInvit
 
 	var __cond_0 = &__sqlbundle_Condition{Left: "projects.status", Equal: true, Right: "?", Null: true}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at FROM project_invitations  JOIN projects ON project_invitations.project_id = projects.id WHERE "), __cond_0, __sqlbundle_Literal(" AND project_invitations.email = ?")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at, project_invitations.expires_at FROM project_invitations  JOIN projects ON project_invitations.project_id = projects.id WHERE "), __cond_0, __sqlbundle_Literal(" AND project_invitations.email = ?")}}
 
 	var __values []any
 	if !project_status.isnull() {
@@ -72981,7 +73356,7 @@ func (obj *spannerImpl) All_ProjectInvitation_By_Project_Status_And_ProjectInvit
 
 			for __rows.Next() {
 				project_invitation := &ProjectInvitation{}
-				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt, &project_invitation.ExpiresAt)
 				if err != nil {
 					return nil, err
 				}
@@ -73013,7 +73388,7 @@ func (obj *spannerImpl) All_ProjectInvitation_By_Project_Status_And_ProjectInvit
 	var __cond_0 = &__sqlbundle_Condition{Left: "projects.status", Equal: true, Right: "?", Null: true}
 	var __cond_1 = &__sqlbundle_Condition{Left: "users.tenant_id", Equal: true, Right: "?", Null: true}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at FROM project_invitations  JOIN projects ON project_invitations.project_id = projects.id  JOIN users ON project_invitations.inviter_id = users.id WHERE "), __cond_0, __sqlbundle_Literal(" AND project_invitations.email = ? AND "), __cond_1}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at, project_invitations.expires_at FROM project_invitations  JOIN projects ON project_invitations.project_id = projects.id  JOIN users ON project_invitations.inviter_id = users.id WHERE "), __cond_0, __sqlbundle_Literal(" AND project_invitations.email = ? AND "), __cond_1}}
 
 	var __values []any
 	if !project_status.isnull() {
@@ -73039,7 +73414,7 @@ func (obj *spannerImpl) All_ProjectInvitation_By_Project_Status_And_ProjectInvit
 
 			for __rows.Next() {
 				project_invitation := &ProjectInvitation{}
-				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt, &project_invitation.ExpiresAt)
 				if err != nil {
 					return nil, err
 				}
@@ -73066,7 +73441,7 @@ func (obj *spannerImpl) All_ProjectInvitation_By_ProjectId(ctx context.Context,
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at FROM project_invitations WHERE project_invitations.project_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at, project_invitations.expires_at FROM project_invitations WHERE project_invitations.project_id = ?")
 
 	var __values []any
 	__values = append(__values, project_invitation_project_id.value())
@@ -73084,7 +73459,7 @@ func (obj *spannerImpl) All_ProjectInvitation_By_ProjectId(ctx context.Context,
 
 			for __rows.Next() {
 				project_invitation := &ProjectInvitation{}
-				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt, &project_invitation.ExpiresAt)
 				if err != nil {
 					return nil, err
 				}
@@ -73286,7 +73661,7 @@ func (obj *spannerImpl) All_MemberBucketGrant_By_ProjectId_And_MemberId(ctx cont
 
 	var __cond_0 = &__sqlbundle_Condition{Left: "member_bucket_grants.member_id", Equal: true, Right: "?", Null: true}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at FROM member_bucket_grants WHERE member_bucket_grants.project_id = ? AND "), __cond_0}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at FROM member_bucket_grants WHERE member_bucket_grants.project_id = ? AND "), __cond_0}}
 
 	var __values []any
 	__values = append(__values, member_bucket_grant_project_id.value())
@@ -73308,7 +73683,7 @@ func (obj *spannerImpl) All_MemberBucketGrant_By_ProjectId_And_MemberId(ctx cont
 
 			for __rows.Next() {
 				member_bucket_grant := &MemberBucketGrant{}
-				err = __rows.Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt)
+				err = __rows.Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt)
 				if err != nil {
 					return nil, err
 				}
@@ -73336,7 +73711,7 @@ func (obj *spannerImpl) All_MemberBucketGrant_By_ProjectId_And_InviteEmail(ctx c
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at FROM member_bucket_grants WHERE member_bucket_grants.project_id = ? AND member_bucket_grants.invite_email = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at FROM member_bucket_grants WHERE member_bucket_grants.project_id = ? AND member_bucket_grants.invite_email = ?")
 
 	var __values []any
 	__values = append(__values, member_bucket_grant_project_id.value(), member_bucket_grant_invite_email.value())
@@ -73354,7 +73729,7 @@ func (obj *spannerImpl) All_MemberBucketGrant_By_ProjectId_And_InviteEmail(ctx c
 
 			for __rows.Next() {
 				member_bucket_grant := &MemberBucketGrant{}
-				err = __rows.Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt)
+				err = __rows.Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt)
 				if err != nil {
 					return nil, err
 				}
@@ -73381,7 +73756,7 @@ func (obj *spannerImpl) Get_MemberBucketGrant_By_Id(ctx context.Context,
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at FROM member_bucket_grants WHERE member_bucket_grants.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at FROM member_bucket_grants WHERE member_bucket_grants.id = ?")
 
 	var __values []any
 	__values = append(__values, member_bucket_grant_id.value())
@@ -73390,7 +73765,7 @@ func (obj *spannerImpl) Get_MemberBucketGrant_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	member_bucket_grant = &MemberBucketGrant{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt)
 	if err != nil {
 		return (*MemberBucketGrant)(nil), obj.makeErr(err)
 	}
@@ -78366,10 +78741,10 @@ func (obj *spannerImpl) UpdateNoReturn_OauthToken_By_Token_And_Kind(ctx context.
 	return nil
 }
 
-func (obj *spannerImpl) Update_GoogleBackupCredentials_By_Id(ctx context.Context,
-	google_backup_credentials_id GoogleBackupCredentials_Id_Field,
-	update GoogleBackupCredentials_Update_Fields) (
-	google_backup_credentials *GoogleBackupCredentials, err error) {
+func (obj *spannerImpl) Update_BackupCredentials_By_Id(ctx context.Context,
+	backup_credentials_id BackupCredentials_Id_Field,
+	update BackupCredentials_Update_Fields) (
+	backup_credentials *BackupCredentials, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !obj.txn && txutil.IsInsideTx(ctx) {
 		panic("using DB when inside of a transaction")
@@ -78377,7 +78752,7 @@ func (obj *spannerImpl) Update_GoogleBackupCredentials_By_Id(ctx context.Context
 
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE google_backup_credentials SET "), __sets, __sqlbundle_Literal(" WHERE google_backup_credentials.id = ? THEN RETURN google_backup_credentials.id, google_backup_credentials.user_id, google_backup_credentials.google_email, google_backup_credentials.access_token, google_backup_credentials.refresh_token, google_backup_credentials.access_token_expiry, google_backup_credentials.account_type, google_backup_credentials.created_at, google_backup_credentials.updated_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE backup_credentials SET "), __sets, __sqlbundle_Literal(" WHERE backup_credentials.id = ? THEN RETURN backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []any
@@ -78399,13 +78774,21 @@ func (obj *spannerImpl) Update_GoogleBackupCredentials_By_Id(ctx context.Context
 		__values = append(__values, update.AccountType.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("account_type = ?"))
 	}
+	if update.TenantId._set {
+		__values = append(__values, update.TenantId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("tenant_id = ?"))
+	}
+	if update.TenantName._set {
+		__values = append(__values, update.TenantName.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("tenant_name = ?"))
+	}
 
 	__now := obj.db.Hooks.Now().UTC()
 
 	__values = append(__values, __now)
 	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
 
-	__args = append(__args, google_backup_credentials_id.value())
+	__args = append(__args, backup_credentials_id.value())
 
 	__values = append(__values, __args...)
 	__sets.SQL = __sets_sql
@@ -78413,15 +78796,15 @@ func (obj *spannerImpl) Update_GoogleBackupCredentials_By_Id(ctx context.Context
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	google_backup_credentials = &GoogleBackupCredentials{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&google_backup_credentials.Id, &google_backup_credentials.UserId, &google_backup_credentials.GoogleEmail, &google_backup_credentials.AccessToken, &google_backup_credentials.RefreshToken, &google_backup_credentials.AccessTokenExpiry, &google_backup_credentials.AccountType, &google_backup_credentials.CreatedAt, &google_backup_credentials.UpdatedAt)
+	backup_credentials = &BackupCredentials{}
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
-	return google_backup_credentials, nil
+	return backup_credentials, nil
 }
 
 func (obj *spannerImpl) Update_Project_By_Id(ctx context.Context,
@@ -78647,7 +79030,7 @@ func (obj *spannerImpl) Update_ProjectInvitation_By_ProjectId_And_Email(ctx cont
 
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE project_invitations SET "), __sets, __sqlbundle_Literal(" WHERE project_invitations.project_id = ? AND project_invitations.email = ? THEN RETURN project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE project_invitations SET "), __sets, __sqlbundle_Literal(" WHERE project_invitations.project_id = ? AND project_invitations.email = ? THEN RETURN project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at, project_invitations.expires_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []any
@@ -78660,6 +79043,10 @@ func (obj *spannerImpl) Update_ProjectInvitation_By_ProjectId_And_Email(ctx cont
 	if update.CreatedAt._set {
 		__values = append(__values, update.CreatedAt.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("created_at = ?"))
+	}
+	if update.ExpiresAt._set {
+		__values = append(__values, update.ExpiresAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("expires_at = ?"))
 	}
 
 	if len(__sets_sql.SQLs) == 0 {
@@ -78675,7 +79062,7 @@ func (obj *spannerImpl) Update_ProjectInvitation_By_ProjectId_And_Email(ctx cont
 	obj.logStmt(__stmt, __values...)
 
 	project_invitation = &ProjectInvitation{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt, &project_invitation.ExpiresAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -78737,7 +79124,7 @@ func (obj *spannerImpl) Update_MemberBucketGrant_By_Id(ctx context.Context,
 
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE member_bucket_grants SET "), __sets, __sqlbundle_Literal(" WHERE member_bucket_grants.id = ? THEN RETURN member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE member_bucket_grants SET "), __sets, __sqlbundle_Literal(" WHERE member_bucket_grants.id = ? THEN RETURN member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []any
@@ -78763,6 +79150,10 @@ func (obj *spannerImpl) Update_MemberBucketGrant_By_Id(ctx context.Context,
 		__values = append(__values, update.AllowDelete.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("allow_delete = ?"))
 	}
+	if update.ExpiresAt._set {
+		__values = append(__values, update.ExpiresAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("expires_at = ?"))
+	}
 
 	__now := obj.db.Hooks.Now().UTC()
 
@@ -78778,7 +79169,7 @@ func (obj *spannerImpl) Update_MemberBucketGrant_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	member_bucket_grant = &MemberBucketGrant{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -82392,16 +82783,6 @@ func (obj *spannerImpl) deleteAll(ctx context.Context) (count int64, err error) 
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM google_backup_credentials;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM domains;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -82423,6 +82804,16 @@ func (obj *spannerImpl) deleteAll(ctx context.Context) (count int64, err error) 
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM bucket_metainfos;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM backup_credentials;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -83209,6 +83600,15 @@ type Methods interface {
 		admin_email Admin_Email_Field) (
 		rows []*Admin, err error)
 
+	All_BackupCredentials_By_UserId(ctx context.Context,
+		backup_credentials_user_id BackupCredentials_UserId_Field) (
+		rows []*BackupCredentials, err error)
+
+	All_BackupCredentials_By_UserId_And_Provider(ctx context.Context,
+		backup_credentials_user_id BackupCredentials_UserId_Field,
+		backup_credentials_provider BackupCredentials_Provider_Field) (
+		rows []*BackupCredentials, err error)
+
 	All_BackupFinalStatus_OrderBy_Desc_BackupDate(ctx context.Context) (
 		rows []*BackupFinalStatus, err error)
 
@@ -83322,10 +83722,6 @@ type Methods interface {
 	All_FcmTokens_By_UserId_And_IsActive_Equal_True(ctx context.Context,
 		fcm_tokens_user_id FcmTokens_UserId_Field) (
 		rows []*FcmTokens, err error)
-
-	All_GoogleBackupCredentials_By_UserId(ctx context.Context,
-		google_backup_credentials_user_id GoogleBackupCredentials_UserId_Field) (
-		rows []*GoogleBackupCredentials, err error)
 
 	All_MemberBucketGrant_By_ProjectId_And_InviteEmail(ctx context.Context,
 		member_bucket_grant_project_id MemberBucketGrant_ProjectId_Field,
@@ -83658,6 +84054,15 @@ type Methods interface {
 		optional ApiKey_Create_Fields) (
 		api_key *ApiKey, err error)
 
+	Create_BackupCredentials(ctx context.Context,
+		backup_credentials_id BackupCredentials_Id_Field,
+		backup_credentials_user_id BackupCredentials_UserId_Field,
+		backup_credentials_provider BackupCredentials_Provider_Field,
+		backup_credentials_email BackupCredentials_Email_Field,
+		backup_credentials_access_token BackupCredentials_AccessToken_Field,
+		optional BackupCredentials_Create_Fields) (
+		backup_credentials *BackupCredentials, err error)
+
 	Create_BillingTransaction(ctx context.Context,
 		billing_transaction_user_id BillingTransaction_UserId_Field,
 		billing_transaction_amount BillingTransaction_Amount_Field,
@@ -83789,14 +84194,6 @@ type Methods interface {
 		fcm_tokens_updated_at FcmTokens_UpdatedAt_Field,
 		optional FcmTokens_Create_Fields) (
 		fcm_tokens *FcmTokens, err error)
-
-	Create_GoogleBackupCredentials(ctx context.Context,
-		google_backup_credentials_id GoogleBackupCredentials_Id_Field,
-		google_backup_credentials_user_id GoogleBackupCredentials_UserId_Field,
-		google_backup_credentials_google_email GoogleBackupCredentials_GoogleEmail_Field,
-		google_backup_credentials_access_token GoogleBackupCredentials_AccessToken_Field,
-		optional GoogleBackupCredentials_Create_Fields) (
-		google_backup_credentials *GoogleBackupCredentials, err error)
 
 	Create_MailExportJob(ctx context.Context,
 		mail_export_job_id MailExportJob_Id_Field,
@@ -84374,6 +84771,10 @@ type Methods interface {
 		audit_log_id AuditLog_Id_Field) (
 		audit_log *AuditLog, err error)
 
+	Get_BackupCredentials_By_Id(ctx context.Context,
+		backup_credentials_id BackupCredentials_Id_Field) (
+		backup_credentials *BackupCredentials, err error)
+
 	Get_BackupFinalStatus_By_BackupDate(ctx context.Context,
 		backup_final_status_backup_date BackupFinalStatus_BackupDate_Field) (
 		backup_final_status *BackupFinalStatus, err error)
@@ -84498,10 +84899,6 @@ type Methods interface {
 	Get_FcmTokens_By_Token(ctx context.Context,
 		fcm_tokens_token FcmTokens_Token_Field) (
 		fcm_tokens *FcmTokens, err error)
-
-	Get_GoogleBackupCredentials_By_Id(ctx context.Context,
-		google_backup_credentials_id GoogleBackupCredentials_Id_Field) (
-		google_backup_credentials *GoogleBackupCredentials, err error)
 
 	Get_KeyVersion_Version_By_KeyId(ctx context.Context,
 		key_version_key_id KeyVersion_KeyId_Field) (
@@ -85129,6 +85526,11 @@ type Methods interface {
 		update Admin_Update_Fields) (
 		admin *Admin, err error)
 
+	Update_BackupCredentials_By_Id(ctx context.Context,
+		backup_credentials_id BackupCredentials_Id_Field,
+		update BackupCredentials_Update_Fields) (
+		backup_credentials *BackupCredentials, err error)
+
 	Update_BackupFinalStatus_By_BackupDate(ctx context.Context,
 		backup_final_status_backup_date BackupFinalStatus_BackupDate_Field,
 		update BackupFinalStatus_Update_Fields) (
@@ -85205,11 +85607,6 @@ type Methods interface {
 		fcm_tokens_id FcmTokens_Id_Field,
 		update FcmTokens_Update_Fields) (
 		fcm_tokens *FcmTokens, err error)
-
-	Update_GoogleBackupCredentials_By_Id(ctx context.Context,
-		google_backup_credentials_id GoogleBackupCredentials_Id_Field,
-		update GoogleBackupCredentials_Update_Fields) (
-		google_backup_credentials *GoogleBackupCredentials, err error)
 
 	Update_KeyVersion_By_KeyId(ctx context.Context,
 		key_version_key_id KeyVersion_KeyId_Field,

@@ -448,15 +448,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 	}
 
-	{
-		peer.DeleteUser.Service = userworker.NewDeleteUserWorker(peer.Log.Named("delete-user"), peer.DB.DeleteUserQueue(),
-			peer.DB.Console().Projects(), peer.DB.Console().APIKeys(), peer.DB.Buckets(), peer.DB.Console().Users())
-		peer.Services.Add(lifecycle.Item{
-			Name: "delete-user",
-			Run:  peer.DeleteUser.Service.Run,
-		})
-	}
-
 	{ // setup contact service
 		authority, err := LoadAuthorities(full.PeerIdentity(), config.TagAuthorities)
 		if err != nil {
@@ -844,6 +835,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			minimumChargeDate,
 			pc.PackagePlans.Packages,
 			consoleConfig.BackupToolsURL,
+			consoleConfig.BackupToolsAPIKey,
 			web3AuthSocialShareHelper,
 		)
 		if err != nil {
@@ -855,6 +847,14 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Mail.Service.SetBrandingResolver(peer.Console.Service.ResellerMailBranding)
 			peer.Mail.Service.SetSenderResolver(peer.Console.Service.ResellerMailSender)
 		}
+
+		peer.DeleteUser.Service = userworker.NewDeleteUserWorker(peer.Log.Named("delete-user"), peer.DB.DeleteUserQueue(),
+			peer.DB.Console().Projects(), peer.DB.Console().APIKeys(), peer.DB.Buckets(), peer.DB.Console().Users(),
+			peer.DB.Console().BackupCredentials(), peer.Console.Service, consoleConfig.AccountDeleteWorkerInterval)
+		peer.Services.Add(lifecycle.Item{
+			Name: "delete-user",
+			Run:  peer.DeleteUser.Service.Run,
+		})
 
 		auditLogChore := auditlog.NewChore(
 			peer.Log.Named("auditlog:chore"),
@@ -1270,6 +1270,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				minimumChargeDate,
 				config.Payments.PackagePlans.Packages,
 				consoleConfig.BackupToolsURL,
+				consoleConfig.BackupToolsAPIKey,
 				web3AuthSocialShareHelper,
 			)
 			if err != nil {

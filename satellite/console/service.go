@@ -321,6 +321,7 @@ type Service struct {
 
 	socialShareHelper smartcontract.SocialShareHelper
 	backupToolsURL    string
+	backupToolsAPIKey string
 
 	mailExportOrdersDB MailExportOrdersDB
 
@@ -876,7 +877,7 @@ func (s *Service) ClearGoogleBackupTokensForBackupTools(ctx context.Context, req
 	}
 
 	email := strings.TrimSpace(req.Email)
-	credential, err := s.store.GoogleBackupCredentials().GetByUserIDAndGoogleEmail(ctx, userID, email)
+	credential, err := s.store.BackupCredentials().GetByUserIDProviderEmail(ctx, userID, BackupProviderGoogle, email)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil
@@ -884,7 +885,7 @@ func (s *Service) ClearGoogleBackupTokensForBackupTools(ctx context.Context, req
 		return Error.Wrap(err)
 	}
 
-	if err := s.store.GoogleBackupCredentials().ClearTokens(ctx, credential.ID); err != nil {
+	if err := s.store.BackupCredentials().ClearTokens(ctx, credential.ID); err != nil {
 		return Error.Wrap(err)
 	}
 	return nil
@@ -1084,7 +1085,7 @@ type Payments struct {
 }
 
 // NewService returns new instance of Service.
-func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKeys restapikeys.Service, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets buckets.DB, attributions attribution.DB, accounts payments.Accounts, depositWallets payments.DepositWallets, billingDB billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, hubspotMailService *hubspotmails.Service, accountFreezeService *AccountFreezeService, emission *emission.Service, kmsService *kms.Service, valdiService *valdi.Service, ssoService *sso.Service, satelliteAddress string, satelliteNodeAddress string, satelliteName string, maxProjectBuckets int, ssoEnabled bool, placements nodeselection.PlacementDefinitions, versioning VersioningConfig, config Config, skuEnabled bool, loginURL string, supportURL string, bucketEventing eventingconfig.Config, entitlementsService *entitlements.Service, entitlementsConfig entitlements.Config, placementProductMap map[int]int32, productConfigs map[int32]payments.ProductUsagePriceModel, minimumChargeAmount int64, minimumChargeDate *time.Time, packagePlans map[string]payments.PackagePlan, backupToolsURL string, socialShareHelper smartcontract.SocialShareHelper) (*Service, error) {
+func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKeys restapikeys.Service, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets buckets.DB, attributions attribution.DB, accounts payments.Accounts, depositWallets payments.DepositWallets, billingDB billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, hubspotMailService *hubspotmails.Service, accountFreezeService *AccountFreezeService, emission *emission.Service, kmsService *kms.Service, valdiService *valdi.Service, ssoService *sso.Service, satelliteAddress string, satelliteNodeAddress string, satelliteName string, maxProjectBuckets int, ssoEnabled bool, placements nodeselection.PlacementDefinitions, versioning VersioningConfig, config Config, skuEnabled bool, loginURL string, supportURL string, bucketEventing eventingconfig.Config, entitlementsService *entitlements.Service, entitlementsConfig entitlements.Config, placementProductMap map[int]int32, productConfigs map[int32]payments.ProductUsagePriceModel, minimumChargeAmount int64, minimumChargeDate *time.Time, packagePlans map[string]payments.PackagePlan, backupToolsURL string, backupToolsAPIKey string, socialShareHelper smartcontract.SocialShareHelper) (*Service, error) {
 	if store == nil {
 		return nil, errs.New("store can't be nil")
 	}
@@ -1190,6 +1191,7 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 		nowFn:                      time.Now,
 		socialShareHelper:          socialShareHelper,
 		backupToolsURL:             backupToolsURL,
+		backupToolsAPIKey:          backupToolsAPIKey,
 	}, nil
 }
 
@@ -3284,6 +3286,12 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (response *TokenI
 				user = &botAccount
 				break
 			}
+			if usr.Status == PendingDeletion {
+				pending := usr
+				user = &pending
+				shouldProceed = true
+				break
+			}
 		}
 
 		if !shouldProceed {
@@ -3296,6 +3304,11 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (response *TokenI
 			}
 			return nil, ErrLoginCredentials.New(credentialsErrMsg)
 		}
+	}
+
+	pendingDeleteReq, err := s.pendingDeletionLoginRequest(ctx, user)
+	if err != nil {
+		return nil, err
 	}
 
 	if user.LoginLockoutExpiration.After(time.Now()) {
@@ -3316,6 +3329,9 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (response *TokenI
 		}
 		mon.Counter("login_invalid_password").Inc(1)
 		s.auditLog(ctx, "login: failed password not set", &user.ID, user.Email)
+		if user.Status == PendingDeletion {
+			return nil, ErrLoginCredentials.New("This account uses Google Sign-In. Sign in with Google to cancel account deletion, then set a password in Settings if you want email login.")
+		}
 		return nil, ErrLoginCredentials.New(googleSignInOnlyLoginErrMsg)
 	}
 
@@ -3364,6 +3380,8 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (response *TokenI
 	if err != nil {
 		return nil, err
 	}
+
+	applyPendingDeletionTokenInfo(response, user, pendingDeleteReq)
 
 	mon.Counter("login_success").Inc(1)
 
@@ -3648,6 +3666,16 @@ func (s *Service) Token_google(ctx context.Context, request AuthUser) (response 
 	user, unverified, err := s.store.Users().GetByEmailAndTenantWithUnverified(ctx, request.Email, tenantIDFromContext(ctx))
 
 	if user == nil {
+		for _, usr := range unverified {
+			if usr.Status == PendingDeletion {
+				pending := usr
+				user = &pending
+				break
+			}
+		}
+	}
+
+	if user == nil {
 		if len(unverified) > 0 {
 			mon.Counter("login_email_unverified").Inc(1) //mon:locked
 			s.auditLog(ctx, "login: failed email unverified", nil, request.Email)
@@ -3656,6 +3684,11 @@ func (s *Service) Token_google(ctx context.Context, request AuthUser) (response 
 			s.auditLog(ctx, "login: failed invalid email", nil, request.Email)
 		}
 		return nil, ErrLoginCredentials.New(credentialsErrMsg)
+	}
+
+	pendingDeleteReq, err := s.pendingDeletionLoginRequest(ctx, user)
+	if err != nil {
+		return nil, err
 	}
 
 	now := time.Now()
@@ -3685,6 +3718,8 @@ func (s *Service) Token_google(ctx context.Context, request AuthUser) (response 
 		return nil, err
 	}
 
+	applyPendingDeletionTokenInfo(response, user, pendingDeleteReq)
+
 	// Send push notification for successful login (Google OAuth)
 	ipAddress := request.IP
 	if ipAddress == "" {
@@ -3703,6 +3738,65 @@ func (s *Service) Token_google(ctx context.Context, request AuthUser) (response 
 	mon.Counter("login_success").Inc(1) //mon:locked
 
 	return response, nil
+}
+
+// pendingDeletionLoginRequest rejects login when hard delete has started (queue claimed) or grace expired.
+// Orphan PendingDeletion rows (no INIT request) are still allowed so the user can cancel and recover.
+func (s *Service) pendingDeletionLoginRequest(ctx context.Context, user *User) (*UserDeleteRequest, error) {
+	if user == nil || user.Status != PendingDeletion {
+		return nil, nil
+	}
+	deleteReq, err := s.store.Users().GetActiveDeleteRequest(ctx, user.ID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	// Soft-deleted but queue row missing (legacy abbreviated delete / partial failure): allow login to cancel.
+	if deleteReq == nil {
+		return nil, nil
+	}
+	if !deleteReq.DeleteAt.After(s.nowFn()) {
+		return nil, ErrLoginCredentials.New("account deleted / deletion in progress")
+	}
+	return deleteReq, nil
+}
+
+func (s *Service) ensurePendingDeletionLoginAllowed(ctx context.Context, user *User) error {
+	_, err := s.pendingDeletionLoginRequest(ctx, user)
+	return err
+}
+
+func applyPendingDeletionTokenInfo(response *TokenInfo, user *User, deleteReq *UserDeleteRequest) {
+	if response == nil || user == nil || user.Status != PendingDeletion {
+		return
+	}
+	response.AccountPendingDeletion = true
+	if deleteReq == nil {
+		return
+	}
+	deleteAt := deleteReq.DeleteAt.UTC()
+	response.DeleteAt = &deleteAt
+}
+
+// GetAccountPendingDeletionInfo returns pending-deletion scheduling info for the authenticated user.
+func (s *Service) GetAccountPendingDeletionInfo(ctx context.Context) (pending bool, deleteAt *time.Time, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := GetUser(ctx)
+	if err != nil {
+		return false, nil, ErrUnauthorized.Wrap(err)
+	}
+	if user.Status != PendingDeletion {
+		return false, nil, nil
+	}
+	deleteReq, err := s.store.Users().GetActiveDeleteRequest(ctx, user.ID)
+	if err != nil {
+		return false, nil, Error.Wrap(err)
+	}
+	if deleteReq == nil {
+		return true, nil, nil
+	}
+	at := deleteReq.DeleteAt.UTC()
+	return true, &at, nil
 }
 
 // TokenByAPIKey authenticates User by API Key and returns session token.
@@ -4732,18 +4826,186 @@ func (s *Service) getValidatedCompanyName(requestData *SetUpAccountRequest) (nam
 	return name, nil
 }
 
-func (s *Service) DeleteAccountRequest(ctx context.Context) (err error) {
+// verifyAccountDeleteReauth enforces step-up for delete: MFA passcode/recovery OR Google re-auth.
+// The two options are independent — either one is enough. Password is never required.
+// When MFA is disabled and neither factor is provided, the authenticated session alone is enough.
+func (s *Service) verifyAccountDeleteReauth(ctx context.Context, user *User, req AccountDeleteRequest) error {
+	mfaProvided := strings.TrimSpace(req.MFAPasscode) != "" || strings.TrimSpace(req.MFARecoveryCode) != ""
+	googleProvided := strings.TrimSpace(req.GoogleReauthEmail) != ""
+
+	var mfaErr error
+	if mfaProvided {
+		mfaErr = s.logInVerifyMFA(ctx, user, AuthUser{
+			MFAPasscode:     req.MFAPasscode,
+			MFARecoveryCode: req.MFARecoveryCode,
+		})
+		if mfaErr == nil {
+			return nil
+		}
+		if !googleProvided {
+			return mfaErr
+		}
+		// MFA failed; fall through to Google when also provided.
+	}
+
+	if googleProvided {
+		if !strings.EqualFold(strings.TrimSpace(req.GoogleReauthEmail), strings.TrimSpace(user.Email)) {
+			return ErrUnauthorized.New("google account does not match this user")
+		}
+		return nil
+	}
+
+	if user.MFAEnabled {
+		return ErrUnauthorized.New("mfa or google re-authentication required")
+	}
+	return nil
+}
+
+func (s *Service) DeleteAccountRequest(ctx context.Context, req AccountDeleteRequest) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if !s.config.SelfServeAccountDeleteEnabled {
+		return ErrForbidden.New("this feature is disabled")
+	}
 
 	user, err := s.getUserAndAuditLog(ctx, "delete account request")
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	deleteAt := time.Now().AddDate(0, 1, 0)
+	if user.Status == PendingDeletion {
+		return ErrConflict.New("account already pending deletion")
+	}
+	if user.Status != Active {
+		return ErrForbidden.New("account cannot be deleted in current status")
+	}
 
-	err = s.store.Users().CreateDeleteRequest(ctx, user.ID, deleteAt)
+	if user.IsPaid() {
+		return ErrForbidden.New("active_subscription")
+	}
+
+	if err := s.verifyAccountDeleteReauth(ctx, user, req); err != nil {
+		return err
+	}
+
+	deleteAt := s.nowFn().UTC().Add(s.config.AccountDeleteGracePeriod)
+
+	projects, err := s.store.Projects().GetOwnActive(ctx, user.ID)
 	if err != nil {
+		return Error.Wrap(err)
+	}
+	projectIDs := make([]uuid.UUID, 0, len(projects))
+	for _, p := range projects {
+		projectIDs = append(projectIDs, p.ID)
+	}
+
+	if err := s.NotifyBackupToolsAccountPendingDelete(ctx, user.ID, projectIDs, deleteAt); err != nil {
+		return Error.Wrap(err)
+	}
+
+	if err := s.store.Users().CreateDeleteRequest(ctx, user.ID, deleteAt); err != nil {
+		if resumeErr := s.NotifyBackupToolsAccountResume(ctx, user.ID, projectIDs); resumeErr != nil {
+			s.log.Error("failed to resume Backup-Tools after delete request create failure",
+				zap.String("user_id", user.ID.String()),
+				zap.Error(resumeErr),
+			)
+		}
+		return Error.Wrap(err)
+	}
+
+	status := PendingDeletion
+	if err := s.store.Users().Update(ctx, user.ID, UpdateUserRequest{Status: &status}); err != nil {
+		// Best-effort rollback so we do not leave an INIT queue row / BT tombstone for an Active user.
+		if cancelErr := s.store.Users().CancelDeleteRequest(ctx, user.ID); cancelErr != nil {
+			s.log.Error("failed to roll back delete request after status update failure",
+				zap.String("user_id", user.ID.String()),
+				zap.Error(cancelErr),
+			)
+		}
+		if resumeErr := s.NotifyBackupToolsAccountResume(ctx, user.ID, projectIDs); resumeErr != nil {
+			s.log.Error("failed to resume Backup-Tools after status update failure",
+				zap.String("user_id", user.ID.String()),
+				zap.Error(resumeErr),
+			)
+		}
+		return Error.Wrap(err)
+	}
+
+	if _, err := s.store.WebappSessions().DeleteAllByUserID(ctx, user.ID); err != nil {
+		s.log.Error("failed to revoke sessions after delete request",
+			zap.String("user_id", user.ID.String()),
+			zap.Error(err),
+		)
+	}
+
+	cancelLink := s.getSatelliteAddress(ctx)
+	if !strings.HasSuffix(cancelLink, "/") {
+		cancelLink += "/"
+	}
+	cancelLink += "login"
+
+	if s.mailService != nil {
+		s.mailService.SendRenderedAsync(
+			ctx,
+			[]post.Address{{Address: user.Email, Name: user.FullName}},
+			&AccountDeletionScheduledEmail{
+				DeleteAt:   deleteAt,
+				CancelLink: cancelLink,
+			},
+		)
+	}
+
+	return nil
+}
+
+// CancelAccountDeleteRequest restores an account that is PendingDeletion within the grace period.
+func (s *Service) CancelAccountDeleteRequest(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if !s.config.SelfServeAccountDeleteEnabled {
+		return ErrForbidden.New("this feature is disabled")
+	}
+
+	user, err := s.getUserAndAuditLog(ctx, "cancel account delete request")
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	if user.Status != PendingDeletion {
+		return ErrConflict.New("account is not pending deletion")
+	}
+
+	deleteReq, err := s.store.Users().GetActiveDeleteRequest(ctx, user.ID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	// Hard delete already due or started: do not restore.
+	if deleteReq != nil && !deleteReq.DeleteAt.After(s.nowFn()) {
+		return ErrForbidden.New("account deleted / deletion in progress")
+	}
+
+	// Restore Satellite first so cancel succeeds even if BT is temporarily down; then clear BT tombstone.
+	if deleteReq != nil {
+		if err := s.store.Users().CancelDeleteRequest(ctx, user.ID); err != nil {
+			return Error.Wrap(err)
+		}
+	}
+
+	status := Active
+	if err := s.store.Users().Update(ctx, user.ID, UpdateUserRequest{Status: &status}); err != nil {
+		return Error.Wrap(err)
+	}
+
+	projects, err := s.store.Projects().GetOwnActive(ctx, user.ID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	projectIDs := make([]uuid.UUID, 0, len(projects))
+	for _, p := range projects {
+		projectIDs = append(projectIDs, p.ID)
+	}
+
+	if err := s.NotifyBackupToolsAccountResume(ctx, user.ID, projectIDs); err != nil {
 		return Error.Wrap(err)
 	}
 
@@ -5320,6 +5582,9 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 
 	if user.Status == PendingBotVerification {
 		return nil, ErrBotUser.New(contactSupportErrMsg)
+	}
+	if user.Status == PendingDeletion {
+		return nil, ErrForbidden.New("account pending deletion; cancel deletion before creating projects")
 	}
 
 	currentProjectCount, err := s.checkProjectLimit(ctx, user.ID)
@@ -6288,6 +6553,16 @@ func (s *Service) UpdateProjectMemberRole(ctx context.Context, memberID, project
 		return nil, ErrNoMembership.Wrap(err)
 	}
 
+	if s.config.MemberBucketGrantsEnabled && newRole == RoleAdmin {
+		existing, gErr := s.store.MemberBucketGrants().GetByMember(ctx, pr.ID, memberID)
+		if gErr != nil {
+			return nil, Error.Wrap(gErr)
+		}
+		if len(existing) > 0 {
+			return nil, ErrForbidden.Wrap(errs.New("members with shared vault access cannot be promoted to admin"))
+		}
+	}
+
 	pm, err = s.store.ProjectMembers().UpdateRole(ctx, memberID, pr.ID, newRole)
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -6315,7 +6590,7 @@ func (s *Service) UpdateProjectMemberRole(ctx context.Context, memberID, project
 				if eErr := s.ensureMemberGrantBucketsExist(ctx, pr.ID, defaults); eErr != nil {
 					return nil, eErr
 				}
-				_, rErr := s.store.MemberBucketGrants().ReplaceForMember(ctx, pr.ID, memberID, memberUser.Email, defaults)
+				_, rErr := s.store.MemberBucketGrants().ReplaceForMember(ctx, pr.ID, memberID, memberUser.Email, defaults, nil)
 				if rErr != nil {
 					return nil, Error.Wrap(rErr)
 				}
@@ -6360,13 +6635,22 @@ func (s *Service) GetProjectMembersAndInvitations(ctx context.Context, projectID
 		return nil, Error.Wrap(err)
 	}
 
-	_, err = s.isProjectMember(ctx, user.ID, projectID)
+	membership, err := s.isProjectMember(ctx, user.ID, projectID)
 	if err != nil {
 		return nil, ErrUnauthorized.Wrap(err)
 	}
 
 	if cursor.Limit > maxLimit {
 		cursor.Limit = maxLimit
+	}
+
+	ownerID := membership.project.OwnerID
+	cursor.OwnerID = &ownerID
+	if cursor.Now.IsZero() {
+		cursor.Now = s.nowFn()
+	}
+	if cursor.InviteTTL <= 0 {
+		cursor.InviteTTL = s.config.ProjectInvitationExpiration
 	}
 
 	pmp, err = s.store.ProjectMembers().GetPagedWithInvitationsByProjectID(ctx, projectID, cursor)
@@ -7860,10 +8144,15 @@ func (s *Service) authorize(ctx context.Context, userID uuid.UUID, expiration ti
 		return nil, Error.New("authorization failed. no user with id: %s", userID.String())
 	}
 
-	// if user.Status != Active && user.Status != PendingBotVerification {
-	// 	return nil, Error.New("authorization failed. no active user with id: %s", userID.String())
-	// }
-	return WithUser(ctx, user), nil
+	// Active and bot-verification users may use the console normally.
+	// PendingDeletion may authenticate so they can cancel deletion; route access is
+	// further restricted by consoleweb.enforcePendingDeletionAPIAllowlist (Postman-safe).
+	switch user.Status {
+	case Active, PendingBotVerification, PendingDeletion:
+		return WithUser(ctx, user), nil
+	default:
+		return nil, ErrUnauthorized.New("authorization failed. account is not active")
+	}
 }
 
 // isProjectMember is return type of isProjectMember service method.
@@ -8793,6 +9082,10 @@ func (s *Service) RespondToProjectInvitation(ctx context.Context, projectID uuid
 		}
 	}
 
+	if skipErr := s.completeInviteeGoogleBackupOnboarding(ctx, user.ID); skipErr != nil {
+		s.log.Warn("error skipping onboarding after invite accept", zap.Error(skipErr))
+	}
+
 	// Send push notification for project invitation accepted
 	variables := map[string]interface{}{
 		"project_name":  proj.Name,
@@ -8819,22 +9112,229 @@ const (
 func (s *Service) ReinviteProjectMembers(ctx context.Context, projectID uuid.UUID, emails []string) (invites []ProjectInvitation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	return s.ReinviteProjectMembersDetailed(ctx, projectID, ReinviteProjectMembersParams{Emails: emails})
+}
+
+// ReinviteProjectMembersParams controls reinvite link expiration (vault grants are left as-is).
+type ReinviteProjectMembersParams struct {
+	Emails []string
+	// LinkExpiration is 24h|3d|7d|30d (empty = 24h default). Extends invite link validity from now.
+	LinkExpiration string
+}
+
+// ReinviteProjectMembersDetailed resends invitations and optionally refreshes link expiry.
+func (s *Service) ReinviteProjectMembersDetailed(ctx context.Context, projectID uuid.UUID, params ReinviteProjectMembersParams) (invites []ProjectInvitation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	user, err := s.getUserAndAuditLog(ctx,
 		"reinvite project members",
 		zap.String("project_id", projectID.String()),
-		zap.Strings("emails", emails),
+		zap.Strings("emails", params.Emails),
 	)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	return s.inviteProjectMembers(ctx, user, projectID, emails, ProjectInvitationResend, nil)
+	linkOpt := params.LinkExpiration
+	if strings.TrimSpace(linkOpt) == "" {
+		linkOpt = DefaultInviteLinkExpiration
+	}
+	return s.inviteProjectMembers(ctx, user, projectID, params.Emails, ProjectInvitationResend, nil, linkOpt, nil)
+}
+
+// UpdatePendingInviteParams updates link expiry and/or pending vault grants for an existing invite.
+type UpdatePendingInviteParams struct {
+	// LinkExpiration is 24h|3d|7d|30d (empty = leave link expiry unchanged).
+	LinkExpiration string
+	// VaultExpiration is 24h|3d|7d|30d (empty with Grants set = vault access does not expire).
+	VaultExpiration string
+	// Grants nil = leave pending grants unchanged; non-nil (including empty) replaces them.
+	Grants *[]MemberBucketGrantInput
+	// Resend also delivers the invitation email with the updated link expiry.
+	Resend bool
+}
+
+// UpdatePendingInviteAccess lets Owner/Admin change invite link expiry and pending vault grants.
+func (s *Service) UpdatePendingInviteAccess(ctx context.Context, projectID uuid.UUID, email string, params UpdatePendingInviteParams) (result *InviteProjectMemberResult, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	email = strings.TrimSpace(email)
+	user, err := s.getUserAndAuditLog(ctx,
+		"update pending invite access",
+		zap.String("project_id", projectID.String()),
+		zap.String("invite_email", email),
+	)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
+	if err != nil {
+		return nil, ErrUnauthorized.Wrap(err)
+	}
+	if !isMember.isOwnerOrAdmin(user.ID) {
+		return nil, ErrForbidden.New("only project Owner or Admin can update pending invites")
+	}
+	projectID = isMember.project.ID
+
+	invite, err := s.store.ProjectInvitations().Get(ctx, projectID, email)
+	if err != nil {
+		if errs.Is(err, sql.ErrNoRows) {
+			return nil, ErrProjectInviteInvalid.New(projInviteDoesntExistErrMsg, email)
+		}
+		return nil, Error.Wrap(err)
+	}
+
+	now := s.nowFn()
+	var linkDur *time.Duration
+	if strings.TrimSpace(params.LinkExpiration) != "" {
+		d, parseErr := ParseInviteExpirationOption(params.LinkExpiration)
+		if parseErr != nil {
+			return nil, parseErr
+		}
+		linkDur = &d
+	}
+
+	var vaultDur *time.Duration
+	var replaceGrants []MemberBucketGrantInput
+	updateGrants := params.Grants != nil
+	if updateGrants {
+		replaceGrants = *params.Grants
+		vaultDur, err = ParseOptionalVaultExpiration(params.VaultExpiration)
+		if err != nil {
+			return nil, err
+		}
+		if err := ValidateGrantSet(replaceGrants); err != nil {
+			return nil, ErrValidation.Wrap(err)
+		}
+		if err := s.ensureMemberGrantBucketsExist(ctx, projectID, replaceGrants); err != nil {
+			return nil, err
+		}
+	} else if strings.TrimSpace(params.VaultExpiration) != "" {
+		// Refresh vault expiry on existing grants without changing vault set.
+		vaultDur, err = ParseOptionalVaultExpiration(params.VaultExpiration)
+		if err != nil {
+			return nil, err
+		}
+		existing, gErr := s.store.MemberBucketGrants().GetByInviteEmail(ctx, projectID, email)
+		if gErr != nil {
+			return nil, Error.Wrap(gErr)
+		}
+		replaceGrants = make([]MemberBucketGrantInput, 0, len(existing))
+		for _, g := range existing {
+			replaceGrants = append(replaceGrants, MemberBucketGrantInput{
+				Bucket:        g.Bucket,
+				Prefix:        g.Prefix,
+				AllowList:     g.AllowList,
+				AllowDownload: g.AllowDownload,
+			})
+		}
+		updateGrants = true
+	}
+
+	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+		expiresAt := invite.ExpiresAt
+		if linkDur != nil {
+			t := now.Add(*linkDur)
+			expiresAt = &t
+		}
+		updated, upErr := tx.ProjectInvitations().Upsert(ctx, &ProjectInvitation{
+			ProjectID: projectID,
+			Email:     email,
+			InviterID: &user.ID,
+			ExpiresAt: expiresAt,
+		})
+		if upErr != nil {
+			return upErr
+		}
+		invite = updated
+
+		if updateGrants && s.config.MemberBucketGrantsEnabled {
+			vaultExpiresAt := VaultExpiresAtPtr(now, vaultDur)
+			_, rErr := tx.MemberBucketGrants().ReplacePendingForInviteEmail(ctx, projectID, email, replaceGrants, vaultExpiresAt)
+			return rErr
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	if params.Resend {
+		linkOpt := params.LinkExpiration
+		if strings.TrimSpace(linkOpt) == "" {
+			linkOpt = "keep"
+		}
+		_, err = s.inviteProjectMembers(ctx, user, projectID, []string{email}, ProjectInvitationResend, nil, linkOpt, nil)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		invite, err = s.store.ProjectInvitations().Get(ctx, projectID, email)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+	}
+
+	grants, err := s.store.MemberBucketGrants().GetByInviteEmail(ctx, projectID, email)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	vaults, vaultExpiresAt := SummarizeVaultGrants(grants)
+
+	inviteLink, linkErr := s.buildInviteLink(ctx, email, *invite)
+	if linkErr != nil {
+		return nil, Error.Wrap(linkErr)
+	}
+
+	return &InviteProjectMemberResult{
+		Invite:         invite,
+		Email:          email,
+		InviteLink:     inviteLink,
+		LinkExpiresAt:  s.inviteTokenExpiresAt(invite),
+		VaultExpiresAt: vaultExpiresAt,
+		Vaults:         vaults,
+		Permission:     "read_only",
+	}, nil
 }
 
 // InviteNewProjectMember invites a user by email to the project specified by the given ID,
 // which may be its public or internal ID.
 // grants may be nil (defaults from ACL registry), empty (no folder access), or a custom set.
 func (s *Service) InviteNewProjectMember(ctx context.Context, projectID uuid.UUID, email string, grants []MemberBucketGrantInput) (invite *ProjectInvitation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	result, err := s.InviteNewProjectMemberDetailed(ctx, projectID, email, InviteProjectMemberParams{
+		Grants: grants,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result.Invite, nil
+}
+
+// InviteProjectMemberParams controls invite link and vault expiration for Grant Access invites.
+type InviteProjectMemberParams struct {
+	Grants []MemberBucketGrantInput
+	// LinkExpiration is 24h|3d|7d|30d (empty = 24h default).
+	LinkExpiration string
+	// VaultExpiration is 24h|3d|7d|30d (empty = vault access does not expire).
+	VaultExpiration string
+}
+
+// InviteProjectMemberResult is returned to the Grant Access / invite API.
+type InviteProjectMemberResult struct {
+	Invite         *ProjectInvitation `json:"-"`
+	Email          string             `json:"email"`
+	InviteLink     string             `json:"invite_link"`
+	LinkExpiresAt  time.Time          `json:"link_expires_at"`
+	VaultExpiresAt *time.Time         `json:"vault_expires_at,omitempty"`
+	Vaults         []string           `json:"vaults"`
+	// Permission is always read_only for now (list + download). Write/delete scopes come later.
+	Permission string `json:"permission"`
+}
+
+// InviteNewProjectMemberDetailed invites a member and returns link + expiry metadata for the UI.
+func (s *Service) InviteNewProjectMemberDetailed(ctx context.Context, projectID uuid.UUID, email string, params InviteProjectMemberParams) (result *InviteProjectMemberResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	user, err := s.getUserAndAuditLog(ctx,
@@ -8846,12 +9346,63 @@ func (s *Service) InviteNewProjectMember(ctx context.Context, projectID uuid.UUI
 		return nil, Error.Wrap(err)
 	}
 
-	invites, err := s.inviteProjectMembers(ctx, user, projectID, []string{email}, ProjectInvitationCreate, grants)
+	linkOpt := params.LinkExpiration
+	if strings.TrimSpace(linkOpt) == "" {
+		linkOpt = DefaultInviteLinkExpiration
+	}
+	if _, err := ParseInviteExpirationOption(linkOpt); err != nil {
+		return nil, err
+	}
+	vaultDur, err := ParseOptionalVaultExpiration(params.VaultExpiration)
+	if err != nil {
+		return nil, err
+	}
+
+	invites, err := s.inviteProjectMembers(ctx, user, projectID, []string{email}, ProjectInvitationCreate, params.Grants, linkOpt, vaultDur)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	return &invites[0], nil
+	invite := invites[0]
+	linkExpiresAt := invite.CreatedAt.Add(s.config.ProjectInvitationExpiration)
+	if invite.ExpiresAt != nil {
+		linkExpiresAt = *invite.ExpiresAt
+	}
+
+	inviteLink, linkErr := s.buildInviteLink(ctx, email, invite)
+	if linkErr != nil {
+		return nil, Error.Wrap(linkErr)
+	}
+
+	vaults := make([]string, 0, len(params.Grants))
+	seen := make(map[string]struct{}, len(params.Grants))
+	for _, g := range params.Grants {
+		b := strings.TrimSpace(g.Bucket)
+		if b == "" {
+			continue
+		}
+		if _, ok := seen[b]; ok {
+			continue
+		}
+		seen[b] = struct{}{}
+		vaults = append(vaults, b)
+	}
+
+	var vaultExpiresAt *time.Time
+	if vaultDur != nil {
+		t := invite.CreatedAt.Add(*vaultDur)
+		vaultExpiresAt = &t
+	}
+
+	return &InviteProjectMemberResult{
+		Invite:         &invite,
+		Email:          email,
+		InviteLink:     inviteLink,
+		LinkExpiresAt:  linkExpiresAt,
+		VaultExpiresAt: vaultExpiresAt,
+		Vaults:         vaults,
+		Permission:     "read_only",
+	}, nil
 }
 
 // ProjectMemberInviteRequest is one entry for bulk invite (same idea as single invite).
@@ -8914,7 +9465,7 @@ func (s *Service) InviteNewProjectMembers(ctx context.Context, projectID uuid.UU
 		}
 		// Vaults == nil → pass nil grants → DefaultInviteGrants from ACL registry
 
-		_, inviteErr := s.inviteProjectMembers(ctx, user, projectID, []string{email}, ProjectInvitationCreate, grants)
+		_, inviteErr := s.inviteProjectMembers(ctx, user, projectID, []string{email}, ProjectInvitationCreate, grants, DefaultInviteLinkExpiration, nil)
 		if inviteErr != nil {
 			result.Error = inviteErr.Error()
 			results = append(results, result)
@@ -8929,7 +9480,8 @@ func (s *Service) InviteNewProjectMembers(ctx context.Context, projectID uuid.UU
 // inviteProjectMembers invites users by email to the project specified by the given ID,
 // which may be its public or internal ID.
 // pendingGrants is only used for ProjectInvitationCreate with a single email (nil = defaults).
-func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projectID uuid.UUID, emails []string, opt ProjectInvitationOption, pendingGrants []MemberBucketGrantInput) (invites []ProjectInvitation, err error) {
+// linkExpiration is 24h|3d|7d|30d; vaultDuration nil means vault grants do not expire.
+func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projectID uuid.UUID, emails []string, opt ProjectInvitationOption, pendingGrants []MemberBucketGrantInput, linkExpiration string, vaultDuration *time.Duration) (invites []ProjectInvitation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	isMember, err := s.isProjectMember(ctx, sender.ID, projectID)
@@ -8942,6 +9494,16 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 	}
 
 	projectID = isMember.project.ID
+
+	keepLinkExpiry := opt == ProjectInvitationResend && strings.EqualFold(strings.TrimSpace(linkExpiration), "keep")
+	var linkDur time.Duration
+	if !keepLinkExpiry {
+		var parseErr error
+		linkDur, parseErr = ParseInviteExpirationOption(linkExpiration)
+		if parseErr != nil {
+			return nil, parseErr
+		}
+	}
 
 	var users []*User
 	var newUserEmails []string
@@ -9024,15 +9586,30 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 		}
 	}
 
+	now := time.Now()
 	// Keys are normalized (upper) so request casing vs users.email cannot miss the token.
 	inviteTokens := make(map[string]string)
 	// add project invites in transaction scope
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
 		for _, email := range emails {
+			expiresAt := now.Add(linkDur)
+			if keepLinkExpiry {
+				existing, getErr := tx.ProjectInvitations().Get(ctx, projectID, email)
+				if getErr != nil {
+					return getErr
+				}
+				if existing.ExpiresAt != nil {
+					expiresAt = *existing.ExpiresAt
+				} else {
+					expiresAt = existing.CreatedAt.Add(s.config.ProjectInvitationExpiration)
+				}
+			}
+			vaultExpiresAt := VaultExpiresAtPtr(now, vaultDuration)
 			invite, err := tx.ProjectInvitations().Upsert(ctx, &ProjectInvitation{
 				ProjectID: projectID,
 				Email:     email,
 				InviterID: &sender.ID,
+				ExpiresAt: &expiresAt,
 			})
 			if err != nil {
 				return err
@@ -9043,7 +9620,7 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 				if len(emails) == 1 {
 					grantsForEmail = pendingGrants
 				}
-				if err = s.createPendingMemberGrants(ctx, tx, projectID, email, grantsForEmail); err != nil {
+				if err = s.createPendingMemberGrants(ctx, tx, projectID, email, grantsForEmail, vaultExpiresAt); err != nil {
 					return err
 				}
 			}
@@ -9060,7 +9637,11 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 				continue
 			}
 
-			token, err := s.CreateInviteToken(ctx, isMember.project.PublicID, email, invite.CreatedAt)
+			tokenExpires := expiresAt
+			if invite.ExpiresAt != nil {
+				tokenExpires = *invite.ExpiresAt
+			}
+			token, err := s.CreateInviteToken(ctx, isMember.project.PublicID, email, tokenExpires)
 			if err != nil {
 				return err
 			}
@@ -9152,7 +9733,47 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 
 // IsProjectInvitationExpired returns whether the project member invitation has expired.
 func (s *Service) IsProjectInvitationExpired(invite *ProjectInvitation) bool {
+	if invite == nil {
+		return true
+	}
+	if invite.ExpiresAt != nil {
+		return time.Now().After(*invite.ExpiresAt)
+	}
 	return time.Now().After(invite.CreatedAt.Add(s.config.ProjectInvitationExpiration))
+}
+
+// inviteTokenExpiresAt returns the absolute expiry used for invite tokens.
+func (s *Service) inviteTokenExpiresAt(invite *ProjectInvitation) time.Time {
+	if invite != nil && invite.ExpiresAt != nil {
+		return *invite.ExpiresAt
+	}
+	created := time.Now()
+	if invite != nil {
+		created = invite.CreatedAt
+	}
+	return created.Add(s.config.ProjectInvitationExpiration)
+}
+
+// InviteLinkExpiresAt returns when the invite link stops being valid.
+func (s *Service) InviteLinkExpiresAt(invite *ProjectInvitation) time.Time {
+	return s.inviteTokenExpiresAt(invite)
+}
+
+// buildInviteLink creates the /invited?invite=… URL for an existing invitation row.
+func (s *Service) buildInviteLink(ctx context.Context, email string, invite ProjectInvitation) (string, error) {
+	project, err := s.store.Projects().Get(ctx, invite.ProjectID)
+	if err != nil {
+		return "", err
+	}
+	token, err := s.CreateInviteToken(ctx, project.PublicID, email, s.inviteTokenExpiresAt(&invite))
+	if err != nil {
+		return "", err
+	}
+	link, err := url.JoinPath(s.getSatelliteAddress(ctx), "/invited")
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s?invite=%s", link, token), nil
 }
 
 // GetInvitesByEmail returns project invites by email.
@@ -9240,7 +9861,7 @@ func (s *Service) GetInviteLink(ctx context.Context, publicProjectID uuid.UUID, 
 		return "", ErrProjectInviteInvalid.New(projInviteInvalidErrMsg)
 	}
 
-	token, err := s.CreateInviteToken(ctx, publicProjectID, email, invite.CreatedAt)
+	token, err := s.CreateInviteToken(ctx, publicProjectID, email, s.inviteTokenExpiresAt(invite))
 	if err != nil {
 		return "", Error.Wrap(err)
 	}
@@ -9254,14 +9875,15 @@ func (s *Service) GetInviteLink(ctx context.Context, publicProjectID uuid.UUID, 
 }
 
 // CreateInviteToken creates a token for project invite links.
+// expiresAt is the absolute time when the invite token becomes invalid.
 // Internal use only, since it doesn't check if the project is valid or the user is a member of the project.
-func (s *Service) CreateInviteToken(ctx context.Context, publicProjectID uuid.UUID, email string, inviteDate time.Time) (_ string, err error) {
+func (s *Service) CreateInviteToken(ctx context.Context, publicProjectID uuid.UUID, email string, expiresAt time.Time) (_ string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	linkClaims := consoleauth.Claims{
 		ID:         publicProjectID,
 		Email:      email,
-		Expiration: inviteDate.Add(s.config.ProjectInvitationExpiration),
+		Expiration: expiresAt,
 	}
 
 	claimJson, err := linkClaims.JSON()
@@ -10582,7 +11204,7 @@ func (s *Service) LoadGoogleBackupAtLogin(ctx context.Context, sessionToken stri
 		return nil, Error.Wrap(err)
 	}
 
-	credential, err := s.store.GoogleBackupCredentials().GetByUserID(ctx, user.ID)
+	credential, err := s.store.BackupCredentials().GetByUserIDAndProvider(ctx, user.ID, BackupProviderGoogle)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
@@ -10591,7 +11213,7 @@ func (s *Service) LoadGoogleBackupAtLogin(ctx context.Context, sessionToken stri
 	}
 
 	result := RegisterGoogleBackupResult{
-		GoogleEmail: credential.GoogleEmail,
+		GoogleEmail: credential.Email,
 		AccountType: credential.AccountType,
 	}
 
@@ -10609,7 +11231,7 @@ func (s *Service) LoadGoogleBackupAtLogin(ctx context.Context, sessionToken stri
 		return nil, Error.Wrap(err)
 	}
 
-	if storeErr := s.storeGoogleBackupCredential(ctx, user.ID, credential.GoogleEmail, accessToken, credential.RefreshToken, validExpiry, credential.AccountType); storeErr != nil {
+	if storeErr := s.storeGoogleBackupCredential(ctx, user.ID, credential.Email, accessToken, credential.RefreshToken, validExpiry, credential.AccountType); storeErr != nil {
 		s.log.Warn("failed to persist google tokens at login", zap.Error(storeErr))
 	}
 
@@ -10642,17 +11264,17 @@ func (s *Service) storeGoogleBackupCredential(ctx context.Context, userID uuid.U
 	}
 
 	googleEmail = strings.TrimSpace(googleEmail)
-	existing, err := s.store.GoogleBackupCredentials().GetByUserIDAndGoogleEmail(ctx, userID, googleEmail)
+	existing, err := s.store.BackupCredentials().GetByUserIDProviderEmail(ctx, userID, BackupProviderGoogle, googleEmail)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return Error.Wrap(err)
 	}
 
 	if existing != nil {
-		if err := s.store.GoogleBackupCredentials().UpdateTokens(ctx, existing.ID, accessToken, refreshToken, expiryPtr); err != nil {
+		if err := s.store.BackupCredentials().UpdateTokens(ctx, existing.ID, accessToken, refreshToken, expiryPtr); err != nil {
 			return Error.Wrap(err)
 		}
 		if accountType != "" && accountType != existing.AccountType {
-			if err := s.store.GoogleBackupCredentials().UpdateAccountType(ctx, existing.ID, accountType); err != nil {
+			if err := s.store.BackupCredentials().UpdateAccountType(ctx, existing.ID, accountType); err != nil {
 				return Error.Wrap(err)
 			}
 		}
@@ -10663,10 +11285,11 @@ func (s *Service) storeGoogleBackupCredential(ctx context.Context, userID uuid.U
 	if err != nil {
 		return Error.Wrap(err)
 	}
-	_, err = s.store.GoogleBackupCredentials().Create(ctx, GoogleBackupCredential{
+	_, err = s.store.BackupCredentials().Create(ctx, BackupCredential{
 		ID:                credentialID,
 		UserID:            userID,
-		GoogleEmail:       googleEmail,
+		Provider:          BackupProviderGoogle,
+		Email:             googleEmail,
 		AccessToken:       accessToken,
 		RefreshToken:      refreshToken,
 		AccessTokenExpiry: expiryPtr,

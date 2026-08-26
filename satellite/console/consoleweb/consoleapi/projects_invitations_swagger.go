@@ -7,11 +7,14 @@ import "time"
 
 // UserProjectInvitationSwaggerItem is one pending invitation for the logged-in user.
 type UserProjectInvitationSwaggerItem struct {
-	ProjectID          string    `json:"projectID" example:"00000000-0000-0000-0000-000000000000"`
-	ProjectName        string    `json:"projectName" example:"My Project"`
-	ProjectDescription string    `json:"projectDescription" example:"Shared backup project"`
-	InviterEmail       string    `json:"inviterEmail" example:"owner@example.com"`
-	CreatedAt          time.Time `json:"createdAt"`
+	ProjectID          string     `json:"projectID" example:"00000000-0000-0000-0000-000000000000"`
+	ProjectName        string     `json:"projectName" example:"My Project"`
+	ProjectDescription string     `json:"projectDescription" example:"Shared backup project"`
+	InviterEmail       string     `json:"inviterEmail" example:"owner@example.com"`
+	CreatedAt          time.Time  `json:"createdAt"`
+	LinkExpiresAt      time.Time  `json:"linkExpiresAt"`
+	VaultExpiresAt     *time.Time `json:"vaultExpiresAt,omitempty"`
+	Vaults             []string   `json:"vaults,omitempty"`
 }
 
 // RespondToProjectInvitationSwaggerRequest is the body for POST .../invitations/{id}/respond.

@@ -5,6 +5,7 @@ package console_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -249,4 +250,49 @@ func TestDefaultInviteGrants(t *testing.T) {
 	require.False(t, got[0].AllowUpload)
 	require.Equal(t, "gmail", got[0].Bucket)
 	require.Equal(t, "outlook", got[1].Bucket)
+}
+
+func TestSummarizeVaultGrants(t *testing.T) {
+	t.Parallel()
+
+	earlier := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
+	later := time.Date(2026, 8, 10, 0, 0, 0, 0, time.UTC)
+
+	tests := []struct {
+		name           string
+		grants         []console.MemberBucketGrant
+		wantVaults     []string
+		wantExpiresNil bool
+		wantExpires    time.Time
+	}{
+		{
+			name:           "empty",
+			grants:         nil,
+			wantVaults:     nil,
+			wantExpiresNil: true,
+		},
+		{
+			name: "unique vaults earliest expiry",
+			grants: []console.MemberBucketGrant{
+				{Bucket: "gmail", ExpiresAt: &later},
+				{Bucket: "gmail", ExpiresAt: &earlier},
+				{Bucket: "drive", ExpiresAt: nil},
+			},
+			wantVaults:  []string{"gmail", "drive"},
+			wantExpires: earlier,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			vaults, exp := console.SummarizeVaultGrants(tt.grants)
+			require.Equal(t, tt.wantVaults, vaults)
+			if tt.wantExpiresNil {
+				require.Nil(t, exp)
+				return
+			}
+			require.NotNil(t, exp)
+			require.True(t, exp.Equal(tt.wantExpires))
+		})
+	}
 }

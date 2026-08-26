@@ -6,6 +6,7 @@ package console
 import (
 	"fmt"
 	"strings"
+	"time"
 	"unicode"
 
 	"github.com/zeebo/errs"
@@ -151,10 +152,32 @@ func IntersectPermission(requested *grant.Permission, acl MemberBucketGrant) gra
 	if requested == nil {
 		out.AllowList = acl.AllowList
 		out.AllowDownload = acl.AllowDownload
-		return out
+	} else {
+		out.AllowList = requested.AllowList && acl.AllowList
+		out.AllowDownload = requested.AllowDownload && acl.AllowDownload
+		out.NotBefore = requested.NotBefore
+		out.NotAfter = requested.NotAfter
 	}
-	out.AllowList = requested.AllowList && acl.AllowList
-	out.AllowDownload = requested.AllowDownload && acl.AllowDownload
+	if acl.ExpiresAt != nil {
+		if out.NotAfter.IsZero() || acl.ExpiresAt.Before(out.NotAfter) {
+			out.NotAfter = *acl.ExpiresAt
+		}
+	}
+	return out
+}
+
+// FilterActiveMemberGrants drops grants whose vault expiration has passed.
+func FilterActiveMemberGrants(grants []MemberBucketGrant, now time.Time) []MemberBucketGrant {
+	if len(grants) == 0 {
+		return grants
+	}
+	out := make([]MemberBucketGrant, 0, len(grants))
+	for _, g := range grants {
+		if g.ExpiresAt != nil && !g.ExpiresAt.After(now) {
+			continue
+		}
+		out = append(out, g)
+	}
 	return out
 }
 
@@ -182,4 +205,27 @@ func GrantsFromVaults(inviteEmail string, vaults []string) []MemberBucketGrantIn
 		})
 	}
 	return out
+}
+
+// SummarizeVaultGrants returns unique vault bucket names and the earliest non-nil vault expiry.
+func SummarizeVaultGrants(grants []MemberBucketGrant) (vaults []string, vaultExpiresAt *time.Time) {
+	seen := make(map[string]struct{}, len(grants))
+	for _, g := range grants {
+		b := strings.TrimSpace(g.Bucket)
+		if b == "" {
+			continue
+		}
+		if _, ok := seen[b]; !ok {
+			seen[b] = struct{}{}
+			vaults = append(vaults, b)
+		}
+		if g.ExpiresAt == nil {
+			continue
+		}
+		if vaultExpiresAt == nil || g.ExpiresAt.Before(*vaultExpiresAt) {
+			t := *g.ExpiresAt
+			vaultExpiresAt = &t
+		}
+	}
+	return vaults, vaultExpiresAt
 }

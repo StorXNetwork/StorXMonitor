@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"strings"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -111,8 +112,28 @@ func (s *Service) GetMemberBucketGrants(ctx context.Context, projectID, memberID
 	return s.store.MemberBucketGrants().GetByMember(ctx, caller.project.ID, memberID)
 }
 
+// GetPendingInviteBucketGrants returns pending ACL grants for an invite email. Owner/Admin only.
+func (s *Service) GetPendingInviteBucketGrants(ctx context.Context, projectID uuid.UUID, inviteEmail string) (grants []MemberBucketGrant, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "get pending invite bucket grants", zap.String("project_id", projectID.String()), zap.String("invite_email", inviteEmail))
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	caller, err := s.isProjectMember(ctx, user.ID, projectID)
+	if err != nil {
+		return nil, ErrUnauthorized.Wrap(err)
+	}
+	if !caller.isOwnerOrAdmin(user.ID) {
+		return nil, ErrForbidden.New("only project Owner or Admin can view pending invite grants")
+	}
+
+	return s.store.MemberBucketGrants().GetByInviteEmail(ctx, caller.project.ID, inviteEmail)
+}
+
 // ReplaceMemberBucketGrants full-replaces grants for a Member and invalidates their project credentials.
-func (s *Service) ReplaceMemberBucketGrants(ctx context.Context, projectID, memberID uuid.UUID, grants []MemberBucketGrantInput) (out []MemberBucketGrant, err error) {
+// vaultExpiration is 24h|3d|7d|30d (empty = vault access does not expire).
+func (s *Service) ReplaceMemberBucketGrants(ctx context.Context, projectID, memberID uuid.UUID, grants []MemberBucketGrantInput, vaultExpiration string) (out []MemberBucketGrant, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	user, err := s.getUserAndAuditLog(ctx, "replace member bucket grants", zap.String("project_id", projectID.String()), zap.String("member_id", memberID.String()))
@@ -148,8 +169,14 @@ func (s *Service) ReplaceMemberBucketGrants(ctx context.Context, projectID, memb
 		return nil, err
 	}
 
+	vaultDur, err := ParseOptionalVaultExpiration(vaultExpiration)
+	if err != nil {
+		return nil, err
+	}
+	vaultExpiresAt := VaultExpiresAtPtr(s.nowFn(), vaultDur)
+
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
-		out, err = tx.MemberBucketGrants().ReplaceForMember(ctx, caller.project.ID, memberID, memberUser.Email, grants)
+		out, err = tx.MemberBucketGrants().ReplaceForMember(ctx, caller.project.ID, memberID, memberUser.Email, grants, vaultExpiresAt)
 		return err
 	})
 	if err != nil {
@@ -200,7 +227,7 @@ func registeredBucketNames(ctx context.Context, db DB, projectID uuid.UUID) ([]s
 	return names, nil
 }
 
-func (s *Service) createPendingMemberGrants(ctx context.Context, tx DBTx, projectID uuid.UUID, inviteEmail string, grants []MemberBucketGrantInput) error {
+func (s *Service) createPendingMemberGrants(ctx context.Context, tx DBTx, projectID uuid.UUID, inviteEmail string, grants []MemberBucketGrantInput, vaultExpiresAt *time.Time) error {
 	if !s.config.MemberBucketGrantsEnabled {
 		return nil
 	}
@@ -230,7 +257,7 @@ func (s *Service) createPendingMemberGrants(ctx context.Context, tx DBTx, projec
 	if len(grants) == 0 {
 		return nil
 	}
-	_, err = tx.MemberBucketGrants().CreatePending(ctx, projectID, inviteEmail, grants)
+	_, err = tx.MemberBucketGrants().CreatePending(ctx, projectID, inviteEmail, grants, vaultExpiresAt)
 	return err
 }
 
@@ -282,6 +309,7 @@ func (s *Service) applyMemberACLToAccessRequest(ctx context.Context, projectID, 
 	if err != nil {
 		return nil, nil, Error.Wrap(err)
 	}
+	acl = FilterActiveMemberGrants(acl, time.Now())
 
 	// Unrestricted mint (no prefix/permission) is not allowed for Members.
 	if len(prefixes) == 0 && permission == nil {

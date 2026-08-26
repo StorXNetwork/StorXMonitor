@@ -935,6 +935,22 @@ CREATE TABLE api_keys (
 	UNIQUE ( head ),
 	UNIQUE ( name, project_id )
 ) ;
+CREATE TABLE backup_credentials (
+	id bytea NOT NULL,
+	user_id bytea NOT NULL REFERENCES users( id ),
+	provider text NOT NULL,
+	email text NOT NULL,
+	access_token text NOT NULL,
+	refresh_token text,
+	access_token_expiry timestamp with time zone,
+	account_type text,
+	tenant_id text,
+	tenant_name text,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( user_id, provider, email )
+) ;
 CREATE TABLE bucket_metainfos (
 	id bytea NOT NULL,
 	project_id bytea NOT NULL REFERENCES projects( id ),
@@ -987,19 +1003,6 @@ CREATE TABLE domains (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( project_id, subdomain )
 ) ;
-CREATE TABLE google_backup_credentials (
-	id bytea NOT NULL,
-	user_id bytea NOT NULL REFERENCES users( id ),
-	google_email text NOT NULL,
-	access_token text NOT NULL,
-	refresh_token text,
-	access_token_expiry timestamp with time zone,
-	account_type text,
-	created_at timestamp with time zone NOT NULL,
-	updated_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( id ),
-	UNIQUE ( user_id, google_email )
-) ;
 CREATE TABLE member_bucket_grants (
 	id bytea NOT NULL,
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
@@ -1013,6 +1016,7 @@ CREATE TABLE member_bucket_grants (
 	allow_delete boolean NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	updated_at timestamp with time zone NOT NULL,
+	expires_at timestamp with time zone,
 	PRIMARY KEY ( id ),
 	UNIQUE ( project_id, invite_email, bucket, prefix )
 ) ;
@@ -1021,6 +1025,7 @@ CREATE TABLE project_invitations (
 	email text NOT NULL,
 	inviter_id bytea REFERENCES users( id ) ON DELETE CASCADE,
 	created_at timestamp with time zone NOT NULL,
+	expires_at timestamp with time zone,
 	PRIMARY KEY ( project_id, email )
 ) ;
 CREATE TABLE project_members (
@@ -1129,8 +1134,9 @@ CREATE INDEX user_delete_requests_user_id_index ON user_delete_requests ( user_i
 CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id ) ;
 CREATE INDEX webapp_session_developers_developer_id_index ON webapp_session_developers ( developer_id ) ;
 CREATE INDEX webapp_session_resellers_reseller_id_index ON webapp_session_resellers ( reseller_id ) ;
+CREATE INDEX backup_credentials_user_id_index ON backup_credentials ( user_id ) ;
+CREATE INDEX backup_credentials_user_id_provider_index ON backup_credentials ( user_id, provider ) ;
 CREATE INDEX bucket_migrations_state_created_at_index ON bucket_migrations ( state, created_at ) ;
-CREATE INDEX google_backup_credentials_user_id_index ON google_backup_credentials ( user_id ) ;
 CREATE INDEX member_bucket_grants_project_id_member_id_index ON member_bucket_grants ( project_id, member_id ) ;
 CREATE INDEX member_bucket_grants_project_id_invite_email_index ON member_bucket_grants ( project_id, invite_email ) ;
 CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id ) ;

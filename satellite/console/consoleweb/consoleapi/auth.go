@@ -52,6 +52,7 @@ var (
 )
 
 var mainPageURL string = "/project-dashboard"
+var cancelDeletionPageURL string = "/account/cancel-deletion"
 var signupPageURL string = "/signup"
 var loginPageURL string = "/login"
 var signupSuccessURL string = "/project-dashboard"
@@ -577,9 +578,22 @@ func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	verified, _, err := a.service.GetUserByEmailWithUnverified(ctx, tokenRequest.Email)
-	if err != nil || verified == nil {
+	verified, unverified, err := a.service.GetUserByEmailWithUnverified(ctx, tokenRequest.Email)
+	if err != nil {
 		a.log.Error("token handler could not load user after successful login", zap.String("email", tokenRequest.Email), zap.Error(err))
+		a.serveJSONError(ctx, w, console.Error.New("login succeeded but user could not be loaded"))
+		return
+	}
+	if verified == nil {
+		for i := range unverified {
+			if unverified[i].Status == console.PendingDeletion {
+				verified = &unverified[i]
+				break
+			}
+		}
+	}
+	if verified == nil {
+		a.log.Error("token handler could not load user after successful login", zap.String("email", tokenRequest.Email))
 		a.serveJSONError(ctx, w, console.Error.New("login succeeded but user could not be loaded"))
 		return
 	}
@@ -1809,6 +1823,10 @@ type googleBackupOAuthTokens struct {
 }
 
 func (a *Auth) writeGoogleBackupAuthSuccess(w http.ResponseWriter, action string, onboarding console.GoogleBackupOnboardingAPI, googleBackup map[string]interface{}) {
+	a.writeGoogleBackupAuthSuccessWithPending(w, action, onboarding, googleBackup, false, nil)
+}
+
+func (a *Auth) writeGoogleBackupAuthSuccessWithPending(w http.ResponseWriter, action string, onboarding console.GoogleBackupOnboardingAPI, googleBackup map[string]interface{}, accountPendingDeletion bool, deleteAt *time.Time) {
 	w.Header().Set("Content-Type", "application/json")
 	payload := map[string]interface{}{
 		"success":    true,
@@ -1818,8 +1836,25 @@ func (a *Auth) writeGoogleBackupAuthSuccess(w http.ResponseWriter, action string
 	if googleBackup != nil {
 		payload["google_backup"] = googleBackup
 	}
+	if accountPendingDeletion {
+		payload["account_pending_deletion"] = true
+		if deleteAt != nil {
+			payload["delete_at"] = deleteAt.UTC()
+		}
+	}
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(payload)
+}
+
+// pendingDeletionUserFromUnverified returns a PendingDeletion account if present.
+// GetByEmail* only puts Active users in verified; soft-deleted users are in unverified.
+func pendingDeletionUserFromUnverified(unverified []console.User) *console.User {
+	for i := range unverified {
+		if unverified[i].Status == console.PendingDeletion {
+			return &unverified[i]
+		}
+	}
+	return nil
 }
 
 type credentialAuthSuccessResponse struct {
@@ -1854,6 +1889,13 @@ func (a *Auth) writeCredentialAuthSuccess(w http.ResponseWriter, ctx context.Con
 	if err != nil {
 		a.log.Warn("failed to read onboarding at credential auth", zap.Error(err))
 		onboarding = console.GoogleBackupOnboardingAPI{}
+	}
+	if err := a.service.EnsureInviteeOnboardingSkipped(authed); err != nil {
+		a.log.Warn("failed to skip onboarding for invitee at credential auth", zap.Error(err))
+	} else if onboarding.OnboardingStatus != console.OnboardingStatusCompleted {
+		if refreshed, rErr := a.service.GetGoogleBackupOnboarding(authed); rErr == nil {
+			onboarding = refreshed
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -1957,6 +1999,12 @@ func (a *Auth) googleBackupAuthFromGoogle(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	if verified == nil {
+		if pending := pendingDeletionUserFromUnverified(unverified); pending != nil {
+			verified = pending
+		}
+	}
+
 	if verified != nil {
 		a.completeGoogleBackupLogin(w, r, ctx, verified, googleuser, tokens)
 		return
@@ -1975,6 +2023,11 @@ func (a *Auth) completeGoogleBackupRegister(w http.ResponseWriter, r *http.Reque
 
 	var user *console.User
 	if len(unverified) > 0 {
+		// Soft-deleted accounts must never enter register/CreateProject.
+		if pending := pendingDeletionUserFromUnverified(unverified); pending != nil {
+			a.completeGoogleBackupLogin(w, r, ctx, pending, googleuser, tokens)
+			return
+		}
 		user = &unverified[0]
 	} else {
 		secret, err := console.RegistrationSecretFromBase64("")
@@ -2109,6 +2162,18 @@ func (a *Auth) completeGoogleBackupLogin(w http.ResponseWriter, r *http.Request,
 
 	authed := console.WithUser(ctx, user)
 
+	// Pending deletion: do not refresh credentials / onboarding or create projects — UI must cancel first.
+	if user.Status == console.PendingDeletion {
+		pending, deleteAt, pendingErr := a.service.GetAccountPendingDeletionInfo(authed)
+		if pendingErr != nil {
+			a.log.Warn("failed to load pending deletion info at google-backup login", zap.Error(pendingErr))
+			pending = true
+		}
+		a.service.RecordUserAudit(authed, "AUTH_GOOGLE_BACKUP", "Google Backup", "Google Backup login while pending deletion", nil)
+		a.writeGoogleBackupAuthSuccessWithPending(w, googleBackupAuthActionLoggedIn, console.GoogleBackupOnboardingAPI{}, nil, pending, deleteAt)
+		return
+	}
+
 	var googleBackup map[string]interface{}
 	if tokens.accessToken != "" {
 		backupResult, backupErr := a.service.RegisterGoogleBackupCredential(authed, googleuser.Email, tokens.accessToken, tokens.refreshToken, tokens.googleScope, tokens.accessTokenExpiry, sessionToken)
@@ -2126,6 +2191,13 @@ func (a *Auth) completeGoogleBackupLogin(w http.ResponseWriter, r *http.Request,
 	if err != nil {
 		a.log.Warn("failed to read onboarding at login", zap.Error(err))
 		onboarding = console.GoogleBackupOnboardingAPI{}
+	}
+	if err := a.service.EnsureInviteeOnboardingSkipped(authed); err != nil {
+		a.log.Warn("failed to skip onboarding for invitee at login", zap.Error(err))
+	} else if onboarding.OnboardingStatus != console.OnboardingStatusCompleted {
+		if refreshed, rErr := a.service.GetGoogleBackupOnboarding(authed); rErr == nil {
+			onboarding = refreshed
+		}
 	}
 
 	a.service.RecordUserAudit(authed, "AUTH_GOOGLE_BACKUP", "Google Backup", "Google Backup login completed", nil)
@@ -2210,6 +2282,11 @@ func (a *Auth) registerUserByIDTokenFromGoogle(w http.ResponseWriter, r *http.Re
 	}
 
 	if len(unverified) > 0 {
+		// Soft-deleted: never treat as new signup / CreateProject.
+		if pending := pendingDeletionUserFromUnverified(unverified); pending != nil {
+			a.loginUserConfirmFromIdtokeAndAccessToken(w, r, accessToken)
+			return
+		}
 		user = &unverified[0]
 	} else {
 		secret, err := console.RegistrationSecretFromBase64("")
@@ -2394,10 +2471,19 @@ func (a *Auth) loginUserConfirmFromIdtokeAndAccessToken(w http.ResponseWriter, r
 		return
 	}
 
-	verified, _, err := a.service.GetUserByEmailWithUnverified_google(ctx, googleuser.Email)
+	verified, unverified, err := a.service.GetUserByEmailWithUnverified_google(ctx, googleuser.Email)
 	if err != nil && !console.ErrEmailNotFound.Has(err) {
 		a.SendResponse(w, r, "Error getting user details from system", fmt.Sprint(cnf.ClientOrigin, loginPageURL))
 		return
+	}
+
+	if verified == nil {
+		for i := range unverified {
+			if unverified[i].Status == console.PendingDeletion {
+				verified = &unverified[i]
+				break
+			}
+		}
 	}
 
 	if verified == nil {
@@ -2409,6 +2495,31 @@ func (a *Auth) loginUserConfirmFromIdtokeAndAccessToken(w http.ResponseWriter, r
 	authed := console.WithUser(ctx, verified)
 	redirectURL := fmt.Sprint(cnf.ClientOrigin, mainPageURL)
 
+	ip, ipErr := web.GetRequestIP(r)
+	if ipErr != nil {
+		a.SendResponse(w, r, "Error getting IP", fmt.Sprint(cnf.ClientOrigin, loginPageURL))
+		return
+	}
+
+	tokenInfo, tokenErr := a.service.Token_google(authed, console.AuthUser{
+		Email:     googleuser.Email,
+		UserAgent: r.UserAgent(),
+		IP:        ip,
+	})
+	a.service.RecordUserAuditForEmail(ctx, googleuser.Email, "AUTH_LOGIN", "Session", "User logged in", tokenErr)
+	if tokenErr != nil {
+		a.SendResponse(w, r, "Error getting token from system", fmt.Sprint(cnf.ClientOrigin, loginPageURL))
+		return
+	}
+	a.cookieAuth.SetTokenCookie(w, *tokenInfo)
+
+	// UI contract: pending deletion → cancel-deletion page, never dashboard.
+	if tokenInfo.AccountPendingDeletion {
+		redirectURL = fmt.Sprint(cnf.ClientOrigin, cancelDeletionPageURL)
+		a.sendAuthRedirect(w, r, "", redirectURL, "")
+		return
+	}
+
 	// Optional hint for UI only; skip/resume is client-driven (PATCH /account/onboarding). No forced redirect.
 	var onboardingStatus string
 	if settings, settingsErr := a.service.GetUserSettings(authed); settingsErr != nil {
@@ -2417,7 +2528,6 @@ func (a *Auth) loginUserConfirmFromIdtokeAndAccessToken(w http.ResponseWriter, r
 		onboardingStatus = console.GoogleBackupOnboardingStatus(settings)
 	}
 
-	a.TokenGoogleWrapper(authed, googleuser.Email, "", w, r)
 	a.sendAuthRedirect(w, r, "", redirectURL, onboardingStatus)
 }
 
@@ -3579,20 +3689,90 @@ func (a *Auth) GetFreezeStatus(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// DeleteAccountRequest starts the account deletion workflow.
+// DeleteAccountRequest starts the account soft-deletion workflow (PendingDeletion + 30-day grace).
+//
+// UI contract: after success, log the user out. While pending, login returns account_pending_deletion
+// and must redirect to /account/cancel-deletion (not the dashboard). Cancel via
+// POST /auth/account/cancel-delete-request.
+//
+// @Summary      Request account deletion
+// @Description  Soft-deletes the account (PendingDeletion), revokes sessions, queues hard delete after 30 calendar days, and notifies Backup-Tools. Blocked when active_subscription. Re-auth is MFA passcode/recovery OR Google OAuth `code` (either one; not both required). Password is not used.
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        body  body  console.AccountDeleteRequest  false  "Re-auth credentials"
+// @Success      202
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Failure      403  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /auth/account/delete-request [post]
 func (a *Auth) DeleteAccountRequest(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	err = a.service.DeleteAccountRequest(ctx)
+	var req console.AccountDeleteRequest
+	if r.Body != nil && r.ContentLength != 0 {
+		if decodeErr := json.NewDecoder(r.Body).Decode(&req); decodeErr != nil && decodeErr != io.EOF {
+			a.serveJSONError(ctx, w, console.ErrValidation.Wrap(decodeErr))
+			return
+		}
+	}
+
+	// Google re-auth: exchange OAuth code server-side; never trust a client-supplied email.
+	if code := strings.TrimSpace(req.Code); code != "" {
+		redirectURI := socialmedia.ResolveRequestOrigin(r)
+		session, exchangeErr := socialmedia.ExchangeGoogleAuthCodeWithRedirect(code, "googlebackup", false, redirectURI)
+		if exchangeErr != nil {
+			a.log.Info("delete-request: google re-auth code exchange failed", zap.Error(exchangeErr))
+			a.serveJSONError(ctx, w, console.ErrUnauthorized.New("google re-authentication failed"))
+			return
+		}
+		if session == nil || session.User == nil || strings.TrimSpace(session.User.Email) == "" {
+			a.serveJSONError(ctx, w, console.ErrUnauthorized.New("google re-authentication failed"))
+			return
+		}
+		req.GoogleReauthEmail = session.User.Email
+		req.Code = "" // do not keep the one-time code around
+	}
+
+	err = a.service.DeleteAccountRequest(ctx, req)
 	a.service.RecordUserAudit(ctx, "ACCOUNT_DELETE_REQUEST", "Account", "Account deletion requested", err)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return
 	}
 
+	a.cookieAuth.RemoveTokenCookie(w)
 	w.WriteHeader(http.StatusAccepted)
+}
+
+// CancelAccountDeleteRequest cancels a pending self-serve account deletion during the grace period.
+//
+// UI contract: call from /account/cancel-deletion; on success navigate to the dashboard.
+//
+// @Summary      Cancel account deletion
+// @Description  Restores Active status, cancels the delete queue row, and notifies Backup-Tools to resume (clear tombstone). Only while PendingDeletion and before hard delete starts.
+// @Tags         auth
+// @Produce      json
+// @Success      200
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Failure      403  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /auth/account/cancel-delete-request [post]
+func (a *Auth) CancelAccountDeleteRequest(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	err = a.service.CancelAccountDeleteRequest(ctx)
+	a.service.RecordUserAudit(ctx, "ACCOUNT_CANCEL_DELETE_REQUEST", "Account", "Account deletion cancelled", err)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 }
 
 // SetupAccount completes onboarding profile fields.
@@ -3679,6 +3859,9 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 		SocialGithub   string `json:"socialGithub"`
 
 		WalletId string `json:"walletId"`
+
+		AccountPendingDeletion bool       `json:"account_pending_deletion"`
+		DeleteAt               *time.Time `json:"delete_at,omitempty"`
 	}
 
 	consoleUser, err := console.GetUser(ctx)
@@ -3723,6 +3906,12 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user.HasPassword = console.HasPasswordSet(consoleUser.PasswordHash)
+
+	user.AccountPendingDeletion, user.DeleteAt, err = a.service.GetAccountPendingDeletionInfo(ctx)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
 
 	token, err := r.Cookie("_tokenKey")
 	if err == nil {
