@@ -1,160 +1,57 @@
-<!DOCTYPE html
-    PUBLIC "-//W3C//DTD XHTML 1.0 Transitional //EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" style="margin: 0;padding: 0;">
-
+<!DOCTYPE html>
+<html lang="en">
 <head>
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <title>Auto Backup Failure Alert</title>
-    <meta name="viewport" content="width=device-width" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ .BrandName }} - Auto Backup Failure</title>
     <style type="text/css">
-        body {
-            margin: 0;
-            padding: 0;
-            background-color: #fff;
-            font-family: Helvetica, sans-serif;
+        body { margin: 0; padding: 0; background-color: #F3F4F6; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        table { border-spacing: 0; border-collapse: collapse; }
+        td { padding: 0; }
+        img { border: 0; }
+        .wrapper { width: 100%; table-layout: fixed; background-color: #F3F4F6; padding-bottom: 40px; }
+        .main { background-color: #FFFFFF; margin: 0 auto; width: 100%; max-width: 600px; border-radius: 8px; border: 1px solid #E5E7EB; overflow: hidden; margin-top: 40px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); }
+        .button:hover { opacity: 0.92 !important; }
+        @media screen and (max-width: 600px) {
+            .main { border-radius: 0; border: none; margin-top: 0; box-shadow: none; }
+            .padding-inner { padding: 20px !important; }
         }
-
-        .wrapper {
-            width: 100%;
-            table-layout: fixed;
-            background-color: #fff;
-            padding-bottom: 40px;
-        }
-
-        .main {
-            background-color: #fff;
-            margin: 0 auto;
-            width: 100%;
-            max-width: 600px;
-            border-spacing: 0;
-            font-family: Helvetica, sans-serif;
-            color: #8e959c;
-        }
-
-        .btn {
-            background-color: #e04124;
-            color: #ffffff;
-            text-decoration: none;
-            padding: 12px 24px;
-            border-radius: 4px;
-            font-weight: bold;
-            display: inline-block;
-        }
-
-        .error-box {
-            background-color: #f8f9fa;
-            border-left: 4px solid #e04124;
-            padding: 20px;
-            margin: 20px 0;
-            border-radius: 4px;
-        }
-
-        .error-details {
-            background-color: #fff;
-            border: 1px solid #e9ecef;
-            padding: 15px;
-            margin: 10px 0;
-            border-radius: 4px;
-            font-family: 'Courier New', monospace;
-            font-size: 14px;
-            color: #dc3545;
-            word-break: break-word;
-        }
-
-        .method-badge {
-            background-color: #e04124;
-            color: #ffffff;
-            padding: 4px 8px;
-            border-radius: 12px;
-            font-size: 12px;
-            font-weight: bold;
-            display: inline-block;
-            margin: 5px 0;
-        }
-
-        .steps-box {
-            background-color: #f8f9fa;
-            border-left: 4px solid #2563EB;
-            padding: 20px;
-            margin: 20px 0;
-            border-radius: 4px;
-        }
-
-        .steps-box ol {
-            margin: 0;
-            padding-left: 20px;
-            font-size: 16px;
-            line-height: 28px;
-            color: #333;
-        }
-
-        .steps-box ol li {
-            margin-bottom: 12px;
-        }
-    </style>
+</style>
 </head>
-
-<body>
-    <center class="wrapper">
-        <table class="main" cellspacing="0" cellpadding="0">
+<body style="margin: 0; padding: 0; background-color: #F3F4F6;">
+    <center class="wrapper" style="width: 100%; table-layout: fixed; background-color: #F3F4F6; padding-bottom: 40px;">
+        <table class="main" width="100%" align="center"
+            style="background-color: #FFFFFF; margin: 0 auto; width: 100%; max-width: 600px; border-radius: 8px; border: 1px solid #E5E7EB; margin-top: 40px; border-spacing: 0; font-family: sans-serif; color: #111827;">
             <tr>
-                <td style="padding: 20px;">
-                    <table width="100%" cellspacing="0" cellpadding="0">
+                <td style="padding: 30px; text-align: center; border-bottom: 1px solid #E5E7EB; background-color: #FFFFFF;">
+                    <a href="{{ .HomepageURL }}" style="text-decoration: none;"><img src="{{ .LogoURL }}" alt="{{ .BrandName }}" width="160" height="46" style="display: inline-block; height: 40px; width: auto; max-width: 200px; border: 0; outline: none; text-decoration: none;" /></a>
+                </td>
+            </tr>
+            <tr>
+                <td class="padding-inner" style="padding: 40px 30px;">
+                    <table width="100%" style="border-spacing: 0;">
                         <tr>
                             <td>
-                                <h1 style="color: #000; font-size: 32px; margin-bottom: 20px; font-weight: 800;">
-                                    Auto Backup Failure Alert
-                                </h1>
-
-                                <p style="font-size: 17px; line-height: 26px; margin-bottom: 20px;">
-                                    Hello {{ .BrandName }} User,
-                                </p>
-
-                                <p style="font-size: 17px; line-height: 26px; margin-bottom: 20px;">
-                                    We noticed a connection issue while backing up your data. To re-initiate the auto-backup, please follow the steps below:
-                                </p>
-
-                                <div class="steps-box">
-                                    <h3 style="color: #2563EB; margin-top: 0; font-size: 18px; font-weight: bold; margin-bottom: 15px;">
-                                        Steps to Re-initiate Auto-Backup
-                                    </h3>
-                                    
-                                    <ol>
-                                        <li>
-                                            <strong>Log in to your {{ .BrandName }} application.</strong>
-                                        </li>
-                                        <li>
-                                            <strong>Select Backup</strong> from the sidebar.
-                                        </li>
-                                        <li>
-                                            On the <strong>Auto-Sync listing page</strong>, click the <strong>Edit (Pen) icon</strong> for the failed backup.
-                                        </li>
-                                        <li>
-                                            Verify the {{ .BrandName }} connection and click <strong>Connect to {{ .BrandName }}</strong>.
-                                        </li>
-                                        <li>
-                                            <strong>Save the changes.</strong>
-                                        </li>
-                                    </ol>
-                                </div>
-
-                                <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td align="center" bgcolor="{{ .PrimaryColor }}" style="border-radius: 4px;"><a href="https://storx.io/dashboard" style="color:#ffffff;text-decoration:none;padding:12px 24px;font-weight:bold;display:inline-block;">Go to Dashboard</a></td></tr></table>
-
-                                <p style="font-size: 17px; line-height: 26px; margin-bottom: 30px;">
-                                    We hope these steps help resolve the issue. If the problem persists, please feel free to reach out to the {{ .BrandName }} Support team for further assistance.
-                                </p>
-
-                                <p style="font-size: 17px; line-height: 26px; margin-top: 30px;">
-                                    Thank you,<br>
-                                    {{ .BrandName }}
-                                </p>
+                                <h2 style="margin: 0 0 20px 0; font-size: 20px; font-weight: 600; color: #111827;">Auto backup failure</h2>
+                                <p style="margin: 0 0 18px 0; font-size: 15px; line-height: 1.6; color: #4B5563;">Hi{{ if .Email }} {{ .Email }}{{ end }},</p><p style="margin: 0 0 18px 0; font-size: 15px; line-height: 1.6; color: #4B5563;">An automatic backup job failed.</p><p style="margin: 0 0 18px 0; font-size: 15px; line-height: 1.6; color: #4B5563;">{{ if .Method }}Method: {{ .Method }}<br>{{ end }}{{ if .Error }}Error: {{ .Error }}{{ end }}</p>
                             </td>
                         </tr>
+                        
                     </table>
+                </td>
+            </tr>
+            <tr>
+                <td style="padding: 25px 30px; text-align: center; border-top: 1px solid #E5E7EB; background-color: #F9FAFB;">
+                    <p style="margin: 0 0 10px 0; font-size: 12px; color: #6B7280; font-weight: 600;">
+                        <span style="margin: 0 10px;">🛡️ Made in India</span>
+                        <span style="margin: 0 10px;">🔒 AES-256 Encrypted</span>
+                    </p>
+                    <p style="margin: 0; font-size: 12px; line-height: 1.5; color: #9CA3AF;">
+                        {{ .BrandName }} &copy; 2026 All rights reserved.
+                    </p>
                 </td>
             </tr>
         </table>
     </center>
 </body>
-
 </html>
