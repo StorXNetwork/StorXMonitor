@@ -97,7 +97,7 @@ func (repo *oauth2Requests) GetByCode(ctx context.Context, code string) (*consol
 
 func (repo *oauth2Requests) MarkCodeUsed(ctx context.Context, id uuid.UUID) error {
 	fields := dbx.Oauth2Request_Update_Fields{
-		Status: dbx.Oauth2Request_Status(2), // 2 = used
+		Status: dbx.Oauth2Request_Status(console.OAuth2RequestStatusUsed),
 	}
 	_, err := repo.db.Update_Oauth2Request_By_Id(ctx, dbx.Oauth2Request_Id(id[:]), fields)
 	return err
@@ -481,25 +481,25 @@ func (repo *oauth2Requests) GetUserDeveloperAccess(ctx context.Context, userID u
 			MAX(o.created_at) as last_access_date,
 			MAX(o.consent_expires_at) as consent_expires_at,
 			COUNT(*) as total_requests,
-			-- Get most recent approved scopes (get the latest non-empty approved_scopes)
 			(SELECT approved_scopes FROM oauth2_requests o2 
 			 WHERE o2.user_id = $1
 			   AND o2.client_id = doc.client_id 
-			   AND o2.status = 1 
+			   AND (
+			     o2.status IN (1, 3)
+			     OR (o2.status = 2 AND COALESCE(o2.approved_scopes, '') <> '' AND COALESCE(o2.code, '') <> 'REJECTED')
+			   )
 			   AND o2.approved_scopes != '' 
 			 ORDER BY o2.created_at DESC LIMIT 1) as latest_approved_scopes,
-			-- Get most recent rejected scopes
 			(SELECT rejected_scopes FROM oauth2_requests o3 
 			 WHERE o3.user_id = $1
 			   AND o3.client_id = doc.client_id 
-			   AND o3.status = 1 
 			   AND o3.rejected_scopes != '' 
 			 ORDER BY o3.created_at DESC LIMIT 1) as latest_rejected_scopes
 		FROM oauth2_requests o
 		INNER JOIN developer_oauth_clients doc ON o.client_id = doc.client_id
 		INNER JOIN developers d ON doc.developer_id = d.id
 		WHERE o.user_id = $1
-			AND o.status = 1  -- Only approved requests
+			AND ` + console.Oauth2GrantedAccessSQL + `
 		GROUP BY d.id, d.full_name, d.email, doc.client_id, doc.name, doc.description
 		ORDER BY last_access_date DESC
 	`
@@ -534,7 +534,6 @@ func (repo *oauth2Requests) GetUserDeveloperAccess(ctx context.Context, userID u
 			return nil, err
 		}
 
-		// Parse scopes from comma-separated strings
 		if latestApprovedScopes.Valid && latestApprovedScopes.String != "" {
 			access.ApprovedScopes = parseScopes(latestApprovedScopes.String)
 		} else {
@@ -547,17 +546,24 @@ func (repo *oauth2Requests) GetUserDeveloperAccess(ctx context.Context, userID u
 			access.RejectedScopes = []string{}
 		}
 
-		// Set nullable time fields
 		if lastAccessDate.Valid {
 			access.LastAccessDate = &lastAccessDate.Time
 		}
 
 		if consentExpiresAt.Valid {
 			access.ConsentExpiresAt = &consentExpiresAt.Time
-			// Check if consent is still active (not expired)
-			access.IsActive = consentExpiresAt.Time.After(time.Now())
+			// ConsentExpiresAt starts as ~1m dialog timeout. On approve we extend it;
+			// on revoke we set it to now. Legacy used grants never got an extended
+			// expiry — treat those as still active when approved scopes exist.
+			if consentExpiresAt.Time.After(time.Now()) {
+				access.IsActive = true
+			} else if consentExpiresAt.Time.Sub(access.AccessGrantedDate) < 2*time.Minute {
+				access.IsActive = len(access.ApprovedScopes) > 0
+			} else {
+				access.IsActive = false
+			}
 		} else {
-			access.IsActive = false
+			access.IsActive = len(access.ApprovedScopes) > 0
 		}
 
 		accessList = append(accessList, access)
@@ -626,12 +632,11 @@ func (repo *oauth2Requests) GetUserDeveloperAccessHistory(ctx context.Context, u
 // RevokeUserDeveloperAccess revokes a developer's access by expiring consent
 func (repo *oauth2Requests) RevokeUserDeveloperAccess(ctx context.Context, userID uuid.UUID, clientID string) error {
 	query := `
-		UPDATE oauth2_requests
+		UPDATE oauth2_requests o
 		SET consent_expires_at = NOW()
-		WHERE user_id = $1
-			AND client_id = $2
-			AND status = 1  -- Only approved requests
-			AND (consent_expires_at IS NULL OR consent_expires_at > NOW())  -- Only non-expired consents
+		WHERE o.user_id = $1
+			AND o.client_id = $2
+			AND ` + console.Oauth2GrantedAccessSQL + `
 	`
 
 	result, err := repo.db.ExecContext(ctx, query, userID[:], clientID)

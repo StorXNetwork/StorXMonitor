@@ -1254,7 +1254,7 @@ func (s *Service) ListAccessLogs(ctx context.Context, filters AccessLogFilters) 
 	allLogs := make([]AccessLogEntry, 0, len(logs))
 	for _, log := range logs {
 		accessStatus := "pending"
-		if log.Status == console.OAuth2RequestStatusApproved {
+		if log.Status == console.OAuth2RequestStatusApproved || log.Status == console.OAuth2RequestStatusUsed {
 			accessStatus = "approved"
 		} else if log.Status == console.OAuth2RequestStatusRejected {
 			accessStatus = "rejected"

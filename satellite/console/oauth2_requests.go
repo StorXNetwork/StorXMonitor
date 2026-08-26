@@ -12,8 +12,15 @@ const (
 	OAuth2RequestStatusPending  = 0 // Request is pending approval
 	OAuth2RequestStatusApproved = 1 // Request has been approved
 	OAuth2RequestStatusRejected = 2 // Request has been rejected
-	OAuth2RequestStatusUsed     = 2 // Code has been used (same as rejected for now)
+	OAuth2RequestStatusUsed     = 3 // Authorization code has been exchanged
 )
+
+// Oauth2GrantedAccessSQL matches rows that represent a user-granted developer access.
+// Includes legacy rows marked status=2 after code exchange when Used shared Rejected's value.
+const Oauth2GrantedAccessSQL = `(
+	o.status IN (1, 3)
+	OR (o.status = 2 AND COALESCE(o.approved_scopes, '') <> '' AND COALESCE(o.code, '') <> 'REJECTED')
+)`
 
 type OAuth2Request struct {
 	ID               uuid.UUID `json:"id"`

@@ -8998,6 +8998,14 @@ func (s *Service) ConsentOAuth2Request(ctx context.Context, req ConsentOAuth2Req
 		return nil, errs.New("consent_update_failed")
 	}
 
+	// Keep granted access visible/revocable after the short consent-dialog window.
+	if req.Approve {
+		err = s.store.OAuth2Requests().UpdateConsentExpiry(ctx, req.RequestID, s.nowFn().AddDate(10, 0, 0))
+		if err != nil {
+			return nil, errs.New("consent_update_failed")
+		}
+	}
+
 	return &ConsentOAuth2Response{Code: code, RedirectURI: oauthReq.RedirectURI}, nil
 }
 
@@ -9227,29 +9235,51 @@ func (s *Service) RevokeUserDeveloperAccess(ctx context.Context, clientID string
 		return err
 	}
 
-	// Verify the client exists and user has access to it
 	accessList, err := s.store.OAuth2Requests().GetUserDeveloperAccess(ctx, user.ID)
 	if err != nil {
 		return errs.Wrap(err)
 	}
 
-	// Check if user has active access to this client
-	hasActiveAccess := false
+	hasAccess := false
 	for _, access := range accessList {
-		if access.ClientID == clientID && access.IsActive {
-			hasActiveAccess = true
+		if access.ClientID == clientID {
+			hasAccess = true
 			break
 		}
 	}
 
-	if !hasActiveAccess {
+	if !hasAccess {
 		return errs.New("no active access found for this developer")
 	}
 
-	// Revoke access
 	err = s.store.OAuth2Requests().RevokeUserDeveloperAccess(ctx, user.ID, clientID)
 	if err != nil {
 		return errs.Wrap(err)
+	}
+
+	// Delete OAuth API keys so the developer's access grant stops working.
+	projects, err := s.store.Projects().GetByUserID(ctx, user.ID)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+	keyPrefix := fmt.Sprintf("OAUTH2_API_KEY_FOR_%s_", clientID)
+	for _, project := range projects {
+		names, err := s.store.APIKeys().GetAllNamesByProjectID(ctx, project.ID)
+		if err != nil {
+			return errs.Wrap(err)
+		}
+		for _, name := range names {
+			if !strings.HasPrefix(name, keyPrefix) {
+				continue
+			}
+			keyInfo, err := s.store.APIKeys().GetByNameAndProjectID(ctx, name, project.ID)
+			if err != nil {
+				return errs.Wrap(err)
+			}
+			if err = s.store.APIKeys().Delete(ctx, keyInfo.ID); err != nil {
+				return errs.Wrap(err)
+			}
+		}
 	}
 
 	return nil
