@@ -526,3 +526,119 @@ func TestOrderSettlementEventkitIntegration(t *testing.T) {
 		}
 	})
 }
+
+func TestSettlementWithWindow_GETInternalSkipsBucketBandwidth(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		const dataAmount int64 = 50
+		satellite := planet.Satellites[0]
+		ordersDB := satellite.Orders.DB
+		storagenode := planet.StorageNodes[0]
+		now := time.Now()
+		projectID := testrand.UUID()
+		bucketname := metabase.BucketName("testbucket")
+		bucketLocation := metabase.BucketLocation{
+			ProjectID:  projectID,
+			BucketName: bucketname,
+		}
+		key := satellite.Config.Orders.EncryptionKeys.Default
+
+		satellite.Orders.Chore.Loop.Pause()
+
+		for _, tt := range []struct {
+			name              string
+			action            pb.PieceAction
+			wantBucketSettled int64
+			wantSNSettled     int64
+		}{
+			{
+				name:              "GET settles user bucket bandwidth",
+				action:            pb.PieceAction_GET,
+				wantBucketSettled: dataAmount,
+				wantSNSettled:     dataAmount,
+			},
+			{
+				name:              "GET_INTERNAL skips user bucket bandwidth",
+				action:            pb.PieceAction_GET_INTERNAL,
+				wantBucketSettled: 0,
+				wantSNSettled:     dataAmount,
+			},
+			{
+				name:              "GET_REPAIR skips user bucket bandwidth",
+				action:            pb.PieceAction_GET_REPAIR,
+				wantBucketSettled: 0,
+				wantSNSettled:     dataAmount,
+			},
+		} {
+			t.Run(tt.name, func(t *testing.T) {
+				serialNumber := testrand.SerialNumber()
+				encrypted, err := key.EncryptMetadata(
+					serialNumber,
+					&internalpb.OrderLimitMetadata{
+						CompactProjectBucketPrefix: bucketLocation.CompactPrefix(),
+					},
+				)
+				require.NoError(t, err)
+
+				piecePublicKey, piecePrivateKey, err := storxnetwork.NewPieceKey()
+				require.NoError(t, err)
+
+				beforeSN, err := ordersDB.GetStorageNodeBandwidth(ctx, storagenode.ID(), time.Time{}, now.Add(time.Hour))
+				require.NoError(t, err)
+				_, _, beforeBucket, err := ordersDB.TestGetBucketBandwidth(ctx, projectID, []byte(bucketname), time.Time{}, now.Add(time.Hour))
+				require.NoError(t, err)
+
+				limit := &pb.OrderLimit{
+					SerialNumber:           serialNumber,
+					SatelliteId:            satellite.ID(),
+					UplinkPublicKey:        piecePublicKey,
+					StorageNodeId:          storagenode.ID(),
+					PieceId:                storxnetwork.NewPieceID(),
+					Action:                 tt.action,
+					Limit:                  1000,
+					OrderCreation:          now,
+					OrderExpiration:        now.Add(24 * time.Hour),
+					EncryptedMetadataKeyId: key.ID[:],
+					EncryptedMetadata:      encrypted,
+				}
+				orderLimit, err := signing.SignOrderLimit(ctx, signing.SignerFromFullIdentity(satellite.Identity), limit)
+				require.NoError(t, err)
+
+				order, err := signing.SignUplinkOrder(ctx, piecePrivateKey, &pb.Order{
+					SerialNumber: serialNumber,
+					Amount:       dataAmount,
+				})
+				require.NoError(t, err)
+
+				conn, err := storagenode.Dialer.DialNodeURL(ctx, storxnetwork.NodeURL{ID: satellite.ID(), Address: satellite.Addr()})
+				require.NoError(t, err)
+				defer ctx.Check(conn.Close)
+
+				stream, err := pb.NewDRPCOrdersClient(conn).SettlementWithWindow(ctx)
+				require.NoError(t, err)
+				defer ctx.Check(stream.Close)
+
+				err = stream.Send(&pb.SettlementRequest{
+					Limit: orderLimit,
+					Order: order,
+				})
+				require.NoError(t, err)
+				resp, err := stream.CloseAndRecv()
+				require.NoError(t, err)
+				require.Equal(t, pb.SettlementWithWindowResponse_ACCEPTED, resp.Status)
+				require.Equal(t, dataAmount, resp.ActionSettled[int32(tt.action)])
+
+				satellite.Orders.Chore.Loop.TriggerWait()
+
+				afterSN, err := ordersDB.GetStorageNodeBandwidth(ctx, storagenode.ID(), time.Time{}, now.Add(time.Hour))
+				require.NoError(t, err)
+				require.Equal(t, beforeSN+tt.wantSNSettled, afterSN)
+
+				_, _, afterBucket, err := ordersDB.TestGetBucketBandwidth(ctx, projectID, []byte(bucketname), time.Time{}, now.Add(time.Hour))
+				require.NoError(t, err)
+				require.Equal(t, beforeBucket+tt.wantBucketSettled, afterBucket)
+			})
+		}
+	})
+}

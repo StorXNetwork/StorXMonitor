@@ -18,6 +18,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -59,7 +60,7 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/paymentsconfig"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
-	"github.com/StorXNetwork/StorXMonitor/satellite/tenancy"
+	"github.com/StorXNetwork/StorXMonitor/satellite/seller"
 	"github.com/StorXNetwork/common/uuid"
 )
 
@@ -80,6 +81,7 @@ type Config struct {
 	Address                   string  `help:"server address of the http api gateway and frontend app" devDefault:"127.0.0.1:0" releaseDefault:":10100"`
 	FrontendAddress           string  `help:"server address of the front-end app" devDefault:"127.0.0.1:0" releaseDefault:":10200"`
 	DeveloperExternalAddress  string  `help:"external endpoint for developer service (falls back to ExternalAddress if not set)" default:""`
+	SellerExternalAddress     string  `help:"external endpoint for seller service (falls back to ExternalAddress if not set)" default:""`
 	ExternalAddress           string  `help:"external endpoint of the satellite if hosted" default:""`
 	FrontendEnable            bool    `help:"feature flag to toggle whether console back-end server should also serve front-end endpoints" default:"true"`
 	BackendReverseProxy       string  `help:"the target URL of console back-end reverse proxy for local development when running a UI server" default:""`
@@ -100,12 +102,16 @@ type Config struct {
 
 	ClientOrigin string `help:"client origin for redirection URLs" default:""`
 
-	BackupToolsURL string `help:"Backup-Tools service URL for AutoSync stats (e.g., http://localhost:8000)" default:""`
+	BackupToolsURL    string `help:"Backup-Tools service URL for AutoSync stats (e.g., http://localhost:8000)" default:""`
+	BackupToolsAPIKey string `help:"shared API key for Backup-Tools (X-API-Key on Satellite internal routes and Satellite→BT /internal/account/* lifecycle calls)" default:""`
+	MailExportServiceToken string `help:"Bearer token for gateway-mt mail-export internal APIs under /api/v0/internal/mail-export-jobs and /api/v0/internal/bandwidth-quota" default:""`
 
-	GoogleClientID               string `help:"client id for google oauth" default:""`
-	GoogleClientSecret           string `help:"client secret for google oauth" default:""`
-	GoogleSigupRedirectURLstring string `help:"redirect url for google oauth" default:""`
-	GoggleLoginRedirectURLstring string `help:"redirect url for google oauth" default:""`
+	GoogleClientID                string `help:"client id for google oauth" default:""`
+	GoogleClientSecret            string `help:"client secret for google oauth" default:""`
+	GoogleSigupRedirectURLstring  string `help:"redirect url for google oauth register" default:""`
+	GoggleLoginRedirectURLstring  string `help:"redirect url for google oauth login" default:""`
+	GoogleBackupRedirectURLstring string `help:"redirect url for google oauth google-backup (GET /api/v0/auth/google-backup)" default:""`
+	GoogleSellerRedirectURLstring string `help:"redirect url for google oauth seller (GET /api/v0/seller/auth/google)" default:""`
 
 	FacebookClientID               string `help:"client id for facebook oauth" default:""`
 	FacebookClientSecret           string `help:"client secret for facebook oauth" default:""`
@@ -287,6 +293,8 @@ type Server struct {
 	entitlementsEnabled   bool
 	ssoEnabled            bool
 	productPriceSummaries []string
+
+	sellerDB seller.DB
 }
 
 // NewServer creates new instance of console server.
@@ -296,7 +304,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	stripePublicKey string, neededTokenPaymentConfirmations int, nodeURL storxnetwork.NodeURL,
 	analyticsConfig analytics.Config, notificationService *pushnotifications.Service, packagePlans paymentsconfig.PackagePlans, stripe *stripe.Service, developerService *developer.Service,
 	minimumChargeConfig paymentsconfig.MinimumChargeConfig, usagePrices payments.ProjectUsagePriceModel, pps ProductPriceSummaries,
-	entitlementsEnabled bool, ssoEnabled bool) *Server {
+	entitlementsEnabled bool, ssoEnabled bool, sellerDB seller.DB) *Server {
 	initAdditionalMimeTypes()
 
 	server := Server{
@@ -325,6 +333,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 		entitlementsEnabled:             entitlementsEnabled,
 		ssoEnabled:                      ssoEnabled,
 		productPriceSummaries:           pps,
+		sellerDB:                        sellerDB,
 	}
 
 	server.cookieAuth = consolewebauth.NewCookieAuth(consolewebauth.CookieSettings{
@@ -364,14 +373,20 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	router := mux.NewRouter()
 	server.router = router
 
-	// Add Swagger UI
-	router.PathPrefix("/swagger/").Handler(http.StripPrefix("/swagger/", http.FileServer(http.Dir("swagger-ui"))))
+	// Swagger UI (embedded; run scripts/generate_swagger.sh to refresh swagger.json)
+	if swaggerHandler, err := swaggerUIHandler(); err != nil {
+		logger.Warn("failed to init swagger UI", zap.Error(err))
+	} else {
+		router.Handle("/swagger", http.RedirectHandler("/swagger/", http.StatusMovedPermanently))
+		router.PathPrefix("/swagger/").Handler(swaggerHandler)
+	}
 
 	// N.B. This middleware has to be the first one because it has to be called
 	// the earliest in the HTTP chain.
 	router.Use(newTraceRequestMiddleware(logger, router))
 
-	router.Use(tenancy.Middleware(config.WhiteLabel.HostNameIDLookup))
+	tenantResolver := NewTenantResolver(logger.Named("tenant-resolver"), sellerDB, &server)
+	router.Use(tenantResolver.Middleware)
 	router.Use(requestid.AddToContext)
 	// by default, set Cache-Control=no-store for all requests
 	// if requests should be cached (e.g. static assets), the cache control header can be overridden
@@ -403,6 +418,21 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	publicProjectsRouter.Use(server.withCORS)
 	publicProjectsRouter.Handle("/project-id-from-access-grant", http.HandlerFunc(projectsController.GetProjectIDFromAccessGrant)).Methods(http.MethodPost, http.MethodOptions)
 
+	internalStorxTokenController := consoleapi.NewInternalStorxToken(logger, service, config.BackupToolsAPIKey)
+	mailExportController := consoleapi.NewMailExportJobs(logger, service, config.MailExportServiceToken)
+	internalRouter := router.PathPrefix("/api/v0/internal").Subrouter()
+	internalRouter.Handle("/storx-token/refresh", http.HandlerFunc(internalStorxTokenController.RefreshStorxToken)).Methods(http.MethodPost)
+	internalRouter.Handle("/google-token/clear", http.HandlerFunc(internalStorxTokenController.ClearGoogleToken)).Methods(http.MethodPost)
+	internalRouter.Handle("/mail-export-jobs", http.HandlerFunc(mailExportController.Create)).Methods(http.MethodPost)
+	internalRouter.Handle("/mail-export-jobs/claim", http.HandlerFunc(mailExportController.Claim)).Methods(http.MethodPost)
+	internalRouter.Handle("/mail-export-jobs/expire", http.HandlerFunc(mailExportController.Expire)).Methods(http.MethodPost)
+	internalRouter.Handle("/mail-export-jobs/requeue-stale", http.HandlerFunc(mailExportController.RequeueStale)).Methods(http.MethodPost)
+	internalRouter.Handle("/mail-export-jobs/{id}", http.HandlerFunc(mailExportController.Get)).Methods(http.MethodGet)
+	internalRouter.Handle("/mail-export-jobs/{id}", http.HandlerFunc(mailExportController.Patch)).Methods(http.MethodPatch)
+	internalRouter.Handle("/mail-export-jobs/{id}/cancel", http.HandlerFunc(mailExportController.Cancel)).Methods(http.MethodPost)
+	internalRouter.Handle("/bandwidth-quota", http.HandlerFunc(mailExportController.BandwidthQuota)).Methods(http.MethodGet, http.MethodPost)
+	internalRouter.Handle("/bandwidth-usage", http.HandlerFunc(mailExportController.BandwidthUsage)).Methods(http.MethodPost)
+
 	// Authenticated routes
 	projectsRouter := router.PathPrefix("/api/v0/projects").Subrouter()
 	projectsRouter.Use(server.withCORS)
@@ -418,7 +448,15 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	projectsRouter.Handle("/{id}/members", http.HandlerFunc(projectsController.GetMembersAndInvitations)).Methods(http.MethodGet, http.MethodOptions)
 	projectsRouter.Handle("/{id}/members/{memberID}", server.withCSRFProtection(http.HandlerFunc(projectsController.UpdateMemberRole))).Methods(http.MethodPatch, http.MethodOptions)
 	projectsRouter.Handle("/{id}/members/{memberID}", http.HandlerFunc(projectsController.GetMember)).Methods(http.MethodGet, http.MethodOptions)
+	memberACLController := consoleapi.NewMemberBucketGrants(logger, service)
+	projectsRouter.Handle("/{id}/member-acl-buckets", http.HandlerFunc(memberACLController.ListACLBuckets)).Methods(http.MethodGet, http.MethodOptions)
+	projectsRouter.Handle("/{id}/member-acl-buckets", server.withCSRFProtection(http.HandlerFunc(memberACLController.AddACLBucket))).Methods(http.MethodPost, http.MethodOptions)
+	projectsRouter.Handle("/{id}/member-acl-buckets/{bucket}", server.withCSRFProtection(http.HandlerFunc(memberACLController.RemoveACLBucket))).Methods(http.MethodDelete, http.MethodOptions)
+	projectsRouter.Handle("/{id}/members/{memberID}/bucket-grants", http.HandlerFunc(memberACLController.GetMemberGrants)).Methods(http.MethodGet, http.MethodOptions)
+	projectsRouter.Handle("/{id}/members/{memberID}/bucket-grants", server.withCSRFProtection(http.HandlerFunc(memberACLController.PutMemberGrants))).Methods(http.MethodPut, http.MethodOptions)
 	projectsRouter.Handle("/{id}/invite/{email}", server.withCSRFProtection(server.userIDRateLimiter.Limit(http.HandlerFunc(projectsController.InviteUser)))).Methods(http.MethodPost, http.MethodOptions)
+	projectsRouter.Handle("/{id}/invite/{email}", server.withCSRFProtection(server.userIDRateLimiter.Limit(http.HandlerFunc(projectsController.UpdatePendingInviteAccess)))).Methods(http.MethodPut, http.MethodOptions)
+	projectsRouter.Handle("/{id}/invites", server.withCSRFProtection(server.userIDRateLimiter.Limit(http.HandlerFunc(projectsController.InviteUsers)))).Methods(http.MethodPost, http.MethodOptions)
 	projectsRouter.Handle("/{id}/reinvite", server.withCSRFProtection(server.userIDRateLimiter.Limit(http.HandlerFunc(projectsController.ReinviteUsers)))).Methods(http.MethodPost, http.MethodOptions)
 	projectsRouter.Handle("/{id}/invite-link", http.HandlerFunc(projectsController.GetInviteLink)).Methods(http.MethodGet, http.MethodOptions)
 	projectsRouter.Handle("/{id}/emission", http.HandlerFunc(projectsController.GetEmissionImpact)).Methods(http.MethodGet, http.MethodOptions)
@@ -442,6 +480,8 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	// set social media config
 	socialmedia.SetClientOrigin(config.ClientOrigin)
 	socialmedia.SetGoogleSocialMediaConfig(config.GoogleClientID, config.GoogleClientSecret, config.GoogleSigupRedirectURLstring, config.GoggleLoginRedirectURLstring)
+	socialmedia.SetGoogleBackupOAuthRedirectURL(config.GoogleBackupRedirectURLstring)
+	socialmedia.SetGoogleSellerOAuthRedirectURL(config.GoogleSellerRedirectURLstring)
 	socialmedia.SetFacebookSocialMediaConfig(config.FacebookClientID, config.FacebookClientSecret, config.FacebookSigupRedirectURLstring, config.FacebookLoginRedirectURLstring)
 	socialmedia.SetLinkedinSocialMediaConfig(config.LinkedinClientID, config.LinkedinClientSecret, config.LinkedinSigupRedirectURLstring, config.LinkedinLoginRedirectURLstring, config.LinkedinRegisterIdTokenRedirectURLstring, config.LinkedinLoginIdTokenRedirectURLstring)
 	socialmedia.SetUnstoppableDomainSocialMediaConfig(config.UnstoppableDomainClientID, config.UnstoppableDomainClientSecret, config.UnstoppableDomainSignupRedirectURLstring, config.UnstoppableDomainLoginRedirectURLstring)
@@ -460,7 +500,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 		valdiRouter.Handle("/api-keys/{project-id}", server.userIDRateLimiter.Limit(http.HandlerFunc(valdiController.GetAPIKey))).Methods(http.MethodGet, http.MethodOptions)
 	}
 
-	authController := consoleapi.NewAuth(logger, service, accountFreezeService, mailService, server.cookieAuth, server.analytics, ssoService, csrfService, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL, config.GeneralRequestURL, config.SignupActivationCodeEnabled, config.MemberAccountsEnabled, badPasswords, badPasswordsEncoded, config.ValidAnnouncementNames, config.WhiteLabel, config.SingleWhiteLabel)
+	authController := consoleapi.NewAuth(logger, service, accountFreezeService, mailService, server.cookieAuth, server.analytics, ssoService, csrfService, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL, config.GeneralRequestURL, config.SignupActivationCodeEnabled, config.MemberAccountsEnabled, badPasswords, badPasswordsEncoded, config.ValidAnnouncementNames)
 	authRouter := router.PathPrefix("/api/v0/auth").Subrouter()
 	authRouter.Use(server.withCORS)
 
@@ -491,7 +531,8 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	router.HandleFunc("/linkedin_login/mobile", authController.HandleLinkedInLoginWithAuthToken)
 	authRouter.Handle("/linkedin_register/mobile", server.ipRateLimiter.Limit(http.HandlerFunc(authController.HandleLinkedInRegisterWithAuthToken))).Methods(http.MethodPost, http.MethodOptions)
 
-	// authRouter.Handle("/register-google", server.ipRateLimiter.Limit(http.HandlerFunc(authController.RegisterGoogle))).Methods(http.MethodGet, http.MethodOptions)
+	authRouter.Handle("/google-backup", server.ipRateLimiter.Limit(http.HandlerFunc(authController.GoogleBackupAuth))).Methods(http.MethodGet, http.MethodOptions)
+	authRouter.Handle("/register-google", server.ipRateLimiter.Limit(http.HandlerFunc(authController.RegisterGoogle))).Methods(http.MethodGet, http.MethodOptions)
 	authRouter.Handle("/login-google", server.ipRateLimiter.Limit(http.HandlerFunc(authController.LoginUserConfirm))).Methods(http.MethodGet, http.MethodOptions)
 	authRouter.Handle("/register-google-app", server.ipRateLimiter.Limit(http.HandlerFunc(authController.RegisterGoogleForApp))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/login-google-app", server.ipRateLimiter.Limit(http.HandlerFunc(authController.LoginUserConfirmForApp))).Methods(http.MethodPost, http.MethodOptions)
@@ -506,6 +547,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	authRouter.Handle("/account/info", server.withAuth(http.HandlerFunc(authController.UpdateAccountInfo))).Methods(http.MethodPatch, http.MethodOptions)
 	authRouter.Handle("/account/freezestatus", server.withAuth(http.HandlerFunc(authController.GetFreezeStatus))).Methods(http.MethodGet, http.MethodOptions)
 	authRouter.Handle("/account/delete-request", server.withAuth(http.HandlerFunc(authController.DeleteAccountRequest))).Methods(http.MethodPost, http.MethodOptions)
+	authRouter.Handle("/account/cancel-delete-request", server.withAuth(http.HandlerFunc(authController.CancelAccountDeleteRequest))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/account/change-password", server.withAuth(server.userIDRateLimiter.Limit(http.HandlerFunc(authController.ChangePassword)))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/account/settings", server.withAuth(http.HandlerFunc(authController.GetUserSettings))).Methods(http.MethodGet, http.MethodOptions)
 	authRouter.Handle("/account/settings", server.withAuth(http.HandlerFunc(authController.SetUserSettings))).Methods(http.MethodPatch, http.MethodOptions)
@@ -517,6 +559,75 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	dashboardRouter.Use(server.withCORS)
 	dashboardRouter.Use(server.withAuth)
 	dashboardRouter.Handle("/stats", http.HandlerFunc(dashboardController.GetDashboardStats)).Methods(http.MethodGet, http.MethodOptions)
+
+	auditLogsController := consoleapi.NewAuditLogs(logger, service)
+	auditLogsRouter := router.PathPrefix("/api/v0/audit-logs").Subrouter()
+	auditLogsRouter.Use(server.withCORS)
+	auditLogsRouter.Handle("", server.withAuth(server.userIDRateLimiter.Limit(http.HandlerFunc(auditLogsController.ListAuditLogs)))).Methods(http.MethodGet, http.MethodOptions)
+	auditLogsRouter.Handle("/actions", server.withAuth(server.userIDRateLimiter.Limit(http.HandlerFunc(auditLogsController.ListAuditLogActions)))).Methods(http.MethodGet, http.MethodOptions)
+	auditLogsRouter.Handle("/export", server.withAuth(server.userIDRateLimiter.Limit(http.HandlerFunc(auditLogsController.ExportAuditLogs)))).Methods(http.MethodGet, http.MethodOptions)
+
+	googleBackupUsersGroupsController := consoleapi.NewGoogleBackupUsersGroups(logger, service, server.cookieAuth)
+	googleBackupUsersGroupsRouter := router.PathPrefix("/api/v0/google-backup/users-groups").Subrouter()
+	googleBackupUsersGroupsRouter.Use(server.withCORS)
+	googleBackupUsersGroupsRouter.Use(server.withAuth)
+	googleBackupUsersGroupsRouter.Handle("/domains", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupUsersGroupsController.GetDomains))).Methods(http.MethodGet, http.MethodOptions)
+	googleBackupUsersGroupsRouter.Handle("/mailbox/overview", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupUsersGroupsController.GetMailboxOverview))).Methods(http.MethodGet, http.MethodOptions)
+	googleBackupUsersGroupsRouter.Handle("/mailbox/services", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupUsersGroupsController.GetMailboxServices))).Methods(http.MethodGet, http.MethodOptions)
+	googleBackupUsersGroupsRouter.Handle("/mailbox/schedule", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupUsersGroupsController.GetMailboxSchedule))).Methods(http.MethodGet, http.MethodOptions)
+	googleBackupUsersGroupsRouter.Handle("/mailbox/credentials", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupUsersGroupsController.GetMailboxCredentials))).Methods(http.MethodGet, http.MethodOptions)
+	googleBackupUsersGroupsRouter.Handle("/jobs/active", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupUsersGroupsController.UpdateJobsActive))).Methods(http.MethodPut, http.MethodOptions)
+	googleBackupUsersGroupsRouter.Handle("/dashboard-alerts", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupUsersGroupsController.GetDashboardAlerts))).Methods(http.MethodGet, http.MethodOptions)
+	googleBackupUsersGroupsRouter.Handle("", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupUsersGroupsController.List))).Methods(http.MethodGet, http.MethodOptions)
+
+	googleBackupController := consoleapi.NewGoogleBackup(logger, service, server.cookieAuth)
+	googleBackupRouter := router.PathPrefix("/api/v0/google-backup").Subrouter()
+	googleBackupRouter.Use(server.withCORS)
+	googleBackupRouter.Use(server.withAuth)
+	googleBackupRouter.Handle("/connect", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.ConnectGoogle))).Methods(http.MethodPost, http.MethodOptions)
+	googleBackupRouter.Handle("/domain-users", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.GetDomainUsers))).Methods(http.MethodGet, http.MethodOptions)
+	googleBackupRouter.Handle("/backup-restore/logs", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.ListBackupRestoreLogs))).Methods(http.MethodGet, http.MethodOptions)
+	googleBackupRouter.Handle("/auto-sync/jobs", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.CreateAutoSyncJobs))).Methods(http.MethodPost, http.MethodOptions)
+	googleBackupRouter.Handle("/auto-sync/jobs", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.ListAutoSyncJobs))).Methods(http.MethodGet, http.MethodOptions)
+	googleBackupRouter.Handle("/auto-sync/jobs/services", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.ListAutoSyncJobServices))).Methods(http.MethodGet, http.MethodOptions)
+	googleBackupRouter.Handle("/auto-sync/live", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.AutoSyncLive))).Methods(http.MethodGet, http.MethodOptions)
+	googleBackupRouter.Handle("/auto-sync/jobs/project", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.UpdateAutoSyncJobsByProject))).Methods(http.MethodPut, http.MethodOptions)
+	googleBackupRouter.Handle("/auto-sync/task/{job_id}/backup-now", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.BackupNowAutoSyncJob))).Methods(http.MethodPost, http.MethodOptions)
+	googleBackupRouter.Handle("/auto-sync/jobs/{job_id}", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.UpdateAutoSyncJob))).Methods(http.MethodPut, http.MethodOptions)
+	googleBackupRouter.Handle("/auto-sync/jobs/{job_id}", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.GetAutoSyncJob))).Methods(http.MethodGet, http.MethodOptions)
+
+	googleBackupPolicyController := consoleapi.NewGoogleBackupAutoSyncPolicy(logger, service, server.cookieAuth)
+	googleBackupPolicyRouter := router.PathPrefix("/api/v0/google-backup/auto-sync/policy").Subrouter()
+	googleBackupPolicyRouter.Use(server.withCORS)
+	googleBackupPolicyRouter.Use(server.withAuth)
+	googleBackupPolicyRouter.Handle("/options", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupPolicyController.GetPolicyOptions))).Methods(http.MethodGet, http.MethodOptions)
+	googleBackupPolicyRouter.Handle("/available-assignments", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupPolicyController.GetAvailableAssignments))).Methods(http.MethodGet, http.MethodOptions)
+	googleBackupPolicyRouter.Handle("/move", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupPolicyController.MoveAssignments))).Methods(http.MethodPost, http.MethodOptions)
+	googleBackupPolicyRouter.Handle("/merge/preview", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupPolicyController.PreviewMergePolicies))).Methods(http.MethodGet, http.MethodOptions)
+	googleBackupPolicyRouter.Handle("/merge", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupPolicyController.MergePolicies))).Methods(http.MethodPost, http.MethodOptions)
+	googleBackupPolicyRouter.Handle("", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupPolicyController.ListPolicies))).Methods(http.MethodGet, http.MethodOptions)
+	googleBackupPolicyRouter.Handle("", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupPolicyController.CreatePolicy))).Methods(http.MethodPost, http.MethodOptions)
+	googleBackupPolicyRouter.Handle("/{policy_id}", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupPolicyController.GetPolicy))).Methods(http.MethodGet, http.MethodOptions)
+	googleBackupPolicyRouter.Handle("/{policy_id}", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupPolicyController.UpdatePolicy))).Methods(http.MethodPut, http.MethodOptions)
+	googleBackupPolicyRouter.Handle("/{policy_id}", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupPolicyController.DeletePolicy))).Methods(http.MethodDelete, http.MethodOptions)
+
+	googleBackupRestoreController := consoleapi.NewGoogleBackupRestore(logger, service, server.cookieAuth)
+	googleBackupRouter.Handle("/google-auth", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupRestoreController.GoogleAuth))).Methods(http.MethodPost, http.MethodOptions)
+	googleBackupRouter.Handle("/restore/credentials", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupRestoreController.RestoreCredentials))).Methods(http.MethodGet, http.MethodOptions)
+	googleBackupRouter.Handle("/restore/workspaces", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupRestoreController.RestoreWorkspaces))).Methods(http.MethodGet, http.MethodOptions)
+	googleBackupRouter.Handle("/restore/prepare", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupRestoreController.RestorePrepare))).Methods(http.MethodGet, http.MethodOptions)
+	googleBackupRouter.Handle("/restore/all", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupRestoreController.RestoreAll))).Methods(http.MethodPost, http.MethodOptions)
+	googleBackupRouter.Handle("/restore/live", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupRestoreController.RestoreLive))).Methods(http.MethodGet, http.MethodOptions)
+	googleBackupRouter.Handle("/restore/jobs", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupRestoreController.RestoreJobs))).Methods(http.MethodGet, http.MethodOptions)
+	googleBackupRouter.Handle("/restore/job/{job_id}", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupRestoreController.GetRestoreJob))).Methods(http.MethodGet, http.MethodOptions)
+	googleBackupRouter.Handle("/restore/job/{job_id}/cancel", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupRestoreController.CancelRestoreJob))).Methods(http.MethodPost, http.MethodOptions)
+	googleBackupRouter.Handle("/restore/job/{job_id}/dead-items", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupRestoreController.ListRestoreDeadItems))).Methods(http.MethodGet, http.MethodOptions)
+
+	googleBackupRouter.Handle("/google/gmail/insert-mail", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupRestoreController.ManualRestoreGmail))).Methods(http.MethodPost, http.MethodOptions)
+	googleBackupRouter.Handle("/google/satellite-to-drive", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupRestoreController.ManualRestoreDrive))).Methods(http.MethodPost, http.MethodOptions)
+	googleBackupRouter.Handle("/google/satellite-to-photos", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupRestoreController.ManualRestorePhotos))).Methods(http.MethodPost, http.MethodOptions)
+	googleBackupRouter.Handle("/google/satellite-to-calendar", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupRestoreController.ManualRestoreCalendar))).Methods(http.MethodPost, http.MethodOptions)
+	googleBackupRouter.Handle("/google/satellite-to-contacts", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupRestoreController.ManualRestoreContacts))).Methods(http.MethodPost, http.MethodOptions)
 
 	// User developer access management
 	authRouter.Handle("/developer-access", server.withAuth(http.HandlerFunc(authController.GetUserDeveloperAccess))).Methods(http.MethodGet, http.MethodOptions)                           // Alias for frontend compatibility
@@ -534,6 +645,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	authRouter.Handle("/account", server.withCSRFProtection(server.withAuth(http.HandlerFunc(authController.DeleteAccount)))).Methods(http.MethodDelete, http.MethodOptions)
 	authRouter.Handle("/account/setup", server.withCSRFProtection(server.withAuth(http.HandlerFunc(authController.SetupAccount)))).Methods(http.MethodPatch, http.MethodOptions)
 	authRouter.Handle("/account/change-password", server.withCSRFProtection(server.withAuth(server.userIDRateLimiter.Limit(http.HandlerFunc(authController.ChangePassword))))).Methods(http.MethodPost, http.MethodOptions)
+	authRouter.Handle("/account/set-password", server.withCSRFProtection(server.withAuth(server.userIDRateLimiter.Limit(http.HandlerFunc(authController.SetPassword))))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/account/settings", server.withAuth(http.HandlerFunc(authController.GetUserSettings))).Methods(http.MethodGet, http.MethodOptions)
 	authRouter.Handle("/account/settings", server.withCSRFProtection(server.withAuth(http.HandlerFunc(authController.SetUserSettings)))).Methods(http.MethodPatch, http.MethodOptions)
 	authRouter.Handle("/account/onboarding", server.withCSRFProtection(server.withAuth(http.HandlerFunc(authController.SetOnboardingStatus)))).Methods(http.MethodPatch, http.MethodOptions)
@@ -544,6 +656,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	authRouter.Handle("/logout", server.withAuth(http.HandlerFunc(authController.Logout))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/token", server.withCSRFProtection(server.ipRateLimiter.Limit(http.HandlerFunc(authController.Token)))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/token-by-api-key", server.ipRateLimiter.Limit(http.HandlerFunc(authController.TokenByAPIKey))).Methods(http.MethodPost, http.MethodOptions)
+	authRouter.Handle("/register", server.ipRateLimiter.Limit(http.HandlerFunc(authController.Register))).Methods(http.MethodPost, http.MethodOptions)
 
 	authRouter.Handle("/bad-passwords", server.ipRateLimiter.Limit(http.HandlerFunc(authController.GetBadPasswords))).Methods(http.MethodGet, http.MethodOptions)
 	authRouter.Handle("/code-activation", server.ipRateLimiter.Limit(http.HandlerFunc(authController.ActivateAccount))).Methods(http.MethodPatch, http.MethodOptions)
@@ -583,6 +696,11 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	pushNotificationsRouter.Handle("/{tokenId}", http.HandlerFunc(pushNotificationsController.UpdateToken)).Methods(http.MethodPut, http.MethodOptions)
 	pushNotificationsRouter.Handle("", http.HandlerFunc(pushNotificationsController.GetTokens)).Methods(http.MethodGet, http.MethodOptions)
 	pushNotificationsRouter.Handle("/{tokenId}", http.HandlerFunc(pushNotificationsController.DeleteToken)).Methods(http.MethodDelete, http.MethodOptions)
+
+	pushNotificationsTestRouter := router.PathPrefix("/api/v0/push-notifications").Subrouter()
+	pushNotificationsTestRouter.Use(server.withCORS)
+	pushNotificationsTestRouter.Use(server.withAuth)
+	pushNotificationsTestRouter.Handle("/test", http.HandlerFunc(pushNotificationsController.SendTestNotification)).Methods(http.MethodPost, http.MethodOptions)
 
 	// User Notification Preferences API
 	userNotificationPreferencesController := consoleapi.NewUserNotificationPreferences(logger, service)
@@ -1202,8 +1320,52 @@ func (server *Server) withAuth(handler http.Handler) http.Handler {
 			}
 		}
 
+		if blockErr := server.enforcePendingDeletionAPIAllowlist(ctx, r); blockErr != nil {
+			web.ServeJSONError(ctx, server.log, w, http.StatusForbidden, blockErr)
+			return
+		}
+
 		handler.ServeHTTP(w, r.Clone(ctx))
 	})
+}
+
+// enforcePendingDeletionAPIAllowlist blocks all authenticated console APIs while the account is
+// PendingDeletion, including direct Postman/curl calls with a valid session cookie or _tokenKey header.
+// Only cancel-deletion and read-only account/status endpoints (plus logout and CORS preflight) are allowed.
+func (server *Server) enforcePendingDeletionAPIAllowlist(ctx context.Context, r *http.Request) error {
+	user, err := console.GetUser(ctx)
+	if err != nil || user == nil || user.Status != console.PendingDeletion {
+		return nil
+	}
+	if r.Method == http.MethodOptions {
+		return nil
+	}
+
+	path := path.Clean("/" + strings.TrimPrefix(r.URL.Path, "/"))
+	allowed := isPendingDeletionAllowedRoute(r.Method, path)
+	if !allowed {
+		return console.ErrForbidden.New("account pending deletion; only cancel-deletion and account status are allowed")
+	}
+	return nil
+}
+
+// isPendingDeletionAllowedRoute is the deny-by-default allowlist for PendingDeletion sessions.
+func isPendingDeletionAllowedRoute(method, cleanPath string) bool {
+	switch cleanPath {
+	case "/api/v0/auth/account/cancel-delete-request":
+		return method == http.MethodPost
+	case "/api/v0/auth/logout":
+		return method == http.MethodPost
+	case "/api/v0/auth/account":
+		return method == http.MethodGet
+	case "/api/v0/auth/account/freezestatus":
+		return method == http.MethodGet
+	case "/api/v0/auth/account/settings":
+		// Read-only: cancel-deletion UI may need settings; mutations are blocked.
+		return method == http.MethodGet
+	default:
+		return false
+	}
 }
 
 // withAuthDeveloper middleware moved to satellite/developer/server.go
@@ -1361,6 +1523,15 @@ func (server *Server) withCSRFProtection(handler http.Handler) http.Handler {
 }
 
 // frontendConfigHandler handles sending the frontend config to the client.
+//
+// @Summary      Get frontend satellite configuration
+// @Description  **Full route:** `GET /api/v0/config` — public bootstrap (no auth). Call before `POST /auth/token`: read `captcha.login` (hCaptcha/reCAPTCHA site keys) and `csrfToken` when CSRF is enabled; send `captchaResponse` and optional `X-CSRF-Token` on login. Also returns `apiBaseURL`, feature flags, Stripe key, and other `FrontendConfig` fields.
+// @Tags         auth-email-login
+// @Tags         config
+// @Produce      json
+// @Success      200  {object}  FrontendConfig
+// @Failure      500  "Internal Server Error"
+// @Router       /config [get]
 func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
@@ -1463,6 +1634,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		AltObjBrowserPagingEnabled:        server.config.AltObjBrowserPagingEnabled,
 		AltObjBrowserPagingThreshold:      server.config.AltObjBrowserPagingThreshold,
 		DomainsPageEnabled:                server.config.DomainsPageEnabled,
+		MemberBucketGrantsEnabled:         server.config.MemberBucketGrantsEnabled,
 		ActiveSessionsViewEnabled:         server.config.ActiveSessionsViewEnabled,
 		VersioningUIEnabled:               true,
 		ObjectLockUIEnabled:               server.config.ObjectLockUIEnabled,
@@ -1505,7 +1677,6 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		EgressMBCents:       server.usagePrices.EgressMBCents.String(),
 		SegmentMonthCents:   server.usagePrices.SegmentMonthCents.String(),
 	}
-
 	w.Header().Set(contentType, applicationJSON)
 
 	err = json.NewEncoder(w).Encode(&cfg)
@@ -1515,102 +1686,27 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 	}
 }
 
-// getBranding returns branding configuration based on tenant context.
+// getBranding returns reseller branding for custom domains, or empty branding for main console hosts.
 func (server *Server) getBranding(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
 
-	tenantCtx := tenancy.GetContext(ctx)
+	host := requestHost(r)
+	var branding BrandingConfig
 
-	// Default Storj branding.
-	branding := BrandingConfig{
-		Name: "Storj",
-		LogoURLs: map[string]string{
-			"full-light":  "/static/static/images/logo.svg",
-			"full-dark":   "/static/static/images/logo-dark.svg",
-			"small-light": "/static/static/images/logo-small.svg",
-			"small-dark":  "/static/static/images/logo-small.svg",
-		},
-		FaviconURLs: map[string]string{
-			"16x16":       "/static/static/images/favicons/favicon-16x16.png",
-			"32x32":       "/static/static/images/favicons/favicon-32x32.png",
-			"apple-touch": "/static/static/images/favicons/apple-touch-icon.png",
-		},
-		Colors: map[string]string{
-			"primary-light":      "#0052FF",
-			"primary-dark":       "#0052FF",
-			"on-primary-light":   "#FFFFFF",
-			"on-primary-dark":    "#FFFFFF",
-			"secondary-light":    "#091C45",
-			"secondary-dark":     "#537CFF",
-			"on-secondary-light": "#FFFFFF",
-			"on-secondary-dark":  "#FFFFFF",
-			"background-light":   "#FCFCFD",
-			"background-dark":    "#000A20",
-			"surface-light":      "#FFFFFF",
-			"surface-dark":       "#000B21",
-			"on-surface-light":   "#000000",
-			"on-surface-dark":    "#FFFFFF",
-			"success-light":      "#00B661",
-			"success-dark":       "#00E366",
-			"info-light":         "#0059D0",
-			"info-dark":          "#2196f3",
-			"warning-light":      "#FF7F00",
-			"warning-dark":       "#FF8A00",
-		},
-		SupportURL:        server.config.GeneralRequestURL,
-		DocsURL:           server.config.DocumentationURL,
-		HomepageURL:       server.config.HomepageURL,
-		GetInTouchURL:     server.config.ScheduleMeetingURL,
-		PrivacyPolicyURL:  server.config.HomepageURL + "/privacy-policy/",
-		TermsOfServiceURL: server.config.TermsAndConditionsURL,
+	if resellerBranding, ok, err := server.resellerBrandingForHost(ctx, host); err != nil {
+		server.log.Warn("failed to load reseller branding", zap.String("host", host), zap.Error(err))
+	} else if ok {
+		branding = resellerBranding
 	}
 
-	// Check single-brand white label first (takes precedence for dedicated deployments).
-	if server.config.SingleWhiteLabel.Enabled() {
-		wlConfig := server.config.SingleWhiteLabel.ToWhiteLabelConfig()
-		branding = brandingFromWhiteLabelConfig(wlConfig, server.config.HomepageURL, server.config.TermsAndConditionsURL)
-	} else if tenantCtx.TenantID != "" {
-		// Fall back to multi-tenant white label lookup.
-		if wlConfig, ok := server.config.WhiteLabel.Value[tenantCtx.TenantID]; ok {
-			branding = brandingFromWhiteLabelConfig(wlConfig, server.config.HomepageURL, server.config.TermsAndConditionsURL)
-		} else {
-			server.log.Warn("tenant white label config not found, falling back to default branding", zap.String("tenant_id", tenantCtx.TenantID))
-		}
-	}
-
-	w.Header().Set("Cache-Control", "public, max-age=3600")
+	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
+	w.Header().Set("Pragma", "no-cache")
 	w.Header().Set(contentType, applicationJSON)
 
 	if err := json.NewEncoder(w).Encode(&branding); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		server.log.Error("failed to write branding config", zap.Error(err))
-	}
-}
-
-// brandingFromWhiteLabelConfig converts a WhiteLabelConfig to BrandingConfig.
-func brandingFromWhiteLabelConfig(wlConfig console.WhiteLabelConfig, defaultHomepageURL, defaultTermsURL string) BrandingConfig {
-	privacyPolicyURL := wlConfig.PrivacyPolicyURL
-	if privacyPolicyURL == "" {
-		privacyPolicyURL = defaultHomepageURL + "/privacy-policy/"
-	}
-	termsOfServiceURL := wlConfig.TermsOfServiceURL
-	if termsOfServiceURL == "" {
-		termsOfServiceURL = defaultTermsURL
-	}
-
-	return BrandingConfig{
-		Name:              wlConfig.Name,
-		LogoURLs:          wlConfig.LogoURLs,
-		FaviconURLs:       wlConfig.FaviconURLs,
-		Colors:            wlConfig.Colors,
-		SupportURL:        wlConfig.SupportURL,
-		DocsURL:           wlConfig.DocsURL,
-		HomepageURL:       wlConfig.HomepageURL,
-		GetInTouchURL:     wlConfig.GetInTouchURL,
-		GatewayURL:        wlConfig.GatewayURL,
-		PrivacyPolicyURL:  privacyPolicyURL,
-		TermsOfServiceURL: termsOfServiceURL,
 	}
 }
 
@@ -1780,30 +1876,8 @@ func (server *Server) cancelPasswordRecoveryHandler(w http.ResponseWriter, r *ht
 }
 
 // getExternalAddress returns the external address for the current tenant context.
-// If a tenant-specific external address is configured, it returns that; otherwise, it falls back
-// to the global external address. The returned address always has a trailing slash.
 func (server *Server) getExternalAddress(ctx context.Context) string {
-	// Check single-brand mode first
-	if server.config.SingleWhiteLabel.Enabled() && server.config.SingleWhiteLabel.ExternalAddress != "" {
-		addr := server.config.SingleWhiteLabel.ExternalAddress
-		if !strings.HasSuffix(addr, "/") {
-			addr += "/"
-		}
-		return addr
-	}
-
-	// Multi-tenant lookup
-	tenantID := tenancy.TenantIDFromContext(ctx)
-	if tenantID != "" {
-		if wlConfig, ok := server.config.WhiteLabel.Value[tenantID]; ok && wlConfig.ExternalAddress != "" {
-			addr := wlConfig.ExternalAddress
-			if !strings.HasSuffix(addr, "/") {
-				addr += "/"
-			}
-			return addr
-		}
-	}
-	return server.config.ExternalAddress
+	return server.service.ExternalAddressForContext(ctx)
 }
 
 func (server *Server) handleInvited(w http.ResponseWriter, r *http.Request) {

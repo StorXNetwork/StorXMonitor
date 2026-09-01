@@ -51,6 +51,15 @@ func (clicker *LinkClicker) FromAddress() post.Address {
 func (clicker *LinkClicker) SendEmail(ctx context.Context, msg *post.Message) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	var recipients []string
+	for _, to := range msg.To {
+		recipients = append(recipients, to.String())
+	}
+	clicker.log.Info("simulated email (not delivered to inbox); configure mail.auth-type=login with SMTP to send real mail",
+		zap.String("subject", msg.Subject),
+		zap.Strings("recipients", recipients),
+	)
+
 	var body string
 	for _, part := range msg.Parts {
 		body += part.Content
@@ -61,9 +70,9 @@ func (clicker *LinkClicker) SendEmail(ctx context.Context, msg *post.Message) (e
 	for _, link := range clicker.FindLinks(body) {
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, link, nil)
 		if err != nil {
-		continue
-	}
-	client := &http.Client{}
+			continue
+		}
+		client := &http.Client{}
 		client.Timeout = 5 * time.Second
 		response, err := client.Do(req)
 		if err != nil {

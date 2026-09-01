@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"math/big"
 	mathrand "math/rand"
@@ -33,6 +34,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/exp/slices"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/StorXNetwork/StorXMonitor/private/api"
 	"github.com/StorXNetwork/StorXMonitor/private/blockchain"
@@ -41,9 +43,11 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/satellite/analytics"
 	"github.com/StorXNetwork/StorXMonitor/satellite/attribution"
 	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/auditlog"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/configs"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth/sso"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consoleapi/socialmedia"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consoleapi/utils"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/pushnotifications"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/restapikeys"
@@ -94,6 +98,8 @@ const (
 	emailNotFoundErrMsg                  = "There are no users with the specified email"
 	passwordRecoveryTokenIsExpiredErrMsg = "Your password recovery link has expired, please request another one"
 	credentialsErrMsg                    = "Your login credentials are incorrect, please try again"
+	googleSignInOnlyLoginErrMsg          = "This account was created using Google Sign-In. Please sign in with Google, then set a password in Settings if you want to use email and password login."
+	invalidPasswordLoginErrMsg           = "Invalid password. Please try again or reset your password."
 	tooManyAttemptsErrMsg                = "Too many attempts, please try again later"
 	generateSessionTokenErrMsg           = "Failed to generate session token"
 	failedToRetrieveUserErrMsg           = "Failed to retrieve user from database"
@@ -103,6 +109,7 @@ const (
 	passwordTooLongErrMsg                = "Your password must be no longer than %d characters"
 	projectOwnerDeletionForbiddenErrMsg  = "%s is a project owner and can not be deleted"
 	apiKeyWithNameExistsErrMsg           = "An API Key with this name already exists in this project, please use a different name"
+	googleBackupAPIKeyName               = "google-backup"
 	apiKeyWithNameDoesntExistErrMsg      = "An API Key with this name doesn't exist in this project."
 	teamMemberDoesNotExistErrMsg         = "There are no team members with the email '%s'. Please try again."
 	activationTokenExpiredErrMsg         = "This activation token has expired, please request another one"
@@ -161,6 +168,9 @@ var (
 
 	// ErrChangePassword occurs when provided old password is incorrect.
 	ErrChangePassword = errs.Class("change password")
+
+	// ErrPasswordAlreadySet occurs when set-password is called but a password is already configured.
+	ErrPasswordAlreadySet = errs.Class("password already set")
 
 	// ErrEmailUsed is error type that occurs on repeating auth attempts with email.
 	ErrEmailUsed = errs.Class("email used")
@@ -280,8 +290,9 @@ type Service struct {
 
 	satelliteAddress        string
 	satelliteName           string
-	whiteLabelConfig        TenantWhiteLabelConfig
+	resellerTenantLookup    ResellerTenantLookup
 	pushNotificationService *pushnotifications.Service
+	auditLogService         *auditlog.Service
 
 	paymentSourceChainIDs map[int64]string
 
@@ -310,6 +321,9 @@ type Service struct {
 
 	socialShareHelper smartcontract.SocialShareHelper
 	backupToolsURL    string
+	backupToolsAPIKey string
+
+	mailExportOrdersDB MailExportOrdersDB
 
 	loginURL   string
 	supportURL string
@@ -346,43 +360,12 @@ func (s *Service) SendPushNotification(ctx context.Context, userID uuid.UUID, no
 	return s.pushNotificationService.SendNotification(ctx, userID, notification)
 }
 
-// SendPushNotificationWithPreferences sends a push notification after checking user preferences.
-// Gets config by category, verifies it's a push template, and checks user preferences.
-// If user preference level > config level, the notification is not sent.
-func (s *Service) SendPushNotificationWithPreferences(ctx context.Context, userID uuid.UUID, category string, notification pushnotifications.Notification) error {
-	// Get configs by category
-	configsDB := s.GetConfigs()
-	configsService := configs.NewService(configsDB)
+// SendPushNotificationWithPreferences sends a push notification after checking global user preferences.
+// If user preference level is above the notification config level, the notification is not sent.
+func (s *Service) SendPushNotificationWithPreferences(ctx context.Context, userID uuid.UUID, configLevel int, notification pushnotifications.Notification) error {
+	preferenceService := configs.NewPreferenceService(s.GetUserNotificationPreferences())
 
-	// Filter to find config with ConfigType == ConfigTypeNotificationTemplate (which is "push")
-	pushConfigType := configs.ConfigTypeNotificationTemplate
-	filters := configs.ListConfigFilters{
-		ConfigType: &pushConfigType,
-		Category:   &category,
-	}
-
-	configsList, err := configsService.ListConfigs(ctx, filters)
-	if err != nil {
-		// If we can't get configs, allow notification by default
-		return s.SendPushNotification(ctx, userID, notification)
-	}
-
-	// Find the first active push config for this category
-	pushConfig := s.findActivePushConfig(configsList, pushConfigType)
-
-	// If no push config found, allow notification by default
-	if pushConfig == nil {
-		return s.SendPushNotification(ctx, userID, notification)
-	}
-
-	// Extract level from ConfigData
-	configLevel := configs.GetConfigLevel(pushConfig.ConfigData)
-
-	// Check preferences using ShouldSendNotification
-	preferenceDB := s.GetUserNotificationPreferences()
-	preferenceService := configs.NewPreferenceService(preferenceDB)
-
-	shouldSend, err := preferenceService.ShouldSendNotification(ctx, userID, category, string(configs.NotificationTypePush), configLevel)
+	shouldSend, err := preferenceService.ShouldSendNotification(ctx, userID, string(configs.NotificationTypePush), configLevel)
 	if err != nil {
 		// If we can't check preferences, allow notification by default
 		return s.SendPushNotification(ctx, userID, notification)
@@ -393,7 +376,6 @@ func (s *Service) SendPushNotificationWithPreferences(ctx context.Context, userI
 		return nil
 	}
 
-	// If should send, call SendPushNotification
 	return s.SendPushNotification(ctx, userID, notification)
 }
 
@@ -401,23 +383,25 @@ func (s *Service) SendPushNotificationWithPreferences(ctx context.Context, userI
 // rendering templates from config_data, and sending the notification.
 // Variables can be nil - defaults from config_data will be used. Runtime variables override defaults.
 func (s *Service) SendPushNotificationByEventName(ctx context.Context, userID uuid.UUID, eventName string, category string, variables map[string]interface{}) error {
-	notification, err := s.buildNotificationFromEvent(ctx, userID, eventName, variables)
+	notification, configLevel, err := s.buildNotificationFromEvent(ctx, userID, eventName, variables)
 	if err != nil {
 		return err
 	}
 
-	return s.SendPushNotificationWithPreferences(ctx, userID, category, notification)
+	return s.SendPushNotificationWithPreferences(ctx, userID, configLevel, notification)
 }
 
 // SendNotificationAsync sends a push notification asynchronously in a goroutine.
 // This function handles context creation, error logging, and all the boilerplate
 // required for sending notifications without blocking the HTTP request.
 func (s *Service) SendNotificationAsync(userID uuid.UUID, email string, eventName string, category string, variables map[string]interface{}) {
-	go func() {
-		// Use background context to avoid cancellation when HTTP request completes
-		notifyCtx := context.Background()
+	s.SendNotificationAsyncWithContext(context.Background(), userID, email, eventName, category, variables)
+}
 
-		// Create a descriptive log message based on event name
+// SendNotificationAsyncWithContext sends a push notification asynchronously while preserving tenant context.
+func (s *Service) SendNotificationAsyncWithContext(ctx context.Context, userID uuid.UUID, email string, eventName string, category string, variables map[string]interface{}) {
+	notifyCtx := tenancy.DetachContext(ctx)
+	go func() {
 		eventDescription := strings.ReplaceAll(eventName, "_", " ")
 
 		if err := s.SendPushNotificationByEventName(notifyCtx, userID, eventName, category, variables); err != nil {
@@ -426,28 +410,30 @@ func (s *Service) SendNotificationAsync(userID uuid.UUID, email string, eventNam
 				zap.String("description", eventDescription),
 				zap.Stringer("user_id", userID),
 				zap.String("email", email),
+				zap.String("tenant_id", tenancy.TenantIDFromContext(notifyCtx)),
 				zap.Error(err))
 		}
 	}()
 }
 
 // buildNotificationFromEvent builds a notification from event name and variables.
-func (s *Service) buildNotificationFromEvent(ctx context.Context, userID uuid.UUID, eventName string, variables map[string]interface{}) (pushnotifications.Notification, error) {
+func (s *Service) buildNotificationFromEvent(ctx context.Context, userID uuid.UUID, eventName string, variables map[string]interface{}) (pushnotifications.Notification, int, error) {
 	configName := strings.ReplaceAll(eventName, "_", " ")
 	templateData, configData, err := s.getTemplateData(ctx, eventName, configName, userID)
 	if err != nil {
-		return pushnotifications.Notification{}, err
+		return pushnotifications.Notification{}, 0, err
 	}
 
 	mergedVars := configs.MergeUserPreferences(templateData.DefaultVariables, nil, variables)
 	s.handleSpecialVariables(mergedVars)
+	s.injectResellerBrandVariables(ctx, mergedVars)
 
 	if err := configs.ValidateVariables(templateData, mergedVars); err != nil {
 		s.log.Warn("Failed to validate template variables",
 			zap.String("event_name", eventName),
 			zap.Stringer("user_id", userID),
 			zap.Error(err))
-		return pushnotifications.Notification{}, Error.Wrap(err)
+		return pushnotifications.Notification{}, 0, Error.Wrap(err)
 	}
 
 	title, body, _, err := configs.NewRenderer().RenderTemplate(templateData, mergedVars)
@@ -456,15 +442,17 @@ func (s *Service) buildNotificationFromEvent(ctx context.Context, userID uuid.UU
 			zap.String("event_name", eventName),
 			zap.Stringer("user_id", userID),
 			zap.Error(err))
-		return pushnotifications.Notification{}, Error.Wrap(err)
+		return pushnotifications.Notification{}, 0, Error.Wrap(err)
 	}
+
+	configLevel := configs.GetConfigLevel(configData)
 
 	return pushnotifications.Notification{
 		Title:    title,
 		Body:     body,
 		Data:     s.buildNotificationData(eventName, mergedVars),
-		Priority: mapLevelToPriority(configs.GetConfigLevel(configData)),
-	}, nil
+		Priority: mapLevelToPriority(configLevel),
+	}, configLevel, nil
 }
 
 // getTemplateData retrieves and parses template data for a notification event.
@@ -517,6 +505,21 @@ func (s *Service) handleSpecialVariables(variables map[string]interface{}) {
 		if tsStr, ok := timestamp.(string); ok && tsStr == "now" {
 			variables["timestamp"] = time.Now().Format(time.RFC3339)
 		}
+	}
+}
+
+// injectResellerBrandVariables adds seller branding vars for tenant-scoped push notifications.
+func (s *Service) injectResellerBrandVariables(ctx context.Context, variables map[string]interface{}) {
+	branding, ok := s.ResellerMailBranding(ctx)
+	if !ok {
+		return
+	}
+	if branding.BrandName != "" {
+		variables["brand_name"] = branding.BrandName
+		variables["product_name"] = branding.BrandName
+	}
+	if branding.CompanyName != "" {
+		variables["company_name"] = branding.CompanyName
 	}
 }
 
@@ -610,6 +613,17 @@ func (s *Service) UploadBackupShare(ctx context.Context, backupID string, share 
 func (s *Service) CreateAccessGrantForProject(ctx context.Context, projectID uuid.UUID, passphrase string,
 	prefix []grant.SharePrefix, permission *grant.Permission, apiKey *macaroon.APIKey) (string, error) {
 
+	if user, err := GetUser(ctx); err == nil && user != nil {
+		member, memberErr := s.isProjectMember(ctx, user.ID, projectID)
+		if memberErr == nil {
+			projectID = member.project.ID
+			prefix, permission, err = s.applyMemberACLToAccessRequest(ctx, projectID, user.ID, prefix, permission)
+			if err != nil {
+				return "", err
+			}
+		}
+	}
+
 	salt, err := s.GetSalt(ctx, projectID)
 	if err != nil {
 		return "", err
@@ -655,6 +669,392 @@ func (s *Service) CreateAccessGrantForProject(ctx context.Context, projectID uui
 
 }
 
+func (s *Service) decryptManagedProjectPassphrase(ctx context.Context, project *Project) ([]byte, error) {
+	if project.PassphraseEnc == nil {
+		return nil, Error.New("project does not have a managed passphrase")
+	}
+	if s.kmsService == nil {
+		return nil, Error.New("kms service is not enabled")
+	}
+	if project.PassphraseEncKeyID == nil {
+		return nil, Error.New("missing passphrase encryption key ID")
+	}
+	passphrase, err := s.kmsService.DecryptPassphrase(ctx, *project.PassphraseEncKeyID, project.PassphraseEnc)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	return passphrase, nil
+}
+
+func (s *Service) getOrCreateGoogleBackupAPIKey(ctx context.Context, projectID uuid.UUID) (*macaroon.APIKey, error) {
+	_, key, err := s.CreateAPIKey(ctx, projectID, googleBackupAPIKeyName, macaroon.APIKeyVersionMin)
+	if err == nil {
+		return key, nil
+	}
+	if !ErrValidation.Has(err) {
+		return nil, Error.Wrap(err)
+	}
+
+	info, err := s.store.APIKeys().GetByNameAndProjectID(ctx, googleBackupAPIKeyName, projectID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	key, err = macaroon.FromParts(info.Head, info.Secret)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	return key, nil
+}
+
+// createStorXAccessGrantForManagedProject builds a full access grant for satellite-managed projects.
+// This is separate from CreateAccessGrantForProject so managed backup flow can honor path_encryption.
+func (s *Service) createStorXAccessGrantForManagedProject(ctx context.Context, project *Project, passphrase string, apiKey *macaroon.APIKey) (string, error) {
+	salt, err := s.GetSalt(ctx, project.ID)
+	if err != nil {
+		return "", err
+	}
+
+	key, err := encryption.DeriveRootKey([]byte(passphrase), salt, "", 8)
+	if err != nil {
+		return "", err
+	}
+
+	encAccess := grant.NewEncryptionAccessWithDefaultKey(key)
+	if project.PathEncryption != nil && !*project.PathEncryption {
+		encAccess.SetDefaultPathCipher(storxnetwork.EncNull)
+	} else {
+		encAccess.SetDefaultPathCipher(storxnetwork.EncAESGCM)
+	}
+	encAccess.LimitTo(apiKey)
+
+	g := &grant.Access{
+		SatelliteAddress: s.SatelliteNodeAddress,
+		APIKey:           apiKey,
+		EncAccess:        encAccess,
+	}
+
+	return g.Serialize()
+}
+
+// CreateAccessGrantForManagedProject creates a full StorX access grant for a satellite-managed project.
+func (s *Service) CreateAccessGrantForManagedProject(ctx context.Context, projectID uuid.UUID) (string, error) {
+	project, err := s.store.Projects().Get(ctx, projectID)
+	if err != nil {
+		return "", Error.Wrap(err)
+	}
+	passphrase, err := s.decryptManagedProjectPassphrase(ctx, project)
+	if err != nil {
+		return "", err
+	}
+	apiKey, err := s.getOrCreateGoogleBackupAPIKey(ctx, projectID)
+	if err != nil {
+		return "", err
+	}
+	return s.createStorXAccessGrantForManagedProject(ctx, project, string(passphrase), apiKey)
+}
+
+// RefreshStorxTokenRequest is the Backup-Tools internal refresh body.
+type RefreshStorxTokenRequest struct {
+	UserID    string
+	ProjectID string
+	Email     string
+}
+
+// RefreshStorxTokenResult is returned to Backup-Tools on successful refresh.
+type RefreshStorxTokenResult struct {
+	AccessGrant string
+	ProjectID   string
+}
+
+func (r RefreshStorxTokenRequest) Validate() error {
+	if strings.TrimSpace(r.UserID) == "" || strings.TrimSpace(r.ProjectID) == "" {
+		return ErrValidation.New("user_id and project_id are required")
+	}
+	if _, err := uuid.FromString(strings.TrimSpace(r.UserID)); err != nil {
+		return ErrValidation.New("invalid user_id")
+	}
+	if _, err := uuid.FromString(strings.TrimSpace(r.ProjectID)); err != nil {
+		return ErrValidation.New("invalid project_id")
+	}
+	if email := strings.TrimSpace(r.Email); email != "" {
+		if _, err := mail.ParseAddress(email); err != nil {
+			return ErrValidation.New("invalid email: %s", email)
+		}
+	}
+	return nil
+}
+
+// RefreshStorxTokenForBackupTools mints a new uplink access grant for Backup-Tools.
+// Caller must authenticate the request (X-API-Key) before invoking this method.
+func (s *Service) RefreshStorxTokenForBackupTools(ctx context.Context, req RefreshStorxTokenRequest) (result RefreshStorxTokenResult, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err := req.Validate(); err != nil {
+		return result, err
+	}
+
+	userID, err := uuid.FromString(strings.TrimSpace(req.UserID))
+	if err != nil {
+		return result, ErrValidation.New("invalid user_id")
+	}
+	projectID, err := uuid.FromString(strings.TrimSpace(req.ProjectID))
+	if err != nil {
+		return result, ErrValidation.New("invalid project_id")
+	}
+
+	member, err := s.isProjectMember(ctx, userID, projectID)
+	if err != nil {
+		if ErrNoMembership.Has(err) {
+			return result, ErrUnauthorized.Wrap(err)
+		}
+		return result, Error.Wrap(err)
+	}
+
+	project := member.project
+	if project.PassphraseEnc == nil {
+		return result, ErrValidation.New("project does not support server-side storx token refresh")
+	}
+
+	user, err := s.store.Users().Get(ctx, userID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return result, ErrUnauthorized.New("user not found")
+		}
+		return result, Error.Wrap(err)
+	}
+	ctx = WithUser(ctx, user)
+
+	accessGrant, err := s.CreateAccessGrantForManagedProject(ctx, project.ID)
+	if err != nil {
+		return result, Error.Wrap(err)
+	}
+	if strings.TrimSpace(accessGrant) == "" {
+		return result, Error.New("failed to mint access grant")
+	}
+
+	if email := strings.TrimSpace(req.Email); email != "" {
+		s.log.Debug("refreshed storx token for backup tools",
+			zap.String("user_id", userID.String()),
+			zap.String("project_id", project.ID.String()),
+			zap.String("email", email),
+		)
+	}
+
+	return RefreshStorxTokenResult{
+		AccessGrant: accessGrant,
+		ProjectID:   project.PublicID.String(),
+	}, nil
+}
+
+// ClearGoogleBackupTokensRequest is the Backup-Tools internal clear-google-token body.
+type ClearGoogleBackupTokensRequest struct {
+	UserID string
+	Email  string
+}
+
+func (r ClearGoogleBackupTokensRequest) Validate() error {
+	if strings.TrimSpace(r.UserID) == "" || strings.TrimSpace(r.Email) == "" {
+		return ErrValidation.New("user_id and email are required")
+	}
+	if _, err := uuid.FromString(strings.TrimSpace(r.UserID)); err != nil {
+		return ErrValidation.New("invalid user_id")
+	}
+	return nil
+}
+
+// ClearGoogleBackupTokensForBackupTools clears stored Google OAuth access and refresh tokens
+// for the user's mailbox credential. Caller must authenticate the request (X-API-Key).
+func (s *Service) ClearGoogleBackupTokensForBackupTools(ctx context.Context, req ClearGoogleBackupTokensRequest) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err := req.Validate(); err != nil {
+		return err
+	}
+
+	userID, err := uuid.FromString(strings.TrimSpace(req.UserID))
+	if err != nil {
+		return ErrValidation.New("invalid user_id")
+	}
+
+	email := strings.TrimSpace(req.Email)
+	credential, err := s.store.BackupCredentials().GetByUserIDProviderEmail(ctx, userID, BackupProviderGoogle, email)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil
+		}
+		return Error.Wrap(err)
+	}
+
+	if err := s.store.BackupCredentials().ClearTokens(ctx, credential.ID); err != nil {
+		return Error.Wrap(err)
+	}
+	return nil
+}
+
+// CreateMailExportJob inserts a QUEUED mail export job. Caller must authenticate (Bearer token).
+func (s *Service) CreateMailExportJob(ctx context.Context, job CreateMailExportJob) (_ *MailExportJob, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if strings.TrimSpace(job.ID) == "" || strings.TrimSpace(job.UserID) == "" ||
+		strings.TrimSpace(job.ProjectID) == "" || strings.TrimSpace(job.Bucket) == "" ||
+		strings.TrimSpace(job.Format) == "" || strings.TrimSpace(job.Mode) == "" {
+		return nil, ErrValidation.New("id, userId, projectId, bucket, format, and mode are required")
+	}
+	created, err := s.store.MailExportJobs().Create(ctx, job)
+	return created, Error.Wrap(err)
+}
+
+// GetMailExportJob returns a mail export job by id. Caller must authenticate (Bearer token).
+func (s *Service) GetMailExportJob(ctx context.Context, id string) (_ *MailExportJob, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if strings.TrimSpace(id) == "" {
+		return nil, ErrValidation.New("id is required")
+	}
+	job, err := s.store.MailExportJobs().Get(ctx, id)
+	if err != nil {
+		if ErrMailExportJobNotFound.Has(err) {
+			return nil, err
+		}
+		return nil, Error.Wrap(err)
+	}
+	return job, nil
+}
+
+// ClaimMailExportJob atomically claims one QUEUED job. Caller must authenticate (Bearer token).
+func (s *Service) ClaimMailExportJob(ctx context.Context) (_ *MailExportJob, err error) {
+	defer mon.Task()(&ctx)(&err)
+	job, err := s.store.MailExportJobs().Claim(ctx)
+	if err != nil {
+		if ErrMailExportJobNotFound.Has(err) {
+			return nil, err
+		}
+		return nil, Error.Wrap(err)
+	}
+	return job, nil
+}
+
+// PatchMailExportJob updates job progress/status. Caller must authenticate (Bearer token).
+func (s *Service) PatchMailExportJob(ctx context.Context, id string, patch PatchMailExportJob) (_ *MailExportJob, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if strings.TrimSpace(id) == "" {
+		return nil, ErrValidation.New("id is required")
+	}
+	job, err := s.store.MailExportJobs().Patch(ctx, id, patch)
+	if err != nil {
+		if ErrMailExportJobNotFound.Has(err) {
+			return nil, err
+		}
+		return nil, Error.Wrap(err)
+	}
+	return job, nil
+}
+
+// CancelMailExportJob cancels a QUEUED/PROCESSING job. Caller must authenticate (Bearer token).
+func (s *Service) CancelMailExportJob(ctx context.Context, id string) (_ *MailExportJob, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if strings.TrimSpace(id) == "" {
+		return nil, ErrValidation.New("id is required")
+	}
+	job, err := s.store.MailExportJobs().Cancel(ctx, id)
+	if err != nil {
+		if ErrMailExportJobNotFound.Has(err) {
+			return nil, err
+		}
+		return nil, Error.Wrap(err)
+	}
+	return job, nil
+}
+
+// ExpireMailExportJobs marks past-expires SUCCEEDED jobs as EXPIRED. Caller must authenticate (Bearer token).
+func (s *Service) ExpireMailExportJobs(ctx context.Context) (_ []MailExportJob, err error) {
+	defer mon.Task()(&ctx)(&err)
+	jobs, err := s.store.MailExportJobs().Expire(ctx)
+	return jobs, Error.Wrap(err)
+}
+
+// RequeueStaleMailExportJobs returns PROCESSING jobs older than olderThan to QUEUED.
+// Caller must authenticate (Bearer token).
+func (s *Service) RequeueStaleMailExportJobs(ctx context.Context, olderThan time.Duration) (count int, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if olderThan <= 0 {
+		return 0, ErrValidation.New("olderThan must be positive")
+	}
+	count, err = s.store.MailExportJobs().RequeueStale(ctx, olderThan)
+	return count, Error.Wrap(err)
+}
+
+// GetAvailableBandwidthForMailExport returns remaining project bandwidth bytes for GMT quota checks.
+// Caller must authenticate (Bearer token). Prefer accessGrant (resolves real project via API key head).
+// projectID is only used when it is a real Satellite UUID (public or internal).
+func (s *Service) GetAvailableBandwidthForMailExport(ctx context.Context, userID, projectID, accessKeyID, accessGrant string) (available int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	_ = userID
+	_ = accessKeyID
+
+	project, err := s.resolveProjectForMailExportQuota(ctx, projectID, accessGrant)
+	if err != nil {
+		return 0, err
+	}
+
+	limits, err := s.getProjectUsageLimits(ctx, project.ID, false)
+	if err != nil {
+		return 0, Error.Wrap(err)
+	}
+
+	return AvailableBandwidthBytes(limits.BandwidthLimit, limits.BandwidthUsed), nil
+}
+
+func (s *Service) resolveProjectForMailExportQuota(ctx context.Context, projectID, accessGrant string) (*Project, error) {
+	accessGrant = strings.TrimSpace(accessGrant)
+	if accessGrant != "" {
+		access, err := grant.ParseAccess(accessGrant)
+		if err != nil {
+			return nil, ErrValidation.New("invalid accessGrant")
+		}
+		apiKeyInfo, err := s.store.APIKeys().GetByHead(ctx, access.APIKey.Head())
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, ErrMailExportJobNotFound.New("api key not found for accessGrant")
+			}
+			return nil, Error.Wrap(err)
+		}
+		project, err := s.GetProjectNoAuth(ctx, apiKeyInfo.ProjectID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, ErrMailExportJobNotFound.New("project not found for accessGrant")
+			}
+			return nil, Error.Wrap(err)
+		}
+		return project, nil
+	}
+
+	projectID = strings.TrimSpace(projectID)
+	if projectID == "" {
+		return nil, ErrValidation.New("accessGrant or projectId is required")
+	}
+	projectUUID, err := uuid.FromString(projectID)
+	if err != nil {
+		// GMT may send opaque identity hashes — those are not Satellite UUIDs.
+		return nil, ErrValidation.New("projectId is not a Satellite UUID; send accessGrant instead")
+	}
+	project, err := s.GetProjectNoAuth(ctx, projectUUID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrMailExportJobNotFound.New("project not found")
+		}
+		return nil, Error.Wrap(err)
+	}
+	return project, nil
+}
+
+// AvailableBandwidthBytes returns remaining bandwidth floored at zero.
+func AvailableBandwidthBytes(limit, used int64) int64 {
+	available := limit - used
+	if available < 0 {
+		return 0
+	}
+	return available
+}
+
 func init() {
 	var c Config
 	cfgstruct.Bind(pflag.NewFlagSet("", pflag.PanicOnError), &c, cfgstruct.UseTestDefaults())
@@ -685,7 +1085,7 @@ type Payments struct {
 }
 
 // NewService returns new instance of Service.
-func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKeys restapikeys.Service, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets buckets.DB, attributions attribution.DB, accounts payments.Accounts, depositWallets payments.DepositWallets, billingDB billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, hubspotMailService *hubspotmails.Service, accountFreezeService *AccountFreezeService, emission *emission.Service, kmsService *kms.Service, valdiService *valdi.Service, ssoService *sso.Service, satelliteAddress string, satelliteNodeAddress string, satelliteName string, whiteLabelConfig TenantWhiteLabelConfig, maxProjectBuckets int, ssoEnabled bool, placements nodeselection.PlacementDefinitions, versioning VersioningConfig, config Config, skuEnabled bool, loginURL string, supportURL string, bucketEventing eventingconfig.Config, entitlementsService *entitlements.Service, entitlementsConfig entitlements.Config, placementProductMap map[int]int32, productConfigs map[int32]payments.ProductUsagePriceModel, minimumChargeAmount int64, minimumChargeDate *time.Time, packagePlans map[string]payments.PackagePlan, backupToolsURL string, socialShareHelper smartcontract.SocialShareHelper) (*Service, error) {
+func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKeys restapikeys.Service, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets buckets.DB, attributions attribution.DB, accounts payments.Accounts, depositWallets payments.DepositWallets, billingDB billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, hubspotMailService *hubspotmails.Service, accountFreezeService *AccountFreezeService, emission *emission.Service, kmsService *kms.Service, valdiService *valdi.Service, ssoService *sso.Service, satelliteAddress string, satelliteNodeAddress string, satelliteName string, maxProjectBuckets int, ssoEnabled bool, placements nodeselection.PlacementDefinitions, versioning VersioningConfig, config Config, skuEnabled bool, loginURL string, supportURL string, bucketEventing eventingconfig.Config, entitlementsService *entitlements.Service, entitlementsConfig entitlements.Config, placementProductMap map[int]int32, productConfigs map[int32]payments.ProductUsagePriceModel, minimumChargeAmount int64, minimumChargeDate *time.Time, packagePlans map[string]payments.PackagePlan, backupToolsURL string, backupToolsAPIKey string, socialShareHelper smartcontract.SocialShareHelper) (*Service, error) {
 	if store == nil {
 		return nil, errs.New("store can't be nil")
 	}
@@ -748,6 +1148,8 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 		return nil, Error.Wrap(err)
 	}
 
+	auditLogService := auditlog.NewService(log.Named("auditlog-service"), store.AuditLogs(), config.AuditLog)
+
 	return &Service{
 		log:                        log,
 		auditLogger:                log.Named("auditlog"),
@@ -779,16 +1181,17 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 		satelliteAddress:           satelliteAddress,
 		SatelliteNodeAddress:       satelliteNodeAddress,
 		satelliteName:              satelliteName,
-		whiteLabelConfig:           whiteLabelConfig,
 		maxProjectBuckets:          maxProjectBuckets,
 		ssoEnabled:                 ssoEnabled,
 		pushNotificationService:    pushNotificationService,
+		auditLogService:            auditLogService,
 		config:                     config,
 		varPartners:                partners,
 		versioningConfig:           versioning,
 		nowFn:                      time.Now,
 		socialShareHelper:          socialShareHelper,
 		backupToolsURL:             backupToolsURL,
+		backupToolsAPIKey:          backupToolsAPIKey,
 	}, nil
 }
 
@@ -916,45 +1319,31 @@ func (s *Service) sendLoginNotificationEmail(ctx context.Context, user *User, ip
 		return
 	}
 
+	// Keep tenant/reseller branding after the HTTP request ends.
+	emailCtx := tenancy.DetachContext(ctx)
+	emailUserID := user.ID
+	emailUserEmail := user.Email
+	emailUserName := user.ShortName
+	if emailUserName == "" {
+		emailUserName = user.FullName
+	}
+	emailIPAddress := ipAddress
+	if emailIPAddress == "" {
+		emailIPAddress = "0.0.0.0"
+	}
+	emailUserAgent := userAgent
+
+	satelliteAddress := s.ExternalAddressForContext(emailCtx)
+	signInLink := satelliteAddress + "login"
+
 	go func() {
-		// Use background context to avoid cancellation when HTTP request completes
-		emailCtx := context.Background()
-		emailUserID := user.ID       // Capture user ID before closure
-		emailUserEmail := user.Email // Capture email before closure
-		emailUserName := user.ShortName
-		if emailUserName == "" {
-			emailUserName = user.FullName
-		}
-		emailIPAddress := ipAddress
-		if emailIPAddress == "" {
-			emailIPAddress = "0.0.0.0"
-		}
-		emailUserAgent := userAgent
-
-		// Parse device and browser information
 		device, browser := parseDeviceInfo(emailUserAgent)
-
-		// Get location from IP
 		location, state := getLocationFromIP(emailIPAddress)
 		locationStr := location
 		if state != "" {
 			locationStr = state + ", " + location
 		}
-
-		// Format login time
 		loginTime := time.Now().Format("January 2, 2006 at 3:04 PM MST")
-
-		// Prepare satellite address
-		satelliteAddress := s.satelliteAddress
-		if satelliteAddress == "" {
-			satelliteAddress = "https://storx.io/"
-		}
-		if !strings.HasSuffix(satelliteAddress, "/") {
-			satelliteAddress += "/"
-		}
-
-		signInLink := satelliteAddress + "login"
-		contactInfoURL := "https://forum.storx.io" // Default contact info URL
 
 		s.mailService.SendRenderedAsync(
 			emailCtx,
@@ -968,26 +1357,19 @@ func (s *Service) sendLoginNotificationEmail(ctx context.Context, user *User, ip
 				IPAddress:      emailIPAddress,
 				LoginTime:      loginTime,
 				SignInLink:     signInLink,
-				ContactInfoURL: contactInfoURL,
+				ContactInfoURL: satelliteAddress,
 			},
 		)
 		s.auditLog(emailCtx, "login notification email sent", &emailUserID, emailUserEmail,
 			zap.String("device", device),
-			zap.String("location", locationStr))
+			zap.String("location", locationStr),
+			zap.String("tenant_id", tenancy.TenantIDFromContext(emailCtx)))
 	}()
 }
 
 // getSatelliteAddress returns the external satellite address for the current tenant context.
-// If a tenant-specific external address is configured, it returns that; otherwise, it falls back
-// to the global satellite address.
 func (s *Service) getSatelliteAddress(ctx context.Context) string {
-	tenantID := tenancy.TenantIDFromContext(ctx)
-	if tenantID != "" {
-		if wlConfig, ok := s.whiteLabelConfig.Value[tenantID]; ok && wlConfig.ExternalAddress != "" {
-			return wlConfig.ExternalAddress
-		}
-	}
-	return s.satelliteAddress
+	return s.ExternalAddressForContext(ctx)
 }
 
 func (s *Service) auditLog(ctx context.Context, operation string, userID *uuid.UUID, email string, extra ...zap.Field) {
@@ -1984,30 +2366,17 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	}
 
 	// verified, unverified, err := s.store.Users().GetByEmailWithUnverified(ctx, user.Email)
-	if !socialsign {
-		verified, unverified, err := s.store.Users().GetByEmailWithUnverified(ctx, user.Email)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-		if verified != nil {
-			mon.Counter("create_user_duplicate_verified").Inc(1) //mon:locked
-			return nil, ErrEmailUsed.New(emailUsedErrMsg)
-		} else if len(unverified) != 0 {
-			mon.Counter("create_user_duplicate_unverified").Inc(1) //mon:locked
-			return nil, ErrEmailUsed.New(emailUsedErrMsg)
-		}
-	} else {
-		verified, unverified, err := s.store.Users().GetByEmailWithUnverified_google(ctx, user.Email)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-		if verified != nil {
-			mon.Counter("create_user_duplicate_verified").Inc(1) //mon:locked
-			return nil, ErrEmailUsed.New(emailUsedErrMsg)
-		} else if len(unverified) != 0 {
-			mon.Counter("create_user_duplicate_unverified").Inc(1) //mon:locked
-			return nil, ErrEmailUsed.New(emailUsedErrMsg)
-		}
+	tenantID := tenantIDFromContext(ctx)
+	verified, unverified, err := s.store.Users().GetByEmailAndTenantWithUnverified(ctx, user.Email, tenantID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	if verified != nil {
+		mon.Counter("create_user_duplicate_verified").Inc(1) //mon:locked
+		return nil, ErrEmailUsed.New(emailUsedErrMsg)
+	} else if len(unverified) != 0 {
+		mon.Counter("create_user_duplicate_unverified").Inc(1) //mon:locked
+		return nil, ErrEmailUsed.New(emailUsedErrMsg)
 	}
 
 	// if err != nil {
@@ -2022,11 +2391,15 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	// 	return nil, ErrEmailUsed.New(emailUsedErrMsg)
 	// }
 
-	hash, err := bcrypt.GenerateFromPassword([]byte(user.Password), s.config.PasswordCost)
-	if !socialsign {
+	var hash []byte
+	if user.Password != "" {
+		hash, err = bcrypt.GenerateFromPassword([]byte(user.Password), s.config.PasswordCost)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
+	} else {
+		// Passwordless social signup: empty bytea satisfies NOT NULL; HasPasswordSet treats len==0 as unset.
+		hash = make([]byte, 0)
 	}
 
 	// patern validation for user details
@@ -2082,9 +2455,8 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		}
 
 		hasTenant := newUser.TenantID != nil && *newUser.TenantID != ""
-		if hasTenant {
-			newUser.ProjectLimit = s.config.UsageLimits.Project.Paid
-		} else if registrationToken != nil {
+		_ = hasTenant // all tenants (main and reseller) use free tier limits
+		if registrationToken != nil {
 			newUser.ProjectLimit = registrationToken.ProjectLimit
 		} else {
 			newUser.ProjectLimit = s.config.UsageLimits.Project.Free
@@ -2095,16 +2467,10 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			newUser.TrialExpiration = &expiration
 		}
 
-		if hasTenant {
-			newUser.ProjectStorageLimit = s.config.UsageLimits.Storage.Paid.Int64()
-			newUser.ProjectBandwidthLimit = s.config.UsageLimits.Bandwidth.Paid.Int64()
-			newUser.ProjectSegmentLimit = s.config.UsageLimits.Segment.Paid
-		} else {
-			// TODO: move the project limits into the registration token.
-			newUser.ProjectStorageLimit = s.config.UsageLimits.Storage.Free.Int64()
-			newUser.ProjectBandwidthLimit = s.config.UsageLimits.Bandwidth.Free.Int64()
-			newUser.ProjectSegmentLimit = s.config.UsageLimits.Segment.Free
-		}
+		// TODO: move the project limits into the registration token.
+		newUser.ProjectStorageLimit = s.config.UsageLimits.Storage.Free.Int64()
+		newUser.ProjectBandwidthLimit = s.config.UsageLimits.Bandwidth.Free.Int64()
+		newUser.ProjectSegmentLimit = s.config.UsageLimits.Segment.Free
 
 		u, err = tx.Users().Insert(ctx,
 			newUser,
@@ -2116,7 +2482,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		// Post-insert duplicate check only for non-social signup. For social signup we skip this
 		// so we don't treat the user we just inserted (Active) as a duplicate and delete them.
 		if !socialsign {
-			verified, unverified, err := tx.Users().GetByEmailWithUnverified(ctx, user.Email)
+			verified, unverified, err := tx.Users().GetByEmailAndTenantWithUnverified(ctx, user.Email, tenantID)
 			if err != nil {
 				return err
 			}
@@ -2920,6 +3286,12 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (response *TokenI
 				user = &botAccount
 				break
 			}
+			if usr.Status == PendingDeletion {
+				pending := usr
+				user = &pending
+				shouldProceed = true
+				break
+			}
 		}
 
 		if !shouldProceed {
@@ -2934,6 +3306,11 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (response *TokenI
 		}
 	}
 
+	pendingDeleteReq, err := s.pendingDeletionLoginRequest(ctx, user)
+	if err != nil {
+		return nil, err
+	}
+
 	if user.LoginLockoutExpiration.After(time.Now()) {
 		mon.Counter("login_locked_out").Inc(1)
 		s.auditLog(ctx, "login: failed account locked out", &user.ID, request.Email)
@@ -2945,6 +3322,19 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (response *TokenI
 		return nil, ErrSsoUserRestricted.New(credentialsErrMsg)
 	}
 
+	if !HasPasswordSet(user.PasswordHash) {
+		err = s.handleLogInLockAccount(ctx, user)
+		if err != nil {
+			return nil, err
+		}
+		mon.Counter("login_invalid_password").Inc(1)
+		s.auditLog(ctx, "login: failed password not set", &user.ID, user.Email)
+		if user.Status == PendingDeletion {
+			return nil, ErrLoginCredentials.New("This account uses Google Sign-In. Sign in with Google to cancel account deletion, then set a password in Settings if you want email login.")
+		}
+		return nil, ErrLoginCredentials.New(googleSignInOnlyLoginErrMsg)
+	}
+
 	err = bcrypt.CompareHashAndPassword(user.PasswordHash, []byte(request.Password))
 	if err != nil {
 		err = s.handleLogInLockAccount(ctx, user)
@@ -2953,7 +3343,7 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (response *TokenI
 		}
 		mon.Counter("login_invalid_password").Inc(1)
 		s.auditLog(ctx, "login: failed password invalid", &user.ID, user.Email)
-		return nil, ErrLoginCredentials.New(credentialsErrMsg)
+		return nil, ErrLoginCredentials.New(invalidPasswordLoginErrMsg)
 	}
 
 	if user.Status == PendingBotVerification || user.Status == LegalHold {
@@ -2990,6 +3380,8 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (response *TokenI
 	if err != nil {
 		return nil, err
 	}
+
+	applyPendingDeletionTokenInfo(response, user, pendingDeleteReq)
 
 	mon.Counter("login_success").Inc(1)
 
@@ -3258,7 +3650,7 @@ func (s *Service) TokenWithoutPassword(ctx context.Context, request AuthWithoutP
 		"ip_address": ipAddress,
 		"location":   location,
 	}
-	s.SendNotificationAsync(user.ID, user.Email, "logged_in_successfully", "account", variables)
+	s.SendNotificationAsyncWithContext(ctx, user.ID, user.Email, "logged_in_successfully", "account", variables)
 
 	// Send email notification for successful login
 	s.sendLoginNotificationEmail(ctx, user, request.IP, request.UserAgent)
@@ -3271,7 +3663,17 @@ func (s *Service) Token_google(ctx context.Context, request AuthUser) (response 
 
 	mon.Counter("login_attempt").Inc(1) //mon:locked
 
-	user, unverified, err := s.store.Users().GetByEmailWithUnverified_google(ctx, request.Email)
+	user, unverified, err := s.store.Users().GetByEmailAndTenantWithUnverified(ctx, request.Email, tenantIDFromContext(ctx))
+
+	if user == nil {
+		for _, usr := range unverified {
+			if usr.Status == PendingDeletion {
+				pending := usr
+				user = &pending
+				break
+			}
+		}
+	}
 
 	if user == nil {
 		if len(unverified) > 0 {
@@ -3282,6 +3684,11 @@ func (s *Service) Token_google(ctx context.Context, request AuthUser) (response 
 			s.auditLog(ctx, "login: failed invalid email", nil, request.Email)
 		}
 		return nil, ErrLoginCredentials.New(credentialsErrMsg)
+	}
+
+	pendingDeleteReq, err := s.pendingDeletionLoginRequest(ctx, user)
+	if err != nil {
+		return nil, err
 	}
 
 	now := time.Now()
@@ -3311,6 +3718,8 @@ func (s *Service) Token_google(ctx context.Context, request AuthUser) (response 
 		return nil, err
 	}
 
+	applyPendingDeletionTokenInfo(response, user, pendingDeleteReq)
+
 	// Send push notification for successful login (Google OAuth)
 	ipAddress := request.IP
 	if ipAddress == "" {
@@ -3321,7 +3730,7 @@ func (s *Service) Token_google(ctx context.Context, request AuthUser) (response 
 		"ip_address": ipAddress,
 		"location":   location,
 	}
-	s.SendNotificationAsync(user.ID, user.Email, "logged_in_successfully", "account", variables)
+	s.SendNotificationAsyncWithContext(ctx, user.ID, user.Email, "logged_in_successfully", "account", variables)
 
 	// Send email notification for successful login
 	s.sendLoginNotificationEmail(ctx, user, request.IP, request.UserAgent)
@@ -3329,6 +3738,65 @@ func (s *Service) Token_google(ctx context.Context, request AuthUser) (response 
 	mon.Counter("login_success").Inc(1) //mon:locked
 
 	return response, nil
+}
+
+// pendingDeletionLoginRequest rejects login when hard delete has started (queue claimed) or grace expired.
+// Orphan PendingDeletion rows (no INIT request) are still allowed so the user can cancel and recover.
+func (s *Service) pendingDeletionLoginRequest(ctx context.Context, user *User) (*UserDeleteRequest, error) {
+	if user == nil || user.Status != PendingDeletion {
+		return nil, nil
+	}
+	deleteReq, err := s.store.Users().GetActiveDeleteRequest(ctx, user.ID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	// Soft-deleted but queue row missing (legacy abbreviated delete / partial failure): allow login to cancel.
+	if deleteReq == nil {
+		return nil, nil
+	}
+	if !deleteReq.DeleteAt.After(s.nowFn()) {
+		return nil, ErrLoginCredentials.New("account deleted / deletion in progress")
+	}
+	return deleteReq, nil
+}
+
+func (s *Service) ensurePendingDeletionLoginAllowed(ctx context.Context, user *User) error {
+	_, err := s.pendingDeletionLoginRequest(ctx, user)
+	return err
+}
+
+func applyPendingDeletionTokenInfo(response *TokenInfo, user *User, deleteReq *UserDeleteRequest) {
+	if response == nil || user == nil || user.Status != PendingDeletion {
+		return
+	}
+	response.AccountPendingDeletion = true
+	if deleteReq == nil {
+		return
+	}
+	deleteAt := deleteReq.DeleteAt.UTC()
+	response.DeleteAt = &deleteAt
+}
+
+// GetAccountPendingDeletionInfo returns pending-deletion scheduling info for the authenticated user.
+func (s *Service) GetAccountPendingDeletionInfo(ctx context.Context) (pending bool, deleteAt *time.Time, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := GetUser(ctx)
+	if err != nil {
+		return false, nil, ErrUnauthorized.Wrap(err)
+	}
+	if user.Status != PendingDeletion {
+		return false, nil, nil
+	}
+	deleteReq, err := s.store.Users().GetActiveDeleteRequest(ctx, user.ID)
+	if err != nil {
+		return false, nil, Error.Wrap(err)
+	}
+	if deleteReq == nil {
+		return true, nil, nil
+	}
+	at := deleteReq.DeleteAt.UTC()
+	return true, &at, nil
 }
 
 // TokenByAPIKey authenticates User by API Key and returns session token.
@@ -3436,17 +3904,20 @@ func (s *Service) GetUserID(ctx context.Context) (id uuid.UUID, err error) {
 	return user.ID, nil
 }
 
-// GetUserByEmailWithUnverified returns Users by email.
+func tenantIDFromContext(ctx context.Context) *string {
+	tenantCtx := tenancy.GetContext(ctx)
+	if tenantCtx == nil || tenantCtx.TenantID == "" {
+		return nil
+	}
+	tenantID := tenantCtx.TenantID
+	return &tenantID
+}
+
+// GetUserByEmailWithUnverified returns Users by email scoped to the request tenant.
 func (s *Service) GetUserByEmailWithUnverified(ctx context.Context, email string) (verified *User, unverified []User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var tenantID *string
-	tenantCtx := tenancy.GetContext(ctx)
-	if tenantCtx != nil {
-		tenantID = &tenantCtx.TenantID
-	}
-
-	verified, unverified, err = s.store.Users().GetByEmailAndTenantWithUnverified(ctx, email, tenantID)
+	verified, unverified, err = s.store.Users().GetByEmailAndTenantWithUnverified(ctx, email, tenantIDFromContext(ctx))
 	if err != nil {
 		return verified, unverified, err
 	}
@@ -3459,13 +3930,17 @@ func (s *Service) GetUserByEmailWithUnverified(ctx context.Context, email string
 }
 
 func (s *Service) GetUserByEmailWithUnverified_google(ctx context.Context, email string) (verified *User, unverified []User, err error) {
+	return s.getUserByEmailWithUnverifiedForTenant(ctx, email)
+}
+
+func (s *Service) getUserByEmailWithUnverifiedForTenant(ctx context.Context, email string) (verified *User, unverified []User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if email == "" {
 		return nil, nil, ErrEmailNotFound.New("email is empty")
 	}
 
-	verified, unverified, err = s.store.Users().GetByEmailWithUnverified_google(ctx, email)
+	verified, unverified, err = s.store.Users().GetByEmailAndTenantWithUnverified(ctx, email, tenantIDFromContext(ctx))
 	if err != nil {
 		return verified, unverified, err
 	}
@@ -4351,17 +4826,217 @@ func (s *Service) getValidatedCompanyName(requestData *SetUpAccountRequest) (nam
 	return name, nil
 }
 
-func (s *Service) DeleteAccountRequest(ctx context.Context) (err error) {
+// verifyAccountDeleteReauth enforces step-up for delete: MFA passcode/recovery OR Google re-auth.
+// The two options are independent — either one is enough. Password is never required.
+// When MFA is disabled and neither factor is provided, the authenticated session alone is enough.
+func (s *Service) verifyAccountDeleteReauth(ctx context.Context, user *User, req AccountDeleteRequest) error {
+	mfaProvided := strings.TrimSpace(req.MFAPasscode) != "" || strings.TrimSpace(req.MFARecoveryCode) != ""
+	googleProvided := strings.TrimSpace(req.GoogleReauthEmail) != ""
+
+	var mfaErr error
+	if mfaProvided {
+		mfaErr = s.logInVerifyMFA(ctx, user, AuthUser{
+			MFAPasscode:     req.MFAPasscode,
+			MFARecoveryCode: req.MFARecoveryCode,
+		})
+		if mfaErr == nil {
+			return nil
+		}
+		if !googleProvided {
+			return mfaErr
+		}
+		// MFA failed; fall through to Google when also provided.
+	}
+
+	if googleProvided {
+		if !strings.EqualFold(strings.TrimSpace(req.GoogleReauthEmail), strings.TrimSpace(user.Email)) {
+			return ErrUnauthorized.New("google account does not match this user")
+		}
+		return nil
+	}
+
+	if user.MFAEnabled {
+		return ErrUnauthorized.New("mfa or google re-authentication required")
+	}
+	return nil
+}
+
+func (s *Service) DeleteAccountRequest(ctx context.Context, req AccountDeleteRequest) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if !s.config.SelfServeAccountDeleteEnabled {
+		return ErrForbidden.New("this feature is disabled")
+	}
 
 	user, err := s.getUserAndAuditLog(ctx, "delete account request")
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	deleteAt := time.Now().AddDate(0, 1, 0)
+	if user.Status == PendingDeletion {
+		return ErrConflict.New("account already pending deletion")
+	}
+	if user.Status != Active {
+		return ErrForbidden.New("account cannot be deleted in current status")
+	}
 
-	err = s.store.Users().CreateDeleteRequest(ctx, user.ID, deleteAt)
+	if user.IsPaid() {
+		return ErrForbidden.New("active_subscription")
+	}
+
+	if err := s.verifyAccountDeleteReauth(ctx, user, req); err != nil {
+		return err
+	}
+
+	deleteAt := s.nowFn().UTC().Add(s.config.AccountDeleteGracePeriod)
+
+	projects, err := s.store.Projects().GetOwnActive(ctx, user.ID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	projectIDs := make([]uuid.UUID, 0, len(projects))
+	for _, p := range projects {
+		projectIDs = append(projectIDs, p.ID)
+	}
+
+	if err := s.NotifyBackupToolsAccountPendingDelete(ctx, user.ID, projectIDs, deleteAt); err != nil {
+		return Error.Wrap(err)
+	}
+
+	if err := s.store.Users().CreateDeleteRequest(ctx, user.ID, deleteAt); err != nil {
+		if resumeErr := s.NotifyBackupToolsAccountResume(ctx, user.ID, projectIDs); resumeErr != nil {
+			s.log.Error("failed to resume Backup-Tools after delete request create failure",
+				zap.String("user_id", user.ID.String()),
+				zap.Error(resumeErr),
+			)
+		}
+		return Error.Wrap(err)
+	}
+
+	status := PendingDeletion
+	if err := s.store.Users().Update(ctx, user.ID, UpdateUserRequest{Status: &status}); err != nil {
+		// Best-effort rollback so we do not leave an INIT queue row / BT tombstone for an Active user.
+		if cancelErr := s.store.Users().CancelDeleteRequest(ctx, user.ID); cancelErr != nil {
+			s.log.Error("failed to roll back delete request after status update failure",
+				zap.String("user_id", user.ID.String()),
+				zap.Error(cancelErr),
+			)
+		}
+		if resumeErr := s.NotifyBackupToolsAccountResume(ctx, user.ID, projectIDs); resumeErr != nil {
+			s.log.Error("failed to resume Backup-Tools after status update failure",
+				zap.String("user_id", user.ID.String()),
+				zap.Error(resumeErr),
+			)
+		}
+		return Error.Wrap(err)
+	}
+
+	if _, err := s.store.WebappSessions().DeleteAllByUserID(ctx, user.ID); err != nil {
+		s.log.Error("failed to revoke sessions after delete request",
+			zap.String("user_id", user.ID.String()),
+			zap.Error(err),
+		)
+	}
+
+	cancelLink := s.getSatelliteAddress(ctx)
+	if !strings.HasSuffix(cancelLink, "/") {
+		cancelLink += "/"
+	}
+	cancelLink += "login"
+
+	if s.mailService != nil {
+		s.mailService.SendRenderedAsync(
+			ctx,
+			[]post.Address{{Address: user.Email, Name: user.FullName}},
+			&AccountDeletionScheduledEmail{
+				DeleteAt:   deleteAt,
+				CancelLink: cancelLink,
+			},
+		)
+	}
+
+	return nil
+}
+
+// CancelAccountDeleteRequest restores an account that is PendingDeletion within the grace period.
+func (s *Service) CancelAccountDeleteRequest(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if !s.config.SelfServeAccountDeleteEnabled {
+		return ErrForbidden.New("this feature is disabled")
+	}
+
+	user, err := s.getUserAndAuditLog(ctx, "cancel account delete request")
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	if user.Status != PendingDeletion {
+		return ErrConflict.New("account is not pending deletion")
+	}
+
+	deleteReq, err := s.store.Users().GetActiveDeleteRequest(ctx, user.ID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	// Hard delete already due or started: do not restore.
+	if deleteReq != nil && !deleteReq.DeleteAt.After(s.nowFn()) {
+		return ErrForbidden.New("account deleted / deletion in progress")
+	}
+
+	// Restore Satellite first so cancel succeeds even if BT is temporarily down; then clear BT tombstone.
+	if deleteReq != nil {
+		if err := s.store.Users().CancelDeleteRequest(ctx, user.ID); err != nil {
+			return Error.Wrap(err)
+		}
+	}
+
+	status := Active
+	if err := s.store.Users().Update(ctx, user.ID, UpdateUserRequest{Status: &status}); err != nil {
+		return Error.Wrap(err)
+	}
+
+	projects, err := s.store.Projects().GetOwnActive(ctx, user.ID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	projectIDs := make([]uuid.UUID, 0, len(projects))
+	for _, p := range projects {
+		projectIDs = append(projectIDs, p.ID)
+	}
+
+	if err := s.NotifyBackupToolsAccountResume(ctx, user.ID, projectIDs); err != nil {
+		return Error.Wrap(err)
+	}
+
+	return nil
+}
+
+// SetPassword sets the initial login password for the authenticated user when none is configured yet.
+func (s *Service) SetPassword(ctx context.Context, newPass string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "set password")
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	if HasPasswordSet(user.PasswordHash) {
+		return ErrPasswordAlreadySet.New("password is already set")
+	}
+
+	if err := ValidateNewPassword(newPass); err != nil {
+		return ErrValidation.Wrap(err)
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(newPass), s.config.PasswordCost)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	err = s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
+		PasswordHash: hash,
+	})
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -4908,6 +5583,9 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 	if user.Status == PendingBotVerification {
 		return nil, ErrBotUser.New(contactSupportErrMsg)
 	}
+	if user.Status == PendingDeletion {
+		return nil, ErrForbidden.New("account pending deletion; cancel deletion before creating projects")
+	}
 
 	currentProjectCount, err := s.checkProjectLimit(ctx, user.ID)
 	if err != nil {
@@ -4927,23 +5605,42 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 		return nil, ErrProjLimit.Wrap(err)
 	}
 
+	projectToInsert := &Project{
+		Description:             projectInfo.Description,
+		Name:                    projectInfo.Name,
+		OwnerID:                 user.ID,
+		UserAgent:               user.UserAgent,
+		StorageLimit:            nil,
+		BandwidthLimit:          nil,
+		SegmentLimit:            &newProjectLimits.Segment,
+		DefaultPlacement:        user.DefaultPlacement,
+		PrevDaysUntilExpiration: 0,
+	}
+	storageLimit := memory.Size(newProjectLimits.Storage)
+	bandwidthLimit := memory.Size(newProjectLimits.Bandwidth)
+	projectToInsert.StorageLimit = &storageLimit
+	projectToInsert.BandwidthLimit = &bandwidthLimit
+
+	if projectInfo.ManagePassphrase {
+		if !s.config.SatelliteManagedEncryptionEnabled || s.kmsService == nil {
+			return nil, ErrSatelliteManagedEncryption
+		}
+		encPassphrase, keyID, err := s.kmsService.GenerateEncryptedPassphrase(ctx)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		projectToInsert.PassphraseEnc = encPassphrase
+		projectToInsert.PassphraseEncKeyID = &keyID
+		pathEncryption := s.config.ManagedEncryption.PathEncryptionEnabled
+		projectToInsert.PathEncryption = &pathEncryption
+	} else {
+		pathEncryption := true
+		projectToInsert.PathEncryption = &pathEncryption
+	}
+
 	var projectID uuid.UUID
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
-		storageLimit := memory.Size(newProjectLimits.Storage)
-		bandwidthLimit := memory.Size(newProjectLimits.Bandwidth)
-		p, err = tx.Projects().Insert(ctx,
-			&Project{
-				Description:             projectInfo.Description,
-				Name:                    projectInfo.Name,
-				OwnerID:                 user.ID,
-				UserAgent:               user.UserAgent,
-				StorageLimit:            &storageLimit,
-				BandwidthLimit:          &bandwidthLimit,
-				SegmentLimit:            &newProjectLimits.Segment,
-				DefaultPlacement:        user.DefaultPlacement,
-				PrevDaysUntilExpiration: 0,
-			},
-		)
+		p, err = tx.Projects().Insert(ctx, projectToInsert)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -5476,7 +6173,7 @@ func (s *Service) MigrateProjectPricing(ctx context.Context, publicProjectID uui
 	if err != nil {
 		return ErrUnauthorized.Wrap(err)
 	}
-	if isMember.membership.Role != RoleAdmin {
+	if !isMember.isOwnerOrAdmin(user.ID) {
 		return ErrForbidden.New("only project owner or admin may migrate project pricing")
 	}
 
@@ -5740,7 +6437,7 @@ func (s *Service) DeleteProjectMembersAndInvitations(ctx context.Context, projec
 		return ErrUnauthorized.Wrap(err)
 	}
 
-	if isMember.membership.Role != RoleAdmin {
+	if !isMember.isOwnerOrAdmin(user.ID) {
 		// We still allow user to remove themselves even with Member role.
 		if len(data.Emails) != 1 || user.Email != data.Emails[0] {
 			return ErrForbidden.New("only project Owner or Admin can remove other members")
@@ -5790,7 +6487,18 @@ func (s *Service) DeleteProjectMembersAndInvitations(ctx context.Context, projec
 				return err
 			}
 
+			if s.config.MemberBucketGrantsEnabled {
+				if err = tx.MemberBucketGrants().DeleteByMember(ctx, projectID, uID); err != nil {
+					return err
+				}
+			}
+
 			if data.RemoveAccesses {
+				err = tx.APIKeys().DeleteAllByProjectIDAndOwnerID(ctx, projectID, uID)
+				if err != nil {
+					return err
+				}
+			} else if s.config.MemberBucketGrantsEnabled {
 				err = tx.APIKeys().DeleteAllByProjectIDAndOwnerID(ctx, projectID, uID)
 				if err != nil {
 					return err
@@ -5798,6 +6506,11 @@ func (s *Service) DeleteProjectMembersAndInvitations(ctx context.Context, projec
 			}
 		}
 		for _, email := range invitedEmails {
+			if s.config.MemberBucketGrantsEnabled {
+				if err = tx.MemberBucketGrants().DeleteByInviteEmail(ctx, projectID, email); err != nil {
+					return err
+				}
+			}
 			err = tx.ProjectInvitations().Delete(ctx, projectID, email)
 			if err != nil {
 				return err
@@ -5840,9 +6553,52 @@ func (s *Service) UpdateProjectMemberRole(ctx context.Context, memberID, project
 		return nil, ErrNoMembership.Wrap(err)
 	}
 
+	if s.config.MemberBucketGrantsEnabled && newRole == RoleAdmin {
+		existing, gErr := s.store.MemberBucketGrants().GetByMember(ctx, pr.ID, memberID)
+		if gErr != nil {
+			return nil, Error.Wrap(gErr)
+		}
+		if len(existing) > 0 {
+			return nil, ErrForbidden.Wrap(errs.New("members with shared vault access cannot be promoted to admin"))
+		}
+	}
+
 	pm, err = s.store.ProjectMembers().UpdateRole(ctx, memberID, pr.ID, newRole)
 	if err != nil {
 		return nil, Error.Wrap(err)
+	}
+
+	if s.config.MemberBucketGrantsEnabled && newRole == RoleMember {
+		existing, gErr := s.store.MemberBucketGrants().GetByMember(ctx, pr.ID, memberID)
+		if gErr != nil {
+			return nil, Error.Wrap(gErr)
+		}
+		if len(existing) == 0 {
+			memberUser, uErr := s.store.Users().Get(ctx, memberID)
+			if uErr != nil {
+				return nil, Error.Wrap(uErr)
+			}
+			names, nErr := s.registeredBucketNames(ctx, pr.ID)
+			if nErr != nil {
+				return nil, nErr
+			}
+			defaults := DefaultInviteGrants(memberUser.Email, names)
+			if vErr := ValidateGrantSet(defaults); vErr != nil {
+				return nil, ErrValidation.Wrap(vErr)
+			}
+			if len(defaults) > 0 {
+				if eErr := s.ensureMemberGrantBucketsExist(ctx, pr.ID, defaults); eErr != nil {
+					return nil, eErr
+				}
+				_, rErr := s.store.MemberBucketGrants().ReplaceForMember(ctx, pr.ID, memberID, memberUser.Email, defaults, nil)
+				if rErr != nil {
+					return nil, Error.Wrap(rErr)
+				}
+			}
+		}
+		if invErr := s.InvalidateMemberProjectCredentials(ctx, pr.ID, memberID); invErr != nil {
+			return nil, Error.Wrap(invErr)
+		}
 	}
 
 	return pm, err
@@ -5879,13 +6635,22 @@ func (s *Service) GetProjectMembersAndInvitations(ctx context.Context, projectID
 		return nil, Error.Wrap(err)
 	}
 
-	_, err = s.isProjectMember(ctx, user.ID, projectID)
+	membership, err := s.isProjectMember(ctx, user.ID, projectID)
 	if err != nil {
 		return nil, ErrUnauthorized.Wrap(err)
 	}
 
 	if cursor.Limit > maxLimit {
 		cursor.Limit = maxLimit
+	}
+
+	ownerID := membership.project.OwnerID
+	cursor.OwnerID = &ownerID
+	if cursor.Now.IsZero() {
+		cursor.Now = s.nowFn()
+	}
+	if cursor.InviteTTL <= 0 {
+		cursor.InviteTTL = s.config.ProjectInvitationExpiration
 	}
 
 	pmp, err = s.store.ProjectMembers().GetPagedWithInvitationsByProjectID(ctx, projectID, cursor)
@@ -7379,16 +8144,30 @@ func (s *Service) authorize(ctx context.Context, userID uuid.UUID, expiration ti
 		return nil, Error.New("authorization failed. no user with id: %s", userID.String())
 	}
 
-	// if user.Status != Active && user.Status != PendingBotVerification {
-	// 	return nil, Error.New("authorization failed. no active user with id: %s", userID.String())
-	// }
-	return WithUser(ctx, user), nil
+	// Active and bot-verification users may use the console normally.
+	// PendingDeletion may authenticate so they can cancel deletion; route access is
+	// further restricted by consoleweb.enforcePendingDeletionAPIAllowlist (Postman-safe).
+	switch user.Status {
+	case Active, PendingBotVerification, PendingDeletion:
+		return WithUser(ctx, user), nil
+	default:
+		return nil, ErrUnauthorized.New("authorization failed. account is not active")
+	}
 }
 
 // isProjectMember is return type of isProjectMember service method.
 type isProjectMember struct {
 	project    *Project
 	membership *ProjectMember
+}
+
+// isOwnerOrAdmin reports whether the user has Owner (projects.owner_id) or Admin role rights.
+// CreateProject inserts the owner membership as RoleMember; elevated rights come from OwnerID.
+func (m isProjectMember) isOwnerOrAdmin(userID uuid.UUID) bool {
+	if m.project != nil && m.project.OwnerID == userID {
+		return true
+	}
+	return m.membership != nil && m.membership.Role == RoleAdmin
 }
 
 // isProjectOwner checks if the user is an owner of a project.
@@ -8207,13 +8986,29 @@ func (s *Service) RespondToProjectInvitation(ctx context.Context, projectID uuid
 	}
 
 	if s.IsProjectInvitationExpired(invite) {
+		if s.config.MemberBucketGrantsEnabled {
+			if delErr := s.store.MemberBucketGrants().DeleteByInviteEmail(ctx, projectID, user.Email); delErr != nil {
+				s.log.Warn("error deleting pending member grants for expired invitation",
+					zap.Error(delErr),
+					zap.String("email", user.Email),
+					zap.String("project_id", projectID.String()),
+				)
+			}
+		}
 		return ErrProjectInviteInvalid.New(projInviteInvalidErrMsg)
 	}
 
 	if response == ProjectInvitationDecline {
-		err = Error.Wrap(s.store.ProjectInvitations().Delete(ctx, projectID, user.Email))
+		err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+			if s.config.MemberBucketGrantsEnabled {
+				if err := tx.MemberBucketGrants().DeleteByInviteEmail(ctx, projectID, user.Email); err != nil {
+					return err
+				}
+			}
+			return tx.ProjectInvitations().Delete(ctx, projectID, user.Email)
+		})
 		if err != nil {
-			return err
+			return Error.Wrap(err)
 		}
 
 		// Send push notification for project invitation declined
@@ -8261,12 +9056,35 @@ func (s *Service) RespondToProjectInvitation(ctx context.Context, projectID uuid
 	}
 
 	// All the new team members have regular Member role, which can be updated by the project owner later.
-	_, err = s.store.ProjectMembers().Insert(ctx, user.ID, projectID, RoleMember)
+	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+		_, err = tx.ProjectMembers().Insert(ctx, user.ID, projectID, RoleMember)
+		if err != nil {
+			return err
+		}
+		if s.config.MemberBucketGrantsEnabled {
+			if err = tx.MemberBucketGrants().BindPendingToMember(ctx, projectID, user.Email, user.ID); err != nil {
+				return err
+			}
+		}
+		return tx.ProjectInvitations().Delete(ctx, projectID, user.Email)
+	})
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	deleteWithLog()
+	if s.config.MemberBucketGrantsEnabled {
+		if invErr := s.InvalidateMemberProjectCredentials(ctx, projectID, user.ID); invErr != nil {
+			s.log.Warn("error invalidating member credentials after invite accept",
+				zap.Error(invErr),
+				zap.String("project_id", projectID.String()),
+				zap.String("member_id", user.ID.String()),
+			)
+		}
+	}
+
+	if skipErr := s.completeInviteeGoogleBackupOnboarding(ctx, user.ID); skipErr != nil {
+		s.log.Warn("error skipping onboarding after invite accept", zap.Error(skipErr))
+	}
 
 	// Send push notification for project invitation accepted
 	variables := map[string]interface{}{
@@ -8294,21 +9112,229 @@ const (
 func (s *Service) ReinviteProjectMembers(ctx context.Context, projectID uuid.UUID, emails []string) (invites []ProjectInvitation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	return s.ReinviteProjectMembersDetailed(ctx, projectID, ReinviteProjectMembersParams{Emails: emails})
+}
+
+// ReinviteProjectMembersParams controls reinvite link expiration (vault grants are left as-is).
+type ReinviteProjectMembersParams struct {
+	Emails []string
+	// LinkExpiration is 24h|3d|7d|30d (empty = 24h default). Extends invite link validity from now.
+	LinkExpiration string
+}
+
+// ReinviteProjectMembersDetailed resends invitations and optionally refreshes link expiry.
+func (s *Service) ReinviteProjectMembersDetailed(ctx context.Context, projectID uuid.UUID, params ReinviteProjectMembersParams) (invites []ProjectInvitation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	user, err := s.getUserAndAuditLog(ctx,
 		"reinvite project members",
 		zap.String("project_id", projectID.String()),
-		zap.Strings("emails", emails),
+		zap.Strings("emails", params.Emails),
 	)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	return s.inviteProjectMembers(ctx, user, projectID, emails, ProjectInvitationResend)
+	linkOpt := params.LinkExpiration
+	if strings.TrimSpace(linkOpt) == "" {
+		linkOpt = DefaultInviteLinkExpiration
+	}
+	return s.inviteProjectMembers(ctx, user, projectID, params.Emails, ProjectInvitationResend, nil, linkOpt, nil)
+}
+
+// UpdatePendingInviteParams updates link expiry and/or pending vault grants for an existing invite.
+type UpdatePendingInviteParams struct {
+	// LinkExpiration is 24h|3d|7d|30d (empty = leave link expiry unchanged).
+	LinkExpiration string
+	// VaultExpiration is 24h|3d|7d|30d (empty with Grants set = vault access does not expire).
+	VaultExpiration string
+	// Grants nil = leave pending grants unchanged; non-nil (including empty) replaces them.
+	Grants *[]MemberBucketGrantInput
+	// Resend also delivers the invitation email with the updated link expiry.
+	Resend bool
+}
+
+// UpdatePendingInviteAccess lets Owner/Admin change invite link expiry and pending vault grants.
+func (s *Service) UpdatePendingInviteAccess(ctx context.Context, projectID uuid.UUID, email string, params UpdatePendingInviteParams) (result *InviteProjectMemberResult, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	email = strings.TrimSpace(email)
+	user, err := s.getUserAndAuditLog(ctx,
+		"update pending invite access",
+		zap.String("project_id", projectID.String()),
+		zap.String("invite_email", email),
+	)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
+	if err != nil {
+		return nil, ErrUnauthorized.Wrap(err)
+	}
+	if !isMember.isOwnerOrAdmin(user.ID) {
+		return nil, ErrForbidden.New("only project Owner or Admin can update pending invites")
+	}
+	projectID = isMember.project.ID
+
+	invite, err := s.store.ProjectInvitations().Get(ctx, projectID, email)
+	if err != nil {
+		if errs.Is(err, sql.ErrNoRows) {
+			return nil, ErrProjectInviteInvalid.New(projInviteDoesntExistErrMsg, email)
+		}
+		return nil, Error.Wrap(err)
+	}
+
+	now := s.nowFn()
+	var linkDur *time.Duration
+	if strings.TrimSpace(params.LinkExpiration) != "" {
+		d, parseErr := ParseInviteExpirationOption(params.LinkExpiration)
+		if parseErr != nil {
+			return nil, parseErr
+		}
+		linkDur = &d
+	}
+
+	var vaultDur *time.Duration
+	var replaceGrants []MemberBucketGrantInput
+	updateGrants := params.Grants != nil
+	if updateGrants {
+		replaceGrants = *params.Grants
+		vaultDur, err = ParseOptionalVaultExpiration(params.VaultExpiration)
+		if err != nil {
+			return nil, err
+		}
+		if err := ValidateGrantSet(replaceGrants); err != nil {
+			return nil, ErrValidation.Wrap(err)
+		}
+		if err := s.ensureMemberGrantBucketsExist(ctx, projectID, replaceGrants); err != nil {
+			return nil, err
+		}
+	} else if strings.TrimSpace(params.VaultExpiration) != "" {
+		// Refresh vault expiry on existing grants without changing vault set.
+		vaultDur, err = ParseOptionalVaultExpiration(params.VaultExpiration)
+		if err != nil {
+			return nil, err
+		}
+		existing, gErr := s.store.MemberBucketGrants().GetByInviteEmail(ctx, projectID, email)
+		if gErr != nil {
+			return nil, Error.Wrap(gErr)
+		}
+		replaceGrants = make([]MemberBucketGrantInput, 0, len(existing))
+		for _, g := range existing {
+			replaceGrants = append(replaceGrants, MemberBucketGrantInput{
+				Bucket:        g.Bucket,
+				Prefix:        g.Prefix,
+				AllowList:     g.AllowList,
+				AllowDownload: g.AllowDownload,
+			})
+		}
+		updateGrants = true
+	}
+
+	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+		expiresAt := invite.ExpiresAt
+		if linkDur != nil {
+			t := now.Add(*linkDur)
+			expiresAt = &t
+		}
+		updated, upErr := tx.ProjectInvitations().Upsert(ctx, &ProjectInvitation{
+			ProjectID: projectID,
+			Email:     email,
+			InviterID: &user.ID,
+			ExpiresAt: expiresAt,
+		})
+		if upErr != nil {
+			return upErr
+		}
+		invite = updated
+
+		if updateGrants && s.config.MemberBucketGrantsEnabled {
+			vaultExpiresAt := VaultExpiresAtPtr(now, vaultDur)
+			_, rErr := tx.MemberBucketGrants().ReplacePendingForInviteEmail(ctx, projectID, email, replaceGrants, vaultExpiresAt)
+			return rErr
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	if params.Resend {
+		linkOpt := params.LinkExpiration
+		if strings.TrimSpace(linkOpt) == "" {
+			linkOpt = "keep"
+		}
+		_, err = s.inviteProjectMembers(ctx, user, projectID, []string{email}, ProjectInvitationResend, nil, linkOpt, nil)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		invite, err = s.store.ProjectInvitations().Get(ctx, projectID, email)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+	}
+
+	grants, err := s.store.MemberBucketGrants().GetByInviteEmail(ctx, projectID, email)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	vaults, vaultExpiresAt := SummarizeVaultGrants(grants)
+
+	inviteLink, linkErr := s.buildInviteLink(ctx, email, *invite)
+	if linkErr != nil {
+		return nil, Error.Wrap(linkErr)
+	}
+
+	return &InviteProjectMemberResult{
+		Invite:         invite,
+		Email:          email,
+		InviteLink:     inviteLink,
+		LinkExpiresAt:  s.inviteTokenExpiresAt(invite),
+		VaultExpiresAt: vaultExpiresAt,
+		Vaults:         vaults,
+		Permission:     "read_only",
+	}, nil
 }
 
 // InviteNewProjectMember invites a user by email to the project specified by the given ID,
 // which may be its public or internal ID.
-func (s *Service) InviteNewProjectMember(ctx context.Context, projectID uuid.UUID, email string) (invite *ProjectInvitation, err error) {
+// grants may be nil (defaults from ACL registry), empty (no folder access), or a custom set.
+func (s *Service) InviteNewProjectMember(ctx context.Context, projectID uuid.UUID, email string, grants []MemberBucketGrantInput) (invite *ProjectInvitation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	result, err := s.InviteNewProjectMemberDetailed(ctx, projectID, email, InviteProjectMemberParams{
+		Grants: grants,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result.Invite, nil
+}
+
+// InviteProjectMemberParams controls invite link and vault expiration for Grant Access invites.
+type InviteProjectMemberParams struct {
+	Grants []MemberBucketGrantInput
+	// LinkExpiration is 24h|3d|7d|30d (empty = 24h default).
+	LinkExpiration string
+	// VaultExpiration is 24h|3d|7d|30d (empty = vault access does not expire).
+	VaultExpiration string
+}
+
+// InviteProjectMemberResult is returned to the Grant Access / invite API.
+type InviteProjectMemberResult struct {
+	Invite         *ProjectInvitation `json:"-"`
+	Email          string             `json:"email"`
+	InviteLink     string             `json:"invite_link"`
+	LinkExpiresAt  time.Time          `json:"link_expires_at"`
+	VaultExpiresAt *time.Time         `json:"vault_expires_at,omitempty"`
+	Vaults         []string           `json:"vaults"`
+	// Permission is always read_only for now (list + download). Write/delete scopes come later.
+	Permission string `json:"permission"`
+}
+
+// InviteNewProjectMemberDetailed invites a member and returns link + expiry metadata for the UI.
+func (s *Service) InviteNewProjectMemberDetailed(ctx context.Context, projectID uuid.UUID, email string, params InviteProjectMemberParams) (result *InviteProjectMemberResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	user, err := s.getUserAndAuditLog(ctx,
@@ -8320,17 +9346,142 @@ func (s *Service) InviteNewProjectMember(ctx context.Context, projectID uuid.UUI
 		return nil, Error.Wrap(err)
 	}
 
-	invites, err := s.inviteProjectMembers(ctx, user, projectID, []string{email}, ProjectInvitationCreate)
+	linkOpt := params.LinkExpiration
+	if strings.TrimSpace(linkOpt) == "" {
+		linkOpt = DefaultInviteLinkExpiration
+	}
+	if _, err := ParseInviteExpirationOption(linkOpt); err != nil {
+		return nil, err
+	}
+	vaultDur, err := ParseOptionalVaultExpiration(params.VaultExpiration)
+	if err != nil {
+		return nil, err
+	}
+
+	invites, err := s.inviteProjectMembers(ctx, user, projectID, []string{email}, ProjectInvitationCreate, params.Grants, linkOpt, vaultDur)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	return &invites[0], nil
+	invite := invites[0]
+	linkExpiresAt := invite.CreatedAt.Add(s.config.ProjectInvitationExpiration)
+	if invite.ExpiresAt != nil {
+		linkExpiresAt = *invite.ExpiresAt
+	}
+
+	inviteLink, linkErr := s.buildInviteLink(ctx, email, invite)
+	if linkErr != nil {
+		return nil, Error.Wrap(linkErr)
+	}
+
+	vaults := make([]string, 0, len(params.Grants))
+	seen := make(map[string]struct{}, len(params.Grants))
+	for _, g := range params.Grants {
+		b := strings.TrimSpace(g.Bucket)
+		if b == "" {
+			continue
+		}
+		if _, ok := seen[b]; ok {
+			continue
+		}
+		seen[b] = struct{}{}
+		vaults = append(vaults, b)
+	}
+
+	var vaultExpiresAt *time.Time
+	if vaultDur != nil {
+		t := invite.CreatedAt.Add(*vaultDur)
+		vaultExpiresAt = &t
+	}
+
+	return &InviteProjectMemberResult{
+		Invite:         &invite,
+		Email:          email,
+		InviteLink:     inviteLink,
+		LinkExpiresAt:  linkExpiresAt,
+		VaultExpiresAt: vaultExpiresAt,
+		Vaults:         vaults,
+		Permission:     "read_only",
+	}, nil
+}
+
+// ProjectMemberInviteRequest is one entry for bulk invite (same idea as single invite).
+// Vaults are bucket names (e.g. gmail, google-drive). Server builds List+Download on `{email}/`.
+// Vaults == nil → ACL-registry defaults; non-nil (including empty) uses those vault names only.
+type ProjectMemberInviteRequest struct {
+	Email  string
+	Vaults *[]string
+}
+
+// ProjectMemberInviteResult is the per-email outcome of a bulk invite.
+type ProjectMemberInviteResult struct {
+	Email string `json:"email"`
+	OK    bool   `json:"ok"`
+	Error string `json:"error,omitempty"`
+}
+
+// InviteNewProjectMembers invites multiple users one-by-one, same as single invite with vault selection.
+// Auth/authorization failures before the loop return an error; per-email invite failures
+// are reported in results without aborting the rest of the batch.
+func (s *Service) InviteNewProjectMembers(ctx context.Context, projectID uuid.UUID, requests []ProjectMemberInviteRequest) (results []ProjectMemberInviteResult, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err := ValidateBulkInviteCount(len(requests)); err != nil {
+		return nil, err
+	}
+
+	user, err := s.getUserAndAuditLog(ctx,
+		"invite project members",
+		zap.String("project_id", projectID.String()),
+		zap.Int("invite_count", len(requests)),
+	)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	// Fail fast on authz so UI does not get a batch of identical unauthorized errors.
+	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
+	if err != nil {
+		return nil, ErrUnauthorized.Wrap(err)
+	}
+	if !isMember.isOwnerOrAdmin(user.ID) {
+		return nil, ErrForbidden.New("only project Owner or Admin can invite other members")
+	}
+
+	results = make([]ProjectMemberInviteResult, 0, len(requests))
+	for _, req := range requests {
+		email := strings.TrimSpace(req.Email)
+		result := ProjectMemberInviteResult{Email: email}
+		if email == "" {
+			result.Error = "email is required"
+			results = append(results, result)
+			continue
+		}
+
+		var grants []MemberBucketGrantInput
+		if req.Vaults != nil {
+			// Explicit vault list (same as single-invite selected icons) → List+Download grants.
+			grants = GrantsFromVaults(email, *req.Vaults)
+		}
+		// Vaults == nil → pass nil grants → DefaultInviteGrants from ACL registry
+
+		_, inviteErr := s.inviteProjectMembers(ctx, user, projectID, []string{email}, ProjectInvitationCreate, grants, DefaultInviteLinkExpiration, nil)
+		if inviteErr != nil {
+			result.Error = inviteErr.Error()
+			results = append(results, result)
+			continue
+		}
+		result.OK = true
+		results = append(results, result)
+	}
+	return results, nil
 }
 
 // inviteProjectMembers invites users by email to the project specified by the given ID,
 // which may be its public or internal ID.
-func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projectID uuid.UUID, emails []string, opt ProjectInvitationOption) (invites []ProjectInvitation, err error) {
+// pendingGrants is only used for ProjectInvitationCreate with a single email (nil = defaults).
+// linkExpiration is 24h|3d|7d|30d; vaultDuration nil means vault grants do not expire.
+func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projectID uuid.UUID, emails []string, opt ProjectInvitationOption, pendingGrants []MemberBucketGrantInput, linkExpiration string, vaultDuration *time.Duration) (invites []ProjectInvitation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	isMember, err := s.isProjectMember(ctx, sender.ID, projectID)
@@ -8338,11 +9489,21 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 		return nil, ErrUnauthorized.Wrap(err)
 	}
 
-	if isMember.membership.Role != RoleAdmin {
+	if !isMember.isOwnerOrAdmin(sender.ID) {
 		return nil, ErrForbidden.New("only project Owner or Admin can invite other members")
 	}
 
 	projectID = isMember.project.ID
+
+	keepLinkExpiry := opt == ProjectInvitationResend && strings.EqualFold(strings.TrimSpace(linkExpiration), "keep")
+	var linkDur time.Duration
+	if !keepLinkExpiry {
+		var parseErr error
+		linkDur, parseErr = ParseInviteExpirationOption(linkExpiration)
+		if parseErr != nil {
+			return nil, parseErr
+		}
+	}
 
 	var users []*User
 	var newUserEmails []string
@@ -8354,13 +9515,12 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 		}
 
 		if invite != nil {
-			// If we should only insert new records, a preexisting record is an issue
+			// Create must not duplicate an existing invite row.
 			if opt == ProjectInvitationCreate {
 				return nil, ErrAlreadyInvited.New(projInviteExistsErrMsg, email)
 			}
-			if !s.IsProjectInvitationExpired(invite) {
-				return nil, ErrAlreadyInvited.New(activeProjInviteExistsErrMsg, email)
-			}
+			// Resend is allowed for active AND expired invites so the UI "Resend"
+			// button can re-deliver mail when the first send failed or was missed.
 		} else if opt == ProjectInvitationResend {
 			// If we should only update existing records, an absence of records is an issue
 			return nil, ErrProjectInviteInvalid.New(projInviteDoesntExistErrMsg, email)
@@ -8393,25 +9553,81 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 			unverifiedUsers = append(unverifiedUsers, oldest)
 		} else if s.config.UnregisteredInviteEmailsEnabled {
 			newUserEmails = append(newUserEmails, email)
+		} else {
+			// No local account and unregistered invites disabled → do not create a
+			// dangling invite row with no email delivery path.
+			return nil, ErrValidation.New("cannot invite unregistered email %s", email)
 		}
 	}
 
+	// Validate grant buckets exist before opening a console DB transaction.
+	// HasBucket must not run inside WithTx (panics: using DB when inside of a transaction).
+	if opt == ProjectInvitationCreate && s.config.MemberBucketGrantsEnabled {
+		for _, email := range emails {
+			var grantsForEmail []MemberBucketGrantInput
+			if len(emails) == 1 {
+				grantsForEmail = pendingGrants
+			}
+			if grantsForEmail == nil {
+				names, nErr := s.registeredBucketNames(ctx, projectID)
+				if nErr != nil {
+					return nil, nErr
+				}
+				grantsForEmail = DefaultInviteGrants(email, names)
+			}
+			// Copy so ValidateGrantSet normalization does not mutate caller input.
+			grantsCopy := append([]MemberBucketGrantInput(nil), grantsForEmail...)
+			if vErr := ValidateGrantSet(grantsCopy); vErr != nil {
+				return nil, ErrValidation.Wrap(vErr)
+			}
+			if eErr := s.ensureMemberGrantBucketsExist(ctx, projectID, grantsCopy); eErr != nil {
+				return nil, eErr
+			}
+		}
+	}
+
+	now := time.Now()
+	// Keys are normalized (upper) so request casing vs users.email cannot miss the token.
 	inviteTokens := make(map[string]string)
 	// add project invites in transaction scope
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
 		for _, email := range emails {
+			expiresAt := now.Add(linkDur)
+			if keepLinkExpiry {
+				existing, getErr := tx.ProjectInvitations().Get(ctx, projectID, email)
+				if getErr != nil {
+					return getErr
+				}
+				if existing.ExpiresAt != nil {
+					expiresAt = *existing.ExpiresAt
+				} else {
+					expiresAt = existing.CreatedAt.Add(s.config.ProjectInvitationExpiration)
+				}
+			}
+			vaultExpiresAt := VaultExpiresAtPtr(now, vaultDuration)
 			invite, err := tx.ProjectInvitations().Upsert(ctx, &ProjectInvitation{
 				ProjectID: projectID,
 				Email:     email,
 				InviterID: &sender.ID,
+				ExpiresAt: &expiresAt,
 			})
 			if err != nil {
 				return err
 			}
 
+			if opt == ProjectInvitationCreate {
+				var grantsForEmail []MemberBucketGrantInput
+				if len(emails) == 1 {
+					grantsForEmail = pendingGrants
+				}
+				if err = s.createPendingMemberGrants(ctx, tx, projectID, email, grantsForEmail, vaultExpiresAt); err != nil {
+					return err
+				}
+			}
+
 			var isUnverified bool
 			for _, u := range unverifiedUsers {
-				if email == u.Email {
+				if strings.EqualFold(email, u.Email) {
 					isUnverified = true
 					invites = append(invites, *invite)
 					break
@@ -8421,11 +9637,15 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 				continue
 			}
 
-			token, err := s.CreateInviteToken(ctx, isMember.project.PublicID, email, invite.CreatedAt)
+			tokenExpires := expiresAt
+			if invite.ExpiresAt != nil {
+				tokenExpires = *invite.ExpiresAt
+			}
+			token, err := s.CreateInviteToken(ctx, isMember.project.PublicID, email, tokenExpires)
 			if err != nil {
 				return err
 			}
-			inviteTokens[email] = token
+			inviteTokens[strings.ToUpper(email)] = token
 			invites = append(invites, *invite)
 		}
 		return nil
@@ -8440,7 +9660,15 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 	}
 
 	for _, invited := range users {
-		inviteLink := fmt.Sprintf("%s?invite=%s", baseLink, inviteTokens[invited.Email])
+		token := inviteTokens[strings.ToUpper(invited.Email)]
+		if token == "" {
+			s.log.Error("missing invite token for existing user; skipping invite email",
+				zap.String("email", invited.Email),
+				zap.String("project_id", projectID.String()),
+			)
+			continue
+		}
+		inviteLink := fmt.Sprintf("%s?invite=%s", baseLink, token)
 
 		userName := invited.ShortName
 		if userName == "" {
@@ -8452,11 +9680,21 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 			&ExistingUserProjectInvitationEmail{
 				InviterEmail: sender.Email,
 				SignInLink:   inviteLink,
+				FullName:     userName,
+				Email:        invited.Email,
 			},
 		)
 	}
 	for _, email := range newUserEmails {
-		inviteLink := fmt.Sprintf("%s?invite=%s", baseLink, inviteTokens[email])
+		token := inviteTokens[strings.ToUpper(email)]
+		if token == "" {
+			s.log.Error("missing invite token for new user; skipping invite email",
+				zap.String("email", email),
+				zap.String("project_id", projectID.String()),
+			)
+			continue
+		}
+		inviteLink := fmt.Sprintf("%s?invite=%s", baseLink, token)
 		s.mailService.SendRenderedAsync(
 			ctx,
 			[]post.Address{{Address: email}},
@@ -8495,7 +9733,47 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 
 // IsProjectInvitationExpired returns whether the project member invitation has expired.
 func (s *Service) IsProjectInvitationExpired(invite *ProjectInvitation) bool {
+	if invite == nil {
+		return true
+	}
+	if invite.ExpiresAt != nil {
+		return time.Now().After(*invite.ExpiresAt)
+	}
 	return time.Now().After(invite.CreatedAt.Add(s.config.ProjectInvitationExpiration))
+}
+
+// inviteTokenExpiresAt returns the absolute expiry used for invite tokens.
+func (s *Service) inviteTokenExpiresAt(invite *ProjectInvitation) time.Time {
+	if invite != nil && invite.ExpiresAt != nil {
+		return *invite.ExpiresAt
+	}
+	created := time.Now()
+	if invite != nil {
+		created = invite.CreatedAt
+	}
+	return created.Add(s.config.ProjectInvitationExpiration)
+}
+
+// InviteLinkExpiresAt returns when the invite link stops being valid.
+func (s *Service) InviteLinkExpiresAt(invite *ProjectInvitation) time.Time {
+	return s.inviteTokenExpiresAt(invite)
+}
+
+// buildInviteLink creates the /invited?invite=… URL for an existing invitation row.
+func (s *Service) buildInviteLink(ctx context.Context, email string, invite ProjectInvitation) (string, error) {
+	project, err := s.store.Projects().Get(ctx, invite.ProjectID)
+	if err != nil {
+		return "", err
+	}
+	token, err := s.CreateInviteToken(ctx, project.PublicID, email, s.inviteTokenExpiresAt(&invite))
+	if err != nil {
+		return "", err
+	}
+	link, err := url.JoinPath(s.getSatelliteAddress(ctx), "/invited")
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s?invite=%s", link, token), nil
 }
 
 // GetInvitesByEmail returns project invites by email.
@@ -8571,7 +9849,7 @@ func (s *Service) GetInviteLink(ctx context.Context, publicProjectID uuid.UUID, 
 		return "", ErrUnauthorized.Wrap(err)
 	}
 
-	if isMember.membership.Role != RoleAdmin {
+	if !isMember.isOwnerOrAdmin(user.ID) {
 		return "", ErrForbidden.New("only project Owner or Admin can get an invite link")
 	}
 
@@ -8583,7 +9861,7 @@ func (s *Service) GetInviteLink(ctx context.Context, publicProjectID uuid.UUID, 
 		return "", ErrProjectInviteInvalid.New(projInviteInvalidErrMsg)
 	}
 
-	token, err := s.CreateInviteToken(ctx, publicProjectID, email, invite.CreatedAt)
+	token, err := s.CreateInviteToken(ctx, publicProjectID, email, s.inviteTokenExpiresAt(invite))
 	if err != nil {
 		return "", Error.Wrap(err)
 	}
@@ -8597,14 +9875,15 @@ func (s *Service) GetInviteLink(ctx context.Context, publicProjectID uuid.UUID, 
 }
 
 // CreateInviteToken creates a token for project invite links.
+// expiresAt is the absolute time when the invite token becomes invalid.
 // Internal use only, since it doesn't check if the project is valid or the user is a member of the project.
-func (s *Service) CreateInviteToken(ctx context.Context, publicProjectID uuid.UUID, email string, inviteDate time.Time) (_ string, err error) {
+func (s *Service) CreateInviteToken(ctx context.Context, publicProjectID uuid.UUID, email string, expiresAt time.Time) (_ string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	linkClaims := consoleauth.Claims{
 		ID:         publicProjectID,
 		Email:      email,
-		Expiration: inviteDate.Add(s.config.ProjectInvitationExpiration),
+		Expiration: expiresAt,
 	}
 
 	claimJson, err := linkClaims.JSON()
@@ -9312,13 +10591,22 @@ type BaseCard struct {
 	Value2Label string      `json:"value_2_label,omitempty"`
 }
 
+// DashboardCardsResponse holds dashboard card shells from config plus runtime values.
 type DashboardCardsResponse struct {
+	// Legacy dashboard cards (previous UI).
 	AutoSync BaseCard `json:"autoSync"`
 	Vault    BaseCard `json:"vault"`
 	Access   BaseCard `json:"access"`
 	Billing  BaseCard `json:"billing"`
+
+	// Protected Services overview (updated UI — GET /api/v0/dashboard/stats).
+	ProtectedUsers BaseCard `json:"protectedUsers"`
+	StorageQuota   BaseCard `json:"storageQuota"`
+	BandwidthQuota BaseCard `json:"bandwidthQuota"`
+	LastSnapshot   BaseCard `json:"lastSnapshot"`
 }
 
+// AutoSyncStats is the legacy Backup-Tools GET /autosync/stats payload (unchanged).
 type AutoSyncStats struct {
 	ActiveSyncs   int    `json:"active_syncs"`
 	FailedSyncs   int    `json:"failed_syncs"`
@@ -9326,42 +10614,138 @@ type AutoSyncStats struct {
 	Status        string `json:"status"`
 }
 
+// ProtectedServicesStats is the updated Backup-Tools GET /autosync/stats payload.
+type ProtectedServicesStats struct {
+	ConnectedAccounts           int        `json:"connected_accounts"`
+	ConnectedAccountsGrowthWeek int        `json:"connected_accounts_growth_this_week"`
+	LastSyncAt                  *time.Time `json:"last_sync_at,omitempty"`
+	LastSyncItemsSynced         int64      `json:"last_sync_items_synced"`
+}
+
 func (s *Service) GetDashboardStats(ctx context.Context, userID uuid.UUID, tokenGetter func() (string, error)) ([]interface{}, error) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.store.Users().Get(ctx, userID)
+	user, err := GetUser(ctx)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-
-	projects, err := s.GetUsersProjects(ctx)
-	if err != nil {
-		return nil, Error.Wrap(err)
+	if user.ID != userID {
+		return nil, ErrUnauthorized.New("user mismatch")
 	}
 
-	response := s.loadDashboardCardConfig(ctx)
+	var (
+		response       DashboardCardsResponse
+		protectedStats *ProtectedServicesStats
+		usageLimits    *ProjectUsageLimits
+	)
 
-	s.enrichBillingCard(ctx, &response.Billing, user)
+	g, gctx := errgroup.WithContext(ctx)
 
-	if len(projects) > 0 {
-		projectID := projects[0].ID
-		s.enrichVaultCard(ctx, &response.Vault, projectID)
-		s.enrichAccessCard(ctx, &response.Access, projectID)
-	}
+	g.Go(func() error {
+		response = s.loadDashboardCardConfig(gctx)
+		return nil
+	})
 
 	if s.backupToolsURL != "" && tokenGetter != nil {
-		s.enrichAutoSyncCard(ctx, &response.AutoSync, tokenGetter)
+		g.Go(func() error {
+			stats, fetchErr := s.fetchProtectedServicesStats(gctx, tokenGetter)
+			if fetchErr != nil {
+				s.log.Warn("failed to fetch Protected Services stats from Backup-Tools", zap.Error(fetchErr))
+				return nil
+			}
+			protectedStats = stats
+			return nil
+		})
 	}
 
+	g.Go(func() error {
+		projects, projErr := s.store.Projects().GetByUserID(gctx, user.ID)
+		if projErr != nil {
+			return projErr
+		}
+		if len(projects) == 0 {
+			return nil
+		}
+
+		limits, limitsErr := s.getDashboardUsageLimits(gctx, user.ID, projects[0].ID)
+		if limitsErr != nil {
+			return limitsErr
+		}
+		usageLimits = limits
+		return nil
+	})
+
+	if err := g.Wait(); err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	s.enrichBillingCard(ctx, &response.Billing, user)
+	s.enrichProtectedUsersCard(&response.ProtectedUsers, protectedStats)
+	s.enrichLastSnapshotCard(&response.LastSnapshot, protectedStats)
+	if usageLimits != nil {
+		s.enrichStorageQuotaCardFromLimits(&response.StorageQuota, usageLimits)
+		s.enrichBandwidthQuotaCardFromLimits(&response.BandwidthQuota, usageLimits)
+	}
+
+	// Legacy enrichment (previous dashboard: autoSync active/failed, vault count, access grants).
+	// if hasProject {
+	// 	s.enrichVaultCard(ctx, &response.Vault, projectID)
+	// 	s.enrichAccessCard(ctx, &response.Access, projectID)
+	// }
+	// if s.backupToolsURL != "" && tokenGetter != nil {
+	// 	s.enrichAutoSyncCard(ctx, &response.AutoSync, tokenGetter)
+	// }
+
 	result := []interface{}{
-		response.AutoSync,
-		response.Vault,
-		response.Access,
+		response.ProtectedUsers,
+		response.StorageQuota,
+		response.BandwidthQuota,
+		response.LastSnapshot,
 		response.Billing,
+		// Legacy card order (commented out):
+		// response.AutoSync,
+		// response.Vault,
+		// response.Access,
 	}
 
 	return result, nil
+}
+
+// getDashboardUsageLimits returns quota fields for dashboard cards without object/segment or bucket counts.
+func (s *Service) getDashboardUsageLimits(ctx context.Context, userID, projectID uuid.UUID) (*ProjectUsageLimits, error) {
+	member, err := s.isProjectMember(ctx, userID, projectID)
+	if err != nil {
+		return nil, ErrUnauthorized.Wrap(err)
+	}
+
+	projectID = member.project.ID
+
+	limits, err := s.projectUsage.GetProjectLimits(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	storageUsed, segmentUsed, err := s.projectUsage.GetProjectStorageAndSegmentUsage(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	bandwidthUsed, err := s.projectUsage.GetProjectBandwidthTotals(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ProjectUsageLimits{
+		StorageLimit:          *limits.Usage,
+		UserSetStorageLimit:   limits.UserSetUsage,
+		BandwidthLimit:        *limits.Bandwidth,
+		UserSetBandwidthLimit: limits.UserSetBandwidth,
+		StorageUsed:           storageUsed,
+		BandwidthUsed:         bandwidthUsed,
+		SegmentLimit:          *limits.Segments,
+		SegmentUsed:           segmentUsed,
+	}, nil
 }
 
 func (s *Service) loadDashboardCardConfig(ctx context.Context) DashboardCardsResponse {
@@ -9380,6 +10764,20 @@ func (s *Service) loadDashboardCardConfig(ctx context.Context) DashboardCardsRes
 
 	if err := json.Unmarshal(configJSON, &response); err != nil {
 		return response
+	}
+
+	// When DB still stores legacy keys only, reuse those card shells for the new overview.
+	if response.ProtectedUsers.Title == "" && response.AutoSync.Title != "" {
+		response.ProtectedUsers = response.AutoSync
+	}
+	if response.StorageQuota.Title == "" && response.Vault.Title != "" {
+		response.StorageQuota = response.Vault
+	}
+	if response.BandwidthQuota.Title == "" && response.Access.Title != "" {
+		response.BandwidthQuota = response.Access
+	}
+	if response.LastSnapshot.Title == "" && response.AutoSync.Title != "" {
+		response.LastSnapshot = response.AutoSync
 	}
 
 	return response
@@ -9511,77 +10909,490 @@ func (s *Service) enrichVaultCard(ctx context.Context, card *BaseCard, projectID
 	card.Value2 = formatBytes(bandwidthBytes)
 }
 
-func (s *Service) enrichAccessCard(ctx context.Context, card *BaseCard, projectID uuid.UUID) {
-	card.Status = nil
+// func (s *Service) enrichAccessCard(ctx context.Context, card *BaseCard, projectID uuid.UUID) {
+// 	card.Status = nil
 
-	var accessCount int
-	if apiKeys, err := s.store.APIKeys().GetPagedByProjectID(ctx, projectID, APIKeyCursor{
-		Limit: 1, Page: 1, Order: CreationDate, OrderDirection: Descending,
-	}); err == nil {
-		accessCount = int(apiKeys.TotalCount)
-	}
+// 	var accessCount int
+// 	if apiKeys, err := s.store.APIKeys().GetPagedByProjectID(ctx, projectID, APIKeyCursor{
+// 		Limit: 1, Page: 1, Order: CreationDate, OrderDirection: Descending,
+// 	}); err == nil {
+// 		accessCount = int(apiKeys.TotalCount)
+// 	}
 
-	card.Value1 = accessCount
-	card.Value2 = nil
-	card.Value2Label = ""
-}
+// 	card.Value1 = accessCount
+// 	card.Value2 = nil
+// 	card.Value2Label = ""
+// }
 
-func (s *Service) enrichAutoSyncCard(ctx context.Context, card *BaseCard, tokenGetter func() (string, error)) {
-	stats, err := s.fetchAutoSyncStats(ctx, tokenGetter)
-	if err != nil {
-		s.log.Warn("failed to fetch AutoSync stats", zap.Error(err))
+func (s *Service) enrichProtectedUsersCard(card *BaseCard, stats *ProtectedServicesStats) {
+	if stats == nil {
 		card.Value1 = 0
-		card.Value2 = 0
-		if card.Status == nil {
-			inactiveStatus := s.getStatus("inactive")
-			card.Status = &inactiveStatus
-		}
+		card.Value2 = nil
+		card.Value2Label = ""
 		return
 	}
 
-	card.Value1 = stats.ActiveSyncs
-	card.Value2 = stats.FailedSyncs
-	status := s.getStatus(stats.Status)
+	card.Value1 = stats.ConnectedAccounts
+	if stats.ConnectedAccountsGrowthWeek > 0 {
+		card.Value2 = fmt.Sprintf("+%d this week", stats.ConnectedAccountsGrowthWeek)
+		card.Value2Label = "growth_this_week"
+	} else {
+		card.Value2 = nil
+		card.Value2Label = ""
+	}
+}
+
+func (s *Service) enrichLastSnapshotCard(card *BaseCard, stats *ProtectedServicesStats) {
+	if stats == nil || stats.LastSyncAt == nil || stats.LastSyncAt.IsZero() {
+		card.Value1 = "—"
+		card.Value2 = int64(0)
+		card.Value2Label = "items_synced"
+		return
+	}
+
+	card.Value1 = formatRelativeTime(*stats.LastSyncAt)
+	card.Value2 = stats.LastSyncItemsSynced
+	card.Value2Label = "items_synced"
+	if stats.LastSyncItemsSynced > 0 {
+		card.Description = fmt.Sprintf("%d items synced successfully", stats.LastSyncItemsSynced)
+	}
+}
+
+func (s *Service) enrichStorageQuotaCardFromLimits(card *BaseCard, usageLimits *ProjectUsageLimits) {
+	used := usageLimits.StorageUsed
+	limit := usageLimits.StorageLimit
+	if usageLimits.UserSetStorageLimit != nil && *usageLimits.UserSetStorageLimit > 0 {
+		limit = *usageLimits.UserSetStorageLimit
+	}
+	s.enrichUsageQuotaCard(card, used, limit)
+}
+
+func (s *Service) enrichBandwidthQuotaCardFromLimits(card *BaseCard, usageLimits *ProjectUsageLimits) {
+	used := usageLimits.BandwidthUsed
+	limit := usageLimits.BandwidthLimit
+	if usageLimits.UserSetBandwidthLimit != nil && *usageLimits.UserSetBandwidthLimit > 0 {
+		limit = *usageLimits.UserSetBandwidthLimit
+	}
+	s.enrichUsageQuotaCard(card, used, limit)
+}
+
+func (s *Service) enrichUsageQuotaCard(card *BaseCard, used, limit int64) {
+	percent := usagePercentUsed(used, limit)
+	card.Value1 = formatQuotaFraction(used, limit)
+	card.Value2 = percent
+	card.Value2Label = "percent_used"
+
+	status := s.getStatus("active")
+	status.Value = fmt.Sprintf("%d%% Used", percent)
+	if percent >= 90 {
+		warn := s.getStatus("partial_success")
+		warn.Value = status.Value
+		status = warn
+	}
 	card.Status = &status
 }
 
-func (s *Service) fetchAutoSyncStats(ctx context.Context, tokenGetter func() (string, error)) (*AutoSyncStats, error) {
-	if s.backupToolsURL == "" {
-		return nil, Error.New("Backup-Tools URL not configured")
+func quotaExceeded(used, limit int64) bool {
+	return limit > 0 && used > limit
+}
+
+func formatQuotaFraction(used, limit int64) string {
+	if limit <= 0 {
+		return formatBytes(used)
 	}
 
+	displayUsed := used
+	if quotaExceeded(used, limit) {
+		displayUsed = limit
+	}
+
+	return fmt.Sprintf("%s / %s", formatBytes(displayUsed), formatBytes(limit))
+}
+
+func usagePercentUsed(used, limit int64) int {
+	if limit <= 0 {
+		if used > 0 {
+			return 100
+		}
+		return 0
+	}
+	percent := int(float64(used) / float64(limit) * 100)
+	if percent > 100 {
+		return 100
+	}
+	if percent < 0 {
+		return 0
+	}
+	return percent
+}
+
+func formatRelativeTime(t time.Time) string {
+	elapsed := time.Since(t)
+	switch {
+	case elapsed < time.Minute:
+		return "just now"
+	case elapsed < time.Hour:
+		mins := int(elapsed.Minutes())
+		if mins == 1 {
+			return "1 min ago"
+		}
+		return fmt.Sprintf("%d mins ago", mins)
+	case elapsed < 24*time.Hour:
+		hours := int(elapsed.Hours())
+		if hours == 1 {
+			return "1 hour ago"
+		}
+		return fmt.Sprintf("%d hours ago", hours)
+	default:
+		days := int(elapsed.Hours() / 24)
+		if days == 1 {
+			return "1 day ago"
+		}
+		return fmt.Sprintf("%d days ago", days)
+	}
+}
+
+// enrichAutoSyncCard — legacy dashboard card (active/failed sync counts). Uses AutoSyncStats.
+// func (s *Service) enrichAutoSyncCard(ctx context.Context, card *BaseCard, tokenGetter func() (string, error)) {
+// 	stats, err := s.fetchAutoSyncStats(ctx, tokenGetter)
+// 	if err != nil {
+// 		s.log.Warn("failed to fetch AutoSync stats", zap.Error(err))
+// 		card.Value1 = 0
+// 		card.Value2 = 0
+// 		if card.Status == nil {
+// 			inactiveStatus := s.getStatus("inactive")
+// 			card.Status = &inactiveStatus
+// 		}
+// 		return
+// 	}
+
+// 	card.Value1 = stats.ActiveSyncs
+// 	card.Value2 = stats.FailedSyncs
+// 	status := s.getStatus(stats.Status)
+// 	card.Status = &status
+// }
+
+func (s *Service) fetchAutoSyncStats(ctx context.Context, tokenGetter func() (string, error)) (*AutoSyncStats, error) {
 	tokenString, err := tokenGetter()
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	url := strings.TrimSuffix(s.backupToolsURL, "/") + "/autosync/stats"
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	body, status, err := s.backupToolsRequest(ctx, http.MethodGet, "/autosync/stats", tokenString, "", nil)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-
-	req.Header.Set("token_key", tokenString)
-	req.Header.Set("Content-Type", "application/json")
-
-	client := &http.Client{
-		Timeout: 10 * time.Second,
-	}
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, Error.New("Backup-Tools returned status %d", resp.StatusCode)
+	if status != http.StatusOK {
+		return nil, Error.New("Backup-Tools returned status %d", status)
 	}
 
 	var stats AutoSyncStats
-	if err := json.NewDecoder(resp.Body).Decode(&stats); err != nil {
+	if err := json.Unmarshal(body, &stats); err != nil {
+		return nil, Error.Wrap(err)
+	}
+	return &stats, nil
+}
+
+func (s *Service) fetchProtectedServicesStats(ctx context.Context, tokenGetter func() (string, error)) (*ProtectedServicesStats, error) {
+	tokenString, err := tokenGetter()
+	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
+	body, status, err := s.backupToolsRequest(ctx, http.MethodGet, "/autosync/stats", tokenString, "", nil)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	if status != http.StatusOK {
+		return nil, Error.New("Backup-Tools returned status %d", status)
+	}
+
+	var stats ProtectedServicesStats
+	if err := json.Unmarshal(body, &stats); err != nil {
+		return nil, Error.Wrap(err)
+	}
 	return &stats, nil
+}
+
+// GmailCorporateDomainUsersResponse is the Backup-Tools domain-users payload.
+type GmailCorporateDomainUsersResponse map[string]interface{}
+
+// GetGoogleBackupOnboarding reads user_settings for the current user and returns the API onboarding block.
+// Uses GetSettings directly (not GetUserSettings) so project ownership does not auto-complete backup onboarding.
+func (s *Service) GetGoogleBackupOnboarding(ctx context.Context) (GoogleBackupOnboardingAPI, error) {
+	defer mon.Task()(&ctx)
+
+	user, err := GetUser(ctx)
+	if err != nil {
+		return GoogleBackupOnboardingAPI{}, Error.Wrap(err)
+	}
+
+	settings, err := s.store.Users().GetSettings(ctx, user.ID)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return GoogleBackupOnboardingAPI{}, Error.Wrap(err)
+	}
+	return GoogleBackupOnboardingAPIFromSettings(settings), nil
+}
+
+// RegisterGoogleBackupResult is returned after calling domain-users during registration.
+type RegisterGoogleBackupResult struct {
+	GoogleEmail     string
+	AccountType     string
+	DomainUsers     GmailCorporateDomainUsersResponse
+	DomainError     string
+	GrantedScopes   []string
+	UngrantedScopes []string
+}
+
+// RegisterGoogleBackupCredential stores Google OAuth tokens, calls Backup-Tools domain-users, and persists account classification.
+func (s *Service) RegisterGoogleBackupCredential(ctx context.Context, googleEmail, accessToken, refreshToken, scopeFromExchange string, accessTokenExpiry time.Time, tokenKey string) (result RegisterGoogleBackupResult, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	result = RegisterGoogleBackupResult{
+		GoogleEmail: googleEmail,
+	}
+
+	if googleEmail == "" || accessToken == "" {
+		return result, Error.New("google email and access token are required")
+	}
+
+	user, err := GetUser(ctx)
+	if err != nil {
+		return result, Error.Wrap(err)
+	}
+
+	validAccessToken, validExpiry, err := socialmedia.ResolveAccessToken(ctx, accessToken, refreshToken, accessTokenExpiry)
+	if err != nil {
+		return result, Error.Wrap(err)
+	}
+	if !validExpiry.IsZero() {
+		accessTokenExpiry = validExpiry
+	}
+	accessToken = validAccessToken
+
+	if granted, scopeErr := socialmedia.ResolveGrantedScopes(ctx, accessToken, scopeFromExchange); scopeErr != nil {
+		s.log.Warn("failed to resolve google granted scopes during registration", zap.Error(scopeErr))
+	} else {
+		result.GrantedScopes, result.UngrantedScopes = socialmedia.GoogleBackupScopeSummary(granted)
+	}
+
+	domainUsers, domainErr := s.fetchGmailCorporateDomainUsers(ctx, tokenKey, accessToken)
+	if domainErr != nil {
+		s.log.Warn("domain-users call failed during registration", zap.Error(domainErr))
+		result.DomainError = domainErr.Error()
+	} else {
+		result.DomainUsers = domainUsers
+		if accountType, ok := domainUsers["account_type"].(string); ok {
+			result.AccountType = accountType
+		}
+	}
+
+	if storeErr := s.storeGoogleBackupCredential(ctx, user.ID, googleEmail, accessToken, refreshToken, accessTokenExpiry, result.AccountType); storeErr != nil {
+		s.log.Warn("failed to store Google backup credentials during registration", zap.Error(storeErr))
+	}
+
+	return result, nil
+}
+
+// LoadGoogleBackupAtLogin refreshes stored Google backup credentials and returns the same
+// google_backup payload shape as google-backup auth. Returns nil when no credentials exist.
+func (s *Service) LoadGoogleBackupAtLogin(ctx context.Context, sessionToken string) (googleBackup map[string]interface{}, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := GetUser(ctx)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	credential, err := s.store.BackupCredentials().GetByUserIDAndProvider(ctx, user.ID, BackupProviderGoogle)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, Error.Wrap(err)
+	}
+
+	result := RegisterGoogleBackupResult{
+		GoogleEmail: credential.Email,
+		AccountType: credential.AccountType,
+	}
+
+	accessTokenExpiry := time.Time{}
+	if credential.AccessTokenExpiry != nil {
+		accessTokenExpiry = *credential.AccessTokenExpiry
+	}
+
+	if credential.AccessToken == "" && credential.RefreshToken == "" {
+		return GoogleBackupRegistrationPayload(result), nil
+	}
+
+	accessToken, validExpiry, err := socialmedia.ResolveAccessToken(ctx, credential.AccessToken, credential.RefreshToken, accessTokenExpiry)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	if storeErr := s.storeGoogleBackupCredential(ctx, user.ID, credential.Email, accessToken, credential.RefreshToken, validExpiry, credential.AccountType); storeErr != nil {
+		s.log.Warn("failed to persist google tokens at login", zap.Error(storeErr))
+	}
+
+	if granted, scopeErr := socialmedia.ResolveGrantedScopes(ctx, accessToken, ""); scopeErr != nil {
+		s.log.Warn("failed to resolve google granted scopes at login", zap.Error(scopeErr))
+	} else {
+		result.GrantedScopes, result.UngrantedScopes = socialmedia.GoogleBackupScopeSummary(granted)
+	}
+
+	if strings.TrimSpace(sessionToken) != "" {
+		domainUsers, domainErr := s.fetchGmailCorporateDomainUsers(ctx, sessionToken, accessToken)
+		if domainErr != nil {
+			s.log.Warn("domain-users call failed at login", zap.Error(domainErr))
+			result.DomainError = domainErr.Error()
+		} else {
+			result.DomainUsers = domainUsers
+			if accountType, ok := domainUsers["account_type"].(string); ok && accountType != "" {
+				result.AccountType = accountType
+			}
+		}
+	}
+
+	return GoogleBackupRegistrationPayload(result), nil
+}
+
+func (s *Service) storeGoogleBackupCredential(ctx context.Context, userID uuid.UUID, googleEmail, accessToken, refreshToken string, accessTokenExpiry time.Time, accountType string) error {
+	var expiryPtr *time.Time
+	if !accessTokenExpiry.IsZero() {
+		expiryPtr = &accessTokenExpiry
+	}
+
+	googleEmail = strings.TrimSpace(googleEmail)
+	existing, err := s.store.BackupCredentials().GetByUserIDProviderEmail(ctx, userID, BackupProviderGoogle, googleEmail)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return Error.Wrap(err)
+	}
+
+	if existing != nil {
+		if err := s.store.BackupCredentials().UpdateTokens(ctx, existing.ID, accessToken, refreshToken, expiryPtr); err != nil {
+			return Error.Wrap(err)
+		}
+		if accountType != "" && accountType != existing.AccountType {
+			if err := s.store.BackupCredentials().UpdateAccountType(ctx, existing.ID, accountType); err != nil {
+				return Error.Wrap(err)
+			}
+		}
+		return nil
+	}
+
+	credentialID, err := uuid.New()
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	_, err = s.store.BackupCredentials().Create(ctx, BackupCredential{
+		ID:                credentialID,
+		UserID:            userID,
+		Provider:          BackupProviderGoogle,
+		Email:             googleEmail,
+		AccessToken:       accessToken,
+		RefreshToken:      refreshToken,
+		AccessTokenExpiry: expiryPtr,
+		AccountType:       accountType,
+	})
+	return Error.Wrap(err)
+}
+
+// googleBackupDomainUsersPayload forwards Backup-Tools domain-users JSON as-is under google_backup
+// (including organizational_units, org_units, mailbox_count, ou_count, grouped_emails). Satellite does not reshape the OU tree.
+func googleBackupDomainUsersPayload(domainUsers GmailCorporateDomainUsersResponse, domainError string) map[string]interface{} {
+	if domainUsers != nil {
+		out := make(map[string]interface{}, len(domainUsers)+1)
+		for k, v := range domainUsers {
+			out[k] = v
+		}
+		if domainError != "" {
+			out["domain_users_error"] = domainError
+		}
+		return out
+	}
+	if domainError != "" {
+		return map[string]interface{}{
+			"domain_users_error": domainError,
+		}
+	}
+	return nil
+}
+
+func appendGoogleBackupScopes(out map[string]interface{}, granted, ungranted []string) {
+	if granted == nil && ungranted == nil {
+		return
+	}
+	if granted == nil {
+		granted = []string{}
+	}
+	if ungranted == nil {
+		ungranted = []string{}
+	}
+	out["granted_scopes"] = granted
+	out["ungranted_scopes"] = ungranted
+}
+
+// GoogleBackupScopesPayload is the scope-only google_backup object (connect and partial responses).
+func GoogleBackupScopesPayload(granted, ungranted []string) map[string]interface{} {
+	out := make(map[string]interface{})
+	appendGoogleBackupScopes(out, granted, ungranted)
+	return out
+}
+
+// GoogleBackupRegistrationPayload merges domain-users metadata and OAuth scope summary for register-google.
+func GoogleBackupRegistrationPayload(result RegisterGoogleBackupResult) map[string]interface{} {
+	out := googleBackupDomainUsersPayload(result.DomainUsers, result.DomainError)
+	if out == nil {
+		out = make(map[string]interface{})
+	}
+	appendGoogleBackupScopes(out, result.GrantedScopes, result.UngrantedScopes)
+	return out
+}
+
+func (s *Service) fetchGmailCorporateDomainUsers(ctx context.Context, tokenKey, accessToken string) (GmailCorporateDomainUsersResponse, error) {
+	var result GmailCorporateDomainUsersResponse
+	body, status, err := s.backupToolsRequest(ctx, http.MethodGet, "/google/gmail/corporate/domain-users", tokenKey, accessToken, nil)
+	if err != nil {
+		return nil, err
+	}
+	if status != http.StatusOK {
+		return nil, Error.New("Backup-Tools domain-users returned status %d: %s", status, string(body))
+	}
+	return result, json.Unmarshal(body, &result)
+}
+
+func (s *Service) backupToolsRequest(ctx context.Context, method, path, tokenKey, accessToken string, payload []byte) ([]byte, int, error) {
+	if s.backupToolsURL == "" {
+		return nil, 0, Error.New("Backup-Tools URL not configured")
+	}
+	if strings.TrimSpace(tokenKey) == "" {
+		return nil, 0, Error.New("token_key is required")
+	}
+	var bodyReader io.Reader
+	if len(payload) > 0 {
+		bodyReader = bytes.NewReader(payload)
+	}
+	req, err := http.NewRequestWithContext(ctx, method, strings.TrimSuffix(s.backupToolsURL, "/")+path, bodyReader)
+	if err != nil {
+		return nil, 0, Error.Wrap(err)
+	}
+	req.Header.Set("token_key", tokenKey)
+	if accessToken != "" {
+		req.Header.Set("ACCESS_TOKEN", accessToken)
+		req.Header.Set("Authorization", "Bearer "+accessToken)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := (&http.Client{Timeout: 30 * time.Second}).Do(req)
+	if err != nil {
+		return nil, 0, Error.Wrap(err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, resp.StatusCode, Error.Wrap(err)
+	}
+	return body, resp.StatusCode, nil
 }

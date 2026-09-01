@@ -100,7 +100,8 @@ func (usage *Usage) Include(action pb.PieceAction, amount int64) {
 		usage.Invalid += amount
 	case pb.PieceAction_PUT:
 		usage.Put += amount
-	case pb.PieceAction_GET:
+	case pb.PieceAction_GET, pb.PieceAction_GET_INTERNAL:
+		// GET_INTERNAL is served like GET; count toward node egress usage.
 		usage.Get += amount
 	case pb.PieceAction_GET_AUDIT:
 		usage.GetAudit += amount

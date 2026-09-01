@@ -303,6 +303,9 @@ func (projects *projects) Insert(ctx context.Context, project *console.Project) 
 	if project.PassphraseEncKeyID != nil {
 		createFields.PassphraseEncKeyId = dbx.Project_PassphraseEncKeyId(*project.PassphraseEncKeyID)
 	}
+	if project.PathEncryption != nil {
+		createFields.PathEncryption = dbx.Project_PathEncryption(*project.PathEncryption)
+	}
 	createFields.RateLimit = dbx.Project_RateLimit_Raw(project.RateLimit)
 	createFields.MaxBuckets = dbx.Project_MaxBuckets_Raw(project.MaxBuckets)
 	createFields.PublicId = dbx.Project_PublicId(publicID[:])
@@ -311,6 +314,13 @@ func (projects *projects) Insert(ctx context.Context, project *console.Project) 
 	// new projects should have default versioning of Unversioned
 	createFields.DefaultVersioning = dbx.Project_DefaultVersioning(int(console.Unversioned))
 	createFields.PrevDaysUntilExpiration = dbx.Project_PrevDaysUntilExpiration(project.PrevDaysUntilExpiration)
+	// Create_Project always writes status (nullable); leaving it unset inserts NULL and
+	// hides the project from active-status queries (e.g. GET /projects/invitations).
+	status := console.ProjectActive
+	if project.Status != nil {
+		status = *project.Status
+	}
+	createFields.Status = dbx.Project_Status(int(status))
 
 	createdProject, err := projects.db.Create_Project(ctx,
 		dbx.Project_Id(projectID[:]),

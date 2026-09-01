@@ -1,0 +1,30 @@
+// audit_log stores user activity events for the audit log UI.
+
+model audit_log (
+    key id
+
+    index (
+        name audit_log_actor_id_timestamp_idx
+        fields actor_id timestamp
+    )
+    index (
+        name audit_log_action_timestamp_idx
+        fields action timestamp
+    )
+
+    field id blob
+    field timestamp timestamp ( default current_timestamp )
+    field actor_id text
+    field action text
+    field resource text ( nullable )
+    field message text
+    field ip_address text ( nullable )
+    field status text
+)
+
+create audit_log ( noreturn )
+
+read one (
+    select audit_log
+    where audit_log.id = ?
+)

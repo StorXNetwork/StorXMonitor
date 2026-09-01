@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StorX Monitor API Documentation</title>
+    <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui.css">
+    <script src="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui-bundle.js"></script>
+</head>
+<body>
+    <div id="swagger-ui"></div>
+    <script>
+        // Browsers forbid setting the Cookie request header from JS. Swagger stores CookieAuth
+        // in Authorize; we mirror it into document.cookie and fix curl snippets to use -b.
+        function normalizeSessionToken(raw) {
+            if (!raw) {
+                return '';
+            }
+            var v = String(raw).trim();
+            if (v.indexOf('Cookie:') === 0) {
+                v = v.replace(/^Cookie:\s*/i, '');
+            }
+            if (v.indexOf('_tokenKey=') === 0) {
+                v = v.slice('_tokenKey='.length);
+            }
+            return v.trim();
+        }
+
+        function getAuthorizedValue(ui, schemeName) {
+            try {
+                var authorized = ui.getSystem().authSelectors.authorized();
+                var entry = authorized && authorized.get && authorized.get(schemeName);
+                if (!entry) {
+                    return '';
+                }
+                var value = entry.get ? entry.get('value') : entry.value;
+                if (schemeName === 'CookieAuth') {
+                    return normalizeSessionToken(value);
+                }
+                return value || '';
+            } catch (e) {
+                return '';
+            }
+        }
+
+        function setCookie(name, value) {
+            if (!value) {
+                return;
+            }
+            // Session token is base64url — do not encodeURIComponent (= breaks server decode).
+            document.cookie = name + '=' + value + '; path=/; SameSite=Lax';
+        }
+
+        function authorizeCookieAuth(ui, token) {
+            token = normalizeSessionToken(token);
+            if (!token || !ui || !ui.authActions || !ui.authActions.authorize) {
+                return;
+            }
+            try {
+                ui.authActions.authorize({
+                    CookieAuth: {
+                        name: '_tokenKey',
+                        schema: {
+                            type: 'apiKey',
+                            in: 'cookie',
+                            name: '_tokenKey'
+                        },
+                        value: token
+                    }
+                });
+                setCookie('_tokenKey', token);
+            } catch (e) {
+                console.warn('swagger CookieAuth authorize:', e);
+            }
+        }
+
+        function syncAuthCookiesFromSwagger(ui) {
+            try {
+                var tokenKey = getAuthorizedValue(ui, 'CookieAuth');
+                if (tokenKey) {
+                    setCookie('_tokenKey', tokenKey);
+                }
+
+                var csrfToken = getAuthorizedValue(ui, 'CSRFAuth');
+                if (csrfToken) {
+                    setCookie('csrf_token', csrfToken);
+                }
+            } catch (e) {
+                console.warn('swagger auth cookie sync:', e);
+            }
+        }
+
+        function authorizeCSRF(ui, csrfToken) {
+            if (!csrfToken || !ui || !ui.authActions || !ui.authActions.authorize) {
+                return;
+            }
+            try {
+                ui.authActions.authorize({
+                    CSRFAuth: {
+                        name: 'X-CSRF-Token',
+                        schema: {
+                            type: 'apiKey',
+                            in: 'header',
+                            name: 'X-CSRF-Token'
+                        },
+                        value: csrfToken
+                    }
+                });
+            } catch (e) {
+                console.warn('swagger CSRF authorize:', e);
+            }
+        }
+
+        function requestField(req, key) {
+            if (!req) {
+                return '';
+            }
+            if (typeof req.get === 'function') {
+                return req.get(key) || '';
+            }
+            return req[key] || '';
+        }
+
+        function requestHeaders(req) {
+            var headers = requestField(req, 'headers');
+            if (!headers) {
+                return {};
+            }
+            if (typeof headers.toJS === 'function') {
+                return headers.toJS();
+            }
+            if (typeof headers.forEach === 'function') {
+                var out = {};
+                headers.forEach(function(v, k) {
+                    out[k] = v;
+                });
+                return out;
+            }
+            return headers;
+        }
+
+        function shellEscape(value) {
+            return String(value).replace(/'/g, "'\\''");
+        }
+
+        function buildCurlBash(req, ui) {
+            var method = (requestField(req, 'method') || 'get').toUpperCase();
+            var url = requestField(req, 'url') || '';
+            var body = requestField(req, 'body');
+            var headers = requestHeaders(req);
+            var tokenKey = getAuthorizedValue(ui, 'CookieAuth');
+            var csrfToken = getAuthorizedValue(ui, 'CSRFAuth');
+            var lines = [
+                "curl -X '" + method + "' \\",
+                "  '" + shellEscape(url) + "' \\"
+            ];
+
+            Object.keys(headers).forEach(function(key) {
+                if (key.toLowerCase() === '_tokenkey') {
+                    return;
+                }
+                lines.push("  -H '" + shellEscape(key) + ': ' + shellEscape(headers[key]) + "' \\");
+            });
+
+            if (tokenKey) {
+                lines.push("  -b '_tokenKey=" + shellEscape(tokenKey) + "' \\");
+            }
+
+            if (csrfToken && !headers['X-CSRF-Token']) {
+                lines.push("  -H 'X-CSRF-Token: " + shellEscape(csrfToken) + "' \\");
+            }
+
+            if (body) {
+                lines.push("  -d '" + shellEscape(body) + "'");
+            } else {
+                lines[lines.length - 1] = lines[lines.length - 1].replace(/ \\$/, '');
+            }
+
+            return lines.join('\n');
+        }
+
+        function collectRootPathsFromSpec(spec) {
+            var rootPaths = new Set();
+            if (!spec || !spec.paths) {
+                return rootPaths;
+            }
+
+            Object.entries(spec.paths).forEach(function(entry) {
+                var path = entry[0];
+                var methods = entry[1];
+                Object.values(methods).forEach(function(op) {
+                    if (op && typeof op.description === 'string' && op.description.indexOf('server root') !== -1) {
+                        rootPaths.add(path);
+                    }
+                });
+            });
+
+            return rootPaths;
+        }
+
+        function rewriteRootPathRequest(req, rootPaths, basePath) {
+            if (!rootPaths || rootPaths.size === 0) {
+                return req;
+            }
+
+            try {
+                var url = new URL(req.url, window.location.origin);
+                var normalizedBase = (basePath || '/api/v0').replace(/\/$/, '');
+
+                rootPaths.forEach(function(path) {
+                    var prefixedPath = normalizedBase + path;
+                    if (url.pathname === prefixedPath) {
+                        url.pathname = path;
+                        req.url = url.toString();
+                    }
+                });
+            } catch (e) {
+                console.warn('swagger root path rewrite:', e);
+            }
+
+            return req;
+        }
+
+        function stripInvalidAuthHeaders(req) {
+            if (!req.headers) {
+                return req;
+            }
+            // Swagger wrongly emits cookie apiKey as a request header; server reads cookie only.
+            delete req.headers._tokenKey;
+            delete req.headers['_tokenKey'];
+            return req;
+        }
+
+        function captureSessionFromResponse(res, ui) {
+            if (!res.url || res.status < 200 || res.status >= 300 || !res.text) {
+                return;
+            }
+            var isLogin = res.url.indexOf('/auth/token') !== -1 ||
+                res.url.indexOf('/register-google-app') !== -1 ||
+                res.url.indexOf('/login-google-app') !== -1;
+            if (!isLogin) {
+                return;
+            }
+            try {
+                var body = JSON.parse(res.text);
+                if (body && body.token) {
+                    authorizeCookieAuth(ui, body.token);
+                }
+            } catch (e) {
+                console.warn('swagger login token capture:', e);
+            }
+        }
+
+        function initSwaggerUI(spec) {
+            var rootPaths = collectRootPathsFromSpec(spec);
+            var basePath = (spec && spec.basePath) || '/api/v0';
+            var ui;
+
+            ui = SwaggerUIBundle({
+                spec: spec,
+                dom_id: '#swagger-ui',
+                deepLinking: true,
+                withCredentials: true,
+                persistAuthorization: true,
+                presets: [
+                    SwaggerUIBundle.presets.apis,
+                    SwaggerUIBundle.SwaggerUIStandalonePreset
+                ],
+                plugins: [
+                    SwaggerUIBundle.plugins.DownloadUrl
+                ],
+                layout: "BaseLayout",
+                requestSnippets: {
+                    generators: {
+                        curl_bash: {
+                            title: "cURL (bash)",
+                            syntax: "bash",
+                            generate: function() {
+                                return function(req) {
+                                    return buildCurlBash(req, ui);
+                                };
+                            }
+                        }
+                    },
+                    defaultExpanded: true,
+                    languages: ['curl_bash']
+                },
+                requestInterceptor: function(req) {
+                    syncAuthCookiesFromSwagger(ui);
+                    stripInvalidAuthHeaders(req);
+                    req.credentials = 'include';
+                    return rewriteRootPathRequest(req, rootPaths, basePath);
+                },
+                responseInterceptor: function(res) {
+                    try {
+                        if (res.url && res.url.indexOf('/config') !== -1 && res.status >= 200 && res.status < 300 && res.text) {
+                            var configBody = JSON.parse(res.text);
+                            if (configBody.csrfToken) {
+                                setCookie('csrf_token', configBody.csrfToken);
+                                authorizeCSRF(ui, configBody.csrfToken);
+                            }
+                        }
+                        captureSessionFromResponse(res, ui);
+                    } catch (e) {
+                        console.warn('swagger response interceptor:', e);
+                    }
+                    return res;
+                }
+            });
+            window.ui = ui;
+        }
+
+        window.onload = function() {
+            fetch('./swagger.json')
+                .then(function(response) {
+                    if (!response.ok) {
+                        throw new Error('failed to load swagger.json');
+                    }
+                    return response.json();
+                })
+                .then(initSwaggerUI)
+                .catch(function(err) {
+                    console.error('swagger init failed:', err);
+                });
+        };
+    </script>
+</body>
+</html>

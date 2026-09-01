@@ -5,7 +5,6 @@ package consoledb
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"time"
 
@@ -35,16 +34,11 @@ func (u *userNotificationPreferencesDB) InsertUserPreference(ctx context.Context
 		return preference, ErrUserNotificationPreferences.Wrap(err)
 	}
 
-	optional := dbx.UserNotificationPreference_Create_Fields{
-		Category: dbx.UserNotificationPreference_Category(preference.Category),
-	}
-
 	dbxPreference, err := u.db.Create_UserNotificationPreference(ctx,
 		dbx.UserNotificationPreference_Id(preference.ID[:]),
 		dbx.UserNotificationPreference_UserId(preference.UserID[:]),
 		dbx.UserNotificationPreference_Preferences(preferencesJSON),
-		dbx.UserNotificationPreference_UpdatedAt(time.Now()),
-		optional)
+		dbx.UserNotificationPreference_UpdatedAt(time.Now()))
 	if err != nil {
 		return preference, ErrUserNotificationPreferences.Wrap(err)
 	}
@@ -65,38 +59,12 @@ func (u *userNotificationPreferencesDB) GetUserPreferenceByID(ctx context.Contex
 	return userPreferenceFromDBX(dbxPreference)
 }
 
-// GetUserPreferences retrieves all preferences for a user.
-func (u *userNotificationPreferencesDB) GetUserPreferences(ctx context.Context, userID uuid.UUID) (_ []configs.UserNotificationPreference, err error) {
+// GetUserPreference retrieves the global preference row for a user.
+func (u *userNotificationPreferencesDB) GetUserPreference(ctx context.Context, userID uuid.UUID) (_ configs.UserNotificationPreference, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	dbxPreferences, err := u.db.All_UserNotificationPreference_By_UserId(ctx,
+	dbxPreference, err := u.db.Get_UserNotificationPreference_By_UserId(ctx,
 		dbx.UserNotificationPreference_UserId(userID[:]))
-	if err != nil {
-		if errs.Is(err, sql.ErrNoRows) {
-			return []configs.UserNotificationPreference{}, nil
-		}
-		return nil, ErrUserNotificationPreferences.Wrap(err)
-	}
-
-	result := make([]configs.UserNotificationPreference, 0, len(dbxPreferences))
-	for _, dbxPreference := range dbxPreferences {
-		preference, err := userPreferenceFromDBX(dbxPreference)
-		if err != nil {
-			return nil, ErrUserNotificationPreferences.Wrap(err)
-		}
-		result = append(result, preference)
-	}
-
-	return result, nil
-}
-
-// GetUserPreferenceByCategory retrieves a category-level preference.
-func (u *userNotificationPreferencesDB) GetUserPreferenceByCategory(ctx context.Context, userID uuid.UUID, category string) (_ configs.UserNotificationPreference, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	dbxPreference, err := u.db.Get_UserNotificationPreference_By_UserId_And_Category(ctx,
-		dbx.UserNotificationPreference_UserId(userID[:]),
-		dbx.UserNotificationPreference_Category(category))
 	if err != nil {
 		return configs.UserNotificationPreference{}, ErrUserNotificationPreferences.Wrap(err)
 	}
@@ -152,7 +120,6 @@ func userPreferenceFromDBX(dbxPreference *dbx.UserNotificationPreference) (confi
 	preference := configs.UserNotificationPreference{
 		ID:          id,
 		UserID:      userID,
-		Category:    *dbxPreference.Category,
 		Preferences: preferences,
 		CreatedAt:   dbxPreference.CreatedAt,
 		UpdatedAt:   dbxPreference.UpdatedAt,

@@ -37,7 +37,20 @@ func NewDashboard(log *zap.Logger, service *console.Service, cookieAuth *console
 	}
 }
 
-// GetDashboardStats returns dashboard cards data (autoSync, vault, access, billing) for the authenticated user.
+// GetDashboardStats returns Protected Services overview cards (protectedUsers, storageQuota,
+// bandwidthQuota, lastSnapshot, billing). Legacy autoSync/vault/access cards are commented out in the service.
+//
+// @Summary      Dashboard stats cards
+// @Description  **Full route:** `GET /api/v0/dashboard/stats`
+//
+// Returns 5 cards in this order: protectedUsers, storageQuota, bandwidthQuota, lastSnapshot, billing.
+// @Tags         dashboard
+// @Produce      json
+// @Success      200  {array}   DashboardStatsCardSwaggerResponse
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Failure      500  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /dashboard/stats [get]
 func (d *Dashboard) GetDashboardStats(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error

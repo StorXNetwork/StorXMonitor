@@ -5,6 +5,7 @@ package console
 
 import (
 	"github.com/zeebo/errs"
+	"golang.org/x/crypto/bcrypt"
 )
 
 const (
@@ -32,6 +33,28 @@ func ValidateNewPassword(pass string) error {
 	}
 
 	return nil
+}
+
+// HasPasswordSet reports whether the user has a usable login password stored.
+// Empty or nil hashes and legacy bcrypt hashes of an empty string are treated as unset.
+func HasPasswordSet(passwordHash []byte) bool {
+	if len(passwordHash) == 0 {
+		return false
+	}
+
+	err := bcrypt.CompareHashAndPassword(passwordHash, []byte(""))
+	return err != nil
+}
+
+// loginCredentialFailureMessage returns the user-facing login error for password auth failures.
+func loginCredentialFailureMessage(passwordHash []byte, passwordMatches bool) string {
+	if !HasPasswordSet(passwordHash) {
+		return googleSignInOnlyLoginErrMsg
+	}
+	if !passwordMatches {
+		return invalidPasswordLoginErrMsg
+	}
+	return ""
 }
 
 // ValidateFullName validates full name.

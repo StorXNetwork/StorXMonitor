@@ -49,7 +49,40 @@ type ProjectMembersCursor struct {
 	Page           uint
 	Order          ProjectMemberOrder
 	OrderDirection OrderDirection
+	// Kind filters listing rows: ""/"all", "members", "pending", "admins".
+	Kind string
+	// Role filters project members only: nil = any role; RoleAdmin or RoleMember.
+	Role *ProjectMemberRole
+	// Status filters rows: ""/"all", "active" (members), "pending" (active invites),
+	// "expired" (expired invites).
+	Status string
+	// Vault filters rows that have a member_bucket_grants row for this bucket name
+	// (pending invite email or active member id). Empty = no vault filter.
+	Vault string
+	// OwnerID, when set with Kind=admins, includes the project owner even if their
+	// membership role row is RoleMember.
+	OwnerID *uuid.UUID
+	// Now is used for invite expiry checks (defaults to time.Now in the DB layer if zero).
+	Now time.Time
+	// InviteTTL is the default invite lifetime when project_invitations.expires_at is NULL.
+	InviteTTL time.Duration
 }
+
+// Project member list Kind query values.
+const (
+	ProjectMemberListKindAll     = "all"
+	ProjectMemberListKindMembers = "members"
+	ProjectMemberListKindPending = "pending"
+	ProjectMemberListKindAdmins  = "admins"
+)
+
+// Project member list Status query values.
+const (
+	ProjectMemberListStatusAll     = "all"
+	ProjectMemberListStatusActive  = "active"
+	ProjectMemberListStatusPending = "pending"
+	ProjectMemberListStatusExpired = "expired"
+)
 
 // ProjectMembersPage represents a page of project members and invitations.
 type ProjectMembersPage struct {

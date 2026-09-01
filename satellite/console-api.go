@@ -609,7 +609,6 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			externalAddress,
 			peer.URL().String(),
 			consoleConfig.SatelliteName,
-			consoleConfig.WhiteLabel,
 			config.Metainfo.ProjectLimits.MaxBuckets,
 			config.SSO.Enabled,
 			placement,
@@ -628,10 +627,17 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			minimumChargeDate,
 			config.Payments.PackagePlans.Packages,
 			consoleConfig.BackupToolsURL,
+			consoleConfig.BackupToolsAPIKey,
 			nil, // socialShareHelper - Web3 auth not set up in console-api
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
+		}
+		peer.Console.Service.SetResellerTenantLookup(consoleweb.NewResellerTenantResolver(peer.DB.Seller(), consoleConfig.SellerExternalAddress))
+		peer.Console.Service.SetMailExportOrdersDB(peer.Orders.DB)
+		if peer.Mail.Service != nil {
+			peer.Mail.Service.SetBrandingResolver(peer.Console.Service.ResellerMailBranding)
+			peer.Mail.Service.SetSenderResolver(peer.Console.Service.ResellerMailSender)
 		}
 
 		peer.Console.ConsoleService, err = consoleservice.NewService(
@@ -709,6 +715,7 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			priceSummaries,
 			config.Entitlements.Enabled,
 			config.SSO.Enabled,
+			peer.DB.Seller(),
 		)
 
 		peer.Servers.Add(lifecycle.Item{

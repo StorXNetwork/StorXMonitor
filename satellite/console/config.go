@@ -13,6 +13,7 @@ import (
 	"github.com/zeebo/errs"
 	"gopkg.in/yaml.v3"
 
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/auditlog"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/pushnotifications"
 	"github.com/StorXNetwork/common/storxnetwork"
 	"github.com/StorXNetwork/common/uuid"
@@ -52,6 +53,8 @@ type Config struct {
 	AbbreviatedDeleteProjectEnabled           bool                      `help:"whether the abbreviated delete project flow is enabled" default:"false"`
 	SelfServeAccountDeleteEnabled             bool                      `help:"whether self-serve account delete flow is enabled" default:"false"`
 	AbbreviatedDeleteAccountEnabled           bool                      `help:"whether the abbreviated self-serve delete account flow is enabled" default:"false"`
+	AccountDeleteGracePeriod                  time.Duration             `help:"delay between soft-delete request and hard wipe; use a short value (e.g. 1m) for local testing" default:"720h" testDefault:"1h"`
+	AccountDeleteWorkerInterval               time.Duration             `help:"how often the delete-user worker polls due hard-delete queue rows" default:"24h" testDefault:"5s" devDefault:"1m"`
 	UseNewRestKeysTable                       bool                      `help:"whether to use the new rest keys table" default:"false"`
 	NewDetailedUsageReportEnabled             bool                      `help:"whether to use the new detailed usage report" default:"false"`
 	PricingPackagesEnabled                    bool                      `help:"whether to allow purchasing pricing packages" default:"true"`
@@ -62,17 +65,17 @@ type Config struct {
 	ShowNewPricingTiers                       bool                      `help:"whether to show new pricing tiers in the UI" default:"false"`
 	NewPricingStartDate                       string                    `help:"the date (YYYY-MM-DD) when new pricing tiers will be enabled" default:"2025-11-01"`
 	MemberAccountsEnabled                     bool                      `help:"whether member accounts are enabled" default:"false"`
+	MemberBucketGrantsEnabled                 bool                      `help:"whether Member bucket prefix ACL grants are enforced" default:"false"`
 	CollectBillingInfoOnOnboarding            bool                      `help:"whether to collect billing information during onboarding" default:"false"`
 	RequireBillingAddress                     bool                      `help:"whether to require billing address during account upgrades and package purchases" default:"false"`
 	HideUplinkBehavior                        bool                      `help:"whether to hide uplink behavior in the UI" default:"false"`
 	EmailApiKey                               string                    `help:"api key for email" default:""`
 	PushNotifications                         pushnotifications.Config
+	AuditLog                                  auditlog.Config
 	LegacyPlacements                          []string                 `help:"list of placement IDs that are considered legacy placements" default:""`
 	LegacyPlacementProductMappingForMigration PlacementProductMappings `help:"mapping of legacy placement IDs to product IDs for migration" default:""`
 
 	PartnerUI        PartnerUIConfig        `help:"partner-specific UI configuration in YAML format or file path"`
-	WhiteLabel       TenantWhiteLabelConfig `help:"tenant-specific white label configuration in YAML format or file path"`
-	SingleWhiteLabel SingleWhiteLabelConfig `noflag:"true"`
 
 	ManagedEncryption SatelliteManagedEncryptionConfig
 	RestAPIKeys       RestAPIKeysConfig
@@ -463,143 +466,4 @@ func (p *PartnerUIConfig) String() string {
 // Type returns the type of the pflag.Value.
 func (p *PartnerUIConfig) Type() string {
 	return "console.PartnerUIConfig"
-}
-
-// TenantWhiteLabelConfig contains white-label UI configuration; a mapping of tenant IDs to their configurations.
-type TenantWhiteLabelConfig struct {
-	Value map[string]WhiteLabelConfig
-	// HostNameIDLookup is a reverse mapping of host names to tenant IDs,
-	// added for efficient lookup based on incoming request host names.
-	HostNameIDLookup map[string]string
-}
-
-// WhiteLabelConfig contains white-label configuration for a tenant.
-type WhiteLabelConfig struct {
-	TenantID          string            `yaml:"tenant-id,omitempty"`
-	HostName          string            `yaml:"host-name,omitempty"`
-	ExternalAddress   string            `yaml:"external-address,omitempty"`
-	Name              string            `yaml:"name,omitempty"`
-	LogoURLs          map[string]string `yaml:"logo-urls,omitempty"`
-	FaviconURLs       map[string]string `yaml:"favicon-urls,omitempty"`
-	Colors            map[string]string `yaml:"colors,omitempty"`
-	SupportURL        string            `yaml:"support-url,omitempty"`
-	DocsURL           string            `yaml:"docs-url,omitempty"`
-	HomepageURL       string            `yaml:"homepage-url,omitempty"`
-	GetInTouchURL     string            `yaml:"get-in-touch-url,omitempty"`
-	SourceCodeURL     string            `yaml:"source-code-url,omitempty"`
-	SocialURL         string            `yaml:"social-url,omitempty"`
-	BlogURL           string            `yaml:"blog-url,omitempty"`
-	PrivacyPolicyURL  string            `yaml:"privacy-policy-url,omitempty"`
-	TermsOfServiceURL string            `yaml:"terms-of-service-url,omitempty"`
-	TermsOfUseURL     string            `yaml:"terms-of-use-url,omitempty"`
-	GatewayURL        string            `yaml:"gateway-url,omitempty"`
-	CompanyName       string            `yaml:"company-name,omitempty"`
-	AddressLine1      string            `yaml:"address-line1,omitempty"`
-	AddressLine2      string            `yaml:"address-line2,omitempty"`
-	SMTP              SMTPConfig        `yaml:"smtp,omitempty"`
-}
-
-// SMTPConfig contains SMTP configuration for sending emails.
-type SMTPConfig struct {
-	ServerAddress string `yaml:"server-address,omitempty"`
-	From          string `yaml:"from,omitempty"`
-	AuthType      string `yaml:"auth-type,omitempty"`
-	Login         string `yaml:"login,omitempty"`
-	Password      string `yaml:"password,omitempty"`
-}
-
-// SingleWhiteLabelConfig provides simplified white-label configuration for dedicated
-// single-brand deployments. When enabled (Name is set), this configuration takes precedence
-// over the multi-tenant TenantWhiteLabelConfig.
-//
-// This is configured directly in YAML without CLI flag support.
-// Example YAML:
-//
-//	console.single-white-label:
-//	  name: "MyBrand"
-//	  logo-urls:
-//	    full-light: "https://..."
-//	    full-dark: "https://..."
-//	  colors:
-//	    primary-light: "#FF0000"
-//	  support-url: "https://support.mybrand.com"
-type SingleWhiteLabelConfig WhiteLabelConfig
-
-// Enabled returns true if single white label mode is enabled.
-func (s *SingleWhiteLabelConfig) Enabled() bool {
-	return s.Name != ""
-}
-
-// ToWhiteLabelConfig returns the config as WhiteLabelConfig.
-func (s *SingleWhiteLabelConfig) ToWhiteLabelConfig() WhiteLabelConfig {
-	return WhiteLabelConfig(*s)
-}
-
-var _ pflag.Value = (*TenantWhiteLabelConfig)(nil)
-
-// Set parses a YAML file or string into TenantWhiteLabelConfig.
-func (t *TenantWhiteLabelConfig) Set(s string) error {
-	if s == "" {
-		return nil
-	}
-
-	s = strings.TrimSpace(s)
-	strBytes := []byte(s)
-	var cfg map[string]WhiteLabelConfig
-	switch {
-	case strings.HasSuffix(s, ".yaml"):
-		// YAML file path
-		data, err := os.ReadFile(s)
-		if err != nil {
-			return errs.New("Couldn't read white label config file from %s: %v", s, err)
-		}
-
-		err = yaml.Unmarshal(data, &cfg)
-		if err != nil {
-			return errs.New("failed to parse white label config YAML file: %v", err)
-		}
-	default:
-		// YAML string
-		err := yaml.Unmarshal(strBytes, &cfg)
-		if err != nil {
-			return errs.New("failed to parse config YAML: %v", err)
-		}
-	}
-
-	hostNameIDLookup := make(map[string]string)
-	for id, config := range cfg {
-		if config.HostName == "" {
-			return errs.New("white label config for tenant ID %s is missing host name", id)
-		}
-		hostNameIDLookup[config.HostName] = id
-		config.TenantID = id
-		cfg[id] = config
-	}
-
-	*t = TenantWhiteLabelConfig{Value: cfg, HostNameIDLookup: hostNameIDLookup}
-	return nil
-}
-
-// String returns the YAML representation of TenantWhiteLabelConfig.
-func (t *TenantWhiteLabelConfig) String() string {
-	if t == nil {
-		return ""
-	}
-
-	bytes, err := yaml.Marshal(t.Value)
-	if err != nil {
-		return ""
-	}
-
-	str := string(bytes)
-	if str == "{}\n" {
-		return ""
-	}
-
-	return string(bytes)
-}
-
-// Type returns the type of the pflag.Value.
-func (t *TenantWhiteLabelConfig) Type() string {
-	return "console.TenantWhiteLabelConfig"
 }

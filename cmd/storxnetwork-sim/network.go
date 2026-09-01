@@ -71,6 +71,8 @@ const (
 	debugCoreHTTP      = 7
 	developerHTTP      = 8
 	debugDeveloperHTTP = 10
+	sellerHTTP         = 3
+	debugSellerHTTP    = 11
 
 	// Satellite worker specific constants.
 	debugMigrationHTTP = 0
@@ -380,7 +382,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 				"--mail.smtp-server-address", "smtp.gmail.com:587",
 				"--mail.from", "Storj <yaroslav-satellite-test@storj.io>",
-				"--mail.template-path", filepath.Join(storjRoot, "web/satellite/static/emails"),
+				"--mail.template-path", filepath.Join(storjRoot, "mail-templates"),
 				"--version.server-address", getHttpHost(versioncontrol.Address),
 				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugHTTP)),
 
@@ -389,6 +391,12 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 				"--developer.address", net.JoinHostPort(host, port(satellitePeer, i, developerHTTP)),
 				"--developer.static-dir", filepath.Join(storjRoot, "satellite/developer/ui/build"),
+				"--console.developer-external-address", "http://"+net.JoinHostPort(host, port(satellitePeer, i, developerHTTP)),
+
+				"--seller.address", net.JoinHostPort(host, port(satellitePeer, i, sellerHTTP)),
+				"--seller.static-dir", filepath.Join(storjRoot, "satellite/seller/ui/build"),
+				"--console.seller-external-address", "http://"+net.JoinHostPort(host, port(satellitePeer, i, sellerHTTP)),
+				"--console.google-seller-redirect-urlstring", "http://"+net.JoinHostPort(host, port(satellitePeer, i, sellerHTTP))+"/api/v0/seller/auth/google",
 			},
 			"run": {"api"},
 		})
@@ -490,6 +498,21 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			},
 		})
 		developerProcess.WaitForExited(migrationProcess)
+
+		sellerProcess := processes.New(Info{
+			Name:       fmt.Sprintf("satellite-seller/%d", i),
+			Executable: "satellite",
+			Directory:  filepath.Join(processes.Directory, "satellite", fmt.Sprint(i)),
+			Address:    net.JoinHostPort(host, port(satellitePeer, i, sellerHTTP)),
+		})
+		sellerProcess.Arguments = withCommon(apiProcess.Directory, Arguments{
+			"run": {
+				"seller",
+				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugSellerHTTP)),
+			},
+		})
+		sellerProcess.WaitForExited(migrationProcess)
+
 		repairProcess := processes.New(Info{
 			Name:       fmt.Sprintf("satellite-repairer/%d", i),
 			Executable: "satellite",

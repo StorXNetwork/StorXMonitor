@@ -28,6 +28,7 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/satellite/analytics"
 	"github.com/StorXNetwork/StorXMonitor/satellite/buckets"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/auditlog"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth/csrf"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth/sso"
@@ -447,15 +448,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 	}
 
-	{
-		peer.DeleteUser.Service = userworker.NewDeleteUserWorker(peer.Log.Named("delete-user"), peer.DB.DeleteUserQueue(),
-			peer.DB.Console().Projects(), peer.DB.Console().APIKeys(), peer.DB.Buckets(), peer.DB.Console().Users())
-		peer.Services.Add(lifecycle.Item{
-			Name: "delete-user",
-			Run:  peer.DeleteUser.Service.Run,
-		})
-	}
-
 	{ // setup contact service
 		authority, err := LoadAuthorities(full.PeerIdentity(), config.TagAuthorities)
 		if err != nil {
@@ -824,7 +816,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			externalAddress,
 			peer.URL().String(),
 			consoleConfig.SatelliteName,
-			consoleConfig.WhiteLabel,
 			config.Metainfo.ProjectLimits.MaxBuckets,
 			config.SSO.Enabled,
 			placements,
@@ -844,11 +835,43 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			minimumChargeDate,
 			pc.PackagePlans.Packages,
 			consoleConfig.BackupToolsURL,
+			consoleConfig.BackupToolsAPIKey,
 			web3AuthSocialShareHelper,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+		peer.Console.Service.SetResellerTenantLookup(consoleweb.NewResellerTenantResolver(peer.DB.Seller(), consoleConfig.SellerExternalAddress))
+		peer.Console.Service.SetMailExportOrdersDB(peer.Orders.DB)
+		if peer.Mail.Service != nil {
+			peer.Mail.Service.SetBrandingResolver(peer.Console.Service.ResellerMailBranding)
+			peer.Mail.Service.SetSenderResolver(peer.Console.Service.ResellerMailSender)
+		}
+
+		peer.DeleteUser.Service = userworker.NewDeleteUserWorker(peer.Log.Named("delete-user"), peer.DB.DeleteUserQueue(),
+			peer.DB.Console().Projects(), peer.DB.Console().APIKeys(), peer.DB.Buckets(), peer.DB.Console().Users(),
+			peer.DB.Console().BackupCredentials(), peer.Console.Service, consoleConfig.AccountDeleteWorkerInterval)
+		peer.Services.Add(lifecycle.Item{
+			Name: "delete-user",
+			Run:  peer.DeleteUser.Service.Run,
+		})
+
+		auditLogChore := auditlog.NewChore(
+			peer.Log.Named("auditlog:chore"),
+			peer.Console.Service.AuditLog(),
+			24*time.Hour,
+		)
+		peer.Services.Add(lifecycle.Item{
+			Name:  "auditlog:chore",
+			Run:   auditLogChore.Run,
+			Close: auditLogChore.Close,
+		})
+		peer.Services.Add(lifecycle.Item{
+			Name: "console:auditlog",
+			Close: func() error {
+				return peer.Console.Service.CloseAuditLog()
+			},
+		})
 
 		peer.Console.ConsoleService, err = consoleservice.NewService(
 			peer.Log.Named("console:service"),
@@ -914,6 +937,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			priceSummaries,
 			config.Entitlements.Enabled,
 			config.SSO.Enabled,
+			peer.DB.Seller(),
 		)
 
 		if config.DisableConsoleFromSatelliteAPI {
@@ -1228,7 +1252,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				externalAddress,
 				peer.URL().String(),
 				consoleConfig.SatelliteName,
-				consoleConfig.WhiteLabel,
 				config.Metainfo.ProjectLimits.MaxBuckets,
 				config.SSO.Enabled,
 				placements,
@@ -1247,10 +1270,17 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				minimumChargeDate,
 				config.Payments.PackagePlans.Packages,
 				consoleConfig.BackupToolsURL,
+				consoleConfig.BackupToolsAPIKey,
 				web3AuthSocialShareHelper,
 			)
 			if err != nil {
 				return nil, errs.Combine(err, peer.Close())
+			}
+			peer.Console.Service.SetResellerTenantLookup(consoleweb.NewResellerTenantResolver(peer.DB.Seller(), consoleConfig.SellerExternalAddress))
+			peer.Console.Service.SetMailExportOrdersDB(peer.Orders.DB)
+			if peer.Mail.Service != nil {
+				peer.Mail.Service.SetBrandingResolver(peer.Console.Service.ResellerMailBranding)
+				peer.Mail.Service.SetSenderResolver(peer.Console.Service.ResellerMailSender)
 			}
 
 			peer.Console.ConsoleService, err = consoleservice.NewService(
@@ -1329,6 +1359,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				priceSummaries,
 				config.Entitlements.Enabled,
 				config.SSO.Enabled,
+				peer.DB.Seller(),
 			)
 
 			peer.Servers.Add(lifecycle.Item{

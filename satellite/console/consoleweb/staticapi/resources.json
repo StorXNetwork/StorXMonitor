@@ -1,39 +1,39 @@
 [
   {
-    "name": "Usage Guidelines",
-    "desc": "Learn everything you need to know about StorX Usage",
+    "name": "How to Sign Up in CyberLs",
+    "desc": "Step-by-step guide to create your CyberLs account",
     "type": "url",
-    "link": "/guides?type=usage-guideline"
+    "link": "/guides?type=cyberls-signup"
+  },
+  {
+    "name": "How to Log In to CyberLs",
+    "desc": "Step-by-step guide to sign in to your CyberLs account",
+    "type": "url",
+    "link": "/guides?type=cyberls-login"
+  },
+  {
+    "name": "How to Connect Google Account in CyberLs",
+    "desc": "Step-by-step guide to link your Google account for backup",
+    "type": "url",
+    "link": "/guides?type=cyberls-google-connect"
+  },
+  {
+    "name": "How to Set Up Domain-Wide Delegation",
+    "desc": "Configure Google Workspace domain-wide delegation for CyberLs backup and restore",
+    "type": "url",
+    "link": "/guides?type=cyberls-domain-wide-delegation"
+  },
+  {
+    "name": "How to Set Up 2-FA in CyberLs",
+    "desc": "Enable two-factor authentication with an authenticator app",
+    "type": "url",
+    "link": "/guides?type=cyberls-2fa"
   },
   {
     "name": "Blogs",
     "desc": "Access wealth of information, shares on our articles",
     "type": "url",
     "link": "https://medium.com/storx-network"
-  },
-  {
-    "name": "Google Backup Guide",
-    "desc": "Step-by-step guide to backup Google Workspace data",
-    "type": "url",
-    "link": "/guides?type=google-backup"
-  },
-  {
-    "name": "Microsoft Backup Guide",
-    "desc": "Step-by-step guide to backup Microsoft Outlook data",
-    "type": "url",
-    "link": "/guides?type=microsoft-backup"
-  },
-  {
-    "name": "Corporate Mail Backup Guide",
-    "desc": "Guide to corporate mail backup with StorX",
-    "type": "url",
-    "link": "/guides?type=corporate-mail-backup"
-  },
-  {
-    "name": "Signup Guide",
-    "desc": "Step-by-step guide to sign up on StorX",
-    "type": "url",
-    "link": "/guides?type=signup"
   },
   {
     "name": "Still Need Help?",
