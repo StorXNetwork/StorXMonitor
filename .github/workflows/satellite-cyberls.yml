@@ -32,6 +32,8 @@ jobs:
         PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
       run: |
         git config --global url."https://x-access-token:$env:PERSONAL_ACCESS_TOKEN@github.com/".insteadOf "https://github.com/"
+        go version
+        go env
         go env -w GOPRIVATE=github.com/StorXNetwork/*
         go env -w GONOSUMDB=github.com/StorXNetwork/*
         go env -w GONOPROXY=github.com/StorXNetwork/*

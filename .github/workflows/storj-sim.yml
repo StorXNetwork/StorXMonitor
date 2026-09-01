@@ -15,7 +15,7 @@ env:
 
 jobs:
   build-storxnetwork-sim:
-    runs-on: [self-hosted, windows, production]
+    runs-on: [self-hosted, windows, production, storx]
     environment: production
     steps:
     - name: Checkout code
