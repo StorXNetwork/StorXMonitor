@@ -32,8 +32,6 @@ jobs:
         PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
       run: |
         git config --global url."https://x-access-token:$env:PERSONAL_ACCESS_TOKEN@github.com/".insteadOf "https://github.com/"
-        go version
-        go env
         go env -w GOPRIVATE=github.com/StorXNetwork/*
         go env -w GONOSUMDB=github.com/StorXNetwork/*
         go env -w GONOPROXY=github.com/StorXNetwork/*
@@ -41,9 +39,71 @@ jobs:
         New-Item -ItemType Directory -Force -Path $gomodcache | Out-Null
         go env -w GOMODCACHE=$gomodcache
 
+    - name: Validate Go module access
+      shell: powershell
+      env:
+        PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+        GIT_TERMINAL_PROMPT: '0'
+      run: |
+        $ErrorActionPreference = 'Continue'
+        $failed = $false
+
+        Write-Host "=== 1. PERSONAL_ACCESS_TOKEN ==="
+        if ([string]::IsNullOrWhiteSpace($env:PERSONAL_ACCESS_TOKEN)) {
+          Write-Host "FAIL: secret is empty or not available to the production environment"
+          $failed = $true
+        } else {
+          Write-Host "PASS: secret is set (length $($env:PERSONAL_ACCESS_TOKEN.Length))"
+        }
+
+        Write-Host "=== 2. Go version ==="
+        $verOutput = go version
+        Write-Host $verOutput
+        if ($verOutput -notmatch 'go1\.(2[5-9]|[3-9]\d)') {
+          Write-Host "FAIL: go.mod requires go 1.25 or newer"
+          $failed = $true
+        } else {
+          Write-Host "PASS: Go is 1.25 or newer"
+        }
+
+        Write-Host "=== 3. Go module env ==="
+        go env GOPRIVATE GONOPROXY GONOSUMDB GOMODCACHE GOPROXY GOTOOLCHAIN
+        $goprivate = (go env GOPRIVATE).Trim()
+        if ($goprivate -notmatch 'StorXNetwork') {
+          Write-Host "FAIL: GOPRIVATE does not include github.com/StorXNetwork/*"
+          $failed = $true
+        } else {
+          Write-Host "PASS: GOPRIVATE=$goprivate"
+        }
+
+        Write-Host "=== 4. Module cache ==="
+        $modcache = (go env GOMODCACHE).Trim()
+        Write-Host "GOMODCACHE=$modcache"
+        $privateCache = Join-Path $modcache "github.com\StorXNetwork"
+        if (Test-Path $privateCache) {
+          Write-Host "PASS: private module cache exists at $privateCache"
+        } else {
+          Write-Host "WARN: $privateCache is missing; tidy/build must fetch private modules over the network"
+        }
+
+        Write-Host "=== 5. git ls-remote private module ==="
+        git ls-remote https://github.com/StorXNetwork/common.git HEAD
+        if ($LASTEXITCODE -ne 0) {
+          Write-Host "FAIL: cannot read github.com/StorXNetwork/common (PAT missing scopes, expired, SSO not authorized, or git insteadOf not applied)"
+          $failed = $true
+        } else {
+          Write-Host "PASS: git can read github.com/StorXNetwork/common"
+        }
+
+        if ($failed) {
+          Write-Host "One or more validation checks failed. Fix the FAIL lines above before running go mod tidy."
+          exit 1
+        }
+        Write-Host "All validation checks passed"
+
     - name: Go mod tidy
       if: github.event_name == 'workflow_dispatch' && inputs.run_go_mod_tidy == true
-      shell: powershell
+      shell: cmd
       run: go mod tidy
 
     - name: Fast build satellite.exe
