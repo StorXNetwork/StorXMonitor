@@ -382,7 +382,7 @@ func TestDownload(t *testing.T) {
 				pieceID:      pieceID,
 				downloadData: data,
 				action:       pb.PieceAction_PUT,
-				errs:         []string{"expected get or get repair or audit action got PUT"},
+				errs:         []string{"expected get or get repair or audit or get internal action got PUT"},
 			},
 		} {
 			tt := tt

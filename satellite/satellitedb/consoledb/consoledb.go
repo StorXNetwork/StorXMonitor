@@ -76,6 +76,16 @@ func (db *ConsoleDB) ProjectInvitations() console.ProjectInvitations {
 	return &projectInvitations{db: db.Methods}
 }
 
+// MemberBucketGrants is a getter for Member prefix ACL grants.
+func (db *ConsoleDB) MemberBucketGrants() console.MemberBucketGrants {
+	return &memberBucketGrants{db: db.Methods}
+}
+
+// ProjectMemberACLBuckets is a getter for the Member ACL bucket registry.
+func (db *ConsoleDB) ProjectMemberACLBuckets() console.ProjectMemberACLBuckets {
+	return &projectMemberACLBuckets{db: db.Methods}
+}
+
 // APIKeys is a getter for APIKeys repository.
 func (db *ConsoleDB) APIKeys() console.APIKeys {
 	db.ApikeysOnce.Do(func() {

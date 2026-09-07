@@ -38,11 +38,8 @@ type UserPreferenceDB interface {
 	// InsertUserPreference creates a new user preference.
 	InsertUserPreference(ctx context.Context, preference UserNotificationPreference) (UserNotificationPreference, error)
 
-	// GetUserPreferences retrieves all preferences for a user.
-	GetUserPreferences(ctx context.Context, userID uuid.UUID) ([]UserNotificationPreference, error)
-
-	// GetUserPreferenceByCategory retrieves a category-level preference.
-	GetUserPreferenceByCategory(ctx context.Context, userID uuid.UUID, category string) (UserNotificationPreference, error)
+	// GetUserPreference retrieves the global preference row for a user.
+	GetUserPreference(ctx context.Context, userID uuid.UUID) (UserNotificationPreference, error)
 
 	// UpdateUserPreference updates a user preference.
 	UpdateUserPreference(ctx context.Context, id uuid.UUID, update UpdateUserPreferenceRequest) (UserNotificationPreference, error)

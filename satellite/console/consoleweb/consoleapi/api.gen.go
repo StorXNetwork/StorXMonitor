@@ -15,10 +15,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"github.com/StorXNetwork/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/private/api"
 	"github.com/StorXNetwork/StorXMonitor/satellite/accounting"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 const dateLayout = "2006-01-02T15:04:05.999Z"
@@ -140,6 +140,9 @@ func (h *ProjectManagementHandler) handleGenCreateProject(w http.ResponseWriter,
 	}
 
 	retVal, httpErr := h.service.GenCreateProject(ctx, payload)
+	if svc, ok := h.service.(*console.Service); ok {
+		svc.RecordUserAudit(ctx, "PROJECT_CREATE", "Project", "Project created", httpErr.Err)
+	}
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
 		return
@@ -184,6 +187,9 @@ func (h *ProjectManagementHandler) handleGenUpdateProject(w http.ResponseWriter,
 	}
 
 	retVal, httpErr := h.service.GenUpdateProject(ctx, id, payload)
+	if svc, ok := h.service.(*console.Service); ok {
+		svc.RecordUserAudit(ctx, "PROJECT_UPDATE", "Project", "Project updated", httpErr.Err)
+	}
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
 		return
@@ -222,6 +228,9 @@ func (h *ProjectManagementHandler) handleGenDeleteProject(w http.ResponseWriter,
 	}
 
 	httpErr := h.service.GenDeleteProject(ctx, id)
+	if svc, ok := h.service.(*console.Service); ok {
+		svc.RecordUserAudit(ctx, "PROJECT_DELETE", "Project", "Project deleted", httpErr.Err)
+	}
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
 	}
@@ -500,6 +509,9 @@ func (h *APIKeyManagementHandler) handleGenCreateAPIKey(w http.ResponseWriter, r
 	}
 
 	retVal, httpErr := h.service.GenCreateAPIKey(ctx, payload)
+	if svc, ok := h.service.(*console.Service); ok {
+		svc.RecordUserAudit(ctx, "API_KEY_CREATE", "API key", "API key created", httpErr.Err)
+	}
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
 		return
@@ -538,6 +550,9 @@ func (h *APIKeyManagementHandler) handleGenDeleteAPIKey(w http.ResponseWriter, r
 	}
 
 	httpErr := h.service.GenDeleteAPIKey(ctx, id)
+	if svc, ok := h.service.(*console.Service); ok {
+		svc.RecordUserAudit(ctx, "API_KEY_DELETE", "API key", "API key deleted", httpErr.Err)
+	}
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
 	}

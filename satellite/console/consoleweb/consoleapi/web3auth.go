@@ -161,6 +161,8 @@ func (a *Web3Auth) Token(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !bytes.Equal([]byte(pubKey), []byte(user.WalletId)) {
+		sigErr := console.ErrUnauthorized.New("invalid signature")
+		a.service.RecordUserAuditForUser(ctx, user, "AUTH_LOGIN", "Session", "User logged in", sigErr)
 		a.sendError(w, "invalid signature", http.StatusBadRequest)
 		web3authTokenErrorInvalidSignature.Inc(1)
 		return
@@ -201,6 +203,7 @@ func (a *Web3Auth) Token(w http.ResponseWriter, r *http.Request) {
 		MFAPasscode:     request.MFAPasscode,
 		MFARecoveryCode: request.MFARecoveryCode,
 	})
+	a.service.RecordUserAuditForEmail(ctx, request.Email, "AUTH_LOGIN", "Session", "User logged in", err)
 	if err != nil {
 		if console.ErrMFAMissing.Has(err) {
 			a.sendError(w, "MFA is missing", http.StatusOK)

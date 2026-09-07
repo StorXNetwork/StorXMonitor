@@ -151,17 +151,17 @@ read limitoffset (
     where push_notifications.status = ?
 )
 
-// user_notification_preferences stores per-user notification preference overrides.
+// user_notification_preferences stores per-user global notification preference overrides.
 model user_notification_preference (
     key id
+
+    unique user_id
 
     // id is a UUID for the preference entry.
     field id blob
     // user_id references user.id.
     field user_id blob
-    // category indicates the category that this preference applies to.
-    field category text ( nullable, updatable )
-    // preferences stores preference settings (e.g. email, push, sms, etc.).
+    // preferences stores global channel settings (push, email, sms minimum priority levels).
     field preferences json ( updatable )
     // created_at indicates when the preference was created.
     field created_at timestamp ( autoinsert )
@@ -178,19 +178,8 @@ read one (
     where user_notification_preference.id = ?
 )
 
-read all (
-    select user_notification_preference
-    where user_notification_preference.user_id = ?
-)
-
 read one (
     select user_notification_preference
     where user_notification_preference.user_id = ?
-)
-
-read one (
-    select user_notification_preference
-    where user_notification_preference.user_id = ?
-    where user_notification_preference.category = ?
 )
 

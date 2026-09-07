@@ -33,6 +33,16 @@ CREATE TABLE admins (
 	updated_at TIMESTAMP NOT NULL,
 	deleted_at TIMESTAMP
 ) PRIMARY KEY ( id ) ;
+CREATE TABLE audit_logs (
+	id BYTES(MAX) NOT NULL,
+	timestamp TIMESTAMP NOT NULL DEFAULT (current_timestamp),
+	actor_id STRING(MAX) NOT NULL,
+	action STRING(MAX) NOT NULL,
+	resource STRING(MAX),
+	message STRING(MAX) NOT NULL,
+	ip_address STRING(MAX),
+	status STRING(MAX) NOT NULL
+) PRIMARY KEY ( id ) ;
 CREATE TABLE backup_final_statuses (
 	backup_date STRING(MAX) NOT NULL,
 	status STRING(MAX) NOT NULL,
@@ -223,6 +233,36 @@ CREATE TABLE key_versions (
 	key_id BYTES(MAX) NOT NULL,
 	version STRING(MAX) NOT NULL
 ) PRIMARY KEY ( key_id ) ;
+CREATE TABLE mail_export_jobs (
+	id STRING(MAX) NOT NULL,
+	user_id STRING(MAX) NOT NULL,
+	project_id STRING(MAX) NOT NULL,
+	access_key_id STRING(MAX) NOT NULL,
+	bucket STRING(MAX) NOT NULL,
+	format STRING(MAX) NOT NULL,
+	mode STRING(MAX) NOT NULL,
+	prefix STRING(MAX),
+	keys_json JSON,
+	access_grant STRING(MAX),
+	status STRING(MAX) NOT NULL,
+	retry_count INT64 NOT NULL,
+	progress INT64 NOT NULL,
+	processed_files INT64 NOT NULL,
+	total_files INT64 NOT NULL,
+	processed_bytes INT64 NOT NULL,
+	total_bytes INT64 NOT NULL,
+	current_object STRING(MAX),
+	archive_bucket STRING(MAX),
+	archive_key STRING(MAX),
+	archive_name STRING(MAX),
+	error_message STRING(MAX),
+	last_download_charge_id STRING(MAX),
+	last_download_charged_bytes INT64,
+	created_at TIMESTAMP NOT NULL,
+	started_at TIMESTAMP,
+	completed_at TIMESTAMP,
+	expires_at TIMESTAMP
+) PRIMARY KEY ( id ) ;
 CREATE TABLE nodes (
 	id BYTES(MAX) NOT NULL,
 	address STRING(MAX) NOT NULL DEFAULT (""),
@@ -461,6 +501,70 @@ CREATE TABLE reputations (
 	unknown_audit_reputation_alpha FLOAT64 NOT NULL DEFAULT (1),
 	unknown_audit_reputation_beta FLOAT64 NOT NULL DEFAULT (0)
 ) PRIMARY KEY ( id ) ;
+CREATE TABLE resellers (
+	id BYTES(MAX) NOT NULL,
+	name STRING(MAX) NOT NULL,
+	email STRING(MAX) NOT NULL,
+	password_hash BYTES(MAX) NOT NULL,
+	company_name STRING(MAX),
+	status INT64 NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	updated_at TIMESTAMP NOT NULL,
+	deleted_at TIMESTAMP,
+	failed_login_count INT64,
+	login_lockout_expiration TIMESTAMP,
+	activation_code STRING(MAX),
+	signup_id STRING(MAX),
+	new_unverified_email STRING(MAX),
+	email_change_verification_step INT64 NOT NULL DEFAULT (0),
+	mfa_enabled BOOL NOT NULL DEFAULT (false),
+	mfa_secret_key STRING(MAX),
+	mfa_recovery_codes STRING(MAX)
+) PRIMARY KEY ( id ) ;
+CREATE UNIQUE INDEX index_resellers_email ON resellers ( email ) ;
+CREATE TABLE reseller_configs (
+	id BYTES(MAX) NOT NULL,
+	reseller_id BYTES(MAX) NOT NULL,
+	config JSON NOT NULL,
+	active_theme_type STRING(MAX) NOT NULL DEFAULT ("system"),
+	active_theme_id BYTES(MAX),
+	created_at TIMESTAMP NOT NULL,
+	updated_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( id ) ;
+CREATE UNIQUE INDEX index_reseller_configs_reseller_id ON reseller_configs ( reseller_id ) ;
+CREATE TABLE reseller_delete_requests (
+	id BYTES(MAX) NOT NULL,
+	reseller_id BYTES(MAX) NOT NULL,
+	status STRING(MAX) NOT NULL,
+	error STRING(MAX),
+	delete_at TIMESTAMP NOT NULL,
+	created_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( id ) ;
+CREATE TABLE reseller_domains (
+	id BYTES(MAX) NOT NULL,
+	reseller_id BYTES(MAX) NOT NULL,
+	domain STRING(MAX) NOT NULL,
+	domain_type STRING(MAX) NOT NULL,
+	status STRING(MAX) NOT NULL,
+	verification_method STRING(MAX),
+	verification_status STRING(MAX) NOT NULL,
+	ssl_status STRING(MAX) NOT NULL,
+	dns_target STRING(MAX),
+	verified_at TIMESTAMP,
+	created_at TIMESTAMP NOT NULL,
+	updated_at TIMESTAMP NOT NULL,
+	deleted_at TIMESTAMP
+) PRIMARY KEY ( id ) ;
+CREATE UNIQUE INDEX index_reseller_domains_reseller_id ON reseller_domains ( reseller_id ) ;
+CREATE TABLE reseller_themes (
+	id BYTES(MAX) NOT NULL,
+	reseller_id BYTES(MAX) NOT NULL,
+	name STRING(MAX) NOT NULL,
+	colors JSON NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	updated_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( id ) ;
+CREATE UNIQUE INDEX index_reseller_themes_name_reseller_id ON reseller_themes ( name, reseller_id ) ;
 CREATE TABLE reset_password_tokens (
 	secret BYTES(MAX) NOT NULL,
 	owner_id BYTES(MAX) NOT NULL,
@@ -473,6 +577,12 @@ CREATE TABLE reset_password_token_developers (
 	created_at TIMESTAMP NOT NULL
 ) PRIMARY KEY ( secret ) ;
 CREATE UNIQUE INDEX index_reset_password_token_developers_owner_id ON reset_password_token_developers ( owner_id ) ;
+CREATE TABLE reset_password_token_resellers (
+	secret BYTES(MAX) NOT NULL,
+	owner_id BYTES(MAX) NOT NULL,
+	created_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( secret ) ;
+CREATE UNIQUE INDEX index_reset_password_token_resellers_owner_id ON reset_password_token_resellers ( owner_id ) ;
 CREATE TABLE retention_remainder_charges (
 	project_id BYTES(MAX) NOT NULL,
 	bucket_name BYTES(MAX) NOT NULL,
@@ -605,6 +715,18 @@ CREATE TABLE stripecoinpayments_tx_conversion_rates (
 	rate_numeric FLOAT64 NOT NULL,
 	created_at TIMESTAMP NOT NULL
 ) PRIMARY KEY ( tx_id ) ;
+CREATE TABLE theme_presets (
+	id BYTES(MAX) NOT NULL,
+	slug STRING(MAX) NOT NULL,
+	name STRING(MAX) NOT NULL,
+	description STRING(MAX),
+	colors JSON NOT NULL,
+	is_system BOOL NOT NULL DEFAULT (true),
+	created_at TIMESTAMP NOT NULL,
+	updated_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( id ) ;
+CREATE UNIQUE INDEX index_theme_presets_slug ON theme_presets ( slug ) ;
+CREATE UNIQUE INDEX index_theme_presets_name ON theme_presets ( name ) ;
 CREATE TABLE users (
 	id BYTES(MAX) NOT NULL,
 	external_id STRING(MAX),
@@ -672,11 +794,11 @@ CREATE TABLE user_delete_requests (
 CREATE TABLE user_notification_preferences (
 	id BYTES(MAX) NOT NULL,
 	user_id BYTES(MAX) NOT NULL,
-	category STRING(MAX),
 	preferences JSON NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	updated_at TIMESTAMP NOT NULL
 ) PRIMARY KEY ( id ) ;
+CREATE UNIQUE INDEX index_user_notification_preferences_user_id ON user_notification_preferences ( user_id ) ;
 CREATE TABLE user_settings (
 	user_id BYTES(MAX) NOT NULL,
 	session_minutes INT64,
@@ -720,6 +842,13 @@ CREATE TABLE webapp_session_developers (
 	status INT64 NOT NULL,
 	expires_at TIMESTAMP NOT NULL
 ) PRIMARY KEY ( id ) ;
+CREATE TABLE webapp_session_resellers (
+	id BYTES(MAX) NOT NULL,
+	reseller_id BYTES(MAX) NOT NULL,
+	ip_address STRING(MAX) NOT NULL,
+	status INT64 NOT NULL,
+	expires_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( id ) ;
 CREATE TABLE api_keys (
 	id BYTES(MAX) NOT NULL,
 	project_id BYTES(MAX) NOT NULL,
@@ -735,6 +864,22 @@ CREATE TABLE api_keys (
 ) PRIMARY KEY ( id ) ;
 CREATE UNIQUE INDEX index_api_keys_head ON api_keys ( head ) ;
 CREATE UNIQUE INDEX index_api_keys_name_project_id ON api_keys ( name, project_id ) ;
+CREATE TABLE backup_credentials (
+	id BYTES(MAX) NOT NULL,
+	user_id BYTES(MAX) NOT NULL,
+	provider STRING(MAX) NOT NULL,
+	email STRING(MAX) NOT NULL,
+	access_token STRING(MAX) NOT NULL,
+	refresh_token STRING(MAX),
+	access_token_expiry TIMESTAMP,
+	account_type STRING(MAX),
+	tenant_id STRING(MAX),
+	tenant_name STRING(MAX),
+	created_at TIMESTAMP NOT NULL,
+	updated_at TIMESTAMP NOT NULL,
+	CONSTRAINT backup_credentials_user_id_fkey FOREIGN KEY (user_id) REFERENCES users (id)
+) PRIMARY KEY ( id ) ;
+CREATE UNIQUE INDEX index_backup_credentials_user_id_provider_email ON backup_credentials ( user_id, provider, email ) ;
 CREATE TABLE bucket_metainfos (
 	id BYTES(MAX) NOT NULL,
 	project_id BYTES(MAX) NOT NULL,
@@ -789,24 +934,30 @@ CREATE TABLE domains (
 	CONSTRAINT domains_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects (id),
 	CONSTRAINT domains_created_by_fkey FOREIGN KEY (created_by) REFERENCES users (id)
 ) PRIMARY KEY ( project_id, subdomain ) ;
-CREATE TABLE google_backup_credentials (
+CREATE TABLE member_bucket_grants (
 	id BYTES(MAX) NOT NULL,
-	user_id BYTES(MAX) NOT NULL,
-	google_email STRING(MAX) NOT NULL,
-	access_token STRING(MAX) NOT NULL,
-	refresh_token STRING(MAX),
-	access_token_expiry TIMESTAMP,
-	account_type STRING(MAX),
+	project_id BYTES(MAX) NOT NULL,
+	member_id BYTES(MAX),
+	invite_email STRING(MAX) NOT NULL,
+	bucket STRING(MAX) NOT NULL,
+	prefix STRING(MAX) NOT NULL,
+	allow_list BOOL NOT NULL,
+	allow_download BOOL NOT NULL,
+	allow_upload BOOL NOT NULL,
+	allow_delete BOOL NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	updated_at TIMESTAMP NOT NULL,
-	CONSTRAINT google_backup_credentials_user_id_fkey FOREIGN KEY (user_id) REFERENCES users (id)
+	expires_at TIMESTAMP,
+	CONSTRAINT member_bucket_grants_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE ,
+	CONSTRAINT member_bucket_grants_member_id_fkey FOREIGN KEY (member_id) REFERENCES users (id) ON DELETE CASCADE 
 ) PRIMARY KEY ( id ) ;
-CREATE UNIQUE INDEX index_google_backup_credentials_user_id_google_email ON google_backup_credentials ( user_id, google_email ) ;
+CREATE UNIQUE INDEX index_member_bucket_grants_project_id_invite_email_bucket_prefix ON member_bucket_grants ( project_id, invite_email, bucket, prefix ) ;
 CREATE TABLE project_invitations (
 	project_id BYTES(MAX) NOT NULL,
 	email STRING(MAX) NOT NULL,
 	inviter_id BYTES(MAX),
 	created_at TIMESTAMP NOT NULL,
+	expires_at TIMESTAMP,
 	CONSTRAINT project_invitations_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE ,
 	CONSTRAINT project_invitations_inviter_id_fkey FOREIGN KEY (inviter_id) REFERENCES users (id) ON DELETE CASCADE 
 ) PRIMARY KEY ( project_id, email ) ;
@@ -818,6 +969,12 @@ CREATE TABLE project_members (
 	CONSTRAINT project_members_member_id_fkey FOREIGN KEY (member_id) REFERENCES users (id) ON DELETE CASCADE ,
 	CONSTRAINT project_members_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE 
 ) PRIMARY KEY ( member_id, project_id ) ;
+CREATE TABLE project_member_acl_buckets (
+	project_id BYTES(MAX) NOT NULL,
+	bucket_name STRING(MAX) NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	CONSTRAINT project_member_acl_buckets_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE 
+) PRIMARY KEY ( project_id, bucket_name ) ;
 CREATE TABLE rest_api_keys (
 	id BYTES(MAX) NOT NULL,
 	user_id BYTES(MAX) NOT NULL,
@@ -844,6 +1001,8 @@ CREATE TABLE api_key_tails (
 ) PRIMARY KEY ( tail ) ;
 CREATE INDEX accounting_rollups_start_time_index ON accounting_rollups ( start_time ) ;
 CREATE INDEX admin_email_status_index ON admins ( email, status ) ;
+CREATE INDEX audit_log_actor_id_timestamp_idx ON audit_logs ( actor_id, timestamp ) ;
+CREATE INDEX audit_log_action_timestamp_idx ON audit_logs ( action, timestamp ) ;
 CREATE INDEX billing_transactions_tx_timestamp_index ON billing_transactions ( tx_timestamp ) ;
 CREATE INDEX bucket_bandwidth_rollups_project_id_action_interval_index ON bucket_bandwidth_rollups ( project_id, action, interval_start ) ;
 CREATE INDEX bucket_bandwidth_rollups_action_interval_project_id_index ON bucket_bandwidth_rollups ( action, interval_start, project_id ) ;
@@ -863,6 +1022,9 @@ CREATE INDEX developer_user_mappings_developer_id_user_id_index ON developer_use
 CREATE INDEX fcm_tokens_user_id_index ON fcm_tokens ( user_id ) ;
 CREATE INDEX fcm_tokens_token_index ON fcm_tokens ( token ) ;
 CREATE INDEX fcm_tokens_user_active_index ON fcm_tokens ( user_id, is_active ) ;
+CREATE INDEX mail_export_jobs_status_created_at_index ON mail_export_jobs ( status, created_at ) ;
+CREATE INDEX mail_export_jobs_status_expires_at_index ON mail_export_jobs ( status, expires_at ) ;
+CREATE INDEX mail_export_jobs_status_started_at_index ON mail_export_jobs ( status, started_at ) ;
 CREATE INDEX node_events_email_event_created_at_index ON node_events ( email, event, created_at ) ;
 CREATE INDEX node_smart_contract_updates_wallet_index ON node_smart_contract_updates ( wallet ) ;
 CREATE INDEX oauth2_requests_client_id_index ON oauth2_requests ( client_id ) ;
@@ -882,6 +1044,10 @@ CREATE INDEX push_notifications_created_at_index ON push_notifications ( created
 CREATE INDEX repair_queue_updated_at_index ON repair_queue ( updated_at ) ;
 CREATE INDEX repair_queue_num_healthy_pieces_attempted_at_index ON repair_queue ( segment_health, attempted_at ) ;
 CREATE INDEX repair_queue_placement_index ON repair_queue ( placement ) ;
+CREATE INDEX reseller_email_status_index ON resellers ( email, status ) ;
+CREATE INDEX reseller_delete_requests_reseller_id_index ON reseller_delete_requests ( reseller_id ) ;
+CREATE INDEX reseller_domain_domain_index ON reseller_domains ( domain ) ;
+CREATE INDEX reseller_theme_reseller_id_index ON reseller_themes ( reseller_id ) ;
 CREATE INDEX retention_remainder_charges_project_id_deleted_at_billed_index ON retention_remainder_charges ( project_id, deleted_at, billed ) ;
 CREATE INDEX reverification_audits_inserted_at_index ON reverification_audits ( inserted_at ) ;
 CREATE INDEX storagenode_bandwidth_rollups_interval_start_index ON storagenode_bandwidth_rollups ( interval_start ) ;
@@ -901,10 +1067,15 @@ CREATE INDEX users_normalized_email_tenant_id_status_index ON users ( normalized
 CREATE INDEX user_delete_requests_user_id_index ON user_delete_requests ( user_id ) ;
 CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id ) ;
 CREATE INDEX webapp_session_developers_developer_id_index ON webapp_session_developers ( developer_id ) ;
+CREATE INDEX webapp_session_resellers_reseller_id_index ON webapp_session_resellers ( reseller_id ) ;
+CREATE INDEX backup_credentials_user_id_index ON backup_credentials ( user_id ) ;
+CREATE INDEX backup_credentials_user_id_provider_index ON backup_credentials ( user_id, provider ) ;
 CREATE INDEX bucket_migrations_state_created_at_index ON bucket_migrations ( state, created_at ) ;
-CREATE INDEX google_backup_credentials_user_id_index ON google_backup_credentials ( user_id ) ;
+CREATE INDEX member_bucket_grants_project_id_member_id_index ON member_bucket_grants ( project_id, member_id ) ;
+CREATE INDEX member_bucket_grants_project_id_invite_email_index ON member_bucket_grants ( project_id, invite_email ) ;
 CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id ) ;
 CREATE INDEX project_invitations_email_index ON project_invitations ( email ) ;
 CREATE INDEX project_members_project_id_index ON project_members ( project_id ) ;
+CREATE INDEX project_member_acl_buckets_project_id_index ON project_member_acl_buckets ( project_id ) ;
 CREATE INDEX rest_api_keys_user_id_index ON rest_api_keys ( user_id ) ;
 CREATE INDEX rest_api_keys_name_index ON rest_api_keys ( name )

@@ -16,11 +16,7 @@ type deleteUserQueue struct {
 
 var _ userworker.DeleteUserQueue = (*deleteUserQueue)(nil)
 
-// GetNextUser retrieves a user from the queue. The user will be the
-// user which has been in the queue the longest, except those which
-// have already been claimed by another worker within the last
-// retryInterval. If there are no such users, an error wrapped by
-// audit.ErrEmptyQueue will be returned.
+// GetNextUser claims the oldest due INIT row (delete_at <= now). Claims are exclusive via status=processing.
 func (duq *deleteUserQueue) GetNextUser(ctx context.Context) (user *uuid.UUID, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -29,7 +25,8 @@ func (duq *deleteUserQueue) GetNextUser(ctx context.Context) (user *uuid.UUID, e
 		WITH next_entry AS (
 			SELECT *
 			FROM user_delete_requests
-			WHERE status = 'INIT'
+			WHERE status = 'INIT' AND delete_at <= now()
+			ORDER BY delete_at ASC, created_at ASC
 			LIMIT 1
 		)
 		UPDATE user_delete_requests
@@ -45,19 +42,23 @@ func (duq *deleteUserQueue) GetNextUser(ctx context.Context) (user *uuid.UUID, e
 	return user, err
 }
 
-// MarkProcessed marks a user as processed.
-func (duq *deleteUserQueue) MarkProcessed(ctx context.Context, userID uuid.UUID, err error) error {
+// MarkProcessed marks success, or requeues INIT on failure so BT purge / wipe can retry.
+func (duq *deleteUserQueue) MarkProcessed(ctx context.Context, userID uuid.UUID, processErr error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	status := "success"
-	if err != nil {
-		status = "error"
+	if processErr != nil {
+		_, err = duq.db.ExecContext(ctx, `
+			UPDATE user_delete_requests
+			SET status = 'INIT', error = $1
+			WHERE user_id = $2 AND status = 'processing'
+		`, processErr.Error(), userID)
+		return err
 	}
 
 	_, err = duq.db.ExecContext(ctx, `
 		UPDATE user_delete_requests
-		SET status = $1, error = $2
-		WHERE user_id = $3
-	`, status, err, userID)
+		SET status = 'success', error = NULL
+		WHERE user_id = $1 AND status = 'processing'
+	`, userID)
 	return err
 }

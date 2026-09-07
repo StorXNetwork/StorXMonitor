@@ -17,14 +17,13 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/pushnotifications"
 )
 
-// sendPushNotificationWithPreferences sends a push notification after checking user preferences.
-func (server *Server) sendPushNotificationWithPreferences(ctx context.Context, userID uuid.UUID, category string, notification pushnotifications.Notification) error {
+// sendPushNotificationWithPreferences sends a push notification after checking global user preferences.
+func (server *Server) sendPushNotificationWithPreferences(ctx context.Context, userID uuid.UUID, configLevel int, notification pushnotifications.Notification) error {
 	if server.consoleService != nil {
-		return server.consoleService.SendPushNotificationWithPreferences(ctx, userID, category, notification)
+		return server.consoleService.SendPushNotificationWithPreferences(ctx, userID, configLevel, notification)
 	}
 
-	// Check user preferences and configs
-	shouldSend, err := server.checkNotificationPreferences(ctx, userID, category)
+	shouldSend, err := server.checkNotificationPreferences(ctx, userID, configLevel)
 	if err != nil || !shouldSend {
 		return err
 	}
@@ -75,14 +74,16 @@ func (server *Server) sendPushNotificationByEventName(ctx context.Context, userI
 		return err
 	}
 
+	configLevel := configs.GetConfigLevel(configData)
+
 	notification := pushnotifications.Notification{
 		Title:    title,
 		Body:     body,
 		Data:     server.buildNotificationData(eventName, mergedVars),
-		Priority: mapLevelToPriority(configs.GetConfigLevel(configData)), // Use configData here
+		Priority: mapLevelToPriority(configLevel),
 	}
 
-	return server.sendPushNotificationWithPreferences(ctx, userID, category, notification)
+	return server.sendPushNotificationWithPreferences(ctx, userID, configLevel, notification)
 }
 
 // sendNotificationAsync sends a push notification asynchronously.
@@ -103,40 +104,12 @@ func (server *Server) sendNotificationAsync(userID uuid.UUID, email string, even
 	}()
 }
 
-// checkNotificationPreferences checks if notification should be sent based on user preferences.
-func (server *Server) checkNotificationPreferences(ctx context.Context, userID uuid.UUID, category string) (bool, error) {
-	configsDB := server.db.Console().Configs()
-	configsService := configs.NewService(configsDB)
-
-	pushConfigType := configs.ConfigTypeNotificationTemplate
-	filters := configs.ListConfigFilters{
-		ConfigType: &pushConfigType,
-		Category:   &category,
-	}
-
-	configsList, err := configsService.ListConfigs(ctx, filters)
-	if err != nil {
-		return true, nil // Default to sending on error
-	}
-
-	// Find active push config
-	var pushConfig *configs.Config
-	for i := range configsList {
-		if configsList[i].IsActive && configsList[i].ConfigType == pushConfigType {
-			pushConfig = &configsList[i]
-			break
-		}
-	}
-
-	if pushConfig == nil {
-		return true, nil // No config found, send by default
-	}
-
-	// Check user preferences
+// checkNotificationPreferences checks if notification should be sent based on global user preferences.
+func (server *Server) checkNotificationPreferences(ctx context.Context, userID uuid.UUID, configLevel int) (bool, error) {
 	preferenceService := configs.NewPreferenceService(server.db.Console().UserNotificationPreferences())
-	shouldSend, err := preferenceService.ShouldSendNotification(ctx, userID, category, string(configs.NotificationTypePush), configs.GetConfigLevel(pushConfig.ConfigData))
+	shouldSend, err := preferenceService.ShouldSendNotification(ctx, userID, string(configs.NotificationTypePush), configLevel)
 	if err != nil {
-		return true, nil // Default to sending on error
+		return true, nil
 	}
 
 	return shouldSend, nil

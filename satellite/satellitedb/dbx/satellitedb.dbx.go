@@ -399,6 +399,18 @@ func (obj *pgxDB) Schema() []string {
 	PRIMARY KEY ( id )
 )`,
 
+		`CREATE TABLE audit_logs (
+	id bytea NOT NULL,
+	timestamp timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	actor_id text NOT NULL,
+	action text NOT NULL,
+	resource text,
+	message text NOT NULL,
+	ip_address text,
+	status text NOT NULL,
+	PRIMARY KEY ( id )
+)`,
+
 		`CREATE TABLE backup_final_statuses (
 	backup_date text NOT NULL,
 	status text NOT NULL,
@@ -622,6 +634,38 @@ func (obj *pgxDB) Schema() []string {
 	key_id bytea NOT NULL,
 	version text NOT NULL,
 	PRIMARY KEY ( key_id )
+)`,
+
+		`CREATE TABLE mail_export_jobs (
+	id text NOT NULL,
+	user_id text NOT NULL,
+	project_id text NOT NULL,
+	access_key_id text NOT NULL,
+	bucket text NOT NULL,
+	format text NOT NULL,
+	mode text NOT NULL,
+	prefix text,
+	keys_json jsonb,
+	access_grant text,
+	status text NOT NULL,
+	retry_count integer NOT NULL,
+	progress integer NOT NULL,
+	processed_files bigint NOT NULL,
+	total_files bigint NOT NULL,
+	processed_bytes bigint NOT NULL,
+	total_bytes bigint NOT NULL,
+	current_object text,
+	archive_bucket text,
+	archive_key text,
+	archive_name text,
+	error_message text,
+	last_download_charge_id text,
+	last_download_charged_bytes bigint,
+	created_at timestamp with time zone NOT NULL,
+	started_at timestamp with time zone,
+	completed_at timestamp with time zone,
+	expires_at timestamp with time zone,
+	PRIMARY KEY ( id )
 )`,
 
 		`CREATE TABLE nodes (
@@ -897,6 +941,80 @@ func (obj *pgxDB) Schema() []string {
 	PRIMARY KEY ( id )
 )`,
 
+		`CREATE TABLE resellers (
+	id bytea NOT NULL,
+	name text NOT NULL,
+	email text NOT NULL,
+	password_hash bytea NOT NULL,
+	company_name text,
+	status integer NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	deleted_at timestamp with time zone,
+	failed_login_count integer,
+	login_lockout_expiration timestamp with time zone,
+	activation_code text,
+	signup_id text,
+	new_unverified_email text,
+	email_change_verification_step integer NOT NULL DEFAULT 0,
+	mfa_enabled boolean NOT NULL DEFAULT false,
+	mfa_secret_key text,
+	mfa_recovery_codes text,
+	PRIMARY KEY ( id ),
+	UNIQUE ( email )
+)`,
+
+		`CREATE TABLE reseller_configs (
+	id bytea NOT NULL,
+	reseller_id bytea NOT NULL,
+	config jsonb NOT NULL,
+	active_theme_type text NOT NULL DEFAULT 'system',
+	active_theme_id bytea,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( reseller_id )
+)`,
+
+		`CREATE TABLE reseller_delete_requests (
+	id bytea NOT NULL,
+	reseller_id bytea NOT NULL,
+	status text NOT NULL,
+	error text,
+	delete_at timestamp with time zone NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+)`,
+
+		`CREATE TABLE reseller_domains (
+	id bytea NOT NULL,
+	reseller_id bytea NOT NULL,
+	domain text NOT NULL,
+	domain_type text NOT NULL,
+	status text NOT NULL,
+	verification_method text,
+	verification_status text NOT NULL,
+	ssl_status text NOT NULL,
+	dns_target text,
+	verified_at timestamp with time zone,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	deleted_at timestamp with time zone,
+	PRIMARY KEY ( id ),
+	UNIQUE ( reseller_id )
+)`,
+
+		`CREATE TABLE reseller_themes (
+	id bytea NOT NULL,
+	reseller_id bytea NOT NULL,
+	name text NOT NULL,
+	colors jsonb NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( name, reseller_id )
+)`,
+
 		`CREATE TABLE reset_password_tokens (
 	secret bytea NOT NULL,
 	owner_id bytea NOT NULL,
@@ -906,6 +1024,14 @@ func (obj *pgxDB) Schema() []string {
 )`,
 
 		`CREATE TABLE reset_password_token_developers (
+	secret bytea NOT NULL,
+	owner_id bytea NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( secret ),
+	UNIQUE ( owner_id )
+)`,
+
+		`CREATE TABLE reset_password_token_resellers (
 	secret bytea NOT NULL,
 	owner_id bytea NOT NULL,
 	created_at timestamp with time zone NOT NULL,
@@ -1072,6 +1198,20 @@ func (obj *pgxDB) Schema() []string {
 	PRIMARY KEY ( tx_id )
 )`,
 
+		`CREATE TABLE theme_presets (
+	id bytea NOT NULL,
+	slug text NOT NULL,
+	name text NOT NULL,
+	description text,
+	colors jsonb NOT NULL,
+	is_system boolean NOT NULL DEFAULT true,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( slug ),
+	UNIQUE ( name )
+)`,
+
 		`CREATE TABLE users (
 	id bytea NOT NULL,
 	external_id text,
@@ -1143,11 +1283,11 @@ func (obj *pgxDB) Schema() []string {
 		`CREATE TABLE user_notification_preferences (
 	id bytea NOT NULL,
 	user_id bytea NOT NULL,
-	category text,
 	preferences jsonb NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	updated_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( id )
+	PRIMARY KEY ( id ),
+	UNIQUE ( user_id )
 )`,
 
 		`CREATE TABLE user_settings (
@@ -1205,6 +1345,15 @@ func (obj *pgxDB) Schema() []string {
 	PRIMARY KEY ( id )
 )`,
 
+		`CREATE TABLE webapp_session_resellers (
+	id bytea NOT NULL,
+	reseller_id bytea NOT NULL,
+	ip_address text NOT NULL,
+	status integer NOT NULL,
+	expires_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+)`,
+
 		`CREATE TABLE api_keys (
 	id bytea NOT NULL,
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
@@ -1218,6 +1367,23 @@ func (obj *pgxDB) Schema() []string {
 	PRIMARY KEY ( id ),
 	UNIQUE ( head ),
 	UNIQUE ( name, project_id )
+)`,
+
+		`CREATE TABLE backup_credentials (
+	id bytea NOT NULL,
+	user_id bytea NOT NULL REFERENCES users( id ),
+	provider text NOT NULL,
+	email text NOT NULL,
+	access_token text NOT NULL,
+	refresh_token text,
+	access_token_expiry timestamp with time zone,
+	account_type text,
+	tenant_id text,
+	tenant_name text,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( user_id, provider, email )
 )`,
 
 		`CREATE TABLE bucket_metainfos (
@@ -1275,18 +1441,22 @@ func (obj *pgxDB) Schema() []string {
 	PRIMARY KEY ( project_id, subdomain )
 )`,
 
-		`CREATE TABLE google_backup_credentials (
+		`CREATE TABLE member_bucket_grants (
 	id bytea NOT NULL,
-	user_id bytea NOT NULL REFERENCES users( id ),
-	google_email text NOT NULL,
-	access_token text NOT NULL,
-	refresh_token text,
-	access_token_expiry timestamp with time zone,
-	account_type text,
+	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+	member_id bytea REFERENCES users( id ) ON DELETE CASCADE,
+	invite_email text NOT NULL,
+	bucket text NOT NULL,
+	prefix text NOT NULL,
+	allow_list boolean NOT NULL,
+	allow_download boolean NOT NULL,
+	allow_upload boolean NOT NULL,
+	allow_delete boolean NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	updated_at timestamp with time zone NOT NULL,
+	expires_at timestamp with time zone,
 	PRIMARY KEY ( id ),
-	UNIQUE ( user_id, google_email )
+	UNIQUE ( project_id, invite_email, bucket, prefix )
 )`,
 
 		`CREATE TABLE project_invitations (
@@ -1294,6 +1464,7 @@ func (obj *pgxDB) Schema() []string {
 	email text NOT NULL,
 	inviter_id bytea REFERENCES users( id ) ON DELETE CASCADE,
 	created_at timestamp with time zone NOT NULL,
+	expires_at timestamp with time zone,
 	PRIMARY KEY ( project_id, email )
 )`,
 
@@ -1303,6 +1474,13 @@ func (obj *pgxDB) Schema() []string {
 	role integer NOT NULL DEFAULT 0,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( member_id, project_id )
+)`,
+
+		`CREATE TABLE project_member_acl_buckets (
+	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+	bucket_name text NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( project_id, bucket_name )
 )`,
 
 		`CREATE TABLE rest_api_keys (
@@ -1335,6 +1513,10 @@ func (obj *pgxDB) Schema() []string {
 		`CREATE INDEX accounting_rollups_start_time_index ON accounting_rollups ( start_time )`,
 
 		`CREATE INDEX admin_email_status_index ON admins ( email, status )`,
+
+		`CREATE INDEX audit_log_actor_id_timestamp_idx ON audit_logs ( actor_id, timestamp )`,
+
+		`CREATE INDEX audit_log_action_timestamp_idx ON audit_logs ( action, timestamp )`,
 
 		`CREATE INDEX billing_transactions_tx_timestamp_index ON billing_transactions ( tx_timestamp )`,
 
@@ -1374,6 +1556,12 @@ func (obj *pgxDB) Schema() []string {
 
 		`CREATE INDEX fcm_tokens_user_active_index ON fcm_tokens ( user_id, is_active )`,
 
+		`CREATE INDEX mail_export_jobs_status_created_at_index ON mail_export_jobs ( status, created_at )`,
+
+		`CREATE INDEX mail_export_jobs_status_expires_at_index ON mail_export_jobs ( status, expires_at )`,
+
+		`CREATE INDEX mail_export_jobs_status_started_at_index ON mail_export_jobs ( status, started_at )`,
+
 		`CREATE INDEX node_events_email_event_created_at_index ON node_events ( email, event, created_at ) WHERE node_events.email_sent is NULL`,
 
 		`CREATE INDEX node_smart_contract_updates_wallet_index ON node_smart_contract_updates ( wallet )`,
@@ -1411,6 +1599,14 @@ func (obj *pgxDB) Schema() []string {
 		`CREATE INDEX repair_queue_num_healthy_pieces_attempted_at_index ON repair_queue ( segment_health, attempted_at )`,
 
 		`CREATE INDEX repair_queue_placement_index ON repair_queue ( placement )`,
+
+		`CREATE INDEX reseller_email_status_index ON resellers ( email, status )`,
+
+		`CREATE INDEX reseller_delete_requests_reseller_id_index ON reseller_delete_requests ( reseller_id )`,
+
+		`CREATE INDEX reseller_domain_domain_index ON reseller_domains ( domain )`,
+
+		`CREATE INDEX reseller_theme_reseller_id_index ON reseller_themes ( reseller_id )`,
 
 		`CREATE INDEX retention_remainder_charges_project_id_deleted_at_billed_index ON retention_remainder_charges ( project_id, deleted_at, billed )`,
 
@@ -1450,15 +1646,25 @@ func (obj *pgxDB) Schema() []string {
 
 		`CREATE INDEX webapp_session_developers_developer_id_index ON webapp_session_developers ( developer_id )`,
 
+		`CREATE INDEX webapp_session_resellers_reseller_id_index ON webapp_session_resellers ( reseller_id )`,
+
+		`CREATE INDEX backup_credentials_user_id_index ON backup_credentials ( user_id )`,
+
+		`CREATE INDEX backup_credentials_user_id_provider_index ON backup_credentials ( user_id, provider )`,
+
 		`CREATE INDEX bucket_migrations_state_created_at_index ON bucket_migrations ( state, created_at )`,
 
-		`CREATE INDEX google_backup_credentials_user_id_index ON google_backup_credentials ( user_id )`,
+		`CREATE INDEX member_bucket_grants_project_id_member_id_index ON member_bucket_grants ( project_id, member_id )`,
+
+		`CREATE INDEX member_bucket_grants_project_id_invite_email_index ON member_bucket_grants ( project_id, invite_email )`,
 
 		`CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id )`,
 
 		`CREATE INDEX project_invitations_email_index ON project_invitations ( email )`,
 
 		`CREATE INDEX project_members_project_id_index ON project_members ( project_id )`,
+
+		`CREATE INDEX project_member_acl_buckets_project_id_index ON project_member_acl_buckets ( project_id )`,
 
 		`CREATE INDEX rest_api_keys_user_id_index ON rest_api_keys ( user_id )`,
 
@@ -1475,11 +1681,13 @@ func (obj *pgxDB) DropSchema() []string {
 
 		`DROP TABLE IF EXISTS rest_api_keys`,
 
+		`DROP TABLE IF EXISTS project_member_acl_buckets`,
+
 		`DROP TABLE IF EXISTS project_members`,
 
 		`DROP TABLE IF EXISTS project_invitations`,
 
-		`DROP TABLE IF EXISTS google_backup_credentials`,
+		`DROP TABLE IF EXISTS member_bucket_grants`,
 
 		`DROP TABLE IF EXISTS domains`,
 
@@ -1487,7 +1695,11 @@ func (obj *pgxDB) DropSchema() []string {
 
 		`DROP TABLE IF EXISTS bucket_metainfos`,
 
+		`DROP TABLE IF EXISTS backup_credentials`,
+
 		`DROP TABLE IF EXISTS api_keys`,
+
+		`DROP TABLE IF EXISTS webapp_session_resellers`,
 
 		`DROP TABLE IF EXISTS webapp_session_developers`,
 
@@ -1506,6 +1718,8 @@ func (obj *pgxDB) DropSchema() []string {
 		`DROP TABLE IF EXISTS user_delete_requests`,
 
 		`DROP TABLE IF EXISTS users`,
+
+		`DROP TABLE IF EXISTS theme_presets`,
 
 		`DROP TABLE IF EXISTS stripecoinpayments_tx_conversion_rates`,
 
@@ -1535,9 +1749,21 @@ func (obj *pgxDB) DropSchema() []string {
 
 		`DROP TABLE IF EXISTS retention_remainder_charges`,
 
+		`DROP TABLE IF EXISTS reset_password_token_resellers`,
+
 		`DROP TABLE IF EXISTS reset_password_token_developers`,
 
 		`DROP TABLE IF EXISTS reset_password_tokens`,
+
+		`DROP TABLE IF EXISTS reseller_themes`,
+
+		`DROP TABLE IF EXISTS reseller_domains`,
+
+		`DROP TABLE IF EXISTS reseller_delete_requests`,
+
+		`DROP TABLE IF EXISTS reseller_configs`,
+
+		`DROP TABLE IF EXISTS resellers`,
 
 		`DROP TABLE IF EXISTS reputations`,
 
@@ -1575,6 +1801,8 @@ func (obj *pgxDB) DropSchema() []string {
 
 		`DROP TABLE IF EXISTS nodes`,
 
+		`DROP TABLE IF EXISTS mail_export_jobs`,
+
 		`DROP TABLE IF EXISTS key_versions`,
 
 		`DROP TABLE IF EXISTS fcm_tokens`,
@@ -1610,6 +1838,8 @@ func (obj *pgxDB) DropSchema() []string {
 		`DROP TABLE IF EXISTS backup_page_statuses`,
 
 		`DROP TABLE IF EXISTS backup_final_statuses`,
+
+		`DROP TABLE IF EXISTS audit_logs`,
 
 		`DROP TABLE IF EXISTS admins`,
 
@@ -1761,6 +1991,18 @@ func (obj *pgxcockroachDB) Schema() []string {
 	PRIMARY KEY ( id )
 )`,
 
+		`CREATE TABLE audit_logs (
+	id bytea NOT NULL,
+	timestamp timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	actor_id text NOT NULL,
+	action text NOT NULL,
+	resource text,
+	message text NOT NULL,
+	ip_address text,
+	status text NOT NULL,
+	PRIMARY KEY ( id )
+)`,
+
 		`CREATE TABLE backup_final_statuses (
 	backup_date text NOT NULL,
 	status text NOT NULL,
@@ -1984,6 +2226,38 @@ func (obj *pgxcockroachDB) Schema() []string {
 	key_id bytea NOT NULL,
 	version text NOT NULL,
 	PRIMARY KEY ( key_id )
+)`,
+
+		`CREATE TABLE mail_export_jobs (
+	id text NOT NULL,
+	user_id text NOT NULL,
+	project_id text NOT NULL,
+	access_key_id text NOT NULL,
+	bucket text NOT NULL,
+	format text NOT NULL,
+	mode text NOT NULL,
+	prefix text,
+	keys_json jsonb,
+	access_grant text,
+	status text NOT NULL,
+	retry_count integer NOT NULL,
+	progress integer NOT NULL,
+	processed_files bigint NOT NULL,
+	total_files bigint NOT NULL,
+	processed_bytes bigint NOT NULL,
+	total_bytes bigint NOT NULL,
+	current_object text,
+	archive_bucket text,
+	archive_key text,
+	archive_name text,
+	error_message text,
+	last_download_charge_id text,
+	last_download_charged_bytes bigint,
+	created_at timestamp with time zone NOT NULL,
+	started_at timestamp with time zone,
+	completed_at timestamp with time zone,
+	expires_at timestamp with time zone,
+	PRIMARY KEY ( id )
 )`,
 
 		`CREATE TABLE nodes (
@@ -2259,6 +2533,80 @@ func (obj *pgxcockroachDB) Schema() []string {
 	PRIMARY KEY ( id )
 )`,
 
+		`CREATE TABLE resellers (
+	id bytea NOT NULL,
+	name text NOT NULL,
+	email text NOT NULL,
+	password_hash bytea NOT NULL,
+	company_name text,
+	status integer NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	deleted_at timestamp with time zone,
+	failed_login_count integer,
+	login_lockout_expiration timestamp with time zone,
+	activation_code text,
+	signup_id text,
+	new_unverified_email text,
+	email_change_verification_step integer NOT NULL DEFAULT 0,
+	mfa_enabled boolean NOT NULL DEFAULT false,
+	mfa_secret_key text,
+	mfa_recovery_codes text,
+	PRIMARY KEY ( id ),
+	UNIQUE ( email )
+)`,
+
+		`CREATE TABLE reseller_configs (
+	id bytea NOT NULL,
+	reseller_id bytea NOT NULL,
+	config jsonb NOT NULL,
+	active_theme_type text NOT NULL DEFAULT 'system',
+	active_theme_id bytea,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( reseller_id )
+)`,
+
+		`CREATE TABLE reseller_delete_requests (
+	id bytea NOT NULL,
+	reseller_id bytea NOT NULL,
+	status text NOT NULL,
+	error text,
+	delete_at timestamp with time zone NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+)`,
+
+		`CREATE TABLE reseller_domains (
+	id bytea NOT NULL,
+	reseller_id bytea NOT NULL,
+	domain text NOT NULL,
+	domain_type text NOT NULL,
+	status text NOT NULL,
+	verification_method text,
+	verification_status text NOT NULL,
+	ssl_status text NOT NULL,
+	dns_target text,
+	verified_at timestamp with time zone,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	deleted_at timestamp with time zone,
+	PRIMARY KEY ( id ),
+	UNIQUE ( reseller_id )
+)`,
+
+		`CREATE TABLE reseller_themes (
+	id bytea NOT NULL,
+	reseller_id bytea NOT NULL,
+	name text NOT NULL,
+	colors jsonb NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( name, reseller_id )
+)`,
+
 		`CREATE TABLE reset_password_tokens (
 	secret bytea NOT NULL,
 	owner_id bytea NOT NULL,
@@ -2268,6 +2616,14 @@ func (obj *pgxcockroachDB) Schema() []string {
 )`,
 
 		`CREATE TABLE reset_password_token_developers (
+	secret bytea NOT NULL,
+	owner_id bytea NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( secret ),
+	UNIQUE ( owner_id )
+)`,
+
+		`CREATE TABLE reset_password_token_resellers (
 	secret bytea NOT NULL,
 	owner_id bytea NOT NULL,
 	created_at timestamp with time zone NOT NULL,
@@ -2434,6 +2790,20 @@ func (obj *pgxcockroachDB) Schema() []string {
 	PRIMARY KEY ( tx_id )
 )`,
 
+		`CREATE TABLE theme_presets (
+	id bytea NOT NULL,
+	slug text NOT NULL,
+	name text NOT NULL,
+	description text,
+	colors jsonb NOT NULL,
+	is_system boolean NOT NULL DEFAULT true,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( slug ),
+	UNIQUE ( name )
+)`,
+
 		`CREATE TABLE users (
 	id bytea NOT NULL,
 	external_id text,
@@ -2505,11 +2875,11 @@ func (obj *pgxcockroachDB) Schema() []string {
 		`CREATE TABLE user_notification_preferences (
 	id bytea NOT NULL,
 	user_id bytea NOT NULL,
-	category text,
 	preferences jsonb NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	updated_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( id )
+	PRIMARY KEY ( id ),
+	UNIQUE ( user_id )
 )`,
 
 		`CREATE TABLE user_settings (
@@ -2567,6 +2937,15 @@ func (obj *pgxcockroachDB) Schema() []string {
 	PRIMARY KEY ( id )
 )`,
 
+		`CREATE TABLE webapp_session_resellers (
+	id bytea NOT NULL,
+	reseller_id bytea NOT NULL,
+	ip_address text NOT NULL,
+	status integer NOT NULL,
+	expires_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+)`,
+
 		`CREATE TABLE api_keys (
 	id bytea NOT NULL,
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
@@ -2580,6 +2959,23 @@ func (obj *pgxcockroachDB) Schema() []string {
 	PRIMARY KEY ( id ),
 	UNIQUE ( head ),
 	UNIQUE ( name, project_id )
+)`,
+
+		`CREATE TABLE backup_credentials (
+	id bytea NOT NULL,
+	user_id bytea NOT NULL REFERENCES users( id ),
+	provider text NOT NULL,
+	email text NOT NULL,
+	access_token text NOT NULL,
+	refresh_token text,
+	access_token_expiry timestamp with time zone,
+	account_type text,
+	tenant_id text,
+	tenant_name text,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( user_id, provider, email )
 )`,
 
 		`CREATE TABLE bucket_metainfos (
@@ -2637,18 +3033,22 @@ func (obj *pgxcockroachDB) Schema() []string {
 	PRIMARY KEY ( project_id, subdomain )
 )`,
 
-		`CREATE TABLE google_backup_credentials (
+		`CREATE TABLE member_bucket_grants (
 	id bytea NOT NULL,
-	user_id bytea NOT NULL REFERENCES users( id ),
-	google_email text NOT NULL,
-	access_token text NOT NULL,
-	refresh_token text,
-	access_token_expiry timestamp with time zone,
-	account_type text,
+	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+	member_id bytea REFERENCES users( id ) ON DELETE CASCADE,
+	invite_email text NOT NULL,
+	bucket text NOT NULL,
+	prefix text NOT NULL,
+	allow_list boolean NOT NULL,
+	allow_download boolean NOT NULL,
+	allow_upload boolean NOT NULL,
+	allow_delete boolean NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	updated_at timestamp with time zone NOT NULL,
+	expires_at timestamp with time zone,
 	PRIMARY KEY ( id ),
-	UNIQUE ( user_id, google_email )
+	UNIQUE ( project_id, invite_email, bucket, prefix )
 )`,
 
 		`CREATE TABLE project_invitations (
@@ -2656,6 +3056,7 @@ func (obj *pgxcockroachDB) Schema() []string {
 	email text NOT NULL,
 	inviter_id bytea REFERENCES users( id ) ON DELETE CASCADE,
 	created_at timestamp with time zone NOT NULL,
+	expires_at timestamp with time zone,
 	PRIMARY KEY ( project_id, email )
 )`,
 
@@ -2665,6 +3066,13 @@ func (obj *pgxcockroachDB) Schema() []string {
 	role integer NOT NULL DEFAULT 0,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( member_id, project_id )
+)`,
+
+		`CREATE TABLE project_member_acl_buckets (
+	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+	bucket_name text NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( project_id, bucket_name )
 )`,
 
 		`CREATE TABLE rest_api_keys (
@@ -2697,6 +3105,10 @@ func (obj *pgxcockroachDB) Schema() []string {
 		`CREATE INDEX accounting_rollups_start_time_index ON accounting_rollups ( start_time )`,
 
 		`CREATE INDEX admin_email_status_index ON admins ( email, status )`,
+
+		`CREATE INDEX audit_log_actor_id_timestamp_idx ON audit_logs ( actor_id, timestamp )`,
+
+		`CREATE INDEX audit_log_action_timestamp_idx ON audit_logs ( action, timestamp )`,
 
 		`CREATE INDEX billing_transactions_tx_timestamp_index ON billing_transactions ( tx_timestamp )`,
 
@@ -2736,6 +3148,12 @@ func (obj *pgxcockroachDB) Schema() []string {
 
 		`CREATE INDEX fcm_tokens_user_active_index ON fcm_tokens ( user_id, is_active )`,
 
+		`CREATE INDEX mail_export_jobs_status_created_at_index ON mail_export_jobs ( status, created_at )`,
+
+		`CREATE INDEX mail_export_jobs_status_expires_at_index ON mail_export_jobs ( status, expires_at )`,
+
+		`CREATE INDEX mail_export_jobs_status_started_at_index ON mail_export_jobs ( status, started_at )`,
+
 		`CREATE INDEX node_events_email_event_created_at_index ON node_events ( email, event, created_at ) WHERE node_events.email_sent is NULL`,
 
 		`CREATE INDEX node_smart_contract_updates_wallet_index ON node_smart_contract_updates ( wallet )`,
@@ -2773,6 +3191,14 @@ func (obj *pgxcockroachDB) Schema() []string {
 		`CREATE INDEX repair_queue_num_healthy_pieces_attempted_at_index ON repair_queue ( segment_health, attempted_at )`,
 
 		`CREATE INDEX repair_queue_placement_index ON repair_queue ( placement )`,
+
+		`CREATE INDEX reseller_email_status_index ON resellers ( email, status )`,
+
+		`CREATE INDEX reseller_delete_requests_reseller_id_index ON reseller_delete_requests ( reseller_id )`,
+
+		`CREATE INDEX reseller_domain_domain_index ON reseller_domains ( domain )`,
+
+		`CREATE INDEX reseller_theme_reseller_id_index ON reseller_themes ( reseller_id )`,
 
 		`CREATE INDEX retention_remainder_charges_project_id_deleted_at_billed_index ON retention_remainder_charges ( project_id, deleted_at, billed )`,
 
@@ -2812,15 +3238,25 @@ func (obj *pgxcockroachDB) Schema() []string {
 
 		`CREATE INDEX webapp_session_developers_developer_id_index ON webapp_session_developers ( developer_id )`,
 
+		`CREATE INDEX webapp_session_resellers_reseller_id_index ON webapp_session_resellers ( reseller_id )`,
+
+		`CREATE INDEX backup_credentials_user_id_index ON backup_credentials ( user_id )`,
+
+		`CREATE INDEX backup_credentials_user_id_provider_index ON backup_credentials ( user_id, provider )`,
+
 		`CREATE INDEX bucket_migrations_state_created_at_index ON bucket_migrations ( state, created_at )`,
 
-		`CREATE INDEX google_backup_credentials_user_id_index ON google_backup_credentials ( user_id )`,
+		`CREATE INDEX member_bucket_grants_project_id_member_id_index ON member_bucket_grants ( project_id, member_id )`,
+
+		`CREATE INDEX member_bucket_grants_project_id_invite_email_index ON member_bucket_grants ( project_id, invite_email )`,
 
 		`CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id )`,
 
 		`CREATE INDEX project_invitations_email_index ON project_invitations ( email )`,
 
 		`CREATE INDEX project_members_project_id_index ON project_members ( project_id )`,
+
+		`CREATE INDEX project_member_acl_buckets_project_id_index ON project_member_acl_buckets ( project_id )`,
 
 		`CREATE INDEX rest_api_keys_user_id_index ON rest_api_keys ( user_id )`,
 
@@ -2837,11 +3273,13 @@ func (obj *pgxcockroachDB) DropSchema() []string {
 
 		`DROP TABLE IF EXISTS rest_api_keys`,
 
+		`DROP TABLE IF EXISTS project_member_acl_buckets`,
+
 		`DROP TABLE IF EXISTS project_members`,
 
 		`DROP TABLE IF EXISTS project_invitations`,
 
-		`DROP TABLE IF EXISTS google_backup_credentials`,
+		`DROP TABLE IF EXISTS member_bucket_grants`,
 
 		`DROP TABLE IF EXISTS domains`,
 
@@ -2849,7 +3287,11 @@ func (obj *pgxcockroachDB) DropSchema() []string {
 
 		`DROP TABLE IF EXISTS bucket_metainfos`,
 
+		`DROP TABLE IF EXISTS backup_credentials`,
+
 		`DROP TABLE IF EXISTS api_keys`,
+
+		`DROP TABLE IF EXISTS webapp_session_resellers`,
 
 		`DROP TABLE IF EXISTS webapp_session_developers`,
 
@@ -2868,6 +3310,8 @@ func (obj *pgxcockroachDB) DropSchema() []string {
 		`DROP TABLE IF EXISTS user_delete_requests`,
 
 		`DROP TABLE IF EXISTS users`,
+
+		`DROP TABLE IF EXISTS theme_presets`,
 
 		`DROP TABLE IF EXISTS stripecoinpayments_tx_conversion_rates`,
 
@@ -2897,9 +3341,21 @@ func (obj *pgxcockroachDB) DropSchema() []string {
 
 		`DROP TABLE IF EXISTS retention_remainder_charges`,
 
+		`DROP TABLE IF EXISTS reset_password_token_resellers`,
+
 		`DROP TABLE IF EXISTS reset_password_token_developers`,
 
 		`DROP TABLE IF EXISTS reset_password_tokens`,
+
+		`DROP TABLE IF EXISTS reseller_themes`,
+
+		`DROP TABLE IF EXISTS reseller_domains`,
+
+		`DROP TABLE IF EXISTS reseller_delete_requests`,
+
+		`DROP TABLE IF EXISTS reseller_configs`,
+
+		`DROP TABLE IF EXISTS resellers`,
 
 		`DROP TABLE IF EXISTS reputations`,
 
@@ -2937,6 +3393,8 @@ func (obj *pgxcockroachDB) DropSchema() []string {
 
 		`DROP TABLE IF EXISTS nodes`,
 
+		`DROP TABLE IF EXISTS mail_export_jobs`,
+
 		`DROP TABLE IF EXISTS key_versions`,
 
 		`DROP TABLE IF EXISTS fcm_tokens`,
@@ -2972,6 +3430,8 @@ func (obj *pgxcockroachDB) DropSchema() []string {
 		`DROP TABLE IF EXISTS backup_page_statuses`,
 
 		`DROP TABLE IF EXISTS backup_final_statuses`,
+
+		`DROP TABLE IF EXISTS audit_logs`,
 
 		`DROP TABLE IF EXISTS admins`,
 
@@ -3117,6 +3577,17 @@ func (obj *spannerDB) Schema() []string {
 	created_at TIMESTAMP NOT NULL,
 	updated_at TIMESTAMP NOT NULL,
 	deleted_at TIMESTAMP
+) PRIMARY KEY ( id )`,
+
+		`CREATE TABLE audit_logs (
+	id BYTES(MAX) NOT NULL,
+	timestamp TIMESTAMP NOT NULL DEFAULT (current_timestamp),
+	actor_id STRING(MAX) NOT NULL,
+	action STRING(MAX) NOT NULL,
+	resource STRING(MAX),
+	message STRING(MAX) NOT NULL,
+	ip_address STRING(MAX),
+	status STRING(MAX) NOT NULL
 ) PRIMARY KEY ( id )`,
 
 		`CREATE TABLE backup_final_statuses (
@@ -3328,6 +3799,37 @@ func (obj *spannerDB) Schema() []string {
 	key_id BYTES(MAX) NOT NULL,
 	version STRING(MAX) NOT NULL
 ) PRIMARY KEY ( key_id )`,
+
+		`CREATE TABLE mail_export_jobs (
+	id STRING(MAX) NOT NULL,
+	user_id STRING(MAX) NOT NULL,
+	project_id STRING(MAX) NOT NULL,
+	access_key_id STRING(MAX) NOT NULL,
+	bucket STRING(MAX) NOT NULL,
+	format STRING(MAX) NOT NULL,
+	mode STRING(MAX) NOT NULL,
+	prefix STRING(MAX),
+	keys_json JSON,
+	access_grant STRING(MAX),
+	status STRING(MAX) NOT NULL,
+	retry_count INT64 NOT NULL,
+	progress INT64 NOT NULL,
+	processed_files INT64 NOT NULL,
+	total_files INT64 NOT NULL,
+	processed_bytes INT64 NOT NULL,
+	total_bytes INT64 NOT NULL,
+	current_object STRING(MAX),
+	archive_bucket STRING(MAX),
+	archive_key STRING(MAX),
+	archive_name STRING(MAX),
+	error_message STRING(MAX),
+	last_download_charge_id STRING(MAX),
+	last_download_charged_bytes INT64,
+	created_at TIMESTAMP NOT NULL,
+	started_at TIMESTAMP,
+	completed_at TIMESTAMP,
+	expires_at TIMESTAMP
+) PRIMARY KEY ( id )`,
 
 		`CREATE TABLE nodes (
 	id BYTES(MAX) NOT NULL,
@@ -3588,6 +4090,79 @@ func (obj *spannerDB) Schema() []string {
 	unknown_audit_reputation_beta FLOAT64 NOT NULL DEFAULT (0)
 ) PRIMARY KEY ( id )`,
 
+		`CREATE TABLE resellers (
+	id BYTES(MAX) NOT NULL,
+	name STRING(MAX) NOT NULL,
+	email STRING(MAX) NOT NULL,
+	password_hash BYTES(MAX) NOT NULL,
+	company_name STRING(MAX),
+	status INT64 NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	updated_at TIMESTAMP NOT NULL,
+	deleted_at TIMESTAMP,
+	failed_login_count INT64,
+	login_lockout_expiration TIMESTAMP,
+	activation_code STRING(MAX),
+	signup_id STRING(MAX),
+	new_unverified_email STRING(MAX),
+	email_change_verification_step INT64 NOT NULL DEFAULT (0),
+	mfa_enabled BOOL NOT NULL DEFAULT (false),
+	mfa_secret_key STRING(MAX),
+	mfa_recovery_codes STRING(MAX)
+) PRIMARY KEY ( id )`,
+
+		`CREATE UNIQUE INDEX index_resellers_email ON resellers ( email )`,
+
+		`CREATE TABLE reseller_configs (
+	id BYTES(MAX) NOT NULL,
+	reseller_id BYTES(MAX) NOT NULL,
+	config JSON NOT NULL,
+	active_theme_type STRING(MAX) NOT NULL DEFAULT ("system"),
+	active_theme_id BYTES(MAX),
+	created_at TIMESTAMP NOT NULL,
+	updated_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( id )`,
+
+		`CREATE UNIQUE INDEX index_reseller_configs_reseller_id ON reseller_configs ( reseller_id )`,
+
+		`CREATE TABLE reseller_delete_requests (
+	id BYTES(MAX) NOT NULL,
+	reseller_id BYTES(MAX) NOT NULL,
+	status STRING(MAX) NOT NULL,
+	error STRING(MAX),
+	delete_at TIMESTAMP NOT NULL,
+	created_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( id )`,
+
+		`CREATE TABLE reseller_domains (
+	id BYTES(MAX) NOT NULL,
+	reseller_id BYTES(MAX) NOT NULL,
+	domain STRING(MAX) NOT NULL,
+	domain_type STRING(MAX) NOT NULL,
+	status STRING(MAX) NOT NULL,
+	verification_method STRING(MAX),
+	verification_status STRING(MAX) NOT NULL,
+	ssl_status STRING(MAX) NOT NULL,
+	dns_target STRING(MAX),
+	verified_at TIMESTAMP,
+	created_at TIMESTAMP NOT NULL,
+	updated_at TIMESTAMP NOT NULL,
+	deleted_at TIMESTAMP
+) PRIMARY KEY ( id )`,
+
+		`CREATE UNIQUE INDEX index_reseller_domains_reseller_id ON reseller_domains ( reseller_id )`,
+
+		`CREATE TABLE reseller_themes (
+	id BYTES(MAX) NOT NULL,
+	reseller_id BYTES(MAX) NOT NULL,
+	name STRING(MAX) NOT NULL,
+	colors JSON NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	updated_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( id )`,
+
+		`CREATE UNIQUE INDEX index_reseller_themes_name_reseller_id ON reseller_themes ( name, reseller_id )`,
+
 		`CREATE TABLE reset_password_tokens (
 	secret BYTES(MAX) NOT NULL,
 	owner_id BYTES(MAX) NOT NULL,
@@ -3603,6 +4178,14 @@ func (obj *spannerDB) Schema() []string {
 ) PRIMARY KEY ( secret )`,
 
 		`CREATE UNIQUE INDEX index_reset_password_token_developers_owner_id ON reset_password_token_developers ( owner_id )`,
+
+		`CREATE TABLE reset_password_token_resellers (
+	secret BYTES(MAX) NOT NULL,
+	owner_id BYTES(MAX) NOT NULL,
+	created_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( secret )`,
+
+		`CREATE UNIQUE INDEX index_reset_password_token_resellers_owner_id ON reset_password_token_resellers ( owner_id )`,
 
 		`CREATE TABLE retention_remainder_charges (
 	project_id BYTES(MAX) NOT NULL,
@@ -3753,6 +4336,21 @@ func (obj *spannerDB) Schema() []string {
 	created_at TIMESTAMP NOT NULL
 ) PRIMARY KEY ( tx_id )`,
 
+		`CREATE TABLE theme_presets (
+	id BYTES(MAX) NOT NULL,
+	slug STRING(MAX) NOT NULL,
+	name STRING(MAX) NOT NULL,
+	description STRING(MAX),
+	colors JSON NOT NULL,
+	is_system BOOL NOT NULL DEFAULT (true),
+	created_at TIMESTAMP NOT NULL,
+	updated_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( id )`,
+
+		`CREATE UNIQUE INDEX index_theme_presets_slug ON theme_presets ( slug )`,
+
+		`CREATE UNIQUE INDEX index_theme_presets_name ON theme_presets ( name )`,
+
 		`CREATE TABLE users (
 	id BYTES(MAX) NOT NULL,
 	external_id STRING(MAX),
@@ -3822,11 +4420,12 @@ func (obj *spannerDB) Schema() []string {
 		`CREATE TABLE user_notification_preferences (
 	id BYTES(MAX) NOT NULL,
 	user_id BYTES(MAX) NOT NULL,
-	category STRING(MAX),
 	preferences JSON NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	updated_at TIMESTAMP NOT NULL
 ) PRIMARY KEY ( id )`,
+
+		`CREATE UNIQUE INDEX index_user_notification_preferences_user_id ON user_notification_preferences ( user_id )`,
 
 		`CREATE TABLE user_settings (
 	user_id BYTES(MAX) NOT NULL,
@@ -3877,6 +4476,14 @@ func (obj *spannerDB) Schema() []string {
 	expires_at TIMESTAMP NOT NULL
 ) PRIMARY KEY ( id )`,
 
+		`CREATE TABLE webapp_session_resellers (
+	id BYTES(MAX) NOT NULL,
+	reseller_id BYTES(MAX) NOT NULL,
+	ip_address STRING(MAX) NOT NULL,
+	status INT64 NOT NULL,
+	expires_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( id )`,
+
 		`CREATE TABLE api_keys (
 	id BYTES(MAX) NOT NULL,
 	project_id BYTES(MAX) NOT NULL,
@@ -3894,6 +4501,24 @@ func (obj *spannerDB) Schema() []string {
 		`CREATE UNIQUE INDEX index_api_keys_head ON api_keys ( head )`,
 
 		`CREATE UNIQUE INDEX index_api_keys_name_project_id ON api_keys ( name, project_id )`,
+
+		`CREATE TABLE backup_credentials (
+	id BYTES(MAX) NOT NULL,
+	user_id BYTES(MAX) NOT NULL,
+	provider STRING(MAX) NOT NULL,
+	email STRING(MAX) NOT NULL,
+	access_token STRING(MAX) NOT NULL,
+	refresh_token STRING(MAX),
+	access_token_expiry TIMESTAMP,
+	account_type STRING(MAX),
+	tenant_id STRING(MAX),
+	tenant_name STRING(MAX),
+	created_at TIMESTAMP NOT NULL,
+	updated_at TIMESTAMP NOT NULL,
+	CONSTRAINT backup_credentials_user_id_fkey FOREIGN KEY (user_id) REFERENCES users (id)
+) PRIMARY KEY ( id )`,
+
+		`CREATE UNIQUE INDEX index_backup_credentials_user_id_provider_email ON backup_credentials ( user_id, provider, email )`,
 
 		`CREATE TABLE bucket_metainfos (
 	id BYTES(MAX) NOT NULL,
@@ -3952,26 +4577,32 @@ func (obj *spannerDB) Schema() []string {
 	CONSTRAINT domains_created_by_fkey FOREIGN KEY (created_by) REFERENCES users (id)
 ) PRIMARY KEY ( project_id, subdomain )`,
 
-		`CREATE TABLE google_backup_credentials (
+		`CREATE TABLE member_bucket_grants (
 	id BYTES(MAX) NOT NULL,
-	user_id BYTES(MAX) NOT NULL,
-	google_email STRING(MAX) NOT NULL,
-	access_token STRING(MAX) NOT NULL,
-	refresh_token STRING(MAX),
-	access_token_expiry TIMESTAMP,
-	account_type STRING(MAX),
+	project_id BYTES(MAX) NOT NULL,
+	member_id BYTES(MAX),
+	invite_email STRING(MAX) NOT NULL,
+	bucket STRING(MAX) NOT NULL,
+	prefix STRING(MAX) NOT NULL,
+	allow_list BOOL NOT NULL,
+	allow_download BOOL NOT NULL,
+	allow_upload BOOL NOT NULL,
+	allow_delete BOOL NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	updated_at TIMESTAMP NOT NULL,
-	CONSTRAINT google_backup_credentials_user_id_fkey FOREIGN KEY (user_id) REFERENCES users (id)
+	expires_at TIMESTAMP,
+	CONSTRAINT member_bucket_grants_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE ,
+	CONSTRAINT member_bucket_grants_member_id_fkey FOREIGN KEY (member_id) REFERENCES users (id) ON DELETE CASCADE 
 ) PRIMARY KEY ( id )`,
 
-		`CREATE UNIQUE INDEX index_google_backup_credentials_user_id_google_email ON google_backup_credentials ( user_id, google_email )`,
+		`CREATE UNIQUE INDEX index_member_bucket_grants_project_id_invite_email_bucket_prefix ON member_bucket_grants ( project_id, invite_email, bucket, prefix )`,
 
 		`CREATE TABLE project_invitations (
 	project_id BYTES(MAX) NOT NULL,
 	email STRING(MAX) NOT NULL,
 	inviter_id BYTES(MAX),
 	created_at TIMESTAMP NOT NULL,
+	expires_at TIMESTAMP,
 	CONSTRAINT project_invitations_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE ,
 	CONSTRAINT project_invitations_inviter_id_fkey FOREIGN KEY (inviter_id) REFERENCES users (id) ON DELETE CASCADE 
 ) PRIMARY KEY ( project_id, email )`,
@@ -3984,6 +4615,13 @@ func (obj *spannerDB) Schema() []string {
 	CONSTRAINT project_members_member_id_fkey FOREIGN KEY (member_id) REFERENCES users (id) ON DELETE CASCADE ,
 	CONSTRAINT project_members_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE 
 ) PRIMARY KEY ( member_id, project_id )`,
+
+		`CREATE TABLE project_member_acl_buckets (
+	project_id BYTES(MAX) NOT NULL,
+	bucket_name STRING(MAX) NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	CONSTRAINT project_member_acl_buckets_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE 
+) PRIMARY KEY ( project_id, bucket_name )`,
 
 		`CREATE TABLE rest_api_keys (
 	id BYTES(MAX) NOT NULL,
@@ -4016,6 +4654,10 @@ func (obj *spannerDB) Schema() []string {
 		`CREATE INDEX accounting_rollups_start_time_index ON accounting_rollups ( start_time )`,
 
 		`CREATE INDEX admin_email_status_index ON admins ( email, status )`,
+
+		`CREATE INDEX audit_log_actor_id_timestamp_idx ON audit_logs ( actor_id, timestamp )`,
+
+		`CREATE INDEX audit_log_action_timestamp_idx ON audit_logs ( action, timestamp )`,
 
 		`CREATE INDEX billing_transactions_tx_timestamp_index ON billing_transactions ( tx_timestamp )`,
 
@@ -4055,6 +4697,12 @@ func (obj *spannerDB) Schema() []string {
 
 		`CREATE INDEX fcm_tokens_user_active_index ON fcm_tokens ( user_id, is_active )`,
 
+		`CREATE INDEX mail_export_jobs_status_created_at_index ON mail_export_jobs ( status, created_at )`,
+
+		`CREATE INDEX mail_export_jobs_status_expires_at_index ON mail_export_jobs ( status, expires_at )`,
+
+		`CREATE INDEX mail_export_jobs_status_started_at_index ON mail_export_jobs ( status, started_at )`,
+
 		`CREATE INDEX node_events_email_event_created_at_index ON node_events ( email, event, created_at )`,
 
 		`CREATE INDEX node_smart_contract_updates_wallet_index ON node_smart_contract_updates ( wallet )`,
@@ -4092,6 +4740,14 @@ func (obj *spannerDB) Schema() []string {
 		`CREATE INDEX repair_queue_num_healthy_pieces_attempted_at_index ON repair_queue ( segment_health, attempted_at )`,
 
 		`CREATE INDEX repair_queue_placement_index ON repair_queue ( placement )`,
+
+		`CREATE INDEX reseller_email_status_index ON resellers ( email, status )`,
+
+		`CREATE INDEX reseller_delete_requests_reseller_id_index ON reseller_delete_requests ( reseller_id )`,
+
+		`CREATE INDEX reseller_domain_domain_index ON reseller_domains ( domain )`,
+
+		`CREATE INDEX reseller_theme_reseller_id_index ON reseller_themes ( reseller_id )`,
 
 		`CREATE INDEX retention_remainder_charges_project_id_deleted_at_billed_index ON retention_remainder_charges ( project_id, deleted_at, billed )`,
 
@@ -4131,15 +4787,25 @@ func (obj *spannerDB) Schema() []string {
 
 		`CREATE INDEX webapp_session_developers_developer_id_index ON webapp_session_developers ( developer_id )`,
 
+		`CREATE INDEX webapp_session_resellers_reseller_id_index ON webapp_session_resellers ( reseller_id )`,
+
+		`CREATE INDEX backup_credentials_user_id_index ON backup_credentials ( user_id )`,
+
+		`CREATE INDEX backup_credentials_user_id_provider_index ON backup_credentials ( user_id, provider )`,
+
 		`CREATE INDEX bucket_migrations_state_created_at_index ON bucket_migrations ( state, created_at )`,
 
-		`CREATE INDEX google_backup_credentials_user_id_index ON google_backup_credentials ( user_id )`,
+		`CREATE INDEX member_bucket_grants_project_id_member_id_index ON member_bucket_grants ( project_id, member_id )`,
+
+		`CREATE INDEX member_bucket_grants_project_id_invite_email_index ON member_bucket_grants ( project_id, invite_email )`,
 
 		`CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id )`,
 
 		`CREATE INDEX project_invitations_email_index ON project_invitations ( email )`,
 
 		`CREATE INDEX project_members_project_id_index ON project_members ( project_id )`,
+
+		`CREATE INDEX project_member_acl_buckets_project_id_index ON project_member_acl_buckets ( project_id )`,
 
 		`CREATE INDEX rest_api_keys_user_id_index ON rest_api_keys ( user_id )`,
 
@@ -4158,6 +4824,8 @@ func (obj *spannerDB) DropSchema() []string {
 
 		`DROP INDEX IF EXISTS index_rest_api_keys_token`,
 
+		`ALTER TABLE project_member_acl_buckets DROP CONSTRAINT project_member_acl_buckets_project_id_fkey`,
+
 		`ALTER TABLE project_members DROP CONSTRAINT project_members_member_id_fkey`,
 
 		`ALTER TABLE project_members DROP CONSTRAINT project_members_project_id_fkey`,
@@ -4166,9 +4834,11 @@ func (obj *spannerDB) DropSchema() []string {
 
 		`ALTER TABLE project_invitations DROP CONSTRAINT project_invitations_inviter_id_fkey`,
 
-		`ALTER TABLE google_backup_credentials DROP CONSTRAINT google_backup_credentials_user_id_fkey`,
+		`ALTER TABLE member_bucket_grants DROP CONSTRAINT member_bucket_grants_project_id_fkey`,
 
-		`DROP INDEX IF EXISTS index_google_backup_credentials_user_id_google_email`,
+		`ALTER TABLE member_bucket_grants DROP CONSTRAINT member_bucket_grants_member_id_fkey`,
+
+		`DROP INDEX IF EXISTS index_member_bucket_grants_project_id_invite_email_bucket_prefix`,
 
 		`ALTER TABLE domains DROP CONSTRAINT domains_project_id_fkey`,
 
@@ -4180,6 +4850,10 @@ func (obj *spannerDB) DropSchema() []string {
 
 		`ALTER TABLE bucket_metainfos DROP CONSTRAINT bucket_metainfos_created_by_fkey`,
 
+		`ALTER TABLE backup_credentials DROP CONSTRAINT backup_credentials_user_id_fkey`,
+
+		`DROP INDEX IF EXISTS index_backup_credentials_user_id_provider_email`,
+
 		`ALTER TABLE api_keys DROP CONSTRAINT api_keys_project_id_fkey`,
 
 		`ALTER TABLE api_keys DROP CONSTRAINT api_keys_created_by_fkey`,
@@ -4188,13 +4862,29 @@ func (obj *spannerDB) DropSchema() []string {
 
 		`DROP INDEX IF EXISTS index_api_keys_name_project_id`,
 
+		`DROP INDEX IF EXISTS index_user_notification_preferences_user_id`,
+
+		`DROP INDEX IF EXISTS index_theme_presets_slug`,
+
+		`DROP INDEX IF EXISTS index_theme_presets_name`,
+
 		`DROP INDEX IF EXISTS index_stripecoinpayments_invoice_project_records_project_id_period_start_period_end`,
 
 		`DROP INDEX IF EXISTS index_stripe_customers_customer_id`,
 
+		`DROP INDEX IF EXISTS index_reset_password_token_resellers_owner_id`,
+
 		`DROP INDEX IF EXISTS index_reset_password_token_developers_owner_id`,
 
 		`DROP INDEX IF EXISTS index_reset_password_tokens_owner_id`,
+
+		`DROP INDEX IF EXISTS index_reseller_themes_name_reseller_id`,
+
+		`DROP INDEX IF EXISTS index_reseller_domains_reseller_id`,
+
+		`DROP INDEX IF EXISTS index_reseller_configs_reseller_id`,
+
+		`DROP INDEX IF EXISTS index_resellers_email`,
 
 		`DROP INDEX IF EXISTS index_registration_token_developers_owner_id`,
 
@@ -4205,6 +4895,10 @@ func (obj *spannerDB) DropSchema() []string {
 		`DROP INDEX IF EXISTS accounting_rollups_start_time_index`,
 
 		`DROP INDEX IF EXISTS admin_email_status_index`,
+
+		`DROP INDEX IF EXISTS audit_log_actor_id_timestamp_idx`,
+
+		`DROP INDEX IF EXISTS audit_log_action_timestamp_idx`,
 
 		`DROP INDEX IF EXISTS billing_transactions_tx_timestamp_index`,
 
@@ -4244,6 +4938,12 @@ func (obj *spannerDB) DropSchema() []string {
 
 		`DROP INDEX IF EXISTS fcm_tokens_user_active_index`,
 
+		`DROP INDEX IF EXISTS mail_export_jobs_status_created_at_index`,
+
+		`DROP INDEX IF EXISTS mail_export_jobs_status_expires_at_index`,
+
+		`DROP INDEX IF EXISTS mail_export_jobs_status_started_at_index`,
+
 		`DROP INDEX IF EXISTS node_events_email_event_created_at_index`,
 
 		`DROP INDEX IF EXISTS node_smart_contract_updates_wallet_index`,
@@ -4281,6 +4981,14 @@ func (obj *spannerDB) DropSchema() []string {
 		`DROP INDEX IF EXISTS repair_queue_num_healthy_pieces_attempted_at_index`,
 
 		`DROP INDEX IF EXISTS repair_queue_placement_index`,
+
+		`DROP INDEX IF EXISTS reseller_email_status_index`,
+
+		`DROP INDEX IF EXISTS reseller_delete_requests_reseller_id_index`,
+
+		`DROP INDEX IF EXISTS reseller_domain_domain_index`,
+
+		`DROP INDEX IF EXISTS reseller_theme_reseller_id_index`,
 
 		`DROP INDEX IF EXISTS retention_remainder_charges_project_id_deleted_at_billed_index`,
 
@@ -4320,15 +5028,25 @@ func (obj *spannerDB) DropSchema() []string {
 
 		`DROP INDEX IF EXISTS webapp_session_developers_developer_id_index`,
 
+		`DROP INDEX IF EXISTS webapp_session_resellers_reseller_id_index`,
+
+		`DROP INDEX IF EXISTS backup_credentials_user_id_index`,
+
+		`DROP INDEX IF EXISTS backup_credentials_user_id_provider_index`,
+
 		`DROP INDEX IF EXISTS bucket_migrations_state_created_at_index`,
 
-		`DROP INDEX IF EXISTS google_backup_credentials_user_id_index`,
+		`DROP INDEX IF EXISTS member_bucket_grants_project_id_member_id_index`,
+
+		`DROP INDEX IF EXISTS member_bucket_grants_project_id_invite_email_index`,
 
 		`DROP INDEX IF EXISTS project_invitations_project_id_index`,
 
 		`DROP INDEX IF EXISTS project_invitations_email_index`,
 
 		`DROP INDEX IF EXISTS project_members_project_id_index`,
+
+		`DROP INDEX IF EXISTS project_member_acl_buckets_project_id_index`,
 
 		`DROP INDEX IF EXISTS rest_api_keys_user_id_index`,
 
@@ -4352,6 +5070,16 @@ func (obj *spannerDB) DropSchema() []string {
 
 		`DROP TABLE IF EXISTS rest_api_keys`,
 
+		`ALTER TABLE  project_member_acl_buckets ALTER project_id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS project_member_acl_buckets_project_id`,
+
+		`ALTER TABLE  project_member_acl_buckets ALTER bucket_name SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS project_member_acl_buckets_bucket_name`,
+
+		`DROP TABLE IF EXISTS project_member_acl_buckets`,
+
 		`ALTER TABLE  project_members ALTER member_id SET DEFAULT (null)`,
 
 		`DROP SEQUENCE IF EXISTS project_members_member_id`,
@@ -4372,11 +5100,11 @@ func (obj *spannerDB) DropSchema() []string {
 
 		`DROP TABLE IF EXISTS project_invitations`,
 
-		`ALTER TABLE  google_backup_credentials ALTER id SET DEFAULT (null)`,
+		`ALTER TABLE  member_bucket_grants ALTER id SET DEFAULT (null)`,
 
-		`DROP SEQUENCE IF EXISTS google_backup_credentials_id`,
+		`DROP SEQUENCE IF EXISTS member_bucket_grants_id`,
 
-		`DROP TABLE IF EXISTS google_backup_credentials`,
+		`DROP TABLE IF EXISTS member_bucket_grants`,
 
 		`ALTER TABLE  domains ALTER project_id SET DEFAULT (null)`,
 
@@ -4404,11 +5132,23 @@ func (obj *spannerDB) DropSchema() []string {
 
 		`DROP TABLE IF EXISTS bucket_metainfos`,
 
+		`ALTER TABLE  backup_credentials ALTER id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS backup_credentials_id`,
+
+		`DROP TABLE IF EXISTS backup_credentials`,
+
 		`ALTER TABLE  api_keys ALTER id SET DEFAULT (null)`,
 
 		`DROP SEQUENCE IF EXISTS api_keys_id`,
 
 		`DROP TABLE IF EXISTS api_keys`,
+
+		`ALTER TABLE  webapp_session_resellers ALTER id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS webapp_session_resellers_id`,
+
+		`DROP TABLE IF EXISTS webapp_session_resellers`,
 
 		`ALTER TABLE  webapp_session_developers ALTER id SET DEFAULT (null)`,
 
@@ -4475,6 +5215,12 @@ func (obj *spannerDB) DropSchema() []string {
 		`DROP SEQUENCE IF EXISTS users_id`,
 
 		`DROP TABLE IF EXISTS users`,
+
+		`ALTER TABLE  theme_presets ALTER id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS theme_presets_id`,
+
+		`DROP TABLE IF EXISTS theme_presets`,
 
 		`ALTER TABLE  stripecoinpayments_tx_conversion_rates ALTER tx_id SET DEFAULT (null)`,
 
@@ -4608,6 +5354,12 @@ func (obj *spannerDB) DropSchema() []string {
 
 		`DROP TABLE IF EXISTS retention_remainder_charges`,
 
+		`ALTER TABLE  reset_password_token_resellers ALTER secret SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS reset_password_token_resellers_secret`,
+
+		`DROP TABLE IF EXISTS reset_password_token_resellers`,
+
 		`ALTER TABLE  reset_password_token_developers ALTER secret SET DEFAULT (null)`,
 
 		`DROP SEQUENCE IF EXISTS reset_password_token_developers_secret`,
@@ -4619,6 +5371,36 @@ func (obj *spannerDB) DropSchema() []string {
 		`DROP SEQUENCE IF EXISTS reset_password_tokens_secret`,
 
 		`DROP TABLE IF EXISTS reset_password_tokens`,
+
+		`ALTER TABLE  reseller_themes ALTER id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS reseller_themes_id`,
+
+		`DROP TABLE IF EXISTS reseller_themes`,
+
+		`ALTER TABLE  reseller_domains ALTER id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS reseller_domains_id`,
+
+		`DROP TABLE IF EXISTS reseller_domains`,
+
+		`ALTER TABLE  reseller_delete_requests ALTER id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS reseller_delete_requests_id`,
+
+		`DROP TABLE IF EXISTS reseller_delete_requests`,
+
+		`ALTER TABLE  reseller_configs ALTER id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS reseller_configs_id`,
+
+		`DROP TABLE IF EXISTS reseller_configs`,
+
+		`ALTER TABLE  resellers ALTER id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS resellers_id`,
+
+		`DROP TABLE IF EXISTS resellers`,
 
 		`ALTER TABLE  reputations ALTER id SET DEFAULT (null)`,
 
@@ -4743,6 +5525,12 @@ func (obj *spannerDB) DropSchema() []string {
 		`DROP SEQUENCE IF EXISTS nodes_id`,
 
 		`DROP TABLE IF EXISTS nodes`,
+
+		`ALTER TABLE  mail_export_jobs ALTER id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS mail_export_jobs_id`,
+
+		`DROP TABLE IF EXISTS mail_export_jobs`,
 
 		`ALTER TABLE  key_versions ALTER key_id SET DEFAULT (null)`,
 
@@ -4887,6 +5675,12 @@ func (obj *spannerDB) DropSchema() []string {
 		`DROP SEQUENCE IF EXISTS backup_final_statuses_backup_date`,
 
 		`DROP TABLE IF EXISTS backup_final_statuses`,
+
+		`ALTER TABLE  audit_logs ALTER id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS audit_logs_id`,
+
+		`DROP TABLE IF EXISTS audit_logs`,
 
 		`ALTER TABLE  admins ALTER id SET DEFAULT (null)`,
 
@@ -5555,6 +6349,190 @@ func Admin_DeletedAt_Null() Admin_DeletedAt_Field {
 func (f Admin_DeletedAt_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
 func (f Admin_DeletedAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type AuditLog struct {
+	Id        []byte
+	Timestamp time.Time
+	ActorId   string
+	Action    string
+	Resource  *string
+	Message   string
+	IpAddress *string
+	Status    string
+}
+
+func (AuditLog) _Table() string { return "audit_logs" }
+
+type AuditLog_Create_Fields struct {
+	Timestamp AuditLog_Timestamp_Field
+	Resource  AuditLog_Resource_Field
+	IpAddress AuditLog_IpAddress_Field
+}
+
+type AuditLog_Update_Fields struct {
+}
+
+type AuditLog_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func AuditLog_Id(v []byte) AuditLog_Id_Field {
+	return AuditLog_Id_Field{_set: true, _value: v}
+}
+
+func (f AuditLog_Id_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type AuditLog_Timestamp_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func AuditLog_Timestamp(v time.Time) AuditLog_Timestamp_Field {
+	return AuditLog_Timestamp_Field{_set: true, _value: v}
+}
+
+func (f AuditLog_Timestamp_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type AuditLog_ActorId_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func AuditLog_ActorId(v string) AuditLog_ActorId_Field {
+	return AuditLog_ActorId_Field{_set: true, _value: v}
+}
+
+func (f AuditLog_ActorId_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type AuditLog_Action_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func AuditLog_Action(v string) AuditLog_Action_Field {
+	return AuditLog_Action_Field{_set: true, _value: v}
+}
+
+func (f AuditLog_Action_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type AuditLog_Resource_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func AuditLog_Resource(v string) AuditLog_Resource_Field {
+	return AuditLog_Resource_Field{_set: true, _value: &v}
+}
+
+func AuditLog_Resource_Raw(v *string) AuditLog_Resource_Field {
+	if v == nil {
+		return AuditLog_Resource_Null()
+	}
+	return AuditLog_Resource(*v)
+}
+
+func AuditLog_Resource_Null() AuditLog_Resource_Field {
+	return AuditLog_Resource_Field{_set: true, _null: true}
+}
+
+func (f AuditLog_Resource_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f AuditLog_Resource_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type AuditLog_Message_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func AuditLog_Message(v string) AuditLog_Message_Field {
+	return AuditLog_Message_Field{_set: true, _value: v}
+}
+
+func (f AuditLog_Message_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type AuditLog_IpAddress_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func AuditLog_IpAddress(v string) AuditLog_IpAddress_Field {
+	return AuditLog_IpAddress_Field{_set: true, _value: &v}
+}
+
+func AuditLog_IpAddress_Raw(v *string) AuditLog_IpAddress_Field {
+	if v == nil {
+		return AuditLog_IpAddress_Null()
+	}
+	return AuditLog_IpAddress(*v)
+}
+
+func AuditLog_IpAddress_Null() AuditLog_IpAddress_Field {
+	return AuditLog_IpAddress_Field{_set: true, _null: true}
+}
+
+func (f AuditLog_IpAddress_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f AuditLog_IpAddress_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type AuditLog_Status_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func AuditLog_Status(v string) AuditLog_Status_Field {
+	return AuditLog_Status_Field{_set: true, _value: v}
+}
+
+func (f AuditLog_Status_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -8887,6 +9865,731 @@ func KeyVersion_Version(v string) KeyVersion_Version_Field {
 }
 
 func (f KeyVersion_Version_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob struct {
+	Id                       string
+	UserId                   string
+	ProjectId                string
+	AccessKeyId              string
+	Bucket                   string
+	Format                   string
+	Mode                     string
+	Prefix                   *string
+	KeysJson                 []byte
+	AccessGrant              *string
+	Status                   string
+	RetryCount               int
+	Progress                 int
+	ProcessedFiles           int64
+	TotalFiles               int64
+	ProcessedBytes           int64
+	TotalBytes               int64
+	CurrentObject            *string
+	ArchiveBucket            *string
+	ArchiveKey               *string
+	ArchiveName              *string
+	ErrorMessage             *string
+	LastDownloadChargeId     *string
+	LastDownloadChargedBytes *int64
+	CreatedAt                time.Time
+	StartedAt                *time.Time
+	CompletedAt              *time.Time
+	ExpiresAt                *time.Time
+}
+
+func (MailExportJob) _Table() string { return "mail_export_jobs" }
+
+type MailExportJob_Create_Fields struct {
+	Prefix                   MailExportJob_Prefix_Field
+	KeysJson                 MailExportJob_KeysJson_Field
+	AccessGrant              MailExportJob_AccessGrant_Field
+	CurrentObject            MailExportJob_CurrentObject_Field
+	ArchiveBucket            MailExportJob_ArchiveBucket_Field
+	ArchiveKey               MailExportJob_ArchiveKey_Field
+	ArchiveName              MailExportJob_ArchiveName_Field
+	ErrorMessage             MailExportJob_ErrorMessage_Field
+	LastDownloadChargeId     MailExportJob_LastDownloadChargeId_Field
+	LastDownloadChargedBytes MailExportJob_LastDownloadChargedBytes_Field
+	StartedAt                MailExportJob_StartedAt_Field
+	CompletedAt              MailExportJob_CompletedAt_Field
+	ExpiresAt                MailExportJob_ExpiresAt_Field
+}
+
+type MailExportJob_Update_Fields struct {
+	Prefix                   MailExportJob_Prefix_Field
+	KeysJson                 MailExportJob_KeysJson_Field
+	AccessGrant              MailExportJob_AccessGrant_Field
+	Status                   MailExportJob_Status_Field
+	RetryCount               MailExportJob_RetryCount_Field
+	Progress                 MailExportJob_Progress_Field
+	ProcessedFiles           MailExportJob_ProcessedFiles_Field
+	TotalFiles               MailExportJob_TotalFiles_Field
+	ProcessedBytes           MailExportJob_ProcessedBytes_Field
+	TotalBytes               MailExportJob_TotalBytes_Field
+	CurrentObject            MailExportJob_CurrentObject_Field
+	ArchiveBucket            MailExportJob_ArchiveBucket_Field
+	ArchiveKey               MailExportJob_ArchiveKey_Field
+	ArchiveName              MailExportJob_ArchiveName_Field
+	ErrorMessage             MailExportJob_ErrorMessage_Field
+	LastDownloadChargeId     MailExportJob_LastDownloadChargeId_Field
+	LastDownloadChargedBytes MailExportJob_LastDownloadChargedBytes_Field
+	StartedAt                MailExportJob_StartedAt_Field
+	CompletedAt              MailExportJob_CompletedAt_Field
+	ExpiresAt                MailExportJob_ExpiresAt_Field
+}
+
+type MailExportJob_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func MailExportJob_Id(v string) MailExportJob_Id_Field {
+	return MailExportJob_Id_Field{_set: true, _value: v}
+}
+
+func (f MailExportJob_Id_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob_UserId_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func MailExportJob_UserId(v string) MailExportJob_UserId_Field {
+	return MailExportJob_UserId_Field{_set: true, _value: v}
+}
+
+func (f MailExportJob_UserId_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob_ProjectId_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func MailExportJob_ProjectId(v string) MailExportJob_ProjectId_Field {
+	return MailExportJob_ProjectId_Field{_set: true, _value: v}
+}
+
+func (f MailExportJob_ProjectId_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob_AccessKeyId_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func MailExportJob_AccessKeyId(v string) MailExportJob_AccessKeyId_Field {
+	return MailExportJob_AccessKeyId_Field{_set: true, _value: v}
+}
+
+func (f MailExportJob_AccessKeyId_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob_Bucket_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func MailExportJob_Bucket(v string) MailExportJob_Bucket_Field {
+	return MailExportJob_Bucket_Field{_set: true, _value: v}
+}
+
+func (f MailExportJob_Bucket_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob_Format_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func MailExportJob_Format(v string) MailExportJob_Format_Field {
+	return MailExportJob_Format_Field{_set: true, _value: v}
+}
+
+func (f MailExportJob_Format_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob_Mode_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func MailExportJob_Mode(v string) MailExportJob_Mode_Field {
+	return MailExportJob_Mode_Field{_set: true, _value: v}
+}
+
+func (f MailExportJob_Mode_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob_Prefix_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func MailExportJob_Prefix(v string) MailExportJob_Prefix_Field {
+	return MailExportJob_Prefix_Field{_set: true, _value: &v}
+}
+
+func MailExportJob_Prefix_Raw(v *string) MailExportJob_Prefix_Field {
+	if v == nil {
+		return MailExportJob_Prefix_Null()
+	}
+	return MailExportJob_Prefix(*v)
+}
+
+func MailExportJob_Prefix_Null() MailExportJob_Prefix_Field {
+	return MailExportJob_Prefix_Field{_set: true, _null: true}
+}
+
+func (f MailExportJob_Prefix_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f MailExportJob_Prefix_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob_KeysJson_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func MailExportJob_KeysJson(v []byte) MailExportJob_KeysJson_Field {
+	return MailExportJob_KeysJson_Field{_set: true, _value: v}
+}
+
+func MailExportJob_KeysJson_Raw(v []byte) MailExportJob_KeysJson_Field {
+	if v == nil {
+		return MailExportJob_KeysJson_Null()
+	}
+	return MailExportJob_KeysJson(v)
+}
+
+func MailExportJob_KeysJson_Null() MailExportJob_KeysJson_Field {
+	return MailExportJob_KeysJson_Field{_set: true, _null: true}
+}
+
+func (f MailExportJob_KeysJson_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f MailExportJob_KeysJson_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob_AccessGrant_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func MailExportJob_AccessGrant(v string) MailExportJob_AccessGrant_Field {
+	return MailExportJob_AccessGrant_Field{_set: true, _value: &v}
+}
+
+func MailExportJob_AccessGrant_Raw(v *string) MailExportJob_AccessGrant_Field {
+	if v == nil {
+		return MailExportJob_AccessGrant_Null()
+	}
+	return MailExportJob_AccessGrant(*v)
+}
+
+func MailExportJob_AccessGrant_Null() MailExportJob_AccessGrant_Field {
+	return MailExportJob_AccessGrant_Field{_set: true, _null: true}
+}
+
+func (f MailExportJob_AccessGrant_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f MailExportJob_AccessGrant_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob_Status_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func MailExportJob_Status(v string) MailExportJob_Status_Field {
+	return MailExportJob_Status_Field{_set: true, _value: v}
+}
+
+func (f MailExportJob_Status_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob_RetryCount_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func MailExportJob_RetryCount(v int) MailExportJob_RetryCount_Field {
+	return MailExportJob_RetryCount_Field{_set: true, _value: v}
+}
+
+func (f MailExportJob_RetryCount_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob_Progress_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func MailExportJob_Progress(v int) MailExportJob_Progress_Field {
+	return MailExportJob_Progress_Field{_set: true, _value: v}
+}
+
+func (f MailExportJob_Progress_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob_ProcessedFiles_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func MailExportJob_ProcessedFiles(v int64) MailExportJob_ProcessedFiles_Field {
+	return MailExportJob_ProcessedFiles_Field{_set: true, _value: v}
+}
+
+func (f MailExportJob_ProcessedFiles_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob_TotalFiles_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func MailExportJob_TotalFiles(v int64) MailExportJob_TotalFiles_Field {
+	return MailExportJob_TotalFiles_Field{_set: true, _value: v}
+}
+
+func (f MailExportJob_TotalFiles_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob_ProcessedBytes_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func MailExportJob_ProcessedBytes(v int64) MailExportJob_ProcessedBytes_Field {
+	return MailExportJob_ProcessedBytes_Field{_set: true, _value: v}
+}
+
+func (f MailExportJob_ProcessedBytes_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob_TotalBytes_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func MailExportJob_TotalBytes(v int64) MailExportJob_TotalBytes_Field {
+	return MailExportJob_TotalBytes_Field{_set: true, _value: v}
+}
+
+func (f MailExportJob_TotalBytes_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob_CurrentObject_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func MailExportJob_CurrentObject(v string) MailExportJob_CurrentObject_Field {
+	return MailExportJob_CurrentObject_Field{_set: true, _value: &v}
+}
+
+func MailExportJob_CurrentObject_Raw(v *string) MailExportJob_CurrentObject_Field {
+	if v == nil {
+		return MailExportJob_CurrentObject_Null()
+	}
+	return MailExportJob_CurrentObject(*v)
+}
+
+func MailExportJob_CurrentObject_Null() MailExportJob_CurrentObject_Field {
+	return MailExportJob_CurrentObject_Field{_set: true, _null: true}
+}
+
+func (f MailExportJob_CurrentObject_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f MailExportJob_CurrentObject_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob_ArchiveBucket_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func MailExportJob_ArchiveBucket(v string) MailExportJob_ArchiveBucket_Field {
+	return MailExportJob_ArchiveBucket_Field{_set: true, _value: &v}
+}
+
+func MailExportJob_ArchiveBucket_Raw(v *string) MailExportJob_ArchiveBucket_Field {
+	if v == nil {
+		return MailExportJob_ArchiveBucket_Null()
+	}
+	return MailExportJob_ArchiveBucket(*v)
+}
+
+func MailExportJob_ArchiveBucket_Null() MailExportJob_ArchiveBucket_Field {
+	return MailExportJob_ArchiveBucket_Field{_set: true, _null: true}
+}
+
+func (f MailExportJob_ArchiveBucket_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f MailExportJob_ArchiveBucket_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob_ArchiveKey_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func MailExportJob_ArchiveKey(v string) MailExportJob_ArchiveKey_Field {
+	return MailExportJob_ArchiveKey_Field{_set: true, _value: &v}
+}
+
+func MailExportJob_ArchiveKey_Raw(v *string) MailExportJob_ArchiveKey_Field {
+	if v == nil {
+		return MailExportJob_ArchiveKey_Null()
+	}
+	return MailExportJob_ArchiveKey(*v)
+}
+
+func MailExportJob_ArchiveKey_Null() MailExportJob_ArchiveKey_Field {
+	return MailExportJob_ArchiveKey_Field{_set: true, _null: true}
+}
+
+func (f MailExportJob_ArchiveKey_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f MailExportJob_ArchiveKey_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob_ArchiveName_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func MailExportJob_ArchiveName(v string) MailExportJob_ArchiveName_Field {
+	return MailExportJob_ArchiveName_Field{_set: true, _value: &v}
+}
+
+func MailExportJob_ArchiveName_Raw(v *string) MailExportJob_ArchiveName_Field {
+	if v == nil {
+		return MailExportJob_ArchiveName_Null()
+	}
+	return MailExportJob_ArchiveName(*v)
+}
+
+func MailExportJob_ArchiveName_Null() MailExportJob_ArchiveName_Field {
+	return MailExportJob_ArchiveName_Field{_set: true, _null: true}
+}
+
+func (f MailExportJob_ArchiveName_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f MailExportJob_ArchiveName_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob_ErrorMessage_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func MailExportJob_ErrorMessage(v string) MailExportJob_ErrorMessage_Field {
+	return MailExportJob_ErrorMessage_Field{_set: true, _value: &v}
+}
+
+func MailExportJob_ErrorMessage_Raw(v *string) MailExportJob_ErrorMessage_Field {
+	if v == nil {
+		return MailExportJob_ErrorMessage_Null()
+	}
+	return MailExportJob_ErrorMessage(*v)
+}
+
+func MailExportJob_ErrorMessage_Null() MailExportJob_ErrorMessage_Field {
+	return MailExportJob_ErrorMessage_Field{_set: true, _null: true}
+}
+
+func (f MailExportJob_ErrorMessage_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f MailExportJob_ErrorMessage_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob_LastDownloadChargeId_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func MailExportJob_LastDownloadChargeId(v string) MailExportJob_LastDownloadChargeId_Field {
+	return MailExportJob_LastDownloadChargeId_Field{_set: true, _value: &v}
+}
+
+func MailExportJob_LastDownloadChargeId_Raw(v *string) MailExportJob_LastDownloadChargeId_Field {
+	if v == nil {
+		return MailExportJob_LastDownloadChargeId_Null()
+	}
+	return MailExportJob_LastDownloadChargeId(*v)
+}
+
+func MailExportJob_LastDownloadChargeId_Null() MailExportJob_LastDownloadChargeId_Field {
+	return MailExportJob_LastDownloadChargeId_Field{_set: true, _null: true}
+}
+
+func (f MailExportJob_LastDownloadChargeId_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f MailExportJob_LastDownloadChargeId_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob_LastDownloadChargedBytes_Field struct {
+	_set   bool
+	_null  bool
+	_value *int64
+}
+
+func MailExportJob_LastDownloadChargedBytes(v int64) MailExportJob_LastDownloadChargedBytes_Field {
+	return MailExportJob_LastDownloadChargedBytes_Field{_set: true, _value: &v}
+}
+
+func MailExportJob_LastDownloadChargedBytes_Raw(v *int64) MailExportJob_LastDownloadChargedBytes_Field {
+	if v == nil {
+		return MailExportJob_LastDownloadChargedBytes_Null()
+	}
+	return MailExportJob_LastDownloadChargedBytes(*v)
+}
+
+func MailExportJob_LastDownloadChargedBytes_Null() MailExportJob_LastDownloadChargedBytes_Field {
+	return MailExportJob_LastDownloadChargedBytes_Field{_set: true, _null: true}
+}
+
+func (f MailExportJob_LastDownloadChargedBytes_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f MailExportJob_LastDownloadChargedBytes_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func MailExportJob_CreatedAt(v time.Time) MailExportJob_CreatedAt_Field {
+	return MailExportJob_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f MailExportJob_CreatedAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob_StartedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func MailExportJob_StartedAt(v time.Time) MailExportJob_StartedAt_Field {
+	return MailExportJob_StartedAt_Field{_set: true, _value: &v}
+}
+
+func MailExportJob_StartedAt_Raw(v *time.Time) MailExportJob_StartedAt_Field {
+	if v == nil {
+		return MailExportJob_StartedAt_Null()
+	}
+	return MailExportJob_StartedAt(*v)
+}
+
+func MailExportJob_StartedAt_Null() MailExportJob_StartedAt_Field {
+	return MailExportJob_StartedAt_Field{_set: true, _null: true}
+}
+
+func (f MailExportJob_StartedAt_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f MailExportJob_StartedAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob_CompletedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func MailExportJob_CompletedAt(v time.Time) MailExportJob_CompletedAt_Field {
+	return MailExportJob_CompletedAt_Field{_set: true, _value: &v}
+}
+
+func MailExportJob_CompletedAt_Raw(v *time.Time) MailExportJob_CompletedAt_Field {
+	if v == nil {
+		return MailExportJob_CompletedAt_Null()
+	}
+	return MailExportJob_CompletedAt(*v)
+}
+
+func MailExportJob_CompletedAt_Null() MailExportJob_CompletedAt_Field {
+	return MailExportJob_CompletedAt_Field{_set: true, _null: true}
+}
+
+func (f MailExportJob_CompletedAt_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f MailExportJob_CompletedAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MailExportJob_ExpiresAt_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func MailExportJob_ExpiresAt(v time.Time) MailExportJob_ExpiresAt_Field {
+	return MailExportJob_ExpiresAt_Field{_set: true, _value: &v}
+}
+
+func MailExportJob_ExpiresAt_Raw(v *time.Time) MailExportJob_ExpiresAt_Field {
+	if v == nil {
+		return MailExportJob_ExpiresAt_Null()
+	}
+	return MailExportJob_ExpiresAt(*v)
+}
+
+func MailExportJob_ExpiresAt_Null() MailExportJob_ExpiresAt_Field {
+	return MailExportJob_ExpiresAt_Field{_set: true, _null: true}
+}
+
+func (f MailExportJob_ExpiresAt_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f MailExportJob_ExpiresAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -13727,6 +15430,1217 @@ func (f Reputation_UnknownAuditReputationBeta_Field) value() any {
 	return f._value
 }
 
+type Reseller struct {
+	Id                          []byte
+	Name                        string
+	Email                       string
+	PasswordHash                []byte
+	CompanyName                 *string
+	Status                      int
+	CreatedAt                   time.Time
+	UpdatedAt                   time.Time
+	DeletedAt                   *time.Time
+	FailedLoginCount            *int
+	LoginLockoutExpiration      *time.Time
+	ActivationCode              *string
+	SignupId                    *string
+	NewUnverifiedEmail          *string
+	EmailChangeVerificationStep int
+	MfaEnabled                  bool
+	MfaSecretKey                *string
+	MfaRecoveryCodes            *string
+}
+
+func (Reseller) _Table() string { return "resellers" }
+
+type Reseller_Create_Fields struct {
+	CompanyName                 Reseller_CompanyName_Field
+	DeletedAt                   Reseller_DeletedAt_Field
+	FailedLoginCount            Reseller_FailedLoginCount_Field
+	LoginLockoutExpiration      Reseller_LoginLockoutExpiration_Field
+	ActivationCode              Reseller_ActivationCode_Field
+	SignupId                    Reseller_SignupId_Field
+	NewUnverifiedEmail          Reseller_NewUnverifiedEmail_Field
+	EmailChangeVerificationStep Reseller_EmailChangeVerificationStep_Field
+	MfaEnabled                  Reseller_MfaEnabled_Field
+	MfaSecretKey                Reseller_MfaSecretKey_Field
+	MfaRecoveryCodes            Reseller_MfaRecoveryCodes_Field
+}
+
+type Reseller_Update_Fields struct {
+	Name                        Reseller_Name_Field
+	Email                       Reseller_Email_Field
+	PasswordHash                Reseller_PasswordHash_Field
+	CompanyName                 Reseller_CompanyName_Field
+	Status                      Reseller_Status_Field
+	UpdatedAt                   Reseller_UpdatedAt_Field
+	DeletedAt                   Reseller_DeletedAt_Field
+	FailedLoginCount            Reseller_FailedLoginCount_Field
+	LoginLockoutExpiration      Reseller_LoginLockoutExpiration_Field
+	ActivationCode              Reseller_ActivationCode_Field
+	SignupId                    Reseller_SignupId_Field
+	NewUnverifiedEmail          Reseller_NewUnverifiedEmail_Field
+	EmailChangeVerificationStep Reseller_EmailChangeVerificationStep_Field
+	MfaEnabled                  Reseller_MfaEnabled_Field
+	MfaSecretKey                Reseller_MfaSecretKey_Field
+	MfaRecoveryCodes            Reseller_MfaRecoveryCodes_Field
+}
+
+type Reseller_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Reseller_Id(v []byte) Reseller_Id_Field {
+	return Reseller_Id_Field{_set: true, _value: v}
+}
+
+func (f Reseller_Id_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type Reseller_Name_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func Reseller_Name(v string) Reseller_Name_Field {
+	return Reseller_Name_Field{_set: true, _value: v}
+}
+
+func (f Reseller_Name_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type Reseller_Email_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func Reseller_Email(v string) Reseller_Email_Field {
+	return Reseller_Email_Field{_set: true, _value: v}
+}
+
+func (f Reseller_Email_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type Reseller_PasswordHash_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Reseller_PasswordHash(v []byte) Reseller_PasswordHash_Field {
+	return Reseller_PasswordHash_Field{_set: true, _value: v}
+}
+
+func (f Reseller_PasswordHash_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type Reseller_CompanyName_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func Reseller_CompanyName(v string) Reseller_CompanyName_Field {
+	return Reseller_CompanyName_Field{_set: true, _value: &v}
+}
+
+func Reseller_CompanyName_Raw(v *string) Reseller_CompanyName_Field {
+	if v == nil {
+		return Reseller_CompanyName_Null()
+	}
+	return Reseller_CompanyName(*v)
+}
+
+func Reseller_CompanyName_Null() Reseller_CompanyName_Field {
+	return Reseller_CompanyName_Field{_set: true, _null: true}
+}
+
+func (f Reseller_CompanyName_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f Reseller_CompanyName_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type Reseller_Status_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func Reseller_Status(v int) Reseller_Status_Field {
+	return Reseller_Status_Field{_set: true, _value: v}
+}
+
+func (f Reseller_Status_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type Reseller_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func Reseller_CreatedAt(v time.Time) Reseller_CreatedAt_Field {
+	return Reseller_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f Reseller_CreatedAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type Reseller_UpdatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func Reseller_UpdatedAt(v time.Time) Reseller_UpdatedAt_Field {
+	return Reseller_UpdatedAt_Field{_set: true, _value: v}
+}
+
+func (f Reseller_UpdatedAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type Reseller_DeletedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func Reseller_DeletedAt(v time.Time) Reseller_DeletedAt_Field {
+	return Reseller_DeletedAt_Field{_set: true, _value: &v}
+}
+
+func Reseller_DeletedAt_Raw(v *time.Time) Reseller_DeletedAt_Field {
+	if v == nil {
+		return Reseller_DeletedAt_Null()
+	}
+	return Reseller_DeletedAt(*v)
+}
+
+func Reseller_DeletedAt_Null() Reseller_DeletedAt_Field {
+	return Reseller_DeletedAt_Field{_set: true, _null: true}
+}
+
+func (f Reseller_DeletedAt_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f Reseller_DeletedAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type Reseller_FailedLoginCount_Field struct {
+	_set   bool
+	_null  bool
+	_value *int
+}
+
+func Reseller_FailedLoginCount(v int) Reseller_FailedLoginCount_Field {
+	return Reseller_FailedLoginCount_Field{_set: true, _value: &v}
+}
+
+func Reseller_FailedLoginCount_Raw(v *int) Reseller_FailedLoginCount_Field {
+	if v == nil {
+		return Reseller_FailedLoginCount_Null()
+	}
+	return Reseller_FailedLoginCount(*v)
+}
+
+func Reseller_FailedLoginCount_Null() Reseller_FailedLoginCount_Field {
+	return Reseller_FailedLoginCount_Field{_set: true, _null: true}
+}
+
+func (f Reseller_FailedLoginCount_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f Reseller_FailedLoginCount_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type Reseller_LoginLockoutExpiration_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func Reseller_LoginLockoutExpiration(v time.Time) Reseller_LoginLockoutExpiration_Field {
+	return Reseller_LoginLockoutExpiration_Field{_set: true, _value: &v}
+}
+
+func Reseller_LoginLockoutExpiration_Raw(v *time.Time) Reseller_LoginLockoutExpiration_Field {
+	if v == nil {
+		return Reseller_LoginLockoutExpiration_Null()
+	}
+	return Reseller_LoginLockoutExpiration(*v)
+}
+
+func Reseller_LoginLockoutExpiration_Null() Reseller_LoginLockoutExpiration_Field {
+	return Reseller_LoginLockoutExpiration_Field{_set: true, _null: true}
+}
+
+func (f Reseller_LoginLockoutExpiration_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f Reseller_LoginLockoutExpiration_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type Reseller_ActivationCode_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func Reseller_ActivationCode(v string) Reseller_ActivationCode_Field {
+	return Reseller_ActivationCode_Field{_set: true, _value: &v}
+}
+
+func Reseller_ActivationCode_Raw(v *string) Reseller_ActivationCode_Field {
+	if v == nil {
+		return Reseller_ActivationCode_Null()
+	}
+	return Reseller_ActivationCode(*v)
+}
+
+func Reseller_ActivationCode_Null() Reseller_ActivationCode_Field {
+	return Reseller_ActivationCode_Field{_set: true, _null: true}
+}
+
+func (f Reseller_ActivationCode_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f Reseller_ActivationCode_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type Reseller_SignupId_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func Reseller_SignupId(v string) Reseller_SignupId_Field {
+	return Reseller_SignupId_Field{_set: true, _value: &v}
+}
+
+func Reseller_SignupId_Raw(v *string) Reseller_SignupId_Field {
+	if v == nil {
+		return Reseller_SignupId_Null()
+	}
+	return Reseller_SignupId(*v)
+}
+
+func Reseller_SignupId_Null() Reseller_SignupId_Field {
+	return Reseller_SignupId_Field{_set: true, _null: true}
+}
+
+func (f Reseller_SignupId_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f Reseller_SignupId_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type Reseller_NewUnverifiedEmail_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func Reseller_NewUnverifiedEmail(v string) Reseller_NewUnverifiedEmail_Field {
+	return Reseller_NewUnverifiedEmail_Field{_set: true, _value: &v}
+}
+
+func Reseller_NewUnverifiedEmail_Raw(v *string) Reseller_NewUnverifiedEmail_Field {
+	if v == nil {
+		return Reseller_NewUnverifiedEmail_Null()
+	}
+	return Reseller_NewUnverifiedEmail(*v)
+}
+
+func Reseller_NewUnverifiedEmail_Null() Reseller_NewUnverifiedEmail_Field {
+	return Reseller_NewUnverifiedEmail_Field{_set: true, _null: true}
+}
+
+func (f Reseller_NewUnverifiedEmail_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f Reseller_NewUnverifiedEmail_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type Reseller_EmailChangeVerificationStep_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func Reseller_EmailChangeVerificationStep(v int) Reseller_EmailChangeVerificationStep_Field {
+	return Reseller_EmailChangeVerificationStep_Field{_set: true, _value: v}
+}
+
+func (f Reseller_EmailChangeVerificationStep_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type Reseller_MfaEnabled_Field struct {
+	_set   bool
+	_null  bool
+	_value bool
+}
+
+func Reseller_MfaEnabled(v bool) Reseller_MfaEnabled_Field {
+	return Reseller_MfaEnabled_Field{_set: true, _value: v}
+}
+
+func (f Reseller_MfaEnabled_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type Reseller_MfaSecretKey_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func Reseller_MfaSecretKey(v string) Reseller_MfaSecretKey_Field {
+	return Reseller_MfaSecretKey_Field{_set: true, _value: &v}
+}
+
+func Reseller_MfaSecretKey_Raw(v *string) Reseller_MfaSecretKey_Field {
+	if v == nil {
+		return Reseller_MfaSecretKey_Null()
+	}
+	return Reseller_MfaSecretKey(*v)
+}
+
+func Reseller_MfaSecretKey_Null() Reseller_MfaSecretKey_Field {
+	return Reseller_MfaSecretKey_Field{_set: true, _null: true}
+}
+
+func (f Reseller_MfaSecretKey_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f Reseller_MfaSecretKey_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type Reseller_MfaRecoveryCodes_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func Reseller_MfaRecoveryCodes(v string) Reseller_MfaRecoveryCodes_Field {
+	return Reseller_MfaRecoveryCodes_Field{_set: true, _value: &v}
+}
+
+func Reseller_MfaRecoveryCodes_Raw(v *string) Reseller_MfaRecoveryCodes_Field {
+	if v == nil {
+		return Reseller_MfaRecoveryCodes_Null()
+	}
+	return Reseller_MfaRecoveryCodes(*v)
+}
+
+func Reseller_MfaRecoveryCodes_Null() Reseller_MfaRecoveryCodes_Field {
+	return Reseller_MfaRecoveryCodes_Field{_set: true, _null: true}
+}
+
+func (f Reseller_MfaRecoveryCodes_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f Reseller_MfaRecoveryCodes_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ResellerConfig struct {
+	Id              []byte
+	ResellerId      []byte
+	Config          []byte
+	ActiveThemeType string
+	ActiveThemeId   []byte
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+}
+
+func (ResellerConfig) _Table() string { return "reseller_configs" }
+
+type ResellerConfig_Create_Fields struct {
+	ActiveThemeType ResellerConfig_ActiveThemeType_Field
+	ActiveThemeId   ResellerConfig_ActiveThemeId_Field
+}
+
+type ResellerConfig_Update_Fields struct {
+	Config          ResellerConfig_Config_Field
+	ActiveThemeType ResellerConfig_ActiveThemeType_Field
+	ActiveThemeId   ResellerConfig_ActiveThemeId_Field
+	UpdatedAt       ResellerConfig_UpdatedAt_Field
+}
+
+type ResellerConfig_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func ResellerConfig_Id(v []byte) ResellerConfig_Id_Field {
+	return ResellerConfig_Id_Field{_set: true, _value: v}
+}
+
+func (f ResellerConfig_Id_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ResellerConfig_ResellerId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func ResellerConfig_ResellerId(v []byte) ResellerConfig_ResellerId_Field {
+	return ResellerConfig_ResellerId_Field{_set: true, _value: v}
+}
+
+func (f ResellerConfig_ResellerId_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ResellerConfig_Config_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func ResellerConfig_Config(v []byte) ResellerConfig_Config_Field {
+	return ResellerConfig_Config_Field{_set: true, _value: v}
+}
+
+func (f ResellerConfig_Config_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ResellerConfig_ActiveThemeType_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func ResellerConfig_ActiveThemeType(v string) ResellerConfig_ActiveThemeType_Field {
+	return ResellerConfig_ActiveThemeType_Field{_set: true, _value: v}
+}
+
+func (f ResellerConfig_ActiveThemeType_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ResellerConfig_ActiveThemeId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func ResellerConfig_ActiveThemeId(v []byte) ResellerConfig_ActiveThemeId_Field {
+	return ResellerConfig_ActiveThemeId_Field{_set: true, _value: v}
+}
+
+func ResellerConfig_ActiveThemeId_Raw(v []byte) ResellerConfig_ActiveThemeId_Field {
+	if v == nil {
+		return ResellerConfig_ActiveThemeId_Null()
+	}
+	return ResellerConfig_ActiveThemeId(v)
+}
+
+func ResellerConfig_ActiveThemeId_Null() ResellerConfig_ActiveThemeId_Field {
+	return ResellerConfig_ActiveThemeId_Field{_set: true, _null: true}
+}
+
+func (f ResellerConfig_ActiveThemeId_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f ResellerConfig_ActiveThemeId_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ResellerConfig_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func ResellerConfig_CreatedAt(v time.Time) ResellerConfig_CreatedAt_Field {
+	return ResellerConfig_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f ResellerConfig_CreatedAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ResellerConfig_UpdatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func ResellerConfig_UpdatedAt(v time.Time) ResellerConfig_UpdatedAt_Field {
+	return ResellerConfig_UpdatedAt_Field{_set: true, _value: v}
+}
+
+func (f ResellerConfig_UpdatedAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ResellerDeleteRequest struct {
+	Id         []byte
+	ResellerId []byte
+	Status     string
+	Error      *string
+	DeleteAt   time.Time
+	CreatedAt  time.Time
+}
+
+func (ResellerDeleteRequest) _Table() string { return "reseller_delete_requests" }
+
+type ResellerDeleteRequest_Create_Fields struct {
+	Error ResellerDeleteRequest_Error_Field
+}
+
+type ResellerDeleteRequest_Update_Fields struct {
+	Status   ResellerDeleteRequest_Status_Field
+	Error    ResellerDeleteRequest_Error_Field
+	DeleteAt ResellerDeleteRequest_DeleteAt_Field
+}
+
+type ResellerDeleteRequest_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func ResellerDeleteRequest_Id(v []byte) ResellerDeleteRequest_Id_Field {
+	return ResellerDeleteRequest_Id_Field{_set: true, _value: v}
+}
+
+func (f ResellerDeleteRequest_Id_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ResellerDeleteRequest_ResellerId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func ResellerDeleteRequest_ResellerId(v []byte) ResellerDeleteRequest_ResellerId_Field {
+	return ResellerDeleteRequest_ResellerId_Field{_set: true, _value: v}
+}
+
+func (f ResellerDeleteRequest_ResellerId_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ResellerDeleteRequest_Status_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func ResellerDeleteRequest_Status(v string) ResellerDeleteRequest_Status_Field {
+	return ResellerDeleteRequest_Status_Field{_set: true, _value: v}
+}
+
+func (f ResellerDeleteRequest_Status_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ResellerDeleteRequest_Error_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func ResellerDeleteRequest_Error(v string) ResellerDeleteRequest_Error_Field {
+	return ResellerDeleteRequest_Error_Field{_set: true, _value: &v}
+}
+
+func ResellerDeleteRequest_Error_Raw(v *string) ResellerDeleteRequest_Error_Field {
+	if v == nil {
+		return ResellerDeleteRequest_Error_Null()
+	}
+	return ResellerDeleteRequest_Error(*v)
+}
+
+func ResellerDeleteRequest_Error_Null() ResellerDeleteRequest_Error_Field {
+	return ResellerDeleteRequest_Error_Field{_set: true, _null: true}
+}
+
+func (f ResellerDeleteRequest_Error_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f ResellerDeleteRequest_Error_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ResellerDeleteRequest_DeleteAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func ResellerDeleteRequest_DeleteAt(v time.Time) ResellerDeleteRequest_DeleteAt_Field {
+	return ResellerDeleteRequest_DeleteAt_Field{_set: true, _value: v}
+}
+
+func (f ResellerDeleteRequest_DeleteAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ResellerDeleteRequest_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func ResellerDeleteRequest_CreatedAt(v time.Time) ResellerDeleteRequest_CreatedAt_Field {
+	return ResellerDeleteRequest_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f ResellerDeleteRequest_CreatedAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ResellerDomain struct {
+	Id                 []byte
+	ResellerId         []byte
+	Domain             string
+	DomainType         string
+	Status             string
+	VerificationMethod *string
+	VerificationStatus string
+	SslStatus          string
+	DnsTarget          *string
+	VerifiedAt         *time.Time
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
+	DeletedAt          *time.Time
+}
+
+func (ResellerDomain) _Table() string { return "reseller_domains" }
+
+type ResellerDomain_Create_Fields struct {
+	VerificationMethod ResellerDomain_VerificationMethod_Field
+	DnsTarget          ResellerDomain_DnsTarget_Field
+	VerifiedAt         ResellerDomain_VerifiedAt_Field
+	DeletedAt          ResellerDomain_DeletedAt_Field
+}
+
+type ResellerDomain_Update_Fields struct {
+	Domain             ResellerDomain_Domain_Field
+	DomainType         ResellerDomain_DomainType_Field
+	Status             ResellerDomain_Status_Field
+	VerificationMethod ResellerDomain_VerificationMethod_Field
+	VerificationStatus ResellerDomain_VerificationStatus_Field
+	SslStatus          ResellerDomain_SslStatus_Field
+	DnsTarget          ResellerDomain_DnsTarget_Field
+	VerifiedAt         ResellerDomain_VerifiedAt_Field
+	UpdatedAt          ResellerDomain_UpdatedAt_Field
+	DeletedAt          ResellerDomain_DeletedAt_Field
+}
+
+type ResellerDomain_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func ResellerDomain_Id(v []byte) ResellerDomain_Id_Field {
+	return ResellerDomain_Id_Field{_set: true, _value: v}
+}
+
+func (f ResellerDomain_Id_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ResellerDomain_ResellerId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func ResellerDomain_ResellerId(v []byte) ResellerDomain_ResellerId_Field {
+	return ResellerDomain_ResellerId_Field{_set: true, _value: v}
+}
+
+func (f ResellerDomain_ResellerId_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ResellerDomain_Domain_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func ResellerDomain_Domain(v string) ResellerDomain_Domain_Field {
+	return ResellerDomain_Domain_Field{_set: true, _value: v}
+}
+
+func (f ResellerDomain_Domain_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ResellerDomain_DomainType_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func ResellerDomain_DomainType(v string) ResellerDomain_DomainType_Field {
+	return ResellerDomain_DomainType_Field{_set: true, _value: v}
+}
+
+func (f ResellerDomain_DomainType_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ResellerDomain_Status_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func ResellerDomain_Status(v string) ResellerDomain_Status_Field {
+	return ResellerDomain_Status_Field{_set: true, _value: v}
+}
+
+func (f ResellerDomain_Status_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ResellerDomain_VerificationMethod_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func ResellerDomain_VerificationMethod(v string) ResellerDomain_VerificationMethod_Field {
+	return ResellerDomain_VerificationMethod_Field{_set: true, _value: &v}
+}
+
+func ResellerDomain_VerificationMethod_Raw(v *string) ResellerDomain_VerificationMethod_Field {
+	if v == nil {
+		return ResellerDomain_VerificationMethod_Null()
+	}
+	return ResellerDomain_VerificationMethod(*v)
+}
+
+func ResellerDomain_VerificationMethod_Null() ResellerDomain_VerificationMethod_Field {
+	return ResellerDomain_VerificationMethod_Field{_set: true, _null: true}
+}
+
+func (f ResellerDomain_VerificationMethod_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f ResellerDomain_VerificationMethod_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ResellerDomain_VerificationStatus_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func ResellerDomain_VerificationStatus(v string) ResellerDomain_VerificationStatus_Field {
+	return ResellerDomain_VerificationStatus_Field{_set: true, _value: v}
+}
+
+func (f ResellerDomain_VerificationStatus_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ResellerDomain_SslStatus_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func ResellerDomain_SslStatus(v string) ResellerDomain_SslStatus_Field {
+	return ResellerDomain_SslStatus_Field{_set: true, _value: v}
+}
+
+func (f ResellerDomain_SslStatus_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ResellerDomain_DnsTarget_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func ResellerDomain_DnsTarget(v string) ResellerDomain_DnsTarget_Field {
+	return ResellerDomain_DnsTarget_Field{_set: true, _value: &v}
+}
+
+func ResellerDomain_DnsTarget_Raw(v *string) ResellerDomain_DnsTarget_Field {
+	if v == nil {
+		return ResellerDomain_DnsTarget_Null()
+	}
+	return ResellerDomain_DnsTarget(*v)
+}
+
+func ResellerDomain_DnsTarget_Null() ResellerDomain_DnsTarget_Field {
+	return ResellerDomain_DnsTarget_Field{_set: true, _null: true}
+}
+
+func (f ResellerDomain_DnsTarget_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f ResellerDomain_DnsTarget_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ResellerDomain_VerifiedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func ResellerDomain_VerifiedAt(v time.Time) ResellerDomain_VerifiedAt_Field {
+	return ResellerDomain_VerifiedAt_Field{_set: true, _value: &v}
+}
+
+func ResellerDomain_VerifiedAt_Raw(v *time.Time) ResellerDomain_VerifiedAt_Field {
+	if v == nil {
+		return ResellerDomain_VerifiedAt_Null()
+	}
+	return ResellerDomain_VerifiedAt(*v)
+}
+
+func ResellerDomain_VerifiedAt_Null() ResellerDomain_VerifiedAt_Field {
+	return ResellerDomain_VerifiedAt_Field{_set: true, _null: true}
+}
+
+func (f ResellerDomain_VerifiedAt_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f ResellerDomain_VerifiedAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ResellerDomain_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func ResellerDomain_CreatedAt(v time.Time) ResellerDomain_CreatedAt_Field {
+	return ResellerDomain_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f ResellerDomain_CreatedAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ResellerDomain_UpdatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func ResellerDomain_UpdatedAt(v time.Time) ResellerDomain_UpdatedAt_Field {
+	return ResellerDomain_UpdatedAt_Field{_set: true, _value: v}
+}
+
+func (f ResellerDomain_UpdatedAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ResellerDomain_DeletedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func ResellerDomain_DeletedAt(v time.Time) ResellerDomain_DeletedAt_Field {
+	return ResellerDomain_DeletedAt_Field{_set: true, _value: &v}
+}
+
+func ResellerDomain_DeletedAt_Raw(v *time.Time) ResellerDomain_DeletedAt_Field {
+	if v == nil {
+		return ResellerDomain_DeletedAt_Null()
+	}
+	return ResellerDomain_DeletedAt(*v)
+}
+
+func ResellerDomain_DeletedAt_Null() ResellerDomain_DeletedAt_Field {
+	return ResellerDomain_DeletedAt_Field{_set: true, _null: true}
+}
+
+func (f ResellerDomain_DeletedAt_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f ResellerDomain_DeletedAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ResellerTheme struct {
+	Id         []byte
+	ResellerId []byte
+	Name       string
+	Colors     []byte
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+}
+
+func (ResellerTheme) _Table() string { return "reseller_themes" }
+
+type ResellerTheme_Update_Fields struct {
+	Name      ResellerTheme_Name_Field
+	Colors    ResellerTheme_Colors_Field
+	UpdatedAt ResellerTheme_UpdatedAt_Field
+}
+
+type ResellerTheme_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func ResellerTheme_Id(v []byte) ResellerTheme_Id_Field {
+	return ResellerTheme_Id_Field{_set: true, _value: v}
+}
+
+func (f ResellerTheme_Id_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ResellerTheme_ResellerId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func ResellerTheme_ResellerId(v []byte) ResellerTheme_ResellerId_Field {
+	return ResellerTheme_ResellerId_Field{_set: true, _value: v}
+}
+
+func (f ResellerTheme_ResellerId_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ResellerTheme_Name_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func ResellerTheme_Name(v string) ResellerTheme_Name_Field {
+	return ResellerTheme_Name_Field{_set: true, _value: v}
+}
+
+func (f ResellerTheme_Name_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ResellerTheme_Colors_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func ResellerTheme_Colors(v []byte) ResellerTheme_Colors_Field {
+	return ResellerTheme_Colors_Field{_set: true, _value: v}
+}
+
+func (f ResellerTheme_Colors_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ResellerTheme_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func ResellerTheme_CreatedAt(v time.Time) ResellerTheme_CreatedAt_Field {
+	return ResellerTheme_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f ResellerTheme_CreatedAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ResellerTheme_UpdatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func ResellerTheme_UpdatedAt(v time.Time) ResellerTheme_UpdatedAt_Field {
+	return ResellerTheme_UpdatedAt_Field{_set: true, _value: v}
+}
+
+func (f ResellerTheme_UpdatedAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
 type ResetPasswordToken struct {
 	Secret    []byte
 	OwnerId   []byte
@@ -13847,6 +16761,68 @@ func ResetPasswordTokenDeveloper_CreatedAt(v time.Time) ResetPasswordTokenDevelo
 }
 
 func (f ResetPasswordTokenDeveloper_CreatedAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ResetPasswordTokenReseller struct {
+	Secret    []byte
+	OwnerId   []byte
+	CreatedAt time.Time
+}
+
+func (ResetPasswordTokenReseller) _Table() string { return "reset_password_token_resellers" }
+
+type ResetPasswordTokenReseller_Update_Fields struct {
+}
+
+type ResetPasswordTokenReseller_Secret_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func ResetPasswordTokenReseller_Secret(v []byte) ResetPasswordTokenReseller_Secret_Field {
+	return ResetPasswordTokenReseller_Secret_Field{_set: true, _value: v}
+}
+
+func (f ResetPasswordTokenReseller_Secret_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ResetPasswordTokenReseller_OwnerId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func ResetPasswordTokenReseller_OwnerId(v []byte) ResetPasswordTokenReseller_OwnerId_Field {
+	return ResetPasswordTokenReseller_OwnerId_Field{_set: true, _value: v}
+}
+
+func (f ResetPasswordTokenReseller_OwnerId_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ResetPasswordTokenReseller_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func ResetPasswordTokenReseller_CreatedAt(v time.Time) ResetPasswordTokenReseller_CreatedAt_Field {
+	return ResetPasswordTokenReseller_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f ResetPasswordTokenReseller_CreatedAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -16000,6 +18976,179 @@ func (f StripecoinpaymentsTxConversionRate_CreatedAt_Field) value() any {
 	return f._value
 }
 
+type ThemePreset struct {
+	Id          []byte
+	Slug        string
+	Name        string
+	Description *string
+	Colors      []byte
+	IsSystem    bool
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
+func (ThemePreset) _Table() string { return "theme_presets" }
+
+type ThemePreset_Create_Fields struct {
+	Description ThemePreset_Description_Field
+	IsSystem    ThemePreset_IsSystem_Field
+}
+
+type ThemePreset_Update_Fields struct {
+	Description ThemePreset_Description_Field
+	IsSystem    ThemePreset_IsSystem_Field
+	UpdatedAt   ThemePreset_UpdatedAt_Field
+}
+
+type ThemePreset_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func ThemePreset_Id(v []byte) ThemePreset_Id_Field {
+	return ThemePreset_Id_Field{_set: true, _value: v}
+}
+
+func (f ThemePreset_Id_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ThemePreset_Slug_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func ThemePreset_Slug(v string) ThemePreset_Slug_Field {
+	return ThemePreset_Slug_Field{_set: true, _value: v}
+}
+
+func (f ThemePreset_Slug_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ThemePreset_Name_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func ThemePreset_Name(v string) ThemePreset_Name_Field {
+	return ThemePreset_Name_Field{_set: true, _value: v}
+}
+
+func (f ThemePreset_Name_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ThemePreset_Description_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func ThemePreset_Description(v string) ThemePreset_Description_Field {
+	return ThemePreset_Description_Field{_set: true, _value: &v}
+}
+
+func ThemePreset_Description_Raw(v *string) ThemePreset_Description_Field {
+	if v == nil {
+		return ThemePreset_Description_Null()
+	}
+	return ThemePreset_Description(*v)
+}
+
+func ThemePreset_Description_Null() ThemePreset_Description_Field {
+	return ThemePreset_Description_Field{_set: true, _null: true}
+}
+
+func (f ThemePreset_Description_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f ThemePreset_Description_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ThemePreset_Colors_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func ThemePreset_Colors(v []byte) ThemePreset_Colors_Field {
+	return ThemePreset_Colors_Field{_set: true, _value: v}
+}
+
+func (f ThemePreset_Colors_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ThemePreset_IsSystem_Field struct {
+	_set   bool
+	_null  bool
+	_value bool
+}
+
+func ThemePreset_IsSystem(v bool) ThemePreset_IsSystem_Field {
+	return ThemePreset_IsSystem_Field{_set: true, _value: v}
+}
+
+func (f ThemePreset_IsSystem_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ThemePreset_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func ThemePreset_CreatedAt(v time.Time) ThemePreset_CreatedAt_Field {
+	return ThemePreset_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f ThemePreset_CreatedAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ThemePreset_UpdatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func ThemePreset_UpdatedAt(v time.Time) ThemePreset_UpdatedAt_Field {
+	return ThemePreset_UpdatedAt_Field{_set: true, _value: v}
+}
+
+func (f ThemePreset_UpdatedAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
 type User struct {
 	Id                          []byte
 	ExternalId                  *string
@@ -17671,7 +20820,6 @@ func (f UserDeleteRequest_CreatedAt_Field) value() any {
 type UserNotificationPreference struct {
 	Id          []byte
 	UserId      []byte
-	Category    *string
 	Preferences []byte
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
@@ -17679,12 +20827,7 @@ type UserNotificationPreference struct {
 
 func (UserNotificationPreference) _Table() string { return "user_notification_preferences" }
 
-type UserNotificationPreference_Create_Fields struct {
-	Category UserNotificationPreference_Category_Field
-}
-
 type UserNotificationPreference_Update_Fields struct {
-	Category    UserNotificationPreference_Category_Field
 	Preferences UserNotificationPreference_Preferences_Field
 	UpdatedAt   UserNotificationPreference_UpdatedAt_Field
 }
@@ -17717,38 +20860,6 @@ func UserNotificationPreference_UserId(v []byte) UserNotificationPreference_User
 }
 
 func (f UserNotificationPreference_UserId_Field) value() any {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-type UserNotificationPreference_Category_Field struct {
-	_set   bool
-	_null  bool
-	_value *string
-}
-
-func UserNotificationPreference_Category(v string) UserNotificationPreference_Category_Field {
-	return UserNotificationPreference_Category_Field{_set: true, _value: &v}
-}
-
-func UserNotificationPreference_Category_Raw(v *string) UserNotificationPreference_Category_Field {
-	if v == nil {
-		return UserNotificationPreference_Category_Null()
-	}
-	return UserNotificationPreference_Category(*v)
-}
-
-func UserNotificationPreference_Category_Null() UserNotificationPreference_Category_Field {
-	return UserNotificationPreference_Category_Field{_set: true, _null: true}
-}
-
-func (f UserNotificationPreference_Category_Field) isnull() bool {
-	return !f._set || f._null || f._value == nil
-}
-
-func (f UserNotificationPreference_Category_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -18530,6 +21641,106 @@ func (f WebappSessionDeveloper_ExpiresAt_Field) value() any {
 	return f._value
 }
 
+type WebappSessionReseller struct {
+	Id         []byte
+	ResellerId []byte
+	IpAddress  string
+	Status     int
+	ExpiresAt  time.Time
+}
+
+func (WebappSessionReseller) _Table() string { return "webapp_session_resellers" }
+
+type WebappSessionReseller_Update_Fields struct {
+	Status    WebappSessionReseller_Status_Field
+	ExpiresAt WebappSessionReseller_ExpiresAt_Field
+}
+
+type WebappSessionReseller_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func WebappSessionReseller_Id(v []byte) WebappSessionReseller_Id_Field {
+	return WebappSessionReseller_Id_Field{_set: true, _value: v}
+}
+
+func (f WebappSessionReseller_Id_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type WebappSessionReseller_ResellerId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func WebappSessionReseller_ResellerId(v []byte) WebappSessionReseller_ResellerId_Field {
+	return WebappSessionReseller_ResellerId_Field{_set: true, _value: v}
+}
+
+func (f WebappSessionReseller_ResellerId_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type WebappSessionReseller_IpAddress_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func WebappSessionReseller_IpAddress(v string) WebappSessionReseller_IpAddress_Field {
+	return WebappSessionReseller_IpAddress_Field{_set: true, _value: v}
+}
+
+func (f WebappSessionReseller_IpAddress_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type WebappSessionReseller_Status_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func WebappSessionReseller_Status(v int) WebappSessionReseller_Status_Field {
+	return WebappSessionReseller_Status_Field{_set: true, _value: v}
+}
+
+func (f WebappSessionReseller_Status_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type WebappSessionReseller_ExpiresAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func WebappSessionReseller_ExpiresAt(v time.Time) WebappSessionReseller_ExpiresAt_Field {
+	return WebappSessionReseller_ExpiresAt_Field{_set: true, _value: v}
+}
+
+func (f WebappSessionReseller_ExpiresAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
 type ApiKey struct {
 	Id        []byte
 	ProjectId []byte
@@ -18727,6 +21938,317 @@ func ApiKey_Version(v uint) ApiKey_Version_Field {
 }
 
 func (f ApiKey_Version_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type BackupCredentials struct {
+	Id                []byte
+	UserId            []byte
+	Provider          string
+	Email             string
+	AccessToken       string
+	RefreshToken      *string
+	AccessTokenExpiry *time.Time
+	AccountType       *string
+	TenantId          *string
+	TenantName        *string
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+}
+
+func (BackupCredentials) _Table() string { return "backup_credentials" }
+
+type BackupCredentials_Create_Fields struct {
+	RefreshToken      BackupCredentials_RefreshToken_Field
+	AccessTokenExpiry BackupCredentials_AccessTokenExpiry_Field
+	AccountType       BackupCredentials_AccountType_Field
+	TenantId          BackupCredentials_TenantId_Field
+	TenantName        BackupCredentials_TenantName_Field
+}
+
+type BackupCredentials_Update_Fields struct {
+	AccessToken       BackupCredentials_AccessToken_Field
+	RefreshToken      BackupCredentials_RefreshToken_Field
+	AccessTokenExpiry BackupCredentials_AccessTokenExpiry_Field
+	AccountType       BackupCredentials_AccountType_Field
+	TenantId          BackupCredentials_TenantId_Field
+	TenantName        BackupCredentials_TenantName_Field
+}
+
+type BackupCredentials_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func BackupCredentials_Id(v []byte) BackupCredentials_Id_Field {
+	return BackupCredentials_Id_Field{_set: true, _value: v}
+}
+
+func (f BackupCredentials_Id_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type BackupCredentials_UserId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func BackupCredentials_UserId(v []byte) BackupCredentials_UserId_Field {
+	return BackupCredentials_UserId_Field{_set: true, _value: v}
+}
+
+func (f BackupCredentials_UserId_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type BackupCredentials_Provider_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func BackupCredentials_Provider(v string) BackupCredentials_Provider_Field {
+	return BackupCredentials_Provider_Field{_set: true, _value: v}
+}
+
+func (f BackupCredentials_Provider_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type BackupCredentials_Email_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func BackupCredentials_Email(v string) BackupCredentials_Email_Field {
+	return BackupCredentials_Email_Field{_set: true, _value: v}
+}
+
+func (f BackupCredentials_Email_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type BackupCredentials_AccessToken_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func BackupCredentials_AccessToken(v string) BackupCredentials_AccessToken_Field {
+	return BackupCredentials_AccessToken_Field{_set: true, _value: v}
+}
+
+func (f BackupCredentials_AccessToken_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type BackupCredentials_RefreshToken_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func BackupCredentials_RefreshToken(v string) BackupCredentials_RefreshToken_Field {
+	return BackupCredentials_RefreshToken_Field{_set: true, _value: &v}
+}
+
+func BackupCredentials_RefreshToken_Raw(v *string) BackupCredentials_RefreshToken_Field {
+	if v == nil {
+		return BackupCredentials_RefreshToken_Null()
+	}
+	return BackupCredentials_RefreshToken(*v)
+}
+
+func BackupCredentials_RefreshToken_Null() BackupCredentials_RefreshToken_Field {
+	return BackupCredentials_RefreshToken_Field{_set: true, _null: true}
+}
+
+func (f BackupCredentials_RefreshToken_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f BackupCredentials_RefreshToken_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type BackupCredentials_AccessTokenExpiry_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func BackupCredentials_AccessTokenExpiry(v time.Time) BackupCredentials_AccessTokenExpiry_Field {
+	return BackupCredentials_AccessTokenExpiry_Field{_set: true, _value: &v}
+}
+
+func BackupCredentials_AccessTokenExpiry_Raw(v *time.Time) BackupCredentials_AccessTokenExpiry_Field {
+	if v == nil {
+		return BackupCredentials_AccessTokenExpiry_Null()
+	}
+	return BackupCredentials_AccessTokenExpiry(*v)
+}
+
+func BackupCredentials_AccessTokenExpiry_Null() BackupCredentials_AccessTokenExpiry_Field {
+	return BackupCredentials_AccessTokenExpiry_Field{_set: true, _null: true}
+}
+
+func (f BackupCredentials_AccessTokenExpiry_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f BackupCredentials_AccessTokenExpiry_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type BackupCredentials_AccountType_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func BackupCredentials_AccountType(v string) BackupCredentials_AccountType_Field {
+	return BackupCredentials_AccountType_Field{_set: true, _value: &v}
+}
+
+func BackupCredentials_AccountType_Raw(v *string) BackupCredentials_AccountType_Field {
+	if v == nil {
+		return BackupCredentials_AccountType_Null()
+	}
+	return BackupCredentials_AccountType(*v)
+}
+
+func BackupCredentials_AccountType_Null() BackupCredentials_AccountType_Field {
+	return BackupCredentials_AccountType_Field{_set: true, _null: true}
+}
+
+func (f BackupCredentials_AccountType_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f BackupCredentials_AccountType_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type BackupCredentials_TenantId_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func BackupCredentials_TenantId(v string) BackupCredentials_TenantId_Field {
+	return BackupCredentials_TenantId_Field{_set: true, _value: &v}
+}
+
+func BackupCredentials_TenantId_Raw(v *string) BackupCredentials_TenantId_Field {
+	if v == nil {
+		return BackupCredentials_TenantId_Null()
+	}
+	return BackupCredentials_TenantId(*v)
+}
+
+func BackupCredentials_TenantId_Null() BackupCredentials_TenantId_Field {
+	return BackupCredentials_TenantId_Field{_set: true, _null: true}
+}
+
+func (f BackupCredentials_TenantId_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f BackupCredentials_TenantId_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type BackupCredentials_TenantName_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func BackupCredentials_TenantName(v string) BackupCredentials_TenantName_Field {
+	return BackupCredentials_TenantName_Field{_set: true, _value: &v}
+}
+
+func BackupCredentials_TenantName_Raw(v *string) BackupCredentials_TenantName_Field {
+	if v == nil {
+		return BackupCredentials_TenantName_Null()
+	}
+	return BackupCredentials_TenantName(*v)
+}
+
+func BackupCredentials_TenantName_Null() BackupCredentials_TenantName_Field {
+	return BackupCredentials_TenantName_Field{_set: true, _null: true}
+}
+
+func (f BackupCredentials_TenantName_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f BackupCredentials_TenantName_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type BackupCredentials_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func BackupCredentials_CreatedAt(v time.Time) BackupCredentials_CreatedAt_Field {
+	return BackupCredentials_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f BackupCredentials_CreatedAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type BackupCredentials_UpdatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func BackupCredentials_UpdatedAt(v time.Time) BackupCredentials_UpdatedAt_Field {
+	return BackupCredentials_UpdatedAt_Field{_set: true, _value: v}
+}
+
+func (f BackupCredentials_UpdatedAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -19718,225 +23240,281 @@ func (f Domain_CreatedAt_Field) value() any {
 	return f._value
 }
 
-type GoogleBackupCredentials struct {
-	Id                []byte
-	UserId            []byte
-	GoogleEmail       string
-	AccessToken       string
-	RefreshToken      *string
-	AccessTokenExpiry *time.Time
-	AccountType       *string
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
+type MemberBucketGrant struct {
+	Id            []byte
+	ProjectId     []byte
+	MemberId      []byte
+	InviteEmail   string
+	Bucket        string
+	Prefix        string
+	AllowList     bool
+	AllowDownload bool
+	AllowUpload   bool
+	AllowDelete   bool
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+	ExpiresAt     *time.Time
 }
 
-func (GoogleBackupCredentials) _Table() string { return "google_backup_credentials" }
+func (MemberBucketGrant) _Table() string { return "member_bucket_grants" }
 
-type GoogleBackupCredentials_Create_Fields struct {
-	RefreshToken      GoogleBackupCredentials_RefreshToken_Field
-	AccessTokenExpiry GoogleBackupCredentials_AccessTokenExpiry_Field
-	AccountType       GoogleBackupCredentials_AccountType_Field
+type MemberBucketGrant_Create_Fields struct {
+	MemberId  MemberBucketGrant_MemberId_Field
+	ExpiresAt MemberBucketGrant_ExpiresAt_Field
 }
 
-type GoogleBackupCredentials_Update_Fields struct {
-	AccessToken       GoogleBackupCredentials_AccessToken_Field
-	RefreshToken      GoogleBackupCredentials_RefreshToken_Field
-	AccessTokenExpiry GoogleBackupCredentials_AccessTokenExpiry_Field
-	AccountType       GoogleBackupCredentials_AccountType_Field
+type MemberBucketGrant_Update_Fields struct {
+	MemberId      MemberBucketGrant_MemberId_Field
+	AllowList     MemberBucketGrant_AllowList_Field
+	AllowDownload MemberBucketGrant_AllowDownload_Field
+	AllowUpload   MemberBucketGrant_AllowUpload_Field
+	AllowDelete   MemberBucketGrant_AllowDelete_Field
+	ExpiresAt     MemberBucketGrant_ExpiresAt_Field
 }
 
-type GoogleBackupCredentials_Id_Field struct {
+type MemberBucketGrant_Id_Field struct {
 	_set   bool
 	_null  bool
 	_value []byte
 }
 
-func GoogleBackupCredentials_Id(v []byte) GoogleBackupCredentials_Id_Field {
-	return GoogleBackupCredentials_Id_Field{_set: true, _value: v}
+func MemberBucketGrant_Id(v []byte) MemberBucketGrant_Id_Field {
+	return MemberBucketGrant_Id_Field{_set: true, _value: v}
 }
 
-func (f GoogleBackupCredentials_Id_Field) value() any {
+func (f MemberBucketGrant_Id_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-type GoogleBackupCredentials_UserId_Field struct {
+type MemberBucketGrant_ProjectId_Field struct {
 	_set   bool
 	_null  bool
 	_value []byte
 }
 
-func GoogleBackupCredentials_UserId(v []byte) GoogleBackupCredentials_UserId_Field {
-	return GoogleBackupCredentials_UserId_Field{_set: true, _value: v}
+func MemberBucketGrant_ProjectId(v []byte) MemberBucketGrant_ProjectId_Field {
+	return MemberBucketGrant_ProjectId_Field{_set: true, _value: v}
 }
 
-func (f GoogleBackupCredentials_UserId_Field) value() any {
+func (f MemberBucketGrant_ProjectId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-type GoogleBackupCredentials_GoogleEmail_Field struct {
+type MemberBucketGrant_MemberId_Field struct {
 	_set   bool
 	_null  bool
-	_value string
+	_value []byte
 }
 
-func GoogleBackupCredentials_GoogleEmail(v string) GoogleBackupCredentials_GoogleEmail_Field {
-	return GoogleBackupCredentials_GoogleEmail_Field{_set: true, _value: v}
+func MemberBucketGrant_MemberId(v []byte) MemberBucketGrant_MemberId_Field {
+	return MemberBucketGrant_MemberId_Field{_set: true, _value: v}
 }
 
-func (f GoogleBackupCredentials_GoogleEmail_Field) value() any {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-type GoogleBackupCredentials_AccessToken_Field struct {
-	_set   bool
-	_null  bool
-	_value string
-}
-
-func GoogleBackupCredentials_AccessToken(v string) GoogleBackupCredentials_AccessToken_Field {
-	return GoogleBackupCredentials_AccessToken_Field{_set: true, _value: v}
-}
-
-func (f GoogleBackupCredentials_AccessToken_Field) value() any {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-type GoogleBackupCredentials_RefreshToken_Field struct {
-	_set   bool
-	_null  bool
-	_value *string
-}
-
-func GoogleBackupCredentials_RefreshToken(v string) GoogleBackupCredentials_RefreshToken_Field {
-	return GoogleBackupCredentials_RefreshToken_Field{_set: true, _value: &v}
-}
-
-func GoogleBackupCredentials_RefreshToken_Raw(v *string) GoogleBackupCredentials_RefreshToken_Field {
+func MemberBucketGrant_MemberId_Raw(v []byte) MemberBucketGrant_MemberId_Field {
 	if v == nil {
-		return GoogleBackupCredentials_RefreshToken_Null()
+		return MemberBucketGrant_MemberId_Null()
 	}
-	return GoogleBackupCredentials_RefreshToken(*v)
+	return MemberBucketGrant_MemberId(v)
 }
 
-func GoogleBackupCredentials_RefreshToken_Null() GoogleBackupCredentials_RefreshToken_Field {
-	return GoogleBackupCredentials_RefreshToken_Field{_set: true, _null: true}
+func MemberBucketGrant_MemberId_Null() MemberBucketGrant_MemberId_Field {
+	return MemberBucketGrant_MemberId_Field{_set: true, _null: true}
 }
 
-func (f GoogleBackupCredentials_RefreshToken_Field) isnull() bool {
-	return !f._set || f._null || f._value == nil
-}
+func (f MemberBucketGrant_MemberId_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f GoogleBackupCredentials_RefreshToken_Field) value() any {
+func (f MemberBucketGrant_MemberId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-type GoogleBackupCredentials_AccessTokenExpiry_Field struct {
+type MemberBucketGrant_InviteEmail_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func MemberBucketGrant_InviteEmail(v string) MemberBucketGrant_InviteEmail_Field {
+	return MemberBucketGrant_InviteEmail_Field{_set: true, _value: v}
+}
+
+func (f MemberBucketGrant_InviteEmail_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MemberBucketGrant_Bucket_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func MemberBucketGrant_Bucket(v string) MemberBucketGrant_Bucket_Field {
+	return MemberBucketGrant_Bucket_Field{_set: true, _value: v}
+}
+
+func (f MemberBucketGrant_Bucket_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MemberBucketGrant_Prefix_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func MemberBucketGrant_Prefix(v string) MemberBucketGrant_Prefix_Field {
+	return MemberBucketGrant_Prefix_Field{_set: true, _value: v}
+}
+
+func (f MemberBucketGrant_Prefix_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MemberBucketGrant_AllowList_Field struct {
+	_set   bool
+	_null  bool
+	_value bool
+}
+
+func MemberBucketGrant_AllowList(v bool) MemberBucketGrant_AllowList_Field {
+	return MemberBucketGrant_AllowList_Field{_set: true, _value: v}
+}
+
+func (f MemberBucketGrant_AllowList_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MemberBucketGrant_AllowDownload_Field struct {
+	_set   bool
+	_null  bool
+	_value bool
+}
+
+func MemberBucketGrant_AllowDownload(v bool) MemberBucketGrant_AllowDownload_Field {
+	return MemberBucketGrant_AllowDownload_Field{_set: true, _value: v}
+}
+
+func (f MemberBucketGrant_AllowDownload_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MemberBucketGrant_AllowUpload_Field struct {
+	_set   bool
+	_null  bool
+	_value bool
+}
+
+func MemberBucketGrant_AllowUpload(v bool) MemberBucketGrant_AllowUpload_Field {
+	return MemberBucketGrant_AllowUpload_Field{_set: true, _value: v}
+}
+
+func (f MemberBucketGrant_AllowUpload_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MemberBucketGrant_AllowDelete_Field struct {
+	_set   bool
+	_null  bool
+	_value bool
+}
+
+func MemberBucketGrant_AllowDelete(v bool) MemberBucketGrant_AllowDelete_Field {
+	return MemberBucketGrant_AllowDelete_Field{_set: true, _value: v}
+}
+
+func (f MemberBucketGrant_AllowDelete_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MemberBucketGrant_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func MemberBucketGrant_CreatedAt(v time.Time) MemberBucketGrant_CreatedAt_Field {
+	return MemberBucketGrant_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f MemberBucketGrant_CreatedAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MemberBucketGrant_UpdatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func MemberBucketGrant_UpdatedAt(v time.Time) MemberBucketGrant_UpdatedAt_Field {
+	return MemberBucketGrant_UpdatedAt_Field{_set: true, _value: v}
+}
+
+func (f MemberBucketGrant_UpdatedAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MemberBucketGrant_ExpiresAt_Field struct {
 	_set   bool
 	_null  bool
 	_value *time.Time
 }
 
-func GoogleBackupCredentials_AccessTokenExpiry(v time.Time) GoogleBackupCredentials_AccessTokenExpiry_Field {
-	return GoogleBackupCredentials_AccessTokenExpiry_Field{_set: true, _value: &v}
+func MemberBucketGrant_ExpiresAt(v time.Time) MemberBucketGrant_ExpiresAt_Field {
+	return MemberBucketGrant_ExpiresAt_Field{_set: true, _value: &v}
 }
 
-func GoogleBackupCredentials_AccessTokenExpiry_Raw(v *time.Time) GoogleBackupCredentials_AccessTokenExpiry_Field {
+func MemberBucketGrant_ExpiresAt_Raw(v *time.Time) MemberBucketGrant_ExpiresAt_Field {
 	if v == nil {
-		return GoogleBackupCredentials_AccessTokenExpiry_Null()
+		return MemberBucketGrant_ExpiresAt_Null()
 	}
-	return GoogleBackupCredentials_AccessTokenExpiry(*v)
+	return MemberBucketGrant_ExpiresAt(*v)
 }
 
-func GoogleBackupCredentials_AccessTokenExpiry_Null() GoogleBackupCredentials_AccessTokenExpiry_Field {
-	return GoogleBackupCredentials_AccessTokenExpiry_Field{_set: true, _null: true}
+func MemberBucketGrant_ExpiresAt_Null() MemberBucketGrant_ExpiresAt_Field {
+	return MemberBucketGrant_ExpiresAt_Field{_set: true, _null: true}
 }
 
-func (f GoogleBackupCredentials_AccessTokenExpiry_Field) isnull() bool {
+func (f MemberBucketGrant_ExpiresAt_Field) isnull() bool {
 	return !f._set || f._null || f._value == nil
 }
 
-func (f GoogleBackupCredentials_AccessTokenExpiry_Field) value() any {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-type GoogleBackupCredentials_AccountType_Field struct {
-	_set   bool
-	_null  bool
-	_value *string
-}
-
-func GoogleBackupCredentials_AccountType(v string) GoogleBackupCredentials_AccountType_Field {
-	return GoogleBackupCredentials_AccountType_Field{_set: true, _value: &v}
-}
-
-func GoogleBackupCredentials_AccountType_Raw(v *string) GoogleBackupCredentials_AccountType_Field {
-	if v == nil {
-		return GoogleBackupCredentials_AccountType_Null()
-	}
-	return GoogleBackupCredentials_AccountType(*v)
-}
-
-func GoogleBackupCredentials_AccountType_Null() GoogleBackupCredentials_AccountType_Field {
-	return GoogleBackupCredentials_AccountType_Field{_set: true, _null: true}
-}
-
-func (f GoogleBackupCredentials_AccountType_Field) isnull() bool {
-	return !f._set || f._null || f._value == nil
-}
-
-func (f GoogleBackupCredentials_AccountType_Field) value() any {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-type GoogleBackupCredentials_CreatedAt_Field struct {
-	_set   bool
-	_null  bool
-	_value time.Time
-}
-
-func GoogleBackupCredentials_CreatedAt(v time.Time) GoogleBackupCredentials_CreatedAt_Field {
-	return GoogleBackupCredentials_CreatedAt_Field{_set: true, _value: v}
-}
-
-func (f GoogleBackupCredentials_CreatedAt_Field) value() any {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-type GoogleBackupCredentials_UpdatedAt_Field struct {
-	_set   bool
-	_null  bool
-	_value time.Time
-}
-
-func GoogleBackupCredentials_UpdatedAt(v time.Time) GoogleBackupCredentials_UpdatedAt_Field {
-	return GoogleBackupCredentials_UpdatedAt_Field{_set: true, _value: v}
-}
-
-func (f GoogleBackupCredentials_UpdatedAt_Field) value() any {
+func (f MemberBucketGrant_ExpiresAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -19948,17 +23526,20 @@ type ProjectInvitation struct {
 	Email     string
 	InviterId []byte
 	CreatedAt time.Time
+	ExpiresAt *time.Time
 }
 
 func (ProjectInvitation) _Table() string { return "project_invitations" }
 
 type ProjectInvitation_Create_Fields struct {
 	InviterId ProjectInvitation_InviterId_Field
+	ExpiresAt ProjectInvitation_ExpiresAt_Field
 }
 
 type ProjectInvitation_Update_Fields struct {
 	InviterId ProjectInvitation_InviterId_Field
 	CreatedAt ProjectInvitation_CreatedAt_Field
+	ExpiresAt ProjectInvitation_ExpiresAt_Field
 }
 
 type ProjectInvitation_ProjectId_Field struct {
@@ -20044,6 +23625,38 @@ func (f ProjectInvitation_CreatedAt_Field) value() any {
 	return f._value
 }
 
+type ProjectInvitation_ExpiresAt_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func ProjectInvitation_ExpiresAt(v time.Time) ProjectInvitation_ExpiresAt_Field {
+	return ProjectInvitation_ExpiresAt_Field{_set: true, _value: &v}
+}
+
+func ProjectInvitation_ExpiresAt_Raw(v *time.Time) ProjectInvitation_ExpiresAt_Field {
+	if v == nil {
+		return ProjectInvitation_ExpiresAt_Null()
+	}
+	return ProjectInvitation_ExpiresAt(*v)
+}
+
+func ProjectInvitation_ExpiresAt_Null() ProjectInvitation_ExpiresAt_Field {
+	return ProjectInvitation_ExpiresAt_Field{_set: true, _null: true}
+}
+
+func (f ProjectInvitation_ExpiresAt_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f ProjectInvitation_ExpiresAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
 type ProjectMember struct {
 	MemberId  []byte
 	ProjectId []byte
@@ -20123,6 +23736,68 @@ func ProjectMember_CreatedAt(v time.Time) ProjectMember_CreatedAt_Field {
 }
 
 func (f ProjectMember_CreatedAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ProjectMemberAclBucket struct {
+	ProjectId  []byte
+	BucketName string
+	CreatedAt  time.Time
+}
+
+func (ProjectMemberAclBucket) _Table() string { return "project_member_acl_buckets" }
+
+type ProjectMemberAclBucket_Update_Fields struct {
+}
+
+type ProjectMemberAclBucket_ProjectId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func ProjectMemberAclBucket_ProjectId(v []byte) ProjectMemberAclBucket_ProjectId_Field {
+	return ProjectMemberAclBucket_ProjectId_Field{_set: true, _value: v}
+}
+
+func (f ProjectMemberAclBucket_ProjectId_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ProjectMemberAclBucket_BucketName_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func ProjectMemberAclBucket_BucketName(v string) ProjectMemberAclBucket_BucketName_Field {
+	return ProjectMemberAclBucket_BucketName_Field{_set: true, _value: v}
+}
+
+func (f ProjectMemberAclBucket_BucketName_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ProjectMemberAclBucket_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func ProjectMemberAclBucket_CreatedAt(v time.Time) ProjectMemberAclBucket_CreatedAt_Field {
+	return ProjectMemberAclBucket_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f ProjectMemberAclBucket_CreatedAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -21201,6 +24876,63 @@ func (obj *pgxImpl) Create_ReverificationAudits(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) CreateNoReturn_AuditLog(ctx context.Context,
+	audit_log_id AuditLog_Id_Field,
+	audit_log_actor_id AuditLog_ActorId_Field,
+	audit_log_action AuditLog_Action_Field,
+	audit_log_message AuditLog_Message_Field,
+	audit_log_status AuditLog_Status_Field,
+	optional AuditLog_Create_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+	__id_val := audit_log_id.value()
+	__actor_id_val := audit_log_actor_id.value()
+	__action_val := audit_log_action.value()
+	__resource_val := optional.Resource.value()
+	__message_val := audit_log_message.value()
+	__ip_address_val := optional.IpAddress.value()
+	__status_val := audit_log_status.value()
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, actor_id, action, resource, message, ip_address, status")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO audit_logs "), __clause}}
+
+	var __values []any
+	__values = append(__values, __id_val, __actor_id_val, __action_val, __resource_val, __message_val, __ip_address_val, __status_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.Timestamp._set {
+		__values = append(__values, optional.Timestamp.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("timestamp"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
 func (obj *pgxImpl) Create_StripeCustomer(ctx context.Context,
 	stripe_customer_user_id StripeCustomer_UserId_Field,
 	stripe_customer_customer_id StripeCustomer_CustomerId_Field,
@@ -22149,6 +25881,75 @@ func (obj *pgxImpl) CreateNoReturn_Revocation(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) Create_MailExportJob(ctx context.Context,
+	mail_export_job_id MailExportJob_Id_Field,
+	mail_export_job_user_id MailExportJob_UserId_Field,
+	mail_export_job_project_id MailExportJob_ProjectId_Field,
+	mail_export_job_access_key_id MailExportJob_AccessKeyId_Field,
+	mail_export_job_bucket MailExportJob_Bucket_Field,
+	mail_export_job_format MailExportJob_Format_Field,
+	mail_export_job_mode MailExportJob_Mode_Field,
+	mail_export_job_status MailExportJob_Status_Field,
+	mail_export_job_retry_count MailExportJob_RetryCount_Field,
+	mail_export_job_progress MailExportJob_Progress_Field,
+	mail_export_job_processed_files MailExportJob_ProcessedFiles_Field,
+	mail_export_job_total_files MailExportJob_TotalFiles_Field,
+	mail_export_job_processed_bytes MailExportJob_ProcessedBytes_Field,
+	mail_export_job_total_bytes MailExportJob_TotalBytes_Field,
+	optional MailExportJob_Create_Fields) (
+	mail_export_job *MailExportJob, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := mail_export_job_id.value()
+	__user_id_val := mail_export_job_user_id.value()
+	__project_id_val := mail_export_job_project_id.value()
+	__access_key_id_val := mail_export_job_access_key_id.value()
+	__bucket_val := mail_export_job_bucket.value()
+	__format_val := mail_export_job_format.value()
+	__mode_val := mail_export_job_mode.value()
+	__prefix_val := optional.Prefix.value()
+	__keys_json_val := optional.KeysJson.value()
+	__access_grant_val := optional.AccessGrant.value()
+	__status_val := mail_export_job_status.value()
+	__retry_count_val := mail_export_job_retry_count.value()
+	__progress_val := mail_export_job_progress.value()
+	__processed_files_val := mail_export_job_processed_files.value()
+	__total_files_val := mail_export_job_total_files.value()
+	__processed_bytes_val := mail_export_job_processed_bytes.value()
+	__total_bytes_val := mail_export_job_total_bytes.value()
+	__current_object_val := optional.CurrentObject.value()
+	__archive_bucket_val := optional.ArchiveBucket.value()
+	__archive_key_val := optional.ArchiveKey.value()
+	__archive_name_val := optional.ArchiveName.value()
+	__error_message_val := optional.ErrorMessage.value()
+	__last_download_charge_id_val := optional.LastDownloadChargeId.value()
+	__last_download_charged_bytes_val := optional.LastDownloadChargedBytes.value()
+	__created_at_val := __now
+	__started_at_val := optional.StartedAt.value()
+	__completed_at_val := optional.CompletedAt.value()
+	__expires_at_val := optional.ExpiresAt.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO mail_export_jobs ( id, user_id, project_id, access_key_id, bucket, format, mode, prefix, keys_json, access_grant, status, retry_count, progress, processed_files, total_files, processed_bytes, total_bytes, current_object, archive_bucket, archive_key, archive_name, error_message, last_download_charge_id, last_download_charged_bytes, created_at, started_at, completed_at, expires_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING mail_export_jobs.id, mail_export_jobs.user_id, mail_export_jobs.project_id, mail_export_jobs.access_key_id, mail_export_jobs.bucket, mail_export_jobs.format, mail_export_jobs.mode, mail_export_jobs.prefix, mail_export_jobs.keys_json, mail_export_jobs.access_grant, mail_export_jobs.status, mail_export_jobs.retry_count, mail_export_jobs.progress, mail_export_jobs.processed_files, mail_export_jobs.total_files, mail_export_jobs.processed_bytes, mail_export_jobs.total_bytes, mail_export_jobs.current_object, mail_export_jobs.archive_bucket, mail_export_jobs.archive_key, mail_export_jobs.archive_name, mail_export_jobs.error_message, mail_export_jobs.last_download_charge_id, mail_export_jobs.last_download_charged_bytes, mail_export_jobs.created_at, mail_export_jobs.started_at, mail_export_jobs.completed_at, mail_export_jobs.expires_at")
+
+	var __values []any
+	__values = append(__values, __id_val, __user_id_val, __project_id_val, __access_key_id_val, __bucket_val, __format_val, __mode_val, __prefix_val, __keys_json_val, __access_grant_val, __status_val, __retry_count_val, __progress_val, __processed_files_val, __total_files_val, __processed_bytes_val, __total_bytes_val, __current_object_val, __archive_bucket_val, __archive_key_val, __archive_name_val, __error_message_val, __last_download_charge_id_val, __last_download_charged_bytes_val, __created_at_val, __started_at_val, __completed_at_val, __expires_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	mail_export_job = &MailExportJob{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&mail_export_job.Id, &mail_export_job.UserId, &mail_export_job.ProjectId, &mail_export_job.AccessKeyId, &mail_export_job.Bucket, &mail_export_job.Format, &mail_export_job.Mode, &mail_export_job.Prefix, &mail_export_job.KeysJson, &mail_export_job.AccessGrant, &mail_export_job.Status, &mail_export_job.RetryCount, &mail_export_job.Progress, &mail_export_job.ProcessedFiles, &mail_export_job.TotalFiles, &mail_export_job.ProcessedBytes, &mail_export_job.TotalBytes, &mail_export_job.CurrentObject, &mail_export_job.ArchiveBucket, &mail_export_job.ArchiveKey, &mail_export_job.ArchiveName, &mail_export_job.ErrorMessage, &mail_export_job.LastDownloadChargeId, &mail_export_job.LastDownloadChargedBytes, &mail_export_job.CreatedAt, &mail_export_job.StartedAt, &mail_export_job.CompletedAt, &mail_export_job.ExpiresAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return mail_export_job, nil
+
+}
+
 func (obj *pgxImpl) ReplaceNoReturn_NodeApiVersion(ctx context.Context,
 	node_api_version_id NodeApiVersion_Id_Field,
 	node_api_version_api_version NodeApiVersion_ApiVersion_Field) (
@@ -22639,8 +26440,7 @@ func (obj *pgxImpl) Create_UserNotificationPreference(ctx context.Context,
 	user_notification_preference_id UserNotificationPreference_Id_Field,
 	user_notification_preference_user_id UserNotificationPreference_UserId_Field,
 	user_notification_preference_preferences UserNotificationPreference_Preferences_Field,
-	user_notification_preference_updated_at UserNotificationPreference_UpdatedAt_Field,
-	optional UserNotificationPreference_Create_Fields) (
+	user_notification_preference_updated_at UserNotificationPreference_UpdatedAt_Field) (
 	user_notification_preference *UserNotificationPreference, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !obj.txn && txutil.IsInsideTx(ctx) {
@@ -22650,21 +26450,20 @@ func (obj *pgxImpl) Create_UserNotificationPreference(ctx context.Context,
 	__now := obj.db.Hooks.Now().UTC()
 	__id_val := user_notification_preference_id.value()
 	__user_id_val := user_notification_preference_user_id.value()
-	__category_val := optional.Category.value()
 	__preferences_val := user_notification_preference_preferences.value()
 	__created_at_val := __now
 	__updated_at_val := user_notification_preference_updated_at.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO user_notification_preferences ( id, user_id, category, preferences, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ? ) RETURNING user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO user_notification_preferences ( id, user_id, preferences, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ? ) RETURNING user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at")
 
 	var __values []any
-	__values = append(__values, __id_val, __user_id_val, __category_val, __preferences_val, __created_at_val, __updated_at_val)
+	__values = append(__values, __id_val, __user_id_val, __preferences_val, __created_at_val, __updated_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	user_notification_preference = &UserNotificationPreference{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.Category, &user_notification_preference.Preferences, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.Preferences, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -22787,43 +26586,47 @@ func (obj *pgxImpl) CreateNoReturn_OauthToken(ctx context.Context,
 
 }
 
-func (obj *pgxImpl) Create_GoogleBackupCredentials(ctx context.Context,
-	google_backup_credentials_id GoogleBackupCredentials_Id_Field,
-	google_backup_credentials_user_id GoogleBackupCredentials_UserId_Field,
-	google_backup_credentials_google_email GoogleBackupCredentials_GoogleEmail_Field,
-	google_backup_credentials_access_token GoogleBackupCredentials_AccessToken_Field,
-	optional GoogleBackupCredentials_Create_Fields) (
-	google_backup_credentials *GoogleBackupCredentials, err error) {
+func (obj *pgxImpl) Create_BackupCredentials(ctx context.Context,
+	backup_credentials_id BackupCredentials_Id_Field,
+	backup_credentials_user_id BackupCredentials_UserId_Field,
+	backup_credentials_provider BackupCredentials_Provider_Field,
+	backup_credentials_email BackupCredentials_Email_Field,
+	backup_credentials_access_token BackupCredentials_AccessToken_Field,
+	optional BackupCredentials_Create_Fields) (
+	backup_credentials *BackupCredentials, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !obj.txn && txutil.IsInsideTx(ctx) {
 		panic("using DB when inside of a transaction")
 	}
 
 	__now := obj.db.Hooks.Now().UTC()
-	__id_val := google_backup_credentials_id.value()
-	__user_id_val := google_backup_credentials_user_id.value()
-	__google_email_val := google_backup_credentials_google_email.value()
-	__access_token_val := google_backup_credentials_access_token.value()
+	__id_val := backup_credentials_id.value()
+	__user_id_val := backup_credentials_user_id.value()
+	__provider_val := backup_credentials_provider.value()
+	__email_val := backup_credentials_email.value()
+	__access_token_val := backup_credentials_access_token.value()
 	__refresh_token_val := optional.RefreshToken.value()
 	__access_token_expiry_val := optional.AccessTokenExpiry.value()
 	__account_type_val := optional.AccountType.value()
+	__tenant_id_val := optional.TenantId.value()
+	__tenant_name_val := optional.TenantName.value()
 	__created_at_val := __now
 	__updated_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO google_backup_credentials ( id, user_id, google_email, access_token, refresh_token, access_token_expiry, account_type, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING google_backup_credentials.id, google_backup_credentials.user_id, google_backup_credentials.google_email, google_backup_credentials.access_token, google_backup_credentials.refresh_token, google_backup_credentials.access_token_expiry, google_backup_credentials.account_type, google_backup_credentials.created_at, google_backup_credentials.updated_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO backup_credentials ( id, user_id, provider, email, access_token, refresh_token, access_token_expiry, account_type, tenant_id, tenant_name, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at")
 
 	var __values []any
-	__values = append(__values, __id_val, __user_id_val, __google_email_val, __access_token_val, __refresh_token_val, __access_token_expiry_val, __account_type_val, __created_at_val, __updated_at_val)
+	__values = append(__values, __id_val, __user_id_val, __provider_val, __email_val, __access_token_val, __refresh_token_val, __access_token_expiry_val, __account_type_val, __tenant_id_val, __tenant_name_val, __created_at_val, __updated_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	google_backup_credentials = &GoogleBackupCredentials{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&google_backup_credentials.Id, &google_backup_credentials.UserId, &google_backup_credentials.GoogleEmail, &google_backup_credentials.AccessToken, &google_backup_credentials.RefreshToken, &google_backup_credentials.AccessTokenExpiry, &google_backup_credentials.AccountType, &google_backup_credentials.CreatedAt, &google_backup_credentials.UpdatedAt)
+	backup_credentials = &BackupCredentials{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
-	return google_backup_credentials, nil
+	return backup_credentials, nil
 
 }
 
@@ -22996,17 +26799,18 @@ func (obj *pgxImpl) Replace_ProjectInvitation(ctx context.Context,
 	__email_val := project_invitation_email.value()
 	__inviter_id_val := optional.InviterId.value()
 	__created_at_val := __now
+	__expires_at_val := optional.ExpiresAt.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO project_invitations ( project_id, email, inviter_id, created_at ) VALUES ( ?, ?, ?, ? ) ON CONFLICT ( project_id, email ) DO UPDATE SET project_id = EXCLUDED.project_id, email = EXCLUDED.email, inviter_id = EXCLUDED.inviter_id, created_at = EXCLUDED.created_at RETURNING project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO project_invitations ( project_id, email, inviter_id, created_at, expires_at ) VALUES ( ?, ?, ?, ?, ? ) ON CONFLICT ( project_id, email ) DO UPDATE SET project_id = EXCLUDED.project_id, email = EXCLUDED.email, inviter_id = EXCLUDED.inviter_id, created_at = EXCLUDED.created_at, expires_at = EXCLUDED.expires_at RETURNING project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at, project_invitations.expires_at")
 
 	var __values []any
-	__values = append(__values, __project_id_val, __email_val, __inviter_id_val, __created_at_val)
+	__values = append(__values, __project_id_val, __email_val, __inviter_id_val, __created_at_val, __expires_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	project_invitation = &ProjectInvitation{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt, &project_invitation.ExpiresAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -23106,6 +26910,86 @@ func (obj *pgxImpl) Replace_ApiKeyTail(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return api_key_tail, nil
+
+}
+
+func (obj *pgxImpl) Create_ProjectMemberAclBucket(ctx context.Context,
+	project_member_acl_bucket_project_id ProjectMemberAclBucket_ProjectId_Field,
+	project_member_acl_bucket_bucket_name ProjectMemberAclBucket_BucketName_Field) (
+	project_member_acl_bucket *ProjectMemberAclBucket, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__project_id_val := project_member_acl_bucket_project_id.value()
+	__bucket_name_val := project_member_acl_bucket_bucket_name.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO project_member_acl_buckets ( project_id, bucket_name, created_at ) VALUES ( ?, ?, ? ) RETURNING project_member_acl_buckets.project_id, project_member_acl_buckets.bucket_name, project_member_acl_buckets.created_at")
+
+	var __values []any
+	__values = append(__values, __project_id_val, __bucket_name_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	project_member_acl_bucket = &ProjectMemberAclBucket{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_member_acl_bucket.ProjectId, &project_member_acl_bucket.BucketName, &project_member_acl_bucket.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return project_member_acl_bucket, nil
+
+}
+
+func (obj *pgxImpl) Create_MemberBucketGrant(ctx context.Context,
+	member_bucket_grant_id MemberBucketGrant_Id_Field,
+	member_bucket_grant_project_id MemberBucketGrant_ProjectId_Field,
+	member_bucket_grant_invite_email MemberBucketGrant_InviteEmail_Field,
+	member_bucket_grant_bucket MemberBucketGrant_Bucket_Field,
+	member_bucket_grant_prefix MemberBucketGrant_Prefix_Field,
+	member_bucket_grant_allow_list MemberBucketGrant_AllowList_Field,
+	member_bucket_grant_allow_download MemberBucketGrant_AllowDownload_Field,
+	member_bucket_grant_allow_upload MemberBucketGrant_AllowUpload_Field,
+	member_bucket_grant_allow_delete MemberBucketGrant_AllowDelete_Field,
+	optional MemberBucketGrant_Create_Fields) (
+	member_bucket_grant *MemberBucketGrant, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := member_bucket_grant_id.value()
+	__project_id_val := member_bucket_grant_project_id.value()
+	__member_id_val := optional.MemberId.value()
+	__invite_email_val := member_bucket_grant_invite_email.value()
+	__bucket_val := member_bucket_grant_bucket.value()
+	__prefix_val := member_bucket_grant_prefix.value()
+	__allow_list_val := member_bucket_grant_allow_list.value()
+	__allow_download_val := member_bucket_grant_allow_download.value()
+	__allow_upload_val := member_bucket_grant_allow_upload.value()
+	__allow_delete_val := member_bucket_grant_allow_delete.value()
+	__created_at_val := __now
+	__updated_at_val := __now
+	__expires_at_val := optional.ExpiresAt.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO member_bucket_grants ( id, project_id, member_id, invite_email, bucket, prefix, allow_list, allow_download, allow_upload, allow_delete, created_at, updated_at, expires_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at")
+
+	var __values []any
+	__values = append(__values, __id_val, __project_id_val, __member_id_val, __invite_email_val, __bucket_val, __prefix_val, __allow_list_val, __allow_download_val, __allow_upload_val, __allow_delete_val, __created_at_val, __updated_at_val, __expires_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	member_bucket_grant = &MemberBucketGrant{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return member_bucket_grant, nil
 
 }
 
@@ -23301,6 +27185,385 @@ func (obj *pgxImpl) Create_BucketMigration(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return bucket_migration, nil
+
+}
+
+func (obj *pgxImpl) Create_Reseller(ctx context.Context,
+	reseller_id Reseller_Id_Field,
+	reseller_name Reseller_Name_Field,
+	reseller_email Reseller_Email_Field,
+	reseller_password_hash Reseller_PasswordHash_Field,
+	reseller_updated_at Reseller_UpdatedAt_Field,
+	optional Reseller_Create_Fields) (
+	reseller *Reseller, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := reseller_id.value()
+	__name_val := reseller_name.value()
+	__email_val := reseller_email.value()
+	__password_hash_val := reseller_password_hash.value()
+	__company_name_val := optional.CompanyName.value()
+	__status_val := int(0)
+	__created_at_val := __now
+	__updated_at_val := reseller_updated_at.value()
+	__deleted_at_val := optional.DeletedAt.value()
+	__failed_login_count_val := optional.FailedLoginCount.value()
+	__login_lockout_expiration_val := optional.LoginLockoutExpiration.value()
+	__activation_code_val := optional.ActivationCode.value()
+	__signup_id_val := optional.SignupId.value()
+	__new_unverified_email_val := optional.NewUnverifiedEmail.value()
+	__mfa_secret_key_val := optional.MfaSecretKey.value()
+	__mfa_recovery_codes_val := optional.MfaRecoveryCodes.value()
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, name, email, password_hash, company_name, status, created_at, updated_at, deleted_at, failed_login_count, login_lockout_expiration, activation_code, signup_id, new_unverified_email, mfa_secret_key, mfa_recovery_codes")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO resellers "), __clause, __sqlbundle_Literal(" RETURNING resellers.id, resellers.name, resellers.email, resellers.password_hash, resellers.company_name, resellers.status, resellers.created_at, resellers.updated_at, resellers.deleted_at, resellers.failed_login_count, resellers.login_lockout_expiration, resellers.activation_code, resellers.signup_id, resellers.new_unverified_email, resellers.email_change_verification_step, resellers.mfa_enabled, resellers.mfa_secret_key, resellers.mfa_recovery_codes")}}
+
+	var __values []any
+	__values = append(__values, __id_val, __name_val, __email_val, __password_hash_val, __company_name_val, __status_val, __created_at_val, __updated_at_val, __deleted_at_val, __failed_login_count_val, __login_lockout_expiration_val, __activation_code_val, __signup_id_val, __new_unverified_email_val, __mfa_secret_key_val, __mfa_recovery_codes_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.EmailChangeVerificationStep._set {
+		__values = append(__values, optional.EmailChangeVerificationStep.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("email_change_verification_step"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.MfaEnabled._set {
+		__values = append(__values, optional.MfaEnabled.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("mfa_enabled"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller = &Reseller{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reseller.Id, &reseller.Name, &reseller.Email, &reseller.PasswordHash, &reseller.CompanyName, &reseller.Status, &reseller.CreatedAt, &reseller.UpdatedAt, &reseller.DeletedAt, &reseller.FailedLoginCount, &reseller.LoginLockoutExpiration, &reseller.ActivationCode, &reseller.SignupId, &reseller.NewUnverifiedEmail, &reseller.EmailChangeVerificationStep, &reseller.MfaEnabled, &reseller.MfaSecretKey, &reseller.MfaRecoveryCodes)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return reseller, nil
+
+}
+
+func (obj *pgxImpl) Create_ResellerConfig(ctx context.Context,
+	reseller_config_id ResellerConfig_Id_Field,
+	reseller_config_reseller_id ResellerConfig_ResellerId_Field,
+	reseller_config_config ResellerConfig_Config_Field,
+	reseller_config_updated_at ResellerConfig_UpdatedAt_Field,
+	optional ResellerConfig_Create_Fields) (
+	reseller_config *ResellerConfig, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := reseller_config_id.value()
+	__reseller_id_val := reseller_config_reseller_id.value()
+	__config_val := reseller_config_config.value()
+	__active_theme_id_val := optional.ActiveThemeId.value()
+	__created_at_val := __now
+	__updated_at_val := reseller_config_updated_at.value()
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, reseller_id, config, active_theme_id, created_at, updated_at")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO reseller_configs "), __clause, __sqlbundle_Literal(" RETURNING reseller_configs.id, reseller_configs.reseller_id, reseller_configs.config, reseller_configs.active_theme_type, reseller_configs.active_theme_id, reseller_configs.created_at, reseller_configs.updated_at")}}
+
+	var __values []any
+	__values = append(__values, __id_val, __reseller_id_val, __config_val, __active_theme_id_val, __created_at_val, __updated_at_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.ActiveThemeType._set {
+		__values = append(__values, optional.ActiveThemeType.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("active_theme_type"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller_config = &ResellerConfig{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reseller_config.Id, &reseller_config.ResellerId, &reseller_config.Config, &reseller_config.ActiveThemeType, &reseller_config.ActiveThemeId, &reseller_config.CreatedAt, &reseller_config.UpdatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return reseller_config, nil
+
+}
+
+func (obj *pgxImpl) Create_ResellerDomain(ctx context.Context,
+	reseller_domain_id ResellerDomain_Id_Field,
+	reseller_domain_reseller_id ResellerDomain_ResellerId_Field,
+	reseller_domain_domain ResellerDomain_Domain_Field,
+	reseller_domain_domain_type ResellerDomain_DomainType_Field,
+	reseller_domain_status ResellerDomain_Status_Field,
+	reseller_domain_verification_status ResellerDomain_VerificationStatus_Field,
+	reseller_domain_ssl_status ResellerDomain_SslStatus_Field,
+	reseller_domain_updated_at ResellerDomain_UpdatedAt_Field,
+	optional ResellerDomain_Create_Fields) (
+	reseller_domain *ResellerDomain, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := reseller_domain_id.value()
+	__reseller_id_val := reseller_domain_reseller_id.value()
+	__domain_val := reseller_domain_domain.value()
+	__domain_type_val := reseller_domain_domain_type.value()
+	__status_val := reseller_domain_status.value()
+	__verification_method_val := optional.VerificationMethod.value()
+	__verification_status_val := reseller_domain_verification_status.value()
+	__ssl_status_val := reseller_domain_ssl_status.value()
+	__dns_target_val := optional.DnsTarget.value()
+	__verified_at_val := optional.VerifiedAt.value()
+	__created_at_val := __now
+	__updated_at_val := reseller_domain_updated_at.value()
+	__deleted_at_val := optional.DeletedAt.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO reseller_domains ( id, reseller_id, domain, domain_type, status, verification_method, verification_status, ssl_status, dns_target, verified_at, created_at, updated_at, deleted_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING reseller_domains.id, reseller_domains.reseller_id, reseller_domains.domain, reseller_domains.domain_type, reseller_domains.status, reseller_domains.verification_method, reseller_domains.verification_status, reseller_domains.ssl_status, reseller_domains.dns_target, reseller_domains.verified_at, reseller_domains.created_at, reseller_domains.updated_at, reseller_domains.deleted_at")
+
+	var __values []any
+	__values = append(__values, __id_val, __reseller_id_val, __domain_val, __domain_type_val, __status_val, __verification_method_val, __verification_status_val, __ssl_status_val, __dns_target_val, __verified_at_val, __created_at_val, __updated_at_val, __deleted_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller_domain = &ResellerDomain{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reseller_domain.Id, &reseller_domain.ResellerId, &reseller_domain.Domain, &reseller_domain.DomainType, &reseller_domain.Status, &reseller_domain.VerificationMethod, &reseller_domain.VerificationStatus, &reseller_domain.SslStatus, &reseller_domain.DnsTarget, &reseller_domain.VerifiedAt, &reseller_domain.CreatedAt, &reseller_domain.UpdatedAt, &reseller_domain.DeletedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return reseller_domain, nil
+
+}
+
+func (obj *pgxImpl) Create_WebappSessionReseller(ctx context.Context,
+	webapp_session_reseller_id WebappSessionReseller_Id_Field,
+	webapp_session_reseller_reseller_id WebappSessionReseller_ResellerId_Field,
+	webapp_session_reseller_ip_address WebappSessionReseller_IpAddress_Field,
+	webapp_session_reseller_expires_at WebappSessionReseller_ExpiresAt_Field) (
+	webapp_session_reseller *WebappSessionReseller, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+	__id_val := webapp_session_reseller_id.value()
+	__reseller_id_val := webapp_session_reseller_reseller_id.value()
+	__ip_address_val := webapp_session_reseller_ip_address.value()
+	__status_val := int(0)
+	__expires_at_val := webapp_session_reseller_expires_at.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO webapp_session_resellers ( id, reseller_id, ip_address, status, expires_at ) VALUES ( ?, ?, ?, ?, ? ) RETURNING webapp_session_resellers.id, webapp_session_resellers.reseller_id, webapp_session_resellers.ip_address, webapp_session_resellers.status, webapp_session_resellers.expires_at")
+
+	var __values []any
+	__values = append(__values, __id_val, __reseller_id_val, __ip_address_val, __status_val, __expires_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	webapp_session_reseller = &WebappSessionReseller{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&webapp_session_reseller.Id, &webapp_session_reseller.ResellerId, &webapp_session_reseller.IpAddress, &webapp_session_reseller.Status, &webapp_session_reseller.ExpiresAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return webapp_session_reseller, nil
+
+}
+
+func (obj *pgxImpl) Create_ResetPasswordTokenReseller(ctx context.Context,
+	reset_password_token_reseller_secret ResetPasswordTokenReseller_Secret_Field,
+	reset_password_token_reseller_owner_id ResetPasswordTokenReseller_OwnerId_Field) (
+	reset_password_token_reseller *ResetPasswordTokenReseller, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__secret_val := reset_password_token_reseller_secret.value()
+	__owner_id_val := reset_password_token_reseller_owner_id.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO reset_password_token_resellers ( secret, owner_id, created_at ) VALUES ( ?, ?, ? ) RETURNING reset_password_token_resellers.secret, reset_password_token_resellers.owner_id, reset_password_token_resellers.created_at")
+
+	var __values []any
+	__values = append(__values, __secret_val, __owner_id_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reset_password_token_reseller = &ResetPasswordTokenReseller{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reset_password_token_reseller.Secret, &reset_password_token_reseller.OwnerId, &reset_password_token_reseller.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return reset_password_token_reseller, nil
+
+}
+
+func (obj *pgxImpl) Create_ResellerDeleteRequest(ctx context.Context,
+	reseller_delete_request_id ResellerDeleteRequest_Id_Field,
+	reseller_delete_request_reseller_id ResellerDeleteRequest_ResellerId_Field,
+	reseller_delete_request_status ResellerDeleteRequest_Status_Field,
+	reseller_delete_request_delete_at ResellerDeleteRequest_DeleteAt_Field,
+	optional ResellerDeleteRequest_Create_Fields) (
+	reseller_delete_request *ResellerDeleteRequest, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := reseller_delete_request_id.value()
+	__reseller_id_val := reseller_delete_request_reseller_id.value()
+	__status_val := reseller_delete_request_status.value()
+	__error_val := optional.Error.value()
+	__delete_at_val := reseller_delete_request_delete_at.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO reseller_delete_requests ( id, reseller_id, status, error, delete_at, created_at ) VALUES ( ?, ?, ?, ?, ?, ? ) RETURNING reseller_delete_requests.id, reseller_delete_requests.reseller_id, reseller_delete_requests.status, reseller_delete_requests.error, reseller_delete_requests.delete_at, reseller_delete_requests.created_at")
+
+	var __values []any
+	__values = append(__values, __id_val, __reseller_id_val, __status_val, __error_val, __delete_at_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller_delete_request = &ResellerDeleteRequest{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reseller_delete_request.Id, &reseller_delete_request.ResellerId, &reseller_delete_request.Status, &reseller_delete_request.Error, &reseller_delete_request.DeleteAt, &reseller_delete_request.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return reseller_delete_request, nil
+
+}
+
+func (obj *pgxImpl) Create_ThemePreset(ctx context.Context,
+	theme_preset_id ThemePreset_Id_Field,
+	theme_preset_slug ThemePreset_Slug_Field,
+	theme_preset_name ThemePreset_Name_Field,
+	theme_preset_colors ThemePreset_Colors_Field,
+	theme_preset_updated_at ThemePreset_UpdatedAt_Field,
+	optional ThemePreset_Create_Fields) (
+	theme_preset *ThemePreset, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := theme_preset_id.value()
+	__slug_val := theme_preset_slug.value()
+	__name_val := theme_preset_name.value()
+	__description_val := optional.Description.value()
+	__colors_val := theme_preset_colors.value()
+	__created_at_val := __now
+	__updated_at_val := theme_preset_updated_at.value()
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, slug, name, description, colors, created_at, updated_at")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO theme_presets "), __clause, __sqlbundle_Literal(" RETURNING theme_presets.id, theme_presets.slug, theme_presets.name, theme_presets.description, theme_presets.colors, theme_presets.is_system, theme_presets.created_at, theme_presets.updated_at")}}
+
+	var __values []any
+	__values = append(__values, __id_val, __slug_val, __name_val, __description_val, __colors_val, __created_at_val, __updated_at_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.IsSystem._set {
+		__values = append(__values, optional.IsSystem.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("is_system"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	theme_preset = &ThemePreset{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&theme_preset.Id, &theme_preset.Slug, &theme_preset.Name, &theme_preset.Description, &theme_preset.Colors, &theme_preset.IsSystem, &theme_preset.CreatedAt, &theme_preset.UpdatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return theme_preset, nil
+
+}
+
+func (obj *pgxImpl) Create_ResellerTheme(ctx context.Context,
+	reseller_theme_id ResellerTheme_Id_Field,
+	reseller_theme_reseller_id ResellerTheme_ResellerId_Field,
+	reseller_theme_name ResellerTheme_Name_Field,
+	reseller_theme_colors ResellerTheme_Colors_Field,
+	reseller_theme_updated_at ResellerTheme_UpdatedAt_Field) (
+	reseller_theme *ResellerTheme, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := reseller_theme_id.value()
+	__reseller_id_val := reseller_theme_reseller_id.value()
+	__name_val := reseller_theme_name.value()
+	__colors_val := reseller_theme_colors.value()
+	__created_at_val := __now
+	__updated_at_val := reseller_theme_updated_at.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO reseller_themes ( id, reseller_id, name, colors, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ? ) RETURNING reseller_themes.id, reseller_themes.reseller_id, reseller_themes.name, reseller_themes.colors, reseller_themes.created_at, reseller_themes.updated_at")
+
+	var __values []any
+	__values = append(__values, __id_val, __reseller_id_val, __name_val, __colors_val, __created_at_val, __updated_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller_theme = &ResellerTheme{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reseller_theme.Id, &reseller_theme.ResellerId, &reseller_theme.Name, &reseller_theme.Colors, &reseller_theme.CreatedAt, &reseller_theme.UpdatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return reseller_theme, nil
 
 }
 
@@ -24694,6 +28957,31 @@ func (obj *pgxImpl) First_ReverificationAudits_By_NodeId_OrderBy_Asc_StreamId_As
 		}
 		return reverification_audits, nil
 	}
+
+}
+
+func (obj *pgxImpl) Get_AuditLog_By_Id(ctx context.Context,
+	audit_log_id AuditLog_Id_Field) (
+	audit_log *AuditLog, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT audit_logs.id, audit_logs.timestamp, audit_logs.actor_id, audit_logs.action, audit_logs.resource, audit_logs.message, audit_logs.ip_address, audit_logs.status FROM audit_logs WHERE audit_logs.id = ?")
+
+	var __values []any
+	__values = append(__values, audit_log_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	audit_log = &AuditLog{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&audit_log.Id, &audit_log.Timestamp, &audit_log.ActorId, &audit_log.Action, &audit_log.Resource, &audit_log.Message, &audit_log.IpAddress, &audit_log.Status)
+	if err != nil {
+		return (*AuditLog)(nil), obj.makeErr(err)
+	}
+	return audit_log, nil
 
 }
 
@@ -26973,6 +31261,31 @@ func (obj *pgxImpl) Get_PeerIdentity_LeafSerialNumber_By_NodeId(ctx context.Cont
 
 }
 
+func (obj *pgxImpl) Get_MailExportJob_By_Id(ctx context.Context,
+	mail_export_job_id MailExportJob_Id_Field) (
+	mail_export_job *MailExportJob, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT mail_export_jobs.id, mail_export_jobs.user_id, mail_export_jobs.project_id, mail_export_jobs.access_key_id, mail_export_jobs.bucket, mail_export_jobs.format, mail_export_jobs.mode, mail_export_jobs.prefix, mail_export_jobs.keys_json, mail_export_jobs.access_grant, mail_export_jobs.status, mail_export_jobs.retry_count, mail_export_jobs.progress, mail_export_jobs.processed_files, mail_export_jobs.total_files, mail_export_jobs.processed_bytes, mail_export_jobs.total_bytes, mail_export_jobs.current_object, mail_export_jobs.archive_bucket, mail_export_jobs.archive_key, mail_export_jobs.archive_name, mail_export_jobs.error_message, mail_export_jobs.last_download_charge_id, mail_export_jobs.last_download_charged_bytes, mail_export_jobs.created_at, mail_export_jobs.started_at, mail_export_jobs.completed_at, mail_export_jobs.expires_at FROM mail_export_jobs WHERE mail_export_jobs.id = ?")
+
+	var __values []any
+	__values = append(__values, mail_export_job_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	mail_export_job = &MailExportJob{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&mail_export_job.Id, &mail_export_job.UserId, &mail_export_job.ProjectId, &mail_export_job.AccessKeyId, &mail_export_job.Bucket, &mail_export_job.Format, &mail_export_job.Mode, &mail_export_job.Prefix, &mail_export_job.KeysJson, &mail_export_job.AccessGrant, &mail_export_job.Status, &mail_export_job.RetryCount, &mail_export_job.Progress, &mail_export_job.ProcessedFiles, &mail_export_job.TotalFiles, &mail_export_job.ProcessedBytes, &mail_export_job.TotalBytes, &mail_export_job.CurrentObject, &mail_export_job.ArchiveBucket, &mail_export_job.ArchiveKey, &mail_export_job.ArchiveName, &mail_export_job.ErrorMessage, &mail_export_job.LastDownloadChargeId, &mail_export_job.LastDownloadChargedBytes, &mail_export_job.CreatedAt, &mail_export_job.StartedAt, &mail_export_job.CompletedAt, &mail_export_job.ExpiresAt)
+	if err != nil {
+		return (*MailExportJob)(nil), obj.makeErr(err)
+	}
+	return mail_export_job, nil
+
+}
+
 func (obj *pgxImpl) Get_Node_By_Id(ctx context.Context,
 	node_id Node_Id_Field) (
 	node *Node, err error) {
@@ -28100,7 +32413,7 @@ func (obj *pgxImpl) Get_UserNotificationPreference_By_Id(ctx context.Context,
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at FROM user_notification_preferences WHERE user_notification_preferences.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at FROM user_notification_preferences WHERE user_notification_preferences.id = ?")
 
 	var __values []any
 	__values = append(__values, user_notification_preference_id.value())
@@ -28109,56 +32422,11 @@ func (obj *pgxImpl) Get_UserNotificationPreference_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user_notification_preference = &UserNotificationPreference{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.Category, &user_notification_preference.Preferences, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.Preferences, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
 	if err != nil {
 		return (*UserNotificationPreference)(nil), obj.makeErr(err)
 	}
 	return user_notification_preference, nil
-
-}
-
-func (obj *pgxImpl) All_UserNotificationPreference_By_UserId(ctx context.Context,
-	user_notification_preference_user_id UserNotificationPreference_UserId_Field) (
-	rows []*UserNotificationPreference, err error) {
-	defer mon.Task()(&ctx)(&err)
-	if !obj.txn && txutil.IsInsideTx(ctx) {
-		panic("using DB when inside of a transaction")
-	}
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at FROM user_notification_preferences WHERE user_notification_preferences.user_id = ?")
-
-	var __values []any
-	__values = append(__values, user_notification_preference_user_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	for {
-		rows, err = func() (rows []*UserNotificationPreference, err error) {
-			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-			if err != nil {
-				return nil, err
-			}
-			defer closeRows(__rows, &err)
-
-			for __rows.Next() {
-				user_notification_preference := &UserNotificationPreference{}
-				err = __rows.Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.Category, &user_notification_preference.Preferences, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
-				if err != nil {
-					return nil, err
-				}
-				rows = append(rows, user_notification_preference)
-			}
-			return rows, nil
-		}()
-		if err != nil {
-			if obj.shouldRetry(err) {
-				continue
-			}
-			return nil, obj.makeErr(err)
-		}
-		return rows, nil
-	}
 
 }
 
@@ -28170,7 +32438,7 @@ func (obj *pgxImpl) Get_UserNotificationPreference_By_UserId(ctx context.Context
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at FROM user_notification_preferences WHERE user_notification_preferences.user_id = ? LIMIT 2")
+	var __embed_stmt = __sqlbundle_Literal("SELECT user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at FROM user_notification_preferences WHERE user_notification_preferences.user_id = ?")
 
 	var __values []any
 	__values = append(__values, user_notification_preference_user_id.value())
@@ -28178,102 +32446,12 @@ func (obj *pgxImpl) Get_UserNotificationPreference_By_UserId(ctx context.Context
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	for {
-		user_notification_preference, err = func() (user_notification_preference *UserNotificationPreference, err error) {
-			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-			if err != nil {
-				return nil, err
-			}
-			defer closeRows(__rows, &err)
-
-			if !__rows.Next() {
-				return nil, sql.ErrNoRows
-			}
-
-			user_notification_preference = &UserNotificationPreference{}
-			err = __rows.Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.Category, &user_notification_preference.Preferences, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
-			if err != nil {
-				return nil, err
-			}
-
-			if __rows.Next() {
-				return nil, errTooManyRows
-			}
-
-			return user_notification_preference, nil
-		}()
-		if err != nil {
-			if obj.shouldRetry(err) {
-				continue
-			}
-			if errors.Is(err, errTooManyRows) {
-				return nil, tooManyRows("UserNotificationPreference_By_UserId")
-			}
-			return nil, obj.makeErr(err)
-		}
-		return user_notification_preference, nil
+	user_notification_preference = &UserNotificationPreference{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.Preferences, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
+	if err != nil {
+		return (*UserNotificationPreference)(nil), obj.makeErr(err)
 	}
-
-}
-
-func (obj *pgxImpl) Get_UserNotificationPreference_By_UserId_And_Category(ctx context.Context,
-	user_notification_preference_user_id UserNotificationPreference_UserId_Field,
-	user_notification_preference_category UserNotificationPreference_Category_Field) (
-	user_notification_preference *UserNotificationPreference, err error) {
-	defer mon.Task()(&ctx)(&err)
-	if !obj.txn && txutil.IsInsideTx(ctx) {
-		panic("using DB when inside of a transaction")
-	}
-
-	var __cond_0 = &__sqlbundle_Condition{Left: "user_notification_preferences.category", Equal: true, Right: "?", Null: true}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at FROM user_notification_preferences WHERE user_notification_preferences.user_id = ? AND "), __cond_0, __sqlbundle_Literal(" LIMIT 2")}}
-
-	var __values []any
-	__values = append(__values, user_notification_preference_user_id.value())
-	if !user_notification_preference_category.isnull() {
-		__cond_0.Null = false
-		__values = append(__values, user_notification_preference_category.value())
-	}
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	for {
-		user_notification_preference, err = func() (user_notification_preference *UserNotificationPreference, err error) {
-			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-			if err != nil {
-				return nil, err
-			}
-			defer closeRows(__rows, &err)
-
-			if !__rows.Next() {
-				return nil, sql.ErrNoRows
-			}
-
-			user_notification_preference = &UserNotificationPreference{}
-			err = __rows.Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.Category, &user_notification_preference.Preferences, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
-			if err != nil {
-				return nil, err
-			}
-
-			if __rows.Next() {
-				return nil, errTooManyRows
-			}
-
-			return user_notification_preference, nil
-		}()
-		if err != nil {
-			if obj.shouldRetry(err) {
-				continue
-			}
-			if errors.Is(err, errTooManyRows) {
-				return nil, tooManyRows("UserNotificationPreference_By_UserId_And_Category")
-			}
-			return nil, obj.makeErr(err)
-		}
-		return user_notification_preference, nil
-	}
+	return user_notification_preference, nil
 
 }
 
@@ -28353,49 +32531,49 @@ func (obj *pgxImpl) Get_OauthToken_By_Kind_And_Token(ctx context.Context,
 
 }
 
-func (obj *pgxImpl) Get_GoogleBackupCredentials_By_Id(ctx context.Context,
-	google_backup_credentials_id GoogleBackupCredentials_Id_Field) (
-	google_backup_credentials *GoogleBackupCredentials, err error) {
+func (obj *pgxImpl) Get_BackupCredentials_By_Id(ctx context.Context,
+	backup_credentials_id BackupCredentials_Id_Field) (
+	backup_credentials *BackupCredentials, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !obj.txn && txutil.IsInsideTx(ctx) {
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT google_backup_credentials.id, google_backup_credentials.user_id, google_backup_credentials.google_email, google_backup_credentials.access_token, google_backup_credentials.refresh_token, google_backup_credentials.access_token_expiry, google_backup_credentials.account_type, google_backup_credentials.created_at, google_backup_credentials.updated_at FROM google_backup_credentials WHERE google_backup_credentials.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at FROM backup_credentials WHERE backup_credentials.id = ?")
 
 	var __values []any
-	__values = append(__values, google_backup_credentials_id.value())
+	__values = append(__values, backup_credentials_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	google_backup_credentials = &GoogleBackupCredentials{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&google_backup_credentials.Id, &google_backup_credentials.UserId, &google_backup_credentials.GoogleEmail, &google_backup_credentials.AccessToken, &google_backup_credentials.RefreshToken, &google_backup_credentials.AccessTokenExpiry, &google_backup_credentials.AccountType, &google_backup_credentials.CreatedAt, &google_backup_credentials.UpdatedAt)
+	backup_credentials = &BackupCredentials{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
 	if err != nil {
-		return (*GoogleBackupCredentials)(nil), obj.makeErr(err)
+		return (*BackupCredentials)(nil), obj.makeErr(err)
 	}
-	return google_backup_credentials, nil
+	return backup_credentials, nil
 
 }
 
-func (obj *pgxImpl) All_GoogleBackupCredentials_By_UserId(ctx context.Context,
-	google_backup_credentials_user_id GoogleBackupCredentials_UserId_Field) (
-	rows []*GoogleBackupCredentials, err error) {
+func (obj *pgxImpl) All_BackupCredentials_By_UserId(ctx context.Context,
+	backup_credentials_user_id BackupCredentials_UserId_Field) (
+	rows []*BackupCredentials, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !obj.txn && txutil.IsInsideTx(ctx) {
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT google_backup_credentials.id, google_backup_credentials.user_id, google_backup_credentials.google_email, google_backup_credentials.access_token, google_backup_credentials.refresh_token, google_backup_credentials.access_token_expiry, google_backup_credentials.account_type, google_backup_credentials.created_at, google_backup_credentials.updated_at FROM google_backup_credentials WHERE google_backup_credentials.user_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at FROM backup_credentials WHERE backup_credentials.user_id = ?")
 
 	var __values []any
-	__values = append(__values, google_backup_credentials_user_id.value())
+	__values = append(__values, backup_credentials_user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	for {
-		rows, err = func() (rows []*GoogleBackupCredentials, err error) {
+		rows, err = func() (rows []*BackupCredentials, err error) {
 			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 			if err != nil {
 				return nil, err
@@ -28403,12 +32581,58 @@ func (obj *pgxImpl) All_GoogleBackupCredentials_By_UserId(ctx context.Context,
 			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
-				google_backup_credentials := &GoogleBackupCredentials{}
-				err = __rows.Scan(&google_backup_credentials.Id, &google_backup_credentials.UserId, &google_backup_credentials.GoogleEmail, &google_backup_credentials.AccessToken, &google_backup_credentials.RefreshToken, &google_backup_credentials.AccessTokenExpiry, &google_backup_credentials.AccountType, &google_backup_credentials.CreatedAt, &google_backup_credentials.UpdatedAt)
+				backup_credentials := &BackupCredentials{}
+				err = __rows.Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
 				if err != nil {
 					return nil, err
 				}
-				rows = append(rows, google_backup_credentials)
+				rows = append(rows, backup_credentials)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) All_BackupCredentials_By_UserId_And_Provider(ctx context.Context,
+	backup_credentials_user_id BackupCredentials_UserId_Field,
+	backup_credentials_provider BackupCredentials_Provider_Field) (
+	rows []*BackupCredentials, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at FROM backup_credentials WHERE backup_credentials.user_id = ? AND backup_credentials.provider = ?")
+
+	var __values []any
+	__values = append(__values, backup_credentials_user_id.value(), backup_credentials_provider.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*BackupCredentials, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				backup_credentials := &BackupCredentials{}
+				err = __rows.Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, backup_credentials)
 			}
 			return rows, nil
 		}()
@@ -29331,7 +33555,7 @@ func (obj *pgxImpl) Get_ProjectInvitation_By_ProjectId_And_Email(ctx context.Con
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at FROM project_invitations WHERE project_invitations.project_id = ? AND project_invitations.email = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at, project_invitations.expires_at FROM project_invitations WHERE project_invitations.project_id = ? AND project_invitations.email = ?")
 
 	var __values []any
 	__values = append(__values, project_invitation_project_id.value(), project_invitation_email.value())
@@ -29340,7 +33564,7 @@ func (obj *pgxImpl) Get_ProjectInvitation_By_ProjectId_And_Email(ctx context.Con
 	obj.logStmt(__stmt, __values...)
 
 	project_invitation = &ProjectInvitation{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt, &project_invitation.ExpiresAt)
 	if err != nil {
 		return (*ProjectInvitation)(nil), obj.makeErr(err)
 	}
@@ -29356,7 +33580,7 @@ func (obj *pgxImpl) All_ProjectInvitation_By_Email(ctx context.Context,
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at FROM project_invitations WHERE project_invitations.email = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at, project_invitations.expires_at FROM project_invitations WHERE project_invitations.email = ?")
 
 	var __values []any
 	__values = append(__values, project_invitation_email.value())
@@ -29374,7 +33598,7 @@ func (obj *pgxImpl) All_ProjectInvitation_By_Email(ctx context.Context,
 
 			for __rows.Next() {
 				project_invitation := &ProjectInvitation{}
-				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt, &project_invitation.ExpiresAt)
 				if err != nil {
 					return nil, err
 				}
@@ -29404,7 +33628,7 @@ func (obj *pgxImpl) All_ProjectInvitation_By_Project_Status_And_ProjectInvitatio
 
 	var __cond_0 = &__sqlbundle_Condition{Left: "projects.status", Equal: true, Right: "?", Null: true}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at FROM project_invitations  JOIN projects ON project_invitations.project_id = projects.id WHERE "), __cond_0, __sqlbundle_Literal(" AND project_invitations.email = ?")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at, project_invitations.expires_at FROM project_invitations  JOIN projects ON project_invitations.project_id = projects.id WHERE "), __cond_0, __sqlbundle_Literal(" AND project_invitations.email = ?")}}
 
 	var __values []any
 	if !project_status.isnull() {
@@ -29426,7 +33650,7 @@ func (obj *pgxImpl) All_ProjectInvitation_By_Project_Status_And_ProjectInvitatio
 
 			for __rows.Next() {
 				project_invitation := &ProjectInvitation{}
-				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt, &project_invitation.ExpiresAt)
 				if err != nil {
 					return nil, err
 				}
@@ -29458,7 +33682,7 @@ func (obj *pgxImpl) All_ProjectInvitation_By_Project_Status_And_ProjectInvitatio
 	var __cond_0 = &__sqlbundle_Condition{Left: "projects.status", Equal: true, Right: "?", Null: true}
 	var __cond_1 = &__sqlbundle_Condition{Left: "users.tenant_id", Equal: true, Right: "?", Null: true}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at FROM project_invitations  JOIN projects ON project_invitations.project_id = projects.id  JOIN users ON project_invitations.inviter_id = users.id WHERE "), __cond_0, __sqlbundle_Literal(" AND project_invitations.email = ? AND "), __cond_1}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at, project_invitations.expires_at FROM project_invitations  JOIN projects ON project_invitations.project_id = projects.id  JOIN users ON project_invitations.inviter_id = users.id WHERE "), __cond_0, __sqlbundle_Literal(" AND project_invitations.email = ? AND "), __cond_1}}
 
 	var __values []any
 	if !project_status.isnull() {
@@ -29484,7 +33708,7 @@ func (obj *pgxImpl) All_ProjectInvitation_By_Project_Status_And_ProjectInvitatio
 
 			for __rows.Next() {
 				project_invitation := &ProjectInvitation{}
-				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt, &project_invitation.ExpiresAt)
 				if err != nil {
 					return nil, err
 				}
@@ -29511,7 +33735,7 @@ func (obj *pgxImpl) All_ProjectInvitation_By_ProjectId(ctx context.Context,
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at FROM project_invitations WHERE project_invitations.project_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at, project_invitations.expires_at FROM project_invitations WHERE project_invitations.project_id = ?")
 
 	var __values []any
 	__values = append(__values, project_invitation_project_id.value())
@@ -29529,7 +33753,7 @@ func (obj *pgxImpl) All_ProjectInvitation_By_ProjectId(ctx context.Context,
 
 			for __rows.Next() {
 				project_invitation := &ProjectInvitation{}
-				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt, &project_invitation.ExpiresAt)
 				if err != nil {
 					return nil, err
 				}
@@ -29646,6 +33870,200 @@ func (obj *pgxImpl) Get_ApiKeyTail_By_Tail(ctx context.Context,
 		return (*ApiKeyTail)(nil), obj.makeErr(err)
 	}
 	return api_key_tail, nil
+
+}
+
+func (obj *pgxImpl) All_ProjectMemberAclBucket_By_ProjectId(ctx context.Context,
+	project_member_acl_bucket_project_id ProjectMemberAclBucket_ProjectId_Field) (
+	rows []*ProjectMemberAclBucket, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_member_acl_buckets.project_id, project_member_acl_buckets.bucket_name, project_member_acl_buckets.created_at FROM project_member_acl_buckets WHERE project_member_acl_buckets.project_id = ?")
+
+	var __values []any
+	__values = append(__values, project_member_acl_bucket_project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*ProjectMemberAclBucket, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				project_member_acl_bucket := &ProjectMemberAclBucket{}
+				err = __rows.Scan(&project_member_acl_bucket.ProjectId, &project_member_acl_bucket.BucketName, &project_member_acl_bucket.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, project_member_acl_bucket)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) Get_ProjectMemberAclBucket_By_ProjectId_And_BucketName(ctx context.Context,
+	project_member_acl_bucket_project_id ProjectMemberAclBucket_ProjectId_Field,
+	project_member_acl_bucket_bucket_name ProjectMemberAclBucket_BucketName_Field) (
+	project_member_acl_bucket *ProjectMemberAclBucket, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_member_acl_buckets.project_id, project_member_acl_buckets.bucket_name, project_member_acl_buckets.created_at FROM project_member_acl_buckets WHERE project_member_acl_buckets.project_id = ? AND project_member_acl_buckets.bucket_name = ?")
+
+	var __values []any
+	__values = append(__values, project_member_acl_bucket_project_id.value(), project_member_acl_bucket_bucket_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	project_member_acl_bucket = &ProjectMemberAclBucket{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_member_acl_bucket.ProjectId, &project_member_acl_bucket.BucketName, &project_member_acl_bucket.CreatedAt)
+	if err != nil {
+		return (*ProjectMemberAclBucket)(nil), obj.makeErr(err)
+	}
+	return project_member_acl_bucket, nil
+
+}
+
+func (obj *pgxImpl) All_MemberBucketGrant_By_ProjectId_And_MemberId(ctx context.Context,
+	member_bucket_grant_project_id MemberBucketGrant_ProjectId_Field,
+	member_bucket_grant_member_id MemberBucketGrant_MemberId_Field) (
+	rows []*MemberBucketGrant, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "member_bucket_grants.member_id", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at FROM member_bucket_grants WHERE member_bucket_grants.project_id = ? AND "), __cond_0}}
+
+	var __values []any
+	__values = append(__values, member_bucket_grant_project_id.value())
+	if !member_bucket_grant_member_id.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, member_bucket_grant_member_id.value())
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*MemberBucketGrant, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				member_bucket_grant := &MemberBucketGrant{}
+				err = __rows.Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, member_bucket_grant)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) All_MemberBucketGrant_By_ProjectId_And_InviteEmail(ctx context.Context,
+	member_bucket_grant_project_id MemberBucketGrant_ProjectId_Field,
+	member_bucket_grant_invite_email MemberBucketGrant_InviteEmail_Field) (
+	rows []*MemberBucketGrant, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at FROM member_bucket_grants WHERE member_bucket_grants.project_id = ? AND member_bucket_grants.invite_email = ?")
+
+	var __values []any
+	__values = append(__values, member_bucket_grant_project_id.value(), member_bucket_grant_invite_email.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*MemberBucketGrant, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				member_bucket_grant := &MemberBucketGrant{}
+				err = __rows.Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, member_bucket_grant)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) Get_MemberBucketGrant_By_Id(ctx context.Context,
+	member_bucket_grant_id MemberBucketGrant_Id_Field) (
+	member_bucket_grant *MemberBucketGrant, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at FROM member_bucket_grants WHERE member_bucket_grants.id = ?")
+
+	var __values []any
+	__values = append(__values, member_bucket_grant_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	member_bucket_grant = &MemberBucketGrant{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt)
+	if err != nil {
+		return (*MemberBucketGrant)(nil), obj.makeErr(err)
+	}
+	return member_bucket_grant, nil
 
 }
 
@@ -30256,6 +34674,692 @@ func (obj *pgxImpl) Limited_BucketMigration_By_State_OrderBy_Asc_CreatedAt(ctx c
 		}
 		return rows, nil
 	}
+
+}
+
+func (obj *pgxImpl) All_Reseller(ctx context.Context) (
+	rows []*Reseller, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT resellers.id, resellers.name, resellers.email, resellers.password_hash, resellers.company_name, resellers.status, resellers.created_at, resellers.updated_at, resellers.deleted_at, resellers.failed_login_count, resellers.login_lockout_expiration, resellers.activation_code, resellers.signup_id, resellers.new_unverified_email, resellers.email_change_verification_step, resellers.mfa_enabled, resellers.mfa_secret_key, resellers.mfa_recovery_codes FROM resellers")
+
+	var __values []any
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Reseller, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				reseller := &Reseller{}
+				err = __rows.Scan(&reseller.Id, &reseller.Name, &reseller.Email, &reseller.PasswordHash, &reseller.CompanyName, &reseller.Status, &reseller.CreatedAt, &reseller.UpdatedAt, &reseller.DeletedAt, &reseller.FailedLoginCount, &reseller.LoginLockoutExpiration, &reseller.ActivationCode, &reseller.SignupId, &reseller.NewUnverifiedEmail, &reseller.EmailChangeVerificationStep, &reseller.MfaEnabled, &reseller.MfaSecretKey, &reseller.MfaRecoveryCodes)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, reseller)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) Get_Reseller_By_Id(ctx context.Context,
+	reseller_id Reseller_Id_Field) (
+	reseller *Reseller, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT resellers.id, resellers.name, resellers.email, resellers.password_hash, resellers.company_name, resellers.status, resellers.created_at, resellers.updated_at, resellers.deleted_at, resellers.failed_login_count, resellers.login_lockout_expiration, resellers.activation_code, resellers.signup_id, resellers.new_unverified_email, resellers.email_change_verification_step, resellers.mfa_enabled, resellers.mfa_secret_key, resellers.mfa_recovery_codes FROM resellers WHERE resellers.id = ?")
+
+	var __values []any
+	__values = append(__values, reseller_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller = &Reseller{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reseller.Id, &reseller.Name, &reseller.Email, &reseller.PasswordHash, &reseller.CompanyName, &reseller.Status, &reseller.CreatedAt, &reseller.UpdatedAt, &reseller.DeletedAt, &reseller.FailedLoginCount, &reseller.LoginLockoutExpiration, &reseller.ActivationCode, &reseller.SignupId, &reseller.NewUnverifiedEmail, &reseller.EmailChangeVerificationStep, &reseller.MfaEnabled, &reseller.MfaSecretKey, &reseller.MfaRecoveryCodes)
+	if err != nil {
+		return (*Reseller)(nil), obj.makeErr(err)
+	}
+	return reseller, nil
+
+}
+
+func (obj *pgxImpl) Get_Reseller_By_Email_And_Status_Not_Number(ctx context.Context,
+	reseller_email Reseller_Email_Field) (
+	reseller *Reseller, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT resellers.id, resellers.name, resellers.email, resellers.password_hash, resellers.company_name, resellers.status, resellers.created_at, resellers.updated_at, resellers.deleted_at, resellers.failed_login_count, resellers.login_lockout_expiration, resellers.activation_code, resellers.signup_id, resellers.new_unverified_email, resellers.email_change_verification_step, resellers.mfa_enabled, resellers.mfa_secret_key, resellers.mfa_recovery_codes FROM resellers WHERE resellers.email = ? AND resellers.status != 0")
+
+	var __values []any
+	__values = append(__values, reseller_email.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller = &Reseller{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reseller.Id, &reseller.Name, &reseller.Email, &reseller.PasswordHash, &reseller.CompanyName, &reseller.Status, &reseller.CreatedAt, &reseller.UpdatedAt, &reseller.DeletedAt, &reseller.FailedLoginCount, &reseller.LoginLockoutExpiration, &reseller.ActivationCode, &reseller.SignupId, &reseller.NewUnverifiedEmail, &reseller.EmailChangeVerificationStep, &reseller.MfaEnabled, &reseller.MfaSecretKey, &reseller.MfaRecoveryCodes)
+	if err != nil {
+		return (*Reseller)(nil), obj.makeErr(err)
+	}
+	return reseller, nil
+
+}
+
+func (obj *pgxImpl) Get_Reseller_By_Email(ctx context.Context,
+	reseller_email Reseller_Email_Field) (
+	reseller *Reseller, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT resellers.id, resellers.name, resellers.email, resellers.password_hash, resellers.company_name, resellers.status, resellers.created_at, resellers.updated_at, resellers.deleted_at, resellers.failed_login_count, resellers.login_lockout_expiration, resellers.activation_code, resellers.signup_id, resellers.new_unverified_email, resellers.email_change_verification_step, resellers.mfa_enabled, resellers.mfa_secret_key, resellers.mfa_recovery_codes FROM resellers WHERE resellers.email = ?")
+
+	var __values []any
+	__values = append(__values, reseller_email.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller = &Reseller{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reseller.Id, &reseller.Name, &reseller.Email, &reseller.PasswordHash, &reseller.CompanyName, &reseller.Status, &reseller.CreatedAt, &reseller.UpdatedAt, &reseller.DeletedAt, &reseller.FailedLoginCount, &reseller.LoginLockoutExpiration, &reseller.ActivationCode, &reseller.SignupId, &reseller.NewUnverifiedEmail, &reseller.EmailChangeVerificationStep, &reseller.MfaEnabled, &reseller.MfaSecretKey, &reseller.MfaRecoveryCodes)
+	if err != nil {
+		return (*Reseller)(nil), obj.makeErr(err)
+	}
+	return reseller, nil
+
+}
+
+func (obj *pgxImpl) Get_ResellerConfig_By_Id(ctx context.Context,
+	reseller_config_id ResellerConfig_Id_Field) (
+	reseller_config *ResellerConfig, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT reseller_configs.id, reseller_configs.reseller_id, reseller_configs.config, reseller_configs.active_theme_type, reseller_configs.active_theme_id, reseller_configs.created_at, reseller_configs.updated_at FROM reseller_configs WHERE reseller_configs.id = ?")
+
+	var __values []any
+	__values = append(__values, reseller_config_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller_config = &ResellerConfig{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reseller_config.Id, &reseller_config.ResellerId, &reseller_config.Config, &reseller_config.ActiveThemeType, &reseller_config.ActiveThemeId, &reseller_config.CreatedAt, &reseller_config.UpdatedAt)
+	if err != nil {
+		return (*ResellerConfig)(nil), obj.makeErr(err)
+	}
+	return reseller_config, nil
+
+}
+
+func (obj *pgxImpl) Get_ResellerConfig_By_ResellerId(ctx context.Context,
+	reseller_config_reseller_id ResellerConfig_ResellerId_Field) (
+	reseller_config *ResellerConfig, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT reseller_configs.id, reseller_configs.reseller_id, reseller_configs.config, reseller_configs.active_theme_type, reseller_configs.active_theme_id, reseller_configs.created_at, reseller_configs.updated_at FROM reseller_configs WHERE reseller_configs.reseller_id = ?")
+
+	var __values []any
+	__values = append(__values, reseller_config_reseller_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller_config = &ResellerConfig{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reseller_config.Id, &reseller_config.ResellerId, &reseller_config.Config, &reseller_config.ActiveThemeType, &reseller_config.ActiveThemeId, &reseller_config.CreatedAt, &reseller_config.UpdatedAt)
+	if err != nil {
+		return (*ResellerConfig)(nil), obj.makeErr(err)
+	}
+	return reseller_config, nil
+
+}
+
+func (obj *pgxImpl) Get_ResellerDomain_By_Id(ctx context.Context,
+	reseller_domain_id ResellerDomain_Id_Field) (
+	reseller_domain *ResellerDomain, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT reseller_domains.id, reseller_domains.reseller_id, reseller_domains.domain, reseller_domains.domain_type, reseller_domains.status, reseller_domains.verification_method, reseller_domains.verification_status, reseller_domains.ssl_status, reseller_domains.dns_target, reseller_domains.verified_at, reseller_domains.created_at, reseller_domains.updated_at, reseller_domains.deleted_at FROM reseller_domains WHERE reseller_domains.id = ?")
+
+	var __values []any
+	__values = append(__values, reseller_domain_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller_domain = &ResellerDomain{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reseller_domain.Id, &reseller_domain.ResellerId, &reseller_domain.Domain, &reseller_domain.DomainType, &reseller_domain.Status, &reseller_domain.VerificationMethod, &reseller_domain.VerificationStatus, &reseller_domain.SslStatus, &reseller_domain.DnsTarget, &reseller_domain.VerifiedAt, &reseller_domain.CreatedAt, &reseller_domain.UpdatedAt, &reseller_domain.DeletedAt)
+	if err != nil {
+		return (*ResellerDomain)(nil), obj.makeErr(err)
+	}
+	return reseller_domain, nil
+
+}
+
+func (obj *pgxImpl) Get_ResellerDomain_By_ResellerId(ctx context.Context,
+	reseller_domain_reseller_id ResellerDomain_ResellerId_Field) (
+	reseller_domain *ResellerDomain, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT reseller_domains.id, reseller_domains.reseller_id, reseller_domains.domain, reseller_domains.domain_type, reseller_domains.status, reseller_domains.verification_method, reseller_domains.verification_status, reseller_domains.ssl_status, reseller_domains.dns_target, reseller_domains.verified_at, reseller_domains.created_at, reseller_domains.updated_at, reseller_domains.deleted_at FROM reseller_domains WHERE reseller_domains.reseller_id = ?")
+
+	var __values []any
+	__values = append(__values, reseller_domain_reseller_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller_domain = &ResellerDomain{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reseller_domain.Id, &reseller_domain.ResellerId, &reseller_domain.Domain, &reseller_domain.DomainType, &reseller_domain.Status, &reseller_domain.VerificationMethod, &reseller_domain.VerificationStatus, &reseller_domain.SslStatus, &reseller_domain.DnsTarget, &reseller_domain.VerifiedAt, &reseller_domain.CreatedAt, &reseller_domain.UpdatedAt, &reseller_domain.DeletedAt)
+	if err != nil {
+		return (*ResellerDomain)(nil), obj.makeErr(err)
+	}
+	return reseller_domain, nil
+
+}
+
+func (obj *pgxImpl) Get_ResellerDomain_By_Domain(ctx context.Context,
+	reseller_domain_domain ResellerDomain_Domain_Field) (
+	reseller_domain *ResellerDomain, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT reseller_domains.id, reseller_domains.reseller_id, reseller_domains.domain, reseller_domains.domain_type, reseller_domains.status, reseller_domains.verification_method, reseller_domains.verification_status, reseller_domains.ssl_status, reseller_domains.dns_target, reseller_domains.verified_at, reseller_domains.created_at, reseller_domains.updated_at, reseller_domains.deleted_at FROM reseller_domains WHERE reseller_domains.domain = ? LIMIT 2")
+
+	var __values []any
+	__values = append(__values, reseller_domain_domain.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		reseller_domain, err = func() (reseller_domain *ResellerDomain, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			if !__rows.Next() {
+				return nil, sql.ErrNoRows
+			}
+
+			reseller_domain = &ResellerDomain{}
+			err = __rows.Scan(&reseller_domain.Id, &reseller_domain.ResellerId, &reseller_domain.Domain, &reseller_domain.DomainType, &reseller_domain.Status, &reseller_domain.VerificationMethod, &reseller_domain.VerificationStatus, &reseller_domain.SslStatus, &reseller_domain.DnsTarget, &reseller_domain.VerifiedAt, &reseller_domain.CreatedAt, &reseller_domain.UpdatedAt, &reseller_domain.DeletedAt)
+			if err != nil {
+				return nil, err
+			}
+
+			if __rows.Next() {
+				return nil, errTooManyRows
+			}
+
+			return reseller_domain, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			if errors.Is(err, errTooManyRows) {
+				return nil, tooManyRows("ResellerDomain_By_Domain")
+			}
+			return nil, obj.makeErr(err)
+		}
+		return reseller_domain, nil
+	}
+
+}
+
+func (obj *pgxImpl) All_WebappSessionReseller_By_ResellerId(ctx context.Context,
+	webapp_session_reseller_reseller_id WebappSessionReseller_ResellerId_Field) (
+	rows []*WebappSessionReseller, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT webapp_session_resellers.id, webapp_session_resellers.reseller_id, webapp_session_resellers.ip_address, webapp_session_resellers.status, webapp_session_resellers.expires_at FROM webapp_session_resellers WHERE webapp_session_resellers.reseller_id = ?")
+
+	var __values []any
+	__values = append(__values, webapp_session_reseller_reseller_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*WebappSessionReseller, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				webapp_session_reseller := &WebappSessionReseller{}
+				err = __rows.Scan(&webapp_session_reseller.Id, &webapp_session_reseller.ResellerId, &webapp_session_reseller.IpAddress, &webapp_session_reseller.Status, &webapp_session_reseller.ExpiresAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, webapp_session_reseller)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) Get_WebappSessionReseller_By_Id(ctx context.Context,
+	webapp_session_reseller_id WebappSessionReseller_Id_Field) (
+	webapp_session_reseller *WebappSessionReseller, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT webapp_session_resellers.id, webapp_session_resellers.reseller_id, webapp_session_resellers.ip_address, webapp_session_resellers.status, webapp_session_resellers.expires_at FROM webapp_session_resellers WHERE webapp_session_resellers.id = ?")
+
+	var __values []any
+	__values = append(__values, webapp_session_reseller_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	webapp_session_reseller = &WebappSessionReseller{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&webapp_session_reseller.Id, &webapp_session_reseller.ResellerId, &webapp_session_reseller.IpAddress, &webapp_session_reseller.Status, &webapp_session_reseller.ExpiresAt)
+	if err != nil {
+		return (*WebappSessionReseller)(nil), obj.makeErr(err)
+	}
+	return webapp_session_reseller, nil
+
+}
+
+func (obj *pgxImpl) Get_ResetPasswordTokenReseller_By_Secret(ctx context.Context,
+	reset_password_token_reseller_secret ResetPasswordTokenReseller_Secret_Field) (
+	reset_password_token_reseller *ResetPasswordTokenReseller, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT reset_password_token_resellers.secret, reset_password_token_resellers.owner_id, reset_password_token_resellers.created_at FROM reset_password_token_resellers WHERE reset_password_token_resellers.secret = ?")
+
+	var __values []any
+	__values = append(__values, reset_password_token_reseller_secret.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reset_password_token_reseller = &ResetPasswordTokenReseller{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reset_password_token_reseller.Secret, &reset_password_token_reseller.OwnerId, &reset_password_token_reseller.CreatedAt)
+	if err != nil {
+		return (*ResetPasswordTokenReseller)(nil), obj.makeErr(err)
+	}
+	return reset_password_token_reseller, nil
+
+}
+
+func (obj *pgxImpl) Get_ResetPasswordTokenReseller_By_OwnerId(ctx context.Context,
+	reset_password_token_reseller_owner_id ResetPasswordTokenReseller_OwnerId_Field) (
+	reset_password_token_reseller *ResetPasswordTokenReseller, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT reset_password_token_resellers.secret, reset_password_token_resellers.owner_id, reset_password_token_resellers.created_at FROM reset_password_token_resellers WHERE reset_password_token_resellers.owner_id = ?")
+
+	var __values []any
+	__values = append(__values, reset_password_token_reseller_owner_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reset_password_token_reseller = &ResetPasswordTokenReseller{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reset_password_token_reseller.Secret, &reset_password_token_reseller.OwnerId, &reset_password_token_reseller.CreatedAt)
+	if err != nil {
+		return (*ResetPasswordTokenReseller)(nil), obj.makeErr(err)
+	}
+	return reset_password_token_reseller, nil
+
+}
+
+func (obj *pgxImpl) Get_ResellerDeleteRequest_By_ResellerId(ctx context.Context,
+	reseller_delete_request_reseller_id ResellerDeleteRequest_ResellerId_Field) (
+	reseller_delete_request *ResellerDeleteRequest, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT reseller_delete_requests.id, reseller_delete_requests.reseller_id, reseller_delete_requests.status, reseller_delete_requests.error, reseller_delete_requests.delete_at, reseller_delete_requests.created_at FROM reseller_delete_requests WHERE reseller_delete_requests.reseller_id = ? LIMIT 2")
+
+	var __values []any
+	__values = append(__values, reseller_delete_request_reseller_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		reseller_delete_request, err = func() (reseller_delete_request *ResellerDeleteRequest, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			if !__rows.Next() {
+				return nil, sql.ErrNoRows
+			}
+
+			reseller_delete_request = &ResellerDeleteRequest{}
+			err = __rows.Scan(&reseller_delete_request.Id, &reseller_delete_request.ResellerId, &reseller_delete_request.Status, &reseller_delete_request.Error, &reseller_delete_request.DeleteAt, &reseller_delete_request.CreatedAt)
+			if err != nil {
+				return nil, err
+			}
+
+			if __rows.Next() {
+				return nil, errTooManyRows
+			}
+
+			return reseller_delete_request, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			if errors.Is(err, errTooManyRows) {
+				return nil, tooManyRows("ResellerDeleteRequest_By_ResellerId")
+			}
+			return nil, obj.makeErr(err)
+		}
+		return reseller_delete_request, nil
+	}
+
+}
+
+func (obj *pgxImpl) All_ThemePreset(ctx context.Context) (
+	rows []*ThemePreset, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT theme_presets.id, theme_presets.slug, theme_presets.name, theme_presets.description, theme_presets.colors, theme_presets.is_system, theme_presets.created_at, theme_presets.updated_at FROM theme_presets")
+
+	var __values []any
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*ThemePreset, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				theme_preset := &ThemePreset{}
+				err = __rows.Scan(&theme_preset.Id, &theme_preset.Slug, &theme_preset.Name, &theme_preset.Description, &theme_preset.Colors, &theme_preset.IsSystem, &theme_preset.CreatedAt, &theme_preset.UpdatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, theme_preset)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) Get_ThemePreset_By_Id(ctx context.Context,
+	theme_preset_id ThemePreset_Id_Field) (
+	theme_preset *ThemePreset, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT theme_presets.id, theme_presets.slug, theme_presets.name, theme_presets.description, theme_presets.colors, theme_presets.is_system, theme_presets.created_at, theme_presets.updated_at FROM theme_presets WHERE theme_presets.id = ?")
+
+	var __values []any
+	__values = append(__values, theme_preset_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	theme_preset = &ThemePreset{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&theme_preset.Id, &theme_preset.Slug, &theme_preset.Name, &theme_preset.Description, &theme_preset.Colors, &theme_preset.IsSystem, &theme_preset.CreatedAt, &theme_preset.UpdatedAt)
+	if err != nil {
+		return (*ThemePreset)(nil), obj.makeErr(err)
+	}
+	return theme_preset, nil
+
+}
+
+func (obj *pgxImpl) Get_ThemePreset_By_Slug(ctx context.Context,
+	theme_preset_slug ThemePreset_Slug_Field) (
+	theme_preset *ThemePreset, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT theme_presets.id, theme_presets.slug, theme_presets.name, theme_presets.description, theme_presets.colors, theme_presets.is_system, theme_presets.created_at, theme_presets.updated_at FROM theme_presets WHERE theme_presets.slug = ?")
+
+	var __values []any
+	__values = append(__values, theme_preset_slug.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	theme_preset = &ThemePreset{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&theme_preset.Id, &theme_preset.Slug, &theme_preset.Name, &theme_preset.Description, &theme_preset.Colors, &theme_preset.IsSystem, &theme_preset.CreatedAt, &theme_preset.UpdatedAt)
+	if err != nil {
+		return (*ThemePreset)(nil), obj.makeErr(err)
+	}
+	return theme_preset, nil
+
+}
+
+func (obj *pgxImpl) Get_ThemePreset_By_Name(ctx context.Context,
+	theme_preset_name ThemePreset_Name_Field) (
+	theme_preset *ThemePreset, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT theme_presets.id, theme_presets.slug, theme_presets.name, theme_presets.description, theme_presets.colors, theme_presets.is_system, theme_presets.created_at, theme_presets.updated_at FROM theme_presets WHERE theme_presets.name = ?")
+
+	var __values []any
+	__values = append(__values, theme_preset_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	theme_preset = &ThemePreset{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&theme_preset.Id, &theme_preset.Slug, &theme_preset.Name, &theme_preset.Description, &theme_preset.Colors, &theme_preset.IsSystem, &theme_preset.CreatedAt, &theme_preset.UpdatedAt)
+	if err != nil {
+		return (*ThemePreset)(nil), obj.makeErr(err)
+	}
+	return theme_preset, nil
+
+}
+
+func (obj *pgxImpl) All_ResellerTheme_By_ResellerId(ctx context.Context,
+	reseller_theme_reseller_id ResellerTheme_ResellerId_Field) (
+	rows []*ResellerTheme, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT reseller_themes.id, reseller_themes.reseller_id, reseller_themes.name, reseller_themes.colors, reseller_themes.created_at, reseller_themes.updated_at FROM reseller_themes WHERE reseller_themes.reseller_id = ?")
+
+	var __values []any
+	__values = append(__values, reseller_theme_reseller_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*ResellerTheme, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				reseller_theme := &ResellerTheme{}
+				err = __rows.Scan(&reseller_theme.Id, &reseller_theme.ResellerId, &reseller_theme.Name, &reseller_theme.Colors, &reseller_theme.CreatedAt, &reseller_theme.UpdatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, reseller_theme)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) Get_ResellerTheme_By_Id(ctx context.Context,
+	reseller_theme_id ResellerTheme_Id_Field) (
+	reseller_theme *ResellerTheme, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT reseller_themes.id, reseller_themes.reseller_id, reseller_themes.name, reseller_themes.colors, reseller_themes.created_at, reseller_themes.updated_at FROM reseller_themes WHERE reseller_themes.id = ?")
+
+	var __values []any
+	__values = append(__values, reseller_theme_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller_theme = &ResellerTheme{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reseller_theme.Id, &reseller_theme.ResellerId, &reseller_theme.Name, &reseller_theme.Colors, &reseller_theme.CreatedAt, &reseller_theme.UpdatedAt)
+	if err != nil {
+		return (*ResellerTheme)(nil), obj.makeErr(err)
+	}
+	return reseller_theme, nil
+
+}
+
+func (obj *pgxImpl) Get_ResellerTheme_By_Id_And_ResellerId(ctx context.Context,
+	reseller_theme_id ResellerTheme_Id_Field,
+	reseller_theme_reseller_id ResellerTheme_ResellerId_Field) (
+	reseller_theme *ResellerTheme, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT reseller_themes.id, reseller_themes.reseller_id, reseller_themes.name, reseller_themes.colors, reseller_themes.created_at, reseller_themes.updated_at FROM reseller_themes WHERE reseller_themes.id = ? AND reseller_themes.reseller_id = ?")
+
+	var __values []any
+	__values = append(__values, reseller_theme_id.value(), reseller_theme_reseller_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller_theme = &ResellerTheme{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reseller_theme.Id, &reseller_theme.ResellerId, &reseller_theme.Name, &reseller_theme.Colors, &reseller_theme.CreatedAt, &reseller_theme.UpdatedAt)
+	if err != nil {
+		return (*ResellerTheme)(nil), obj.makeErr(err)
+	}
+	return reseller_theme, nil
+
+}
+
+func (obj *pgxImpl) Get_ResellerTheme_By_ResellerId_And_Name(ctx context.Context,
+	reseller_theme_reseller_id ResellerTheme_ResellerId_Field,
+	reseller_theme_name ResellerTheme_Name_Field) (
+	reseller_theme *ResellerTheme, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT reseller_themes.id, reseller_themes.reseller_id, reseller_themes.name, reseller_themes.colors, reseller_themes.created_at, reseller_themes.updated_at FROM reseller_themes WHERE reseller_themes.reseller_id = ? AND reseller_themes.name = ?")
+
+	var __values []any
+	__values = append(__values, reseller_theme_reseller_id.value(), reseller_theme_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller_theme = &ResellerTheme{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reseller_theme.Id, &reseller_theme.ResellerId, &reseller_theme.Name, &reseller_theme.Colors, &reseller_theme.CreatedAt, &reseller_theme.UpdatedAt)
+	if err != nil {
+		return (*ResellerTheme)(nil), obj.makeErr(err)
+	}
+	return reseller_theme, nil
 
 }
 
@@ -32578,6 +37682,146 @@ func (obj *pgxImpl) UpdateNoReturn_PeerIdentity_By_NodeId(ctx context.Context,
 	return nil
 }
 
+func (obj *pgxImpl) Update_MailExportJob_By_Id(ctx context.Context,
+	mail_export_job_id MailExportJob_Id_Field,
+	update MailExportJob_Update_Fields) (
+	mail_export_job *MailExportJob, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE mail_export_jobs SET "), __sets, __sqlbundle_Literal(" WHERE mail_export_jobs.id = ? RETURNING mail_export_jobs.id, mail_export_jobs.user_id, mail_export_jobs.project_id, mail_export_jobs.access_key_id, mail_export_jobs.bucket, mail_export_jobs.format, mail_export_jobs.mode, mail_export_jobs.prefix, mail_export_jobs.keys_json, mail_export_jobs.access_grant, mail_export_jobs.status, mail_export_jobs.retry_count, mail_export_jobs.progress, mail_export_jobs.processed_files, mail_export_jobs.total_files, mail_export_jobs.processed_bytes, mail_export_jobs.total_bytes, mail_export_jobs.current_object, mail_export_jobs.archive_bucket, mail_export_jobs.archive_key, mail_export_jobs.archive_name, mail_export_jobs.error_message, mail_export_jobs.last_download_charge_id, mail_export_jobs.last_download_charged_bytes, mail_export_jobs.created_at, mail_export_jobs.started_at, mail_export_jobs.completed_at, mail_export_jobs.expires_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.Prefix._set {
+		__values = append(__values, update.Prefix.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("prefix = ?"))
+	}
+
+	if update.KeysJson._set {
+		__values = append(__values, update.KeysJson.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("keys_json = ?"))
+	}
+
+	if update.AccessGrant._set {
+		__values = append(__values, update.AccessGrant.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("access_grant = ?"))
+	}
+
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+
+	if update.RetryCount._set {
+		__values = append(__values, update.RetryCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("retry_count = ?"))
+	}
+
+	if update.Progress._set {
+		__values = append(__values, update.Progress.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("progress = ?"))
+	}
+
+	if update.ProcessedFiles._set {
+		__values = append(__values, update.ProcessedFiles.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("processed_files = ?"))
+	}
+
+	if update.TotalFiles._set {
+		__values = append(__values, update.TotalFiles.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("total_files = ?"))
+	}
+
+	if update.ProcessedBytes._set {
+		__values = append(__values, update.ProcessedBytes.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("processed_bytes = ?"))
+	}
+
+	if update.TotalBytes._set {
+		__values = append(__values, update.TotalBytes.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("total_bytes = ?"))
+	}
+
+	if update.CurrentObject._set {
+		__values = append(__values, update.CurrentObject.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("current_object = ?"))
+	}
+
+	if update.ArchiveBucket._set {
+		__values = append(__values, update.ArchiveBucket.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("archive_bucket = ?"))
+	}
+
+	if update.ArchiveKey._set {
+		__values = append(__values, update.ArchiveKey.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("archive_key = ?"))
+	}
+
+	if update.ArchiveName._set {
+		__values = append(__values, update.ArchiveName.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("archive_name = ?"))
+	}
+
+	if update.ErrorMessage._set {
+		__values = append(__values, update.ErrorMessage.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("error_message = ?"))
+	}
+
+	if update.LastDownloadChargeId._set {
+		__values = append(__values, update.LastDownloadChargeId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_download_charge_id = ?"))
+	}
+
+	if update.LastDownloadChargedBytes._set {
+		__values = append(__values, update.LastDownloadChargedBytes.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_download_charged_bytes = ?"))
+	}
+
+	if update.StartedAt._set {
+		__values = append(__values, update.StartedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("started_at = ?"))
+	}
+
+	if update.CompletedAt._set {
+		__values = append(__values, update.CompletedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("completed_at = ?"))
+	}
+
+	if update.ExpiresAt._set {
+		__values = append(__values, update.ExpiresAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("expires_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, mail_export_job_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	mail_export_job = &MailExportJob{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&mail_export_job.Id, &mail_export_job.UserId, &mail_export_job.ProjectId, &mail_export_job.AccessKeyId, &mail_export_job.Bucket, &mail_export_job.Format, &mail_export_job.Mode, &mail_export_job.Prefix, &mail_export_job.KeysJson, &mail_export_job.AccessGrant, &mail_export_job.Status, &mail_export_job.RetryCount, &mail_export_job.Progress, &mail_export_job.ProcessedFiles, &mail_export_job.TotalFiles, &mail_export_job.ProcessedBytes, &mail_export_job.TotalBytes, &mail_export_job.CurrentObject, &mail_export_job.ArchiveBucket, &mail_export_job.ArchiveKey, &mail_export_job.ArchiveName, &mail_export_job.ErrorMessage, &mail_export_job.LastDownloadChargeId, &mail_export_job.LastDownloadChargedBytes, &mail_export_job.CreatedAt, &mail_export_job.StartedAt, &mail_export_job.CompletedAt, &mail_export_job.ExpiresAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return mail_export_job, nil
+}
+
 func (obj *pgxImpl) Update_Node_By_Id(ctx context.Context,
 	node_id Node_Id_Field,
 	update Node_Update_Fields) (
@@ -33837,16 +39081,11 @@ func (obj *pgxImpl) Update_UserNotificationPreference_By_Id(ctx context.Context,
 
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE user_notification_preferences SET "), __sets, __sqlbundle_Literal(" WHERE user_notification_preferences.id = ? RETURNING user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE user_notification_preferences SET "), __sets, __sqlbundle_Literal(" WHERE user_notification_preferences.id = ? RETURNING user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []any
 	var __args []any
-
-	if update.Category._set {
-		__values = append(__values, update.Category.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("category = ?"))
-	}
 
 	if update.Preferences._set {
 		__values = append(__values, update.Preferences.value())
@@ -33871,7 +39110,7 @@ func (obj *pgxImpl) Update_UserNotificationPreference_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user_notification_preference = &UserNotificationPreference{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.Category, &user_notification_preference.Preferences, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.Preferences, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -34020,10 +39259,10 @@ func (obj *pgxImpl) UpdateNoReturn_OauthToken_By_Token_And_Kind(ctx context.Cont
 	return nil
 }
 
-func (obj *pgxImpl) Update_GoogleBackupCredentials_By_Id(ctx context.Context,
-	google_backup_credentials_id GoogleBackupCredentials_Id_Field,
-	update GoogleBackupCredentials_Update_Fields) (
-	google_backup_credentials *GoogleBackupCredentials, err error) {
+func (obj *pgxImpl) Update_BackupCredentials_By_Id(ctx context.Context,
+	backup_credentials_id BackupCredentials_Id_Field,
+	update BackupCredentials_Update_Fields) (
+	backup_credentials *BackupCredentials, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !obj.txn && txutil.IsInsideTx(ctx) {
 		panic("using DB when inside of a transaction")
@@ -34031,7 +39270,7 @@ func (obj *pgxImpl) Update_GoogleBackupCredentials_By_Id(ctx context.Context,
 
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE google_backup_credentials SET "), __sets, __sqlbundle_Literal(" WHERE google_backup_credentials.id = ? RETURNING google_backup_credentials.id, google_backup_credentials.user_id, google_backup_credentials.google_email, google_backup_credentials.access_token, google_backup_credentials.refresh_token, google_backup_credentials.access_token_expiry, google_backup_credentials.account_type, google_backup_credentials.created_at, google_backup_credentials.updated_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE backup_credentials SET "), __sets, __sqlbundle_Literal(" WHERE backup_credentials.id = ? RETURNING backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []any
@@ -34057,12 +39296,22 @@ func (obj *pgxImpl) Update_GoogleBackupCredentials_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("account_type = ?"))
 	}
 
+	if update.TenantId._set {
+		__values = append(__values, update.TenantId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("tenant_id = ?"))
+	}
+
+	if update.TenantName._set {
+		__values = append(__values, update.TenantName.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("tenant_name = ?"))
+	}
+
 	__now := obj.db.Hooks.Now().UTC()
 
 	__values = append(__values, __now)
 	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
 
-	__args = append(__args, google_backup_credentials_id.value())
+	__args = append(__args, backup_credentials_id.value())
 
 	__values = append(__values, __args...)
 	__sets.SQL = __sets_sql
@@ -34070,15 +39319,15 @@ func (obj *pgxImpl) Update_GoogleBackupCredentials_By_Id(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	google_backup_credentials = &GoogleBackupCredentials{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&google_backup_credentials.Id, &google_backup_credentials.UserId, &google_backup_credentials.GoogleEmail, &google_backup_credentials.AccessToken, &google_backup_credentials.RefreshToken, &google_backup_credentials.AccessTokenExpiry, &google_backup_credentials.AccountType, &google_backup_credentials.CreatedAt, &google_backup_credentials.UpdatedAt)
+	backup_credentials = &BackupCredentials{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
-	return google_backup_credentials, nil
+	return backup_credentials, nil
 }
 
 func (obj *pgxImpl) Update_Project_By_Id(ctx context.Context,
@@ -34334,7 +39583,7 @@ func (obj *pgxImpl) Update_ProjectInvitation_By_ProjectId_And_Email(ctx context.
 
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE project_invitations SET "), __sets, __sqlbundle_Literal(" WHERE project_invitations.project_id = ? AND project_invitations.email = ? RETURNING project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE project_invitations SET "), __sets, __sqlbundle_Literal(" WHERE project_invitations.project_id = ? AND project_invitations.email = ? RETURNING project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at, project_invitations.expires_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []any
@@ -34350,6 +39599,11 @@ func (obj *pgxImpl) Update_ProjectInvitation_By_ProjectId_And_Email(ctx context.
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("created_at = ?"))
 	}
 
+	if update.ExpiresAt._set {
+		__values = append(__values, update.ExpiresAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("expires_at = ?"))
+	}
+
 	if len(__sets_sql.SQLs) == 0 {
 		return nil, emptyUpdate()
 	}
@@ -34363,7 +39617,7 @@ func (obj *pgxImpl) Update_ProjectInvitation_By_ProjectId_And_Email(ctx context.
 	obj.logStmt(__stmt, __values...)
 
 	project_invitation = &ProjectInvitation{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt, &project_invitation.ExpiresAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -34412,6 +39666,77 @@ func (obj *pgxImpl) UpdateNoReturn_ApiKey_By_Id(ctx context.Context,
 		return obj.makeErr(err)
 	}
 	return nil
+}
+
+func (obj *pgxImpl) Update_MemberBucketGrant_By_Id(ctx context.Context,
+	member_bucket_grant_id MemberBucketGrant_Id_Field,
+	update MemberBucketGrant_Update_Fields) (
+	member_bucket_grant *MemberBucketGrant, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE member_bucket_grants SET "), __sets, __sqlbundle_Literal(" WHERE member_bucket_grants.id = ? RETURNING member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.MemberId._set {
+		__values = append(__values, update.MemberId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("member_id = ?"))
+	}
+
+	if update.AllowList._set {
+		__values = append(__values, update.AllowList.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("allow_list = ?"))
+	}
+
+	if update.AllowDownload._set {
+		__values = append(__values, update.AllowDownload.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("allow_download = ?"))
+	}
+
+	if update.AllowUpload._set {
+		__values = append(__values, update.AllowUpload.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("allow_upload = ?"))
+	}
+
+	if update.AllowDelete._set {
+		__values = append(__values, update.AllowDelete.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("allow_delete = ?"))
+	}
+
+	if update.ExpiresAt._set {
+		__values = append(__values, update.ExpiresAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("expires_at = ?"))
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+
+	__args = append(__args, member_bucket_grant_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	member_bucket_grant = &MemberBucketGrant{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return member_bucket_grant, nil
 }
 
 func (obj *pgxImpl) Update_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
@@ -34935,6 +40260,586 @@ func (obj *pgxImpl) Update_BucketMigration_By_Id(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return bucket_migration, nil
+}
+
+func (obj *pgxImpl) Update_Reseller_By_Id(ctx context.Context,
+	reseller_id Reseller_Id_Field,
+	update Reseller_Update_Fields) (
+	reseller *Reseller, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE resellers SET "), __sets, __sqlbundle_Literal(" WHERE resellers.id = ? RETURNING resellers.id, resellers.name, resellers.email, resellers.password_hash, resellers.company_name, resellers.status, resellers.created_at, resellers.updated_at, resellers.deleted_at, resellers.failed_login_count, resellers.login_lockout_expiration, resellers.activation_code, resellers.signup_id, resellers.new_unverified_email, resellers.email_change_verification_step, resellers.mfa_enabled, resellers.mfa_secret_key, resellers.mfa_recovery_codes")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.Name._set {
+		__values = append(__values, update.Name.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("name = ?"))
+	}
+
+	if update.Email._set {
+		__values = append(__values, update.Email.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("email = ?"))
+	}
+
+	if update.PasswordHash._set {
+		__values = append(__values, update.PasswordHash.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("password_hash = ?"))
+	}
+
+	if update.CompanyName._set {
+		__values = append(__values, update.CompanyName.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("company_name = ?"))
+	}
+
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+
+	if update.UpdatedAt._set {
+		__values = append(__values, update.UpdatedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+	}
+
+	if update.DeletedAt._set {
+		__values = append(__values, update.DeletedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("deleted_at = ?"))
+	}
+
+	if update.FailedLoginCount._set {
+		__values = append(__values, update.FailedLoginCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("failed_login_count = ?"))
+	}
+
+	if update.LoginLockoutExpiration._set {
+		__values = append(__values, update.LoginLockoutExpiration.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("login_lockout_expiration = ?"))
+	}
+
+	if update.ActivationCode._set {
+		__values = append(__values, update.ActivationCode.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("activation_code = ?"))
+	}
+
+	if update.SignupId._set {
+		__values = append(__values, update.SignupId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("signup_id = ?"))
+	}
+
+	if update.NewUnverifiedEmail._set {
+		__values = append(__values, update.NewUnverifiedEmail.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("new_unverified_email = ?"))
+	}
+
+	if update.EmailChangeVerificationStep._set {
+		__values = append(__values, update.EmailChangeVerificationStep.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("email_change_verification_step = ?"))
+	}
+
+	if update.MfaEnabled._set {
+		__values = append(__values, update.MfaEnabled.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("mfa_enabled = ?"))
+	}
+
+	if update.MfaSecretKey._set {
+		__values = append(__values, update.MfaSecretKey.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("mfa_secret_key = ?"))
+	}
+
+	if update.MfaRecoveryCodes._set {
+		__values = append(__values, update.MfaRecoveryCodes.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("mfa_recovery_codes = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, reseller_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller = &Reseller{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reseller.Id, &reseller.Name, &reseller.Email, &reseller.PasswordHash, &reseller.CompanyName, &reseller.Status, &reseller.CreatedAt, &reseller.UpdatedAt, &reseller.DeletedAt, &reseller.FailedLoginCount, &reseller.LoginLockoutExpiration, &reseller.ActivationCode, &reseller.SignupId, &reseller.NewUnverifiedEmail, &reseller.EmailChangeVerificationStep, &reseller.MfaEnabled, &reseller.MfaSecretKey, &reseller.MfaRecoveryCodes)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return reseller, nil
+}
+
+func (obj *pgxImpl) Update_ResellerConfig_By_Id(ctx context.Context,
+	reseller_config_id ResellerConfig_Id_Field,
+	update ResellerConfig_Update_Fields) (
+	reseller_config *ResellerConfig, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE reseller_configs SET "), __sets, __sqlbundle_Literal(" WHERE reseller_configs.id = ? RETURNING reseller_configs.id, reseller_configs.reseller_id, reseller_configs.config, reseller_configs.active_theme_type, reseller_configs.active_theme_id, reseller_configs.created_at, reseller_configs.updated_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.Config._set {
+		__values = append(__values, update.Config.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("config = ?"))
+	}
+
+	if update.ActiveThemeType._set {
+		__values = append(__values, update.ActiveThemeType.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("active_theme_type = ?"))
+	}
+
+	if update.ActiveThemeId._set {
+		__values = append(__values, update.ActiveThemeId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("active_theme_id = ?"))
+	}
+
+	if update.UpdatedAt._set {
+		__values = append(__values, update.UpdatedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, reseller_config_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller_config = &ResellerConfig{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reseller_config.Id, &reseller_config.ResellerId, &reseller_config.Config, &reseller_config.ActiveThemeType, &reseller_config.ActiveThemeId, &reseller_config.CreatedAt, &reseller_config.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return reseller_config, nil
+}
+
+func (obj *pgxImpl) Update_ResellerConfig_By_ResellerId(ctx context.Context,
+	reseller_config_reseller_id ResellerConfig_ResellerId_Field,
+	update ResellerConfig_Update_Fields) (
+	reseller_config *ResellerConfig, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE reseller_configs SET "), __sets, __sqlbundle_Literal(" WHERE reseller_configs.reseller_id = ? RETURNING reseller_configs.id, reseller_configs.reseller_id, reseller_configs.config, reseller_configs.active_theme_type, reseller_configs.active_theme_id, reseller_configs.created_at, reseller_configs.updated_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.Config._set {
+		__values = append(__values, update.Config.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("config = ?"))
+	}
+
+	if update.ActiveThemeType._set {
+		__values = append(__values, update.ActiveThemeType.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("active_theme_type = ?"))
+	}
+
+	if update.ActiveThemeId._set {
+		__values = append(__values, update.ActiveThemeId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("active_theme_id = ?"))
+	}
+
+	if update.UpdatedAt._set {
+		__values = append(__values, update.UpdatedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, reseller_config_reseller_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller_config = &ResellerConfig{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reseller_config.Id, &reseller_config.ResellerId, &reseller_config.Config, &reseller_config.ActiveThemeType, &reseller_config.ActiveThemeId, &reseller_config.CreatedAt, &reseller_config.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return reseller_config, nil
+}
+
+func (obj *pgxImpl) Update_ResellerDomain_By_Id(ctx context.Context,
+	reseller_domain_id ResellerDomain_Id_Field,
+	update ResellerDomain_Update_Fields) (
+	reseller_domain *ResellerDomain, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE reseller_domains SET "), __sets, __sqlbundle_Literal(" WHERE reseller_domains.id = ? RETURNING reseller_domains.id, reseller_domains.reseller_id, reseller_domains.domain, reseller_domains.domain_type, reseller_domains.status, reseller_domains.verification_method, reseller_domains.verification_status, reseller_domains.ssl_status, reseller_domains.dns_target, reseller_domains.verified_at, reseller_domains.created_at, reseller_domains.updated_at, reseller_domains.deleted_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.Domain._set {
+		__values = append(__values, update.Domain.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("domain = ?"))
+	}
+
+	if update.DomainType._set {
+		__values = append(__values, update.DomainType.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("domain_type = ?"))
+	}
+
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+
+	if update.VerificationMethod._set {
+		__values = append(__values, update.VerificationMethod.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("verification_method = ?"))
+	}
+
+	if update.VerificationStatus._set {
+		__values = append(__values, update.VerificationStatus.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("verification_status = ?"))
+	}
+
+	if update.SslStatus._set {
+		__values = append(__values, update.SslStatus.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("ssl_status = ?"))
+	}
+
+	if update.DnsTarget._set {
+		__values = append(__values, update.DnsTarget.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("dns_target = ?"))
+	}
+
+	if update.VerifiedAt._set {
+		__values = append(__values, update.VerifiedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("verified_at = ?"))
+	}
+
+	if update.UpdatedAt._set {
+		__values = append(__values, update.UpdatedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+	}
+
+	if update.DeletedAt._set {
+		__values = append(__values, update.DeletedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("deleted_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, reseller_domain_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller_domain = &ResellerDomain{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reseller_domain.Id, &reseller_domain.ResellerId, &reseller_domain.Domain, &reseller_domain.DomainType, &reseller_domain.Status, &reseller_domain.VerificationMethod, &reseller_domain.VerificationStatus, &reseller_domain.SslStatus, &reseller_domain.DnsTarget, &reseller_domain.VerifiedAt, &reseller_domain.CreatedAt, &reseller_domain.UpdatedAt, &reseller_domain.DeletedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return reseller_domain, nil
+}
+
+func (obj *pgxImpl) Update_ResellerDomain_By_ResellerId(ctx context.Context,
+	reseller_domain_reseller_id ResellerDomain_ResellerId_Field,
+	update ResellerDomain_Update_Fields) (
+	reseller_domain *ResellerDomain, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE reseller_domains SET "), __sets, __sqlbundle_Literal(" WHERE reseller_domains.reseller_id = ? RETURNING reseller_domains.id, reseller_domains.reseller_id, reseller_domains.domain, reseller_domains.domain_type, reseller_domains.status, reseller_domains.verification_method, reseller_domains.verification_status, reseller_domains.ssl_status, reseller_domains.dns_target, reseller_domains.verified_at, reseller_domains.created_at, reseller_domains.updated_at, reseller_domains.deleted_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.Domain._set {
+		__values = append(__values, update.Domain.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("domain = ?"))
+	}
+
+	if update.DomainType._set {
+		__values = append(__values, update.DomainType.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("domain_type = ?"))
+	}
+
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+
+	if update.VerificationMethod._set {
+		__values = append(__values, update.VerificationMethod.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("verification_method = ?"))
+	}
+
+	if update.VerificationStatus._set {
+		__values = append(__values, update.VerificationStatus.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("verification_status = ?"))
+	}
+
+	if update.SslStatus._set {
+		__values = append(__values, update.SslStatus.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("ssl_status = ?"))
+	}
+
+	if update.DnsTarget._set {
+		__values = append(__values, update.DnsTarget.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("dns_target = ?"))
+	}
+
+	if update.VerifiedAt._set {
+		__values = append(__values, update.VerifiedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("verified_at = ?"))
+	}
+
+	if update.UpdatedAt._set {
+		__values = append(__values, update.UpdatedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+	}
+
+	if update.DeletedAt._set {
+		__values = append(__values, update.DeletedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("deleted_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, reseller_domain_reseller_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller_domain = &ResellerDomain{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reseller_domain.Id, &reseller_domain.ResellerId, &reseller_domain.Domain, &reseller_domain.DomainType, &reseller_domain.Status, &reseller_domain.VerificationMethod, &reseller_domain.VerificationStatus, &reseller_domain.SslStatus, &reseller_domain.DnsTarget, &reseller_domain.VerifiedAt, &reseller_domain.CreatedAt, &reseller_domain.UpdatedAt, &reseller_domain.DeletedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return reseller_domain, nil
+}
+
+func (obj *pgxImpl) Update_WebappSessionReseller_By_Id(ctx context.Context,
+	webapp_session_reseller_id WebappSessionReseller_Id_Field,
+	update WebappSessionReseller_Update_Fields) (
+	webapp_session_reseller *WebappSessionReseller, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE webapp_session_resellers SET "), __sets, __sqlbundle_Literal(" WHERE webapp_session_resellers.id = ? RETURNING webapp_session_resellers.id, webapp_session_resellers.reseller_id, webapp_session_resellers.ip_address, webapp_session_resellers.status, webapp_session_resellers.expires_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+
+	if update.ExpiresAt._set {
+		__values = append(__values, update.ExpiresAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("expires_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, webapp_session_reseller_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	webapp_session_reseller = &WebappSessionReseller{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&webapp_session_reseller.Id, &webapp_session_reseller.ResellerId, &webapp_session_reseller.IpAddress, &webapp_session_reseller.Status, &webapp_session_reseller.ExpiresAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return webapp_session_reseller, nil
+}
+
+func (obj *pgxImpl) Update_ThemePreset_By_Id(ctx context.Context,
+	theme_preset_id ThemePreset_Id_Field,
+	update ThemePreset_Update_Fields) (
+	theme_preset *ThemePreset, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE theme_presets SET "), __sets, __sqlbundle_Literal(" WHERE theme_presets.id = ? RETURNING theme_presets.id, theme_presets.slug, theme_presets.name, theme_presets.description, theme_presets.colors, theme_presets.is_system, theme_presets.created_at, theme_presets.updated_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.Description._set {
+		__values = append(__values, update.Description.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("description = ?"))
+	}
+
+	if update.IsSystem._set {
+		__values = append(__values, update.IsSystem.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("is_system = ?"))
+	}
+
+	if update.UpdatedAt._set {
+		__values = append(__values, update.UpdatedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, theme_preset_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	theme_preset = &ThemePreset{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&theme_preset.Id, &theme_preset.Slug, &theme_preset.Name, &theme_preset.Description, &theme_preset.Colors, &theme_preset.IsSystem, &theme_preset.CreatedAt, &theme_preset.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return theme_preset, nil
+}
+
+func (obj *pgxImpl) Update_ResellerTheme_By_Id(ctx context.Context,
+	reseller_theme_id ResellerTheme_Id_Field,
+	update ResellerTheme_Update_Fields) (
+	reseller_theme *ResellerTheme, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE reseller_themes SET "), __sets, __sqlbundle_Literal(" WHERE reseller_themes.id = ? RETURNING reseller_themes.id, reseller_themes.reseller_id, reseller_themes.name, reseller_themes.colors, reseller_themes.created_at, reseller_themes.updated_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.Name._set {
+		__values = append(__values, update.Name.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("name = ?"))
+	}
+
+	if update.Colors._set {
+		__values = append(__values, update.Colors.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("colors = ?"))
+	}
+
+	if update.UpdatedAt._set {
+		__values = append(__values, update.UpdatedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, reseller_theme_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller_theme = &ResellerTheme{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reseller_theme.Id, &reseller_theme.ResellerId, &reseller_theme.Name, &reseller_theme.Colors, &reseller_theme.CreatedAt, &reseller_theme.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return reseller_theme, nil
 }
 
 func (obj *pgxImpl) Update_User_By_Id(ctx context.Context,
@@ -36736,6 +42641,135 @@ func (obj *pgxImpl) Delete_ApiKey_By_ProjectId_And_CreatedBy(ctx context.Context
 
 }
 
+func (obj *pgxImpl) Delete_ProjectMemberAclBucket_By_ProjectId_And_BucketName(ctx context.Context,
+	project_member_acl_bucket_project_id ProjectMemberAclBucket_ProjectId_Field,
+	project_member_acl_bucket_bucket_name ProjectMemberAclBucket_BucketName_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM project_member_acl_buckets WHERE project_member_acl_buckets.project_id = ? AND project_member_acl_buckets.bucket_name = ?")
+
+	var __values []any
+	__values = append(__values, project_member_acl_bucket_project_id.value(), project_member_acl_bucket_bucket_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *pgxImpl) Delete_MemberBucketGrant_By_ProjectId_And_MemberId(ctx context.Context,
+	member_bucket_grant_project_id MemberBucketGrant_ProjectId_Field,
+	member_bucket_grant_member_id MemberBucketGrant_MemberId_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "member_bucket_grants.member_id", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("DELETE FROM member_bucket_grants WHERE member_bucket_grants.project_id = ? AND "), __cond_0}}
+
+	var __values []any
+	__values = append(__values, member_bucket_grant_project_id.value())
+	if !member_bucket_grant_member_id.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, member_bucket_grant_member_id.value())
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
+func (obj *pgxImpl) Delete_MemberBucketGrant_By_ProjectId_And_InviteEmail(ctx context.Context,
+	member_bucket_grant_project_id MemberBucketGrant_ProjectId_Field,
+	member_bucket_grant_invite_email MemberBucketGrant_InviteEmail_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM member_bucket_grants WHERE member_bucket_grants.project_id = ? AND member_bucket_grants.invite_email = ?")
+
+	var __values []any
+	__values = append(__values, member_bucket_grant_project_id.value(), member_bucket_grant_invite_email.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
+func (obj *pgxImpl) Delete_MemberBucketGrant_By_Id(ctx context.Context,
+	member_bucket_grant_id MemberBucketGrant_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM member_bucket_grants WHERE member_bucket_grants.id = ?")
+
+	var __values []any
+	__values = append(__values, member_bucket_grant_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *pgxImpl) Delete_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
 	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 	bucket_metainfo_name BucketMetainfo_Name_Field) (
@@ -36885,6 +42919,247 @@ func (obj *pgxImpl) Delete_RepairQueue_By_UpdatedAt_Less(ctx context.Context,
 	}
 
 	return count, nil
+
+}
+
+func (obj *pgxImpl) Delete_Reseller_By_Id(ctx context.Context,
+	reseller_id Reseller_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM resellers WHERE resellers.id = ?")
+
+	var __values []any
+	__values = append(__values, reseller_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *pgxImpl) Delete_ResellerConfig_By_Id(ctx context.Context,
+	reseller_config_id ResellerConfig_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM reseller_configs WHERE reseller_configs.id = ?")
+
+	var __values []any
+	__values = append(__values, reseller_config_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *pgxImpl) Delete_ResellerDomain_By_Id(ctx context.Context,
+	reseller_domain_id ResellerDomain_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM reseller_domains WHERE reseller_domains.id = ?")
+
+	var __values []any
+	__values = append(__values, reseller_domain_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *pgxImpl) Delete_WebappSessionReseller_By_Id(ctx context.Context,
+	webapp_session_reseller_id WebappSessionReseller_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM webapp_session_resellers WHERE webapp_session_resellers.id = ?")
+
+	var __values []any
+	__values = append(__values, webapp_session_reseller_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *pgxImpl) Delete_WebappSessionReseller_By_ResellerId(ctx context.Context,
+	webapp_session_reseller_reseller_id WebappSessionReseller_ResellerId_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM webapp_session_resellers WHERE webapp_session_resellers.reseller_id = ?")
+
+	var __values []any
+	__values = append(__values, webapp_session_reseller_reseller_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
+func (obj *pgxImpl) Delete_WebappSessionReseller_By_ResellerId_And_Id_Not(ctx context.Context,
+	webapp_session_reseller_reseller_id WebappSessionReseller_ResellerId_Field,
+	webapp_session_reseller_id_not WebappSessionReseller_Id_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM webapp_session_resellers WHERE webapp_session_resellers.reseller_id = ? AND webapp_session_resellers.id != ?")
+
+	var __values []any
+	__values = append(__values, webapp_session_reseller_reseller_id.value(), webapp_session_reseller_id_not.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
+func (obj *pgxImpl) Delete_ResetPasswordTokenReseller_By_Secret(ctx context.Context,
+	reset_password_token_reseller_secret ResetPasswordTokenReseller_Secret_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM reset_password_token_resellers WHERE reset_password_token_resellers.secret = ?")
+
+	var __values []any
+	__values = append(__values, reset_password_token_reseller_secret.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *pgxImpl) Delete_ResellerTheme_By_Id(ctx context.Context,
+	reseller_theme_id ResellerTheme_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM reseller_themes WHERE reseller_themes.id = ?")
+
+	var __values []any
+	__values = append(__values, reseller_theme_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
 
 }
 
@@ -37206,6 +43481,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM project_member_acl_buckets;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM project_members;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -37226,7 +43511,7 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM google_backup_credentials;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM member_bucket_grants;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -37266,7 +43551,27 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM backup_credentials;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM api_keys;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM webapp_session_resellers;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -37357,6 +43662,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM users;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM theme_presets;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -37506,6 +43821,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM reset_password_token_resellers;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM reset_password_token_developers;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -37517,6 +43842,56 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM reset_password_tokens;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM reseller_themes;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM reseller_domains;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM reseller_delete_requests;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM reseller_configs;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM resellers;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -37706,6 +44081,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM mail_export_jobs;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM key_versions;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -37877,6 +44262,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM backup_final_statuses;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM audit_logs;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -38072,6 +44467,63 @@ func (obj *pgxcockroachImpl) Create_ReverificationAudits(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return reverification_audits, nil
+
+}
+
+func (obj *pgxcockroachImpl) CreateNoReturn_AuditLog(ctx context.Context,
+	audit_log_id AuditLog_Id_Field,
+	audit_log_actor_id AuditLog_ActorId_Field,
+	audit_log_action AuditLog_Action_Field,
+	audit_log_message AuditLog_Message_Field,
+	audit_log_status AuditLog_Status_Field,
+	optional AuditLog_Create_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+	__id_val := audit_log_id.value()
+	__actor_id_val := audit_log_actor_id.value()
+	__action_val := audit_log_action.value()
+	__resource_val := optional.Resource.value()
+	__message_val := audit_log_message.value()
+	__ip_address_val := optional.IpAddress.value()
+	__status_val := audit_log_status.value()
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, actor_id, action, resource, message, ip_address, status")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO audit_logs "), __clause}}
+
+	var __values []any
+	__values = append(__values, __id_val, __actor_id_val, __action_val, __resource_val, __message_val, __ip_address_val, __status_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.Timestamp._set {
+		__values = append(__values, optional.Timestamp.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("timestamp"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
 
 }
 
@@ -39023,6 +45475,75 @@ func (obj *pgxcockroachImpl) CreateNoReturn_Revocation(ctx context.Context,
 
 }
 
+func (obj *pgxcockroachImpl) Create_MailExportJob(ctx context.Context,
+	mail_export_job_id MailExportJob_Id_Field,
+	mail_export_job_user_id MailExportJob_UserId_Field,
+	mail_export_job_project_id MailExportJob_ProjectId_Field,
+	mail_export_job_access_key_id MailExportJob_AccessKeyId_Field,
+	mail_export_job_bucket MailExportJob_Bucket_Field,
+	mail_export_job_format MailExportJob_Format_Field,
+	mail_export_job_mode MailExportJob_Mode_Field,
+	mail_export_job_status MailExportJob_Status_Field,
+	mail_export_job_retry_count MailExportJob_RetryCount_Field,
+	mail_export_job_progress MailExportJob_Progress_Field,
+	mail_export_job_processed_files MailExportJob_ProcessedFiles_Field,
+	mail_export_job_total_files MailExportJob_TotalFiles_Field,
+	mail_export_job_processed_bytes MailExportJob_ProcessedBytes_Field,
+	mail_export_job_total_bytes MailExportJob_TotalBytes_Field,
+	optional MailExportJob_Create_Fields) (
+	mail_export_job *MailExportJob, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := mail_export_job_id.value()
+	__user_id_val := mail_export_job_user_id.value()
+	__project_id_val := mail_export_job_project_id.value()
+	__access_key_id_val := mail_export_job_access_key_id.value()
+	__bucket_val := mail_export_job_bucket.value()
+	__format_val := mail_export_job_format.value()
+	__mode_val := mail_export_job_mode.value()
+	__prefix_val := optional.Prefix.value()
+	__keys_json_val := optional.KeysJson.value()
+	__access_grant_val := optional.AccessGrant.value()
+	__status_val := mail_export_job_status.value()
+	__retry_count_val := mail_export_job_retry_count.value()
+	__progress_val := mail_export_job_progress.value()
+	__processed_files_val := mail_export_job_processed_files.value()
+	__total_files_val := mail_export_job_total_files.value()
+	__processed_bytes_val := mail_export_job_processed_bytes.value()
+	__total_bytes_val := mail_export_job_total_bytes.value()
+	__current_object_val := optional.CurrentObject.value()
+	__archive_bucket_val := optional.ArchiveBucket.value()
+	__archive_key_val := optional.ArchiveKey.value()
+	__archive_name_val := optional.ArchiveName.value()
+	__error_message_val := optional.ErrorMessage.value()
+	__last_download_charge_id_val := optional.LastDownloadChargeId.value()
+	__last_download_charged_bytes_val := optional.LastDownloadChargedBytes.value()
+	__created_at_val := __now
+	__started_at_val := optional.StartedAt.value()
+	__completed_at_val := optional.CompletedAt.value()
+	__expires_at_val := optional.ExpiresAt.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO mail_export_jobs ( id, user_id, project_id, access_key_id, bucket, format, mode, prefix, keys_json, access_grant, status, retry_count, progress, processed_files, total_files, processed_bytes, total_bytes, current_object, archive_bucket, archive_key, archive_name, error_message, last_download_charge_id, last_download_charged_bytes, created_at, started_at, completed_at, expires_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING mail_export_jobs.id, mail_export_jobs.user_id, mail_export_jobs.project_id, mail_export_jobs.access_key_id, mail_export_jobs.bucket, mail_export_jobs.format, mail_export_jobs.mode, mail_export_jobs.prefix, mail_export_jobs.keys_json, mail_export_jobs.access_grant, mail_export_jobs.status, mail_export_jobs.retry_count, mail_export_jobs.progress, mail_export_jobs.processed_files, mail_export_jobs.total_files, mail_export_jobs.processed_bytes, mail_export_jobs.total_bytes, mail_export_jobs.current_object, mail_export_jobs.archive_bucket, mail_export_jobs.archive_key, mail_export_jobs.archive_name, mail_export_jobs.error_message, mail_export_jobs.last_download_charge_id, mail_export_jobs.last_download_charged_bytes, mail_export_jobs.created_at, mail_export_jobs.started_at, mail_export_jobs.completed_at, mail_export_jobs.expires_at")
+
+	var __values []any
+	__values = append(__values, __id_val, __user_id_val, __project_id_val, __access_key_id_val, __bucket_val, __format_val, __mode_val, __prefix_val, __keys_json_val, __access_grant_val, __status_val, __retry_count_val, __progress_val, __processed_files_val, __total_files_val, __processed_bytes_val, __total_bytes_val, __current_object_val, __archive_bucket_val, __archive_key_val, __archive_name_val, __error_message_val, __last_download_charge_id_val, __last_download_charged_bytes_val, __created_at_val, __started_at_val, __completed_at_val, __expires_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	mail_export_job = &MailExportJob{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&mail_export_job.Id, &mail_export_job.UserId, &mail_export_job.ProjectId, &mail_export_job.AccessKeyId, &mail_export_job.Bucket, &mail_export_job.Format, &mail_export_job.Mode, &mail_export_job.Prefix, &mail_export_job.KeysJson, &mail_export_job.AccessGrant, &mail_export_job.Status, &mail_export_job.RetryCount, &mail_export_job.Progress, &mail_export_job.ProcessedFiles, &mail_export_job.TotalFiles, &mail_export_job.ProcessedBytes, &mail_export_job.TotalBytes, &mail_export_job.CurrentObject, &mail_export_job.ArchiveBucket, &mail_export_job.ArchiveKey, &mail_export_job.ArchiveName, &mail_export_job.ErrorMessage, &mail_export_job.LastDownloadChargeId, &mail_export_job.LastDownloadChargedBytes, &mail_export_job.CreatedAt, &mail_export_job.StartedAt, &mail_export_job.CompletedAt, &mail_export_job.ExpiresAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return mail_export_job, nil
+
+}
+
 func (obj *pgxcockroachImpl) ReplaceNoReturn_NodeApiVersion(ctx context.Context,
 	node_api_version_id NodeApiVersion_Id_Field,
 	node_api_version_api_version NodeApiVersion_ApiVersion_Field) (
@@ -39513,8 +46034,7 @@ func (obj *pgxcockroachImpl) Create_UserNotificationPreference(ctx context.Conte
 	user_notification_preference_id UserNotificationPreference_Id_Field,
 	user_notification_preference_user_id UserNotificationPreference_UserId_Field,
 	user_notification_preference_preferences UserNotificationPreference_Preferences_Field,
-	user_notification_preference_updated_at UserNotificationPreference_UpdatedAt_Field,
-	optional UserNotificationPreference_Create_Fields) (
+	user_notification_preference_updated_at UserNotificationPreference_UpdatedAt_Field) (
 	user_notification_preference *UserNotificationPreference, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !obj.txn && txutil.IsInsideTx(ctx) {
@@ -39524,21 +46044,20 @@ func (obj *pgxcockroachImpl) Create_UserNotificationPreference(ctx context.Conte
 	__now := obj.db.Hooks.Now().UTC()
 	__id_val := user_notification_preference_id.value()
 	__user_id_val := user_notification_preference_user_id.value()
-	__category_val := optional.Category.value()
 	__preferences_val := user_notification_preference_preferences.value()
 	__created_at_val := __now
 	__updated_at_val := user_notification_preference_updated_at.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO user_notification_preferences ( id, user_id, category, preferences, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ? ) RETURNING user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO user_notification_preferences ( id, user_id, preferences, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ? ) RETURNING user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at")
 
 	var __values []any
-	__values = append(__values, __id_val, __user_id_val, __category_val, __preferences_val, __created_at_val, __updated_at_val)
+	__values = append(__values, __id_val, __user_id_val, __preferences_val, __created_at_val, __updated_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	user_notification_preference = &UserNotificationPreference{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.Category, &user_notification_preference.Preferences, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.Preferences, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -39661,43 +46180,47 @@ func (obj *pgxcockroachImpl) CreateNoReturn_OauthToken(ctx context.Context,
 
 }
 
-func (obj *pgxcockroachImpl) Create_GoogleBackupCredentials(ctx context.Context,
-	google_backup_credentials_id GoogleBackupCredentials_Id_Field,
-	google_backup_credentials_user_id GoogleBackupCredentials_UserId_Field,
-	google_backup_credentials_google_email GoogleBackupCredentials_GoogleEmail_Field,
-	google_backup_credentials_access_token GoogleBackupCredentials_AccessToken_Field,
-	optional GoogleBackupCredentials_Create_Fields) (
-	google_backup_credentials *GoogleBackupCredentials, err error) {
+func (obj *pgxcockroachImpl) Create_BackupCredentials(ctx context.Context,
+	backup_credentials_id BackupCredentials_Id_Field,
+	backup_credentials_user_id BackupCredentials_UserId_Field,
+	backup_credentials_provider BackupCredentials_Provider_Field,
+	backup_credentials_email BackupCredentials_Email_Field,
+	backup_credentials_access_token BackupCredentials_AccessToken_Field,
+	optional BackupCredentials_Create_Fields) (
+	backup_credentials *BackupCredentials, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !obj.txn && txutil.IsInsideTx(ctx) {
 		panic("using DB when inside of a transaction")
 	}
 
 	__now := obj.db.Hooks.Now().UTC()
-	__id_val := google_backup_credentials_id.value()
-	__user_id_val := google_backup_credentials_user_id.value()
-	__google_email_val := google_backup_credentials_google_email.value()
-	__access_token_val := google_backup_credentials_access_token.value()
+	__id_val := backup_credentials_id.value()
+	__user_id_val := backup_credentials_user_id.value()
+	__provider_val := backup_credentials_provider.value()
+	__email_val := backup_credentials_email.value()
+	__access_token_val := backup_credentials_access_token.value()
 	__refresh_token_val := optional.RefreshToken.value()
 	__access_token_expiry_val := optional.AccessTokenExpiry.value()
 	__account_type_val := optional.AccountType.value()
+	__tenant_id_val := optional.TenantId.value()
+	__tenant_name_val := optional.TenantName.value()
 	__created_at_val := __now
 	__updated_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO google_backup_credentials ( id, user_id, google_email, access_token, refresh_token, access_token_expiry, account_type, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING google_backup_credentials.id, google_backup_credentials.user_id, google_backup_credentials.google_email, google_backup_credentials.access_token, google_backup_credentials.refresh_token, google_backup_credentials.access_token_expiry, google_backup_credentials.account_type, google_backup_credentials.created_at, google_backup_credentials.updated_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO backup_credentials ( id, user_id, provider, email, access_token, refresh_token, access_token_expiry, account_type, tenant_id, tenant_name, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at")
 
 	var __values []any
-	__values = append(__values, __id_val, __user_id_val, __google_email_val, __access_token_val, __refresh_token_val, __access_token_expiry_val, __account_type_val, __created_at_val, __updated_at_val)
+	__values = append(__values, __id_val, __user_id_val, __provider_val, __email_val, __access_token_val, __refresh_token_val, __access_token_expiry_val, __account_type_val, __tenant_id_val, __tenant_name_val, __created_at_val, __updated_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	google_backup_credentials = &GoogleBackupCredentials{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&google_backup_credentials.Id, &google_backup_credentials.UserId, &google_backup_credentials.GoogleEmail, &google_backup_credentials.AccessToken, &google_backup_credentials.RefreshToken, &google_backup_credentials.AccessTokenExpiry, &google_backup_credentials.AccountType, &google_backup_credentials.CreatedAt, &google_backup_credentials.UpdatedAt)
+	backup_credentials = &BackupCredentials{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
-	return google_backup_credentials, nil
+	return backup_credentials, nil
 
 }
 
@@ -39870,17 +46393,18 @@ func (obj *pgxcockroachImpl) Replace_ProjectInvitation(ctx context.Context,
 	__email_val := project_invitation_email.value()
 	__inviter_id_val := optional.InviterId.value()
 	__created_at_val := __now
+	__expires_at_val := optional.ExpiresAt.value()
 
-	var __embed_stmt = __sqlbundle_Literal("UPSERT INTO project_invitations ( project_id, email, inviter_id, created_at ) VALUES ( ?, ?, ?, ? ) RETURNING project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at")
+	var __embed_stmt = __sqlbundle_Literal("UPSERT INTO project_invitations ( project_id, email, inviter_id, created_at, expires_at ) VALUES ( ?, ?, ?, ?, ? ) RETURNING project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at, project_invitations.expires_at")
 
 	var __values []any
-	__values = append(__values, __project_id_val, __email_val, __inviter_id_val, __created_at_val)
+	__values = append(__values, __project_id_val, __email_val, __inviter_id_val, __created_at_val, __expires_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	project_invitation = &ProjectInvitation{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt, &project_invitation.ExpiresAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -39980,6 +46504,86 @@ func (obj *pgxcockroachImpl) Replace_ApiKeyTail(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return api_key_tail, nil
+
+}
+
+func (obj *pgxcockroachImpl) Create_ProjectMemberAclBucket(ctx context.Context,
+	project_member_acl_bucket_project_id ProjectMemberAclBucket_ProjectId_Field,
+	project_member_acl_bucket_bucket_name ProjectMemberAclBucket_BucketName_Field) (
+	project_member_acl_bucket *ProjectMemberAclBucket, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__project_id_val := project_member_acl_bucket_project_id.value()
+	__bucket_name_val := project_member_acl_bucket_bucket_name.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO project_member_acl_buckets ( project_id, bucket_name, created_at ) VALUES ( ?, ?, ? ) RETURNING project_member_acl_buckets.project_id, project_member_acl_buckets.bucket_name, project_member_acl_buckets.created_at")
+
+	var __values []any
+	__values = append(__values, __project_id_val, __bucket_name_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	project_member_acl_bucket = &ProjectMemberAclBucket{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_member_acl_bucket.ProjectId, &project_member_acl_bucket.BucketName, &project_member_acl_bucket.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return project_member_acl_bucket, nil
+
+}
+
+func (obj *pgxcockroachImpl) Create_MemberBucketGrant(ctx context.Context,
+	member_bucket_grant_id MemberBucketGrant_Id_Field,
+	member_bucket_grant_project_id MemberBucketGrant_ProjectId_Field,
+	member_bucket_grant_invite_email MemberBucketGrant_InviteEmail_Field,
+	member_bucket_grant_bucket MemberBucketGrant_Bucket_Field,
+	member_bucket_grant_prefix MemberBucketGrant_Prefix_Field,
+	member_bucket_grant_allow_list MemberBucketGrant_AllowList_Field,
+	member_bucket_grant_allow_download MemberBucketGrant_AllowDownload_Field,
+	member_bucket_grant_allow_upload MemberBucketGrant_AllowUpload_Field,
+	member_bucket_grant_allow_delete MemberBucketGrant_AllowDelete_Field,
+	optional MemberBucketGrant_Create_Fields) (
+	member_bucket_grant *MemberBucketGrant, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := member_bucket_grant_id.value()
+	__project_id_val := member_bucket_grant_project_id.value()
+	__member_id_val := optional.MemberId.value()
+	__invite_email_val := member_bucket_grant_invite_email.value()
+	__bucket_val := member_bucket_grant_bucket.value()
+	__prefix_val := member_bucket_grant_prefix.value()
+	__allow_list_val := member_bucket_grant_allow_list.value()
+	__allow_download_val := member_bucket_grant_allow_download.value()
+	__allow_upload_val := member_bucket_grant_allow_upload.value()
+	__allow_delete_val := member_bucket_grant_allow_delete.value()
+	__created_at_val := __now
+	__updated_at_val := __now
+	__expires_at_val := optional.ExpiresAt.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO member_bucket_grants ( id, project_id, member_id, invite_email, bucket, prefix, allow_list, allow_download, allow_upload, allow_delete, created_at, updated_at, expires_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at")
+
+	var __values []any
+	__values = append(__values, __id_val, __project_id_val, __member_id_val, __invite_email_val, __bucket_val, __prefix_val, __allow_list_val, __allow_download_val, __allow_upload_val, __allow_delete_val, __created_at_val, __updated_at_val, __expires_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	member_bucket_grant = &MemberBucketGrant{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return member_bucket_grant, nil
 
 }
 
@@ -40175,6 +46779,385 @@ func (obj *pgxcockroachImpl) Create_BucketMigration(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return bucket_migration, nil
+
+}
+
+func (obj *pgxcockroachImpl) Create_Reseller(ctx context.Context,
+	reseller_id Reseller_Id_Field,
+	reseller_name Reseller_Name_Field,
+	reseller_email Reseller_Email_Field,
+	reseller_password_hash Reseller_PasswordHash_Field,
+	reseller_updated_at Reseller_UpdatedAt_Field,
+	optional Reseller_Create_Fields) (
+	reseller *Reseller, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := reseller_id.value()
+	__name_val := reseller_name.value()
+	__email_val := reseller_email.value()
+	__password_hash_val := reseller_password_hash.value()
+	__company_name_val := optional.CompanyName.value()
+	__status_val := int(0)
+	__created_at_val := __now
+	__updated_at_val := reseller_updated_at.value()
+	__deleted_at_val := optional.DeletedAt.value()
+	__failed_login_count_val := optional.FailedLoginCount.value()
+	__login_lockout_expiration_val := optional.LoginLockoutExpiration.value()
+	__activation_code_val := optional.ActivationCode.value()
+	__signup_id_val := optional.SignupId.value()
+	__new_unverified_email_val := optional.NewUnverifiedEmail.value()
+	__mfa_secret_key_val := optional.MfaSecretKey.value()
+	__mfa_recovery_codes_val := optional.MfaRecoveryCodes.value()
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, name, email, password_hash, company_name, status, created_at, updated_at, deleted_at, failed_login_count, login_lockout_expiration, activation_code, signup_id, new_unverified_email, mfa_secret_key, mfa_recovery_codes")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO resellers "), __clause, __sqlbundle_Literal(" RETURNING resellers.id, resellers.name, resellers.email, resellers.password_hash, resellers.company_name, resellers.status, resellers.created_at, resellers.updated_at, resellers.deleted_at, resellers.failed_login_count, resellers.login_lockout_expiration, resellers.activation_code, resellers.signup_id, resellers.new_unverified_email, resellers.email_change_verification_step, resellers.mfa_enabled, resellers.mfa_secret_key, resellers.mfa_recovery_codes")}}
+
+	var __values []any
+	__values = append(__values, __id_val, __name_val, __email_val, __password_hash_val, __company_name_val, __status_val, __created_at_val, __updated_at_val, __deleted_at_val, __failed_login_count_val, __login_lockout_expiration_val, __activation_code_val, __signup_id_val, __new_unverified_email_val, __mfa_secret_key_val, __mfa_recovery_codes_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.EmailChangeVerificationStep._set {
+		__values = append(__values, optional.EmailChangeVerificationStep.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("email_change_verification_step"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.MfaEnabled._set {
+		__values = append(__values, optional.MfaEnabled.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("mfa_enabled"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller = &Reseller{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reseller.Id, &reseller.Name, &reseller.Email, &reseller.PasswordHash, &reseller.CompanyName, &reseller.Status, &reseller.CreatedAt, &reseller.UpdatedAt, &reseller.DeletedAt, &reseller.FailedLoginCount, &reseller.LoginLockoutExpiration, &reseller.ActivationCode, &reseller.SignupId, &reseller.NewUnverifiedEmail, &reseller.EmailChangeVerificationStep, &reseller.MfaEnabled, &reseller.MfaSecretKey, &reseller.MfaRecoveryCodes)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return reseller, nil
+
+}
+
+func (obj *pgxcockroachImpl) Create_ResellerConfig(ctx context.Context,
+	reseller_config_id ResellerConfig_Id_Field,
+	reseller_config_reseller_id ResellerConfig_ResellerId_Field,
+	reseller_config_config ResellerConfig_Config_Field,
+	reseller_config_updated_at ResellerConfig_UpdatedAt_Field,
+	optional ResellerConfig_Create_Fields) (
+	reseller_config *ResellerConfig, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := reseller_config_id.value()
+	__reseller_id_val := reseller_config_reseller_id.value()
+	__config_val := reseller_config_config.value()
+	__active_theme_id_val := optional.ActiveThemeId.value()
+	__created_at_val := __now
+	__updated_at_val := reseller_config_updated_at.value()
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, reseller_id, config, active_theme_id, created_at, updated_at")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO reseller_configs "), __clause, __sqlbundle_Literal(" RETURNING reseller_configs.id, reseller_configs.reseller_id, reseller_configs.config, reseller_configs.active_theme_type, reseller_configs.active_theme_id, reseller_configs.created_at, reseller_configs.updated_at")}}
+
+	var __values []any
+	__values = append(__values, __id_val, __reseller_id_val, __config_val, __active_theme_id_val, __created_at_val, __updated_at_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.ActiveThemeType._set {
+		__values = append(__values, optional.ActiveThemeType.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("active_theme_type"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller_config = &ResellerConfig{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reseller_config.Id, &reseller_config.ResellerId, &reseller_config.Config, &reseller_config.ActiveThemeType, &reseller_config.ActiveThemeId, &reseller_config.CreatedAt, &reseller_config.UpdatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return reseller_config, nil
+
+}
+
+func (obj *pgxcockroachImpl) Create_ResellerDomain(ctx context.Context,
+	reseller_domain_id ResellerDomain_Id_Field,
+	reseller_domain_reseller_id ResellerDomain_ResellerId_Field,
+	reseller_domain_domain ResellerDomain_Domain_Field,
+	reseller_domain_domain_type ResellerDomain_DomainType_Field,
+	reseller_domain_status ResellerDomain_Status_Field,
+	reseller_domain_verification_status ResellerDomain_VerificationStatus_Field,
+	reseller_domain_ssl_status ResellerDomain_SslStatus_Field,
+	reseller_domain_updated_at ResellerDomain_UpdatedAt_Field,
+	optional ResellerDomain_Create_Fields) (
+	reseller_domain *ResellerDomain, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := reseller_domain_id.value()
+	__reseller_id_val := reseller_domain_reseller_id.value()
+	__domain_val := reseller_domain_domain.value()
+	__domain_type_val := reseller_domain_domain_type.value()
+	__status_val := reseller_domain_status.value()
+	__verification_method_val := optional.VerificationMethod.value()
+	__verification_status_val := reseller_domain_verification_status.value()
+	__ssl_status_val := reseller_domain_ssl_status.value()
+	__dns_target_val := optional.DnsTarget.value()
+	__verified_at_val := optional.VerifiedAt.value()
+	__created_at_val := __now
+	__updated_at_val := reseller_domain_updated_at.value()
+	__deleted_at_val := optional.DeletedAt.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO reseller_domains ( id, reseller_id, domain, domain_type, status, verification_method, verification_status, ssl_status, dns_target, verified_at, created_at, updated_at, deleted_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING reseller_domains.id, reseller_domains.reseller_id, reseller_domains.domain, reseller_domains.domain_type, reseller_domains.status, reseller_domains.verification_method, reseller_domains.verification_status, reseller_domains.ssl_status, reseller_domains.dns_target, reseller_domains.verified_at, reseller_domains.created_at, reseller_domains.updated_at, reseller_domains.deleted_at")
+
+	var __values []any
+	__values = append(__values, __id_val, __reseller_id_val, __domain_val, __domain_type_val, __status_val, __verification_method_val, __verification_status_val, __ssl_status_val, __dns_target_val, __verified_at_val, __created_at_val, __updated_at_val, __deleted_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller_domain = &ResellerDomain{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reseller_domain.Id, &reseller_domain.ResellerId, &reseller_domain.Domain, &reseller_domain.DomainType, &reseller_domain.Status, &reseller_domain.VerificationMethod, &reseller_domain.VerificationStatus, &reseller_domain.SslStatus, &reseller_domain.DnsTarget, &reseller_domain.VerifiedAt, &reseller_domain.CreatedAt, &reseller_domain.UpdatedAt, &reseller_domain.DeletedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return reseller_domain, nil
+
+}
+
+func (obj *pgxcockroachImpl) Create_WebappSessionReseller(ctx context.Context,
+	webapp_session_reseller_id WebappSessionReseller_Id_Field,
+	webapp_session_reseller_reseller_id WebappSessionReseller_ResellerId_Field,
+	webapp_session_reseller_ip_address WebappSessionReseller_IpAddress_Field,
+	webapp_session_reseller_expires_at WebappSessionReseller_ExpiresAt_Field) (
+	webapp_session_reseller *WebappSessionReseller, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+	__id_val := webapp_session_reseller_id.value()
+	__reseller_id_val := webapp_session_reseller_reseller_id.value()
+	__ip_address_val := webapp_session_reseller_ip_address.value()
+	__status_val := int(0)
+	__expires_at_val := webapp_session_reseller_expires_at.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO webapp_session_resellers ( id, reseller_id, ip_address, status, expires_at ) VALUES ( ?, ?, ?, ?, ? ) RETURNING webapp_session_resellers.id, webapp_session_resellers.reseller_id, webapp_session_resellers.ip_address, webapp_session_resellers.status, webapp_session_resellers.expires_at")
+
+	var __values []any
+	__values = append(__values, __id_val, __reseller_id_val, __ip_address_val, __status_val, __expires_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	webapp_session_reseller = &WebappSessionReseller{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&webapp_session_reseller.Id, &webapp_session_reseller.ResellerId, &webapp_session_reseller.IpAddress, &webapp_session_reseller.Status, &webapp_session_reseller.ExpiresAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return webapp_session_reseller, nil
+
+}
+
+func (obj *pgxcockroachImpl) Create_ResetPasswordTokenReseller(ctx context.Context,
+	reset_password_token_reseller_secret ResetPasswordTokenReseller_Secret_Field,
+	reset_password_token_reseller_owner_id ResetPasswordTokenReseller_OwnerId_Field) (
+	reset_password_token_reseller *ResetPasswordTokenReseller, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__secret_val := reset_password_token_reseller_secret.value()
+	__owner_id_val := reset_password_token_reseller_owner_id.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO reset_password_token_resellers ( secret, owner_id, created_at ) VALUES ( ?, ?, ? ) RETURNING reset_password_token_resellers.secret, reset_password_token_resellers.owner_id, reset_password_token_resellers.created_at")
+
+	var __values []any
+	__values = append(__values, __secret_val, __owner_id_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reset_password_token_reseller = &ResetPasswordTokenReseller{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reset_password_token_reseller.Secret, &reset_password_token_reseller.OwnerId, &reset_password_token_reseller.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return reset_password_token_reseller, nil
+
+}
+
+func (obj *pgxcockroachImpl) Create_ResellerDeleteRequest(ctx context.Context,
+	reseller_delete_request_id ResellerDeleteRequest_Id_Field,
+	reseller_delete_request_reseller_id ResellerDeleteRequest_ResellerId_Field,
+	reseller_delete_request_status ResellerDeleteRequest_Status_Field,
+	reseller_delete_request_delete_at ResellerDeleteRequest_DeleteAt_Field,
+	optional ResellerDeleteRequest_Create_Fields) (
+	reseller_delete_request *ResellerDeleteRequest, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := reseller_delete_request_id.value()
+	__reseller_id_val := reseller_delete_request_reseller_id.value()
+	__status_val := reseller_delete_request_status.value()
+	__error_val := optional.Error.value()
+	__delete_at_val := reseller_delete_request_delete_at.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO reseller_delete_requests ( id, reseller_id, status, error, delete_at, created_at ) VALUES ( ?, ?, ?, ?, ?, ? ) RETURNING reseller_delete_requests.id, reseller_delete_requests.reseller_id, reseller_delete_requests.status, reseller_delete_requests.error, reseller_delete_requests.delete_at, reseller_delete_requests.created_at")
+
+	var __values []any
+	__values = append(__values, __id_val, __reseller_id_val, __status_val, __error_val, __delete_at_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller_delete_request = &ResellerDeleteRequest{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reseller_delete_request.Id, &reseller_delete_request.ResellerId, &reseller_delete_request.Status, &reseller_delete_request.Error, &reseller_delete_request.DeleteAt, &reseller_delete_request.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return reseller_delete_request, nil
+
+}
+
+func (obj *pgxcockroachImpl) Create_ThemePreset(ctx context.Context,
+	theme_preset_id ThemePreset_Id_Field,
+	theme_preset_slug ThemePreset_Slug_Field,
+	theme_preset_name ThemePreset_Name_Field,
+	theme_preset_colors ThemePreset_Colors_Field,
+	theme_preset_updated_at ThemePreset_UpdatedAt_Field,
+	optional ThemePreset_Create_Fields) (
+	theme_preset *ThemePreset, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := theme_preset_id.value()
+	__slug_val := theme_preset_slug.value()
+	__name_val := theme_preset_name.value()
+	__description_val := optional.Description.value()
+	__colors_val := theme_preset_colors.value()
+	__created_at_val := __now
+	__updated_at_val := theme_preset_updated_at.value()
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, slug, name, description, colors, created_at, updated_at")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO theme_presets "), __clause, __sqlbundle_Literal(" RETURNING theme_presets.id, theme_presets.slug, theme_presets.name, theme_presets.description, theme_presets.colors, theme_presets.is_system, theme_presets.created_at, theme_presets.updated_at")}}
+
+	var __values []any
+	__values = append(__values, __id_val, __slug_val, __name_val, __description_val, __colors_val, __created_at_val, __updated_at_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.IsSystem._set {
+		__values = append(__values, optional.IsSystem.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("is_system"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	theme_preset = &ThemePreset{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&theme_preset.Id, &theme_preset.Slug, &theme_preset.Name, &theme_preset.Description, &theme_preset.Colors, &theme_preset.IsSystem, &theme_preset.CreatedAt, &theme_preset.UpdatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return theme_preset, nil
+
+}
+
+func (obj *pgxcockroachImpl) Create_ResellerTheme(ctx context.Context,
+	reseller_theme_id ResellerTheme_Id_Field,
+	reseller_theme_reseller_id ResellerTheme_ResellerId_Field,
+	reseller_theme_name ResellerTheme_Name_Field,
+	reseller_theme_colors ResellerTheme_Colors_Field,
+	reseller_theme_updated_at ResellerTheme_UpdatedAt_Field) (
+	reseller_theme *ResellerTheme, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := reseller_theme_id.value()
+	__reseller_id_val := reseller_theme_reseller_id.value()
+	__name_val := reseller_theme_name.value()
+	__colors_val := reseller_theme_colors.value()
+	__created_at_val := __now
+	__updated_at_val := reseller_theme_updated_at.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO reseller_themes ( id, reseller_id, name, colors, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ? ) RETURNING reseller_themes.id, reseller_themes.reseller_id, reseller_themes.name, reseller_themes.colors, reseller_themes.created_at, reseller_themes.updated_at")
+
+	var __values []any
+	__values = append(__values, __id_val, __reseller_id_val, __name_val, __colors_val, __created_at_val, __updated_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller_theme = &ResellerTheme{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reseller_theme.Id, &reseller_theme.ResellerId, &reseller_theme.Name, &reseller_theme.Colors, &reseller_theme.CreatedAt, &reseller_theme.UpdatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return reseller_theme, nil
 
 }
 
@@ -41568,6 +48551,31 @@ func (obj *pgxcockroachImpl) First_ReverificationAudits_By_NodeId_OrderBy_Asc_St
 		}
 		return reverification_audits, nil
 	}
+
+}
+
+func (obj *pgxcockroachImpl) Get_AuditLog_By_Id(ctx context.Context,
+	audit_log_id AuditLog_Id_Field) (
+	audit_log *AuditLog, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT audit_logs.id, audit_logs.timestamp, audit_logs.actor_id, audit_logs.action, audit_logs.resource, audit_logs.message, audit_logs.ip_address, audit_logs.status FROM audit_logs WHERE audit_logs.id = ?")
+
+	var __values []any
+	__values = append(__values, audit_log_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	audit_log = &AuditLog{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&audit_log.Id, &audit_log.Timestamp, &audit_log.ActorId, &audit_log.Action, &audit_log.Resource, &audit_log.Message, &audit_log.IpAddress, &audit_log.Status)
+	if err != nil {
+		return (*AuditLog)(nil), obj.makeErr(err)
+	}
+	return audit_log, nil
 
 }
 
@@ -43847,6 +50855,31 @@ func (obj *pgxcockroachImpl) Get_PeerIdentity_LeafSerialNumber_By_NodeId(ctx con
 
 }
 
+func (obj *pgxcockroachImpl) Get_MailExportJob_By_Id(ctx context.Context,
+	mail_export_job_id MailExportJob_Id_Field) (
+	mail_export_job *MailExportJob, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT mail_export_jobs.id, mail_export_jobs.user_id, mail_export_jobs.project_id, mail_export_jobs.access_key_id, mail_export_jobs.bucket, mail_export_jobs.format, mail_export_jobs.mode, mail_export_jobs.prefix, mail_export_jobs.keys_json, mail_export_jobs.access_grant, mail_export_jobs.status, mail_export_jobs.retry_count, mail_export_jobs.progress, mail_export_jobs.processed_files, mail_export_jobs.total_files, mail_export_jobs.processed_bytes, mail_export_jobs.total_bytes, mail_export_jobs.current_object, mail_export_jobs.archive_bucket, mail_export_jobs.archive_key, mail_export_jobs.archive_name, mail_export_jobs.error_message, mail_export_jobs.last_download_charge_id, mail_export_jobs.last_download_charged_bytes, mail_export_jobs.created_at, mail_export_jobs.started_at, mail_export_jobs.completed_at, mail_export_jobs.expires_at FROM mail_export_jobs WHERE mail_export_jobs.id = ?")
+
+	var __values []any
+	__values = append(__values, mail_export_job_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	mail_export_job = &MailExportJob{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&mail_export_job.Id, &mail_export_job.UserId, &mail_export_job.ProjectId, &mail_export_job.AccessKeyId, &mail_export_job.Bucket, &mail_export_job.Format, &mail_export_job.Mode, &mail_export_job.Prefix, &mail_export_job.KeysJson, &mail_export_job.AccessGrant, &mail_export_job.Status, &mail_export_job.RetryCount, &mail_export_job.Progress, &mail_export_job.ProcessedFiles, &mail_export_job.TotalFiles, &mail_export_job.ProcessedBytes, &mail_export_job.TotalBytes, &mail_export_job.CurrentObject, &mail_export_job.ArchiveBucket, &mail_export_job.ArchiveKey, &mail_export_job.ArchiveName, &mail_export_job.ErrorMessage, &mail_export_job.LastDownloadChargeId, &mail_export_job.LastDownloadChargedBytes, &mail_export_job.CreatedAt, &mail_export_job.StartedAt, &mail_export_job.CompletedAt, &mail_export_job.ExpiresAt)
+	if err != nil {
+		return (*MailExportJob)(nil), obj.makeErr(err)
+	}
+	return mail_export_job, nil
+
+}
+
 func (obj *pgxcockroachImpl) Get_Node_By_Id(ctx context.Context,
 	node_id Node_Id_Field) (
 	node *Node, err error) {
@@ -44974,7 +52007,7 @@ func (obj *pgxcockroachImpl) Get_UserNotificationPreference_By_Id(ctx context.Co
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at FROM user_notification_preferences WHERE user_notification_preferences.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at FROM user_notification_preferences WHERE user_notification_preferences.id = ?")
 
 	var __values []any
 	__values = append(__values, user_notification_preference_id.value())
@@ -44983,56 +52016,11 @@ func (obj *pgxcockroachImpl) Get_UserNotificationPreference_By_Id(ctx context.Co
 	obj.logStmt(__stmt, __values...)
 
 	user_notification_preference = &UserNotificationPreference{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.Category, &user_notification_preference.Preferences, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.Preferences, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
 	if err != nil {
 		return (*UserNotificationPreference)(nil), obj.makeErr(err)
 	}
 	return user_notification_preference, nil
-
-}
-
-func (obj *pgxcockroachImpl) All_UserNotificationPreference_By_UserId(ctx context.Context,
-	user_notification_preference_user_id UserNotificationPreference_UserId_Field) (
-	rows []*UserNotificationPreference, err error) {
-	defer mon.Task()(&ctx)(&err)
-	if !obj.txn && txutil.IsInsideTx(ctx) {
-		panic("using DB when inside of a transaction")
-	}
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at FROM user_notification_preferences WHERE user_notification_preferences.user_id = ?")
-
-	var __values []any
-	__values = append(__values, user_notification_preference_user_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	for {
-		rows, err = func() (rows []*UserNotificationPreference, err error) {
-			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-			if err != nil {
-				return nil, err
-			}
-			defer closeRows(__rows, &err)
-
-			for __rows.Next() {
-				user_notification_preference := &UserNotificationPreference{}
-				err = __rows.Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.Category, &user_notification_preference.Preferences, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
-				if err != nil {
-					return nil, err
-				}
-				rows = append(rows, user_notification_preference)
-			}
-			return rows, nil
-		}()
-		if err != nil {
-			if obj.shouldRetry(err) {
-				continue
-			}
-			return nil, obj.makeErr(err)
-		}
-		return rows, nil
-	}
 
 }
 
@@ -45044,7 +52032,7 @@ func (obj *pgxcockroachImpl) Get_UserNotificationPreference_By_UserId(ctx contex
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at FROM user_notification_preferences WHERE user_notification_preferences.user_id = ? LIMIT 2")
+	var __embed_stmt = __sqlbundle_Literal("SELECT user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at FROM user_notification_preferences WHERE user_notification_preferences.user_id = ?")
 
 	var __values []any
 	__values = append(__values, user_notification_preference_user_id.value())
@@ -45052,102 +52040,12 @@ func (obj *pgxcockroachImpl) Get_UserNotificationPreference_By_UserId(ctx contex
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	for {
-		user_notification_preference, err = func() (user_notification_preference *UserNotificationPreference, err error) {
-			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-			if err != nil {
-				return nil, err
-			}
-			defer closeRows(__rows, &err)
-
-			if !__rows.Next() {
-				return nil, sql.ErrNoRows
-			}
-
-			user_notification_preference = &UserNotificationPreference{}
-			err = __rows.Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.Category, &user_notification_preference.Preferences, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
-			if err != nil {
-				return nil, err
-			}
-
-			if __rows.Next() {
-				return nil, errTooManyRows
-			}
-
-			return user_notification_preference, nil
-		}()
-		if err != nil {
-			if obj.shouldRetry(err) {
-				continue
-			}
-			if errors.Is(err, errTooManyRows) {
-				return nil, tooManyRows("UserNotificationPreference_By_UserId")
-			}
-			return nil, obj.makeErr(err)
-		}
-		return user_notification_preference, nil
+	user_notification_preference = &UserNotificationPreference{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.Preferences, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
+	if err != nil {
+		return (*UserNotificationPreference)(nil), obj.makeErr(err)
 	}
-
-}
-
-func (obj *pgxcockroachImpl) Get_UserNotificationPreference_By_UserId_And_Category(ctx context.Context,
-	user_notification_preference_user_id UserNotificationPreference_UserId_Field,
-	user_notification_preference_category UserNotificationPreference_Category_Field) (
-	user_notification_preference *UserNotificationPreference, err error) {
-	defer mon.Task()(&ctx)(&err)
-	if !obj.txn && txutil.IsInsideTx(ctx) {
-		panic("using DB when inside of a transaction")
-	}
-
-	var __cond_0 = &__sqlbundle_Condition{Left: "user_notification_preferences.category", Equal: true, Right: "?", Null: true}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at FROM user_notification_preferences WHERE user_notification_preferences.user_id = ? AND "), __cond_0, __sqlbundle_Literal(" LIMIT 2")}}
-
-	var __values []any
-	__values = append(__values, user_notification_preference_user_id.value())
-	if !user_notification_preference_category.isnull() {
-		__cond_0.Null = false
-		__values = append(__values, user_notification_preference_category.value())
-	}
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	for {
-		user_notification_preference, err = func() (user_notification_preference *UserNotificationPreference, err error) {
-			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-			if err != nil {
-				return nil, err
-			}
-			defer closeRows(__rows, &err)
-
-			if !__rows.Next() {
-				return nil, sql.ErrNoRows
-			}
-
-			user_notification_preference = &UserNotificationPreference{}
-			err = __rows.Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.Category, &user_notification_preference.Preferences, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
-			if err != nil {
-				return nil, err
-			}
-
-			if __rows.Next() {
-				return nil, errTooManyRows
-			}
-
-			return user_notification_preference, nil
-		}()
-		if err != nil {
-			if obj.shouldRetry(err) {
-				continue
-			}
-			if errors.Is(err, errTooManyRows) {
-				return nil, tooManyRows("UserNotificationPreference_By_UserId_And_Category")
-			}
-			return nil, obj.makeErr(err)
-		}
-		return user_notification_preference, nil
-	}
+	return user_notification_preference, nil
 
 }
 
@@ -45227,49 +52125,49 @@ func (obj *pgxcockroachImpl) Get_OauthToken_By_Kind_And_Token(ctx context.Contex
 
 }
 
-func (obj *pgxcockroachImpl) Get_GoogleBackupCredentials_By_Id(ctx context.Context,
-	google_backup_credentials_id GoogleBackupCredentials_Id_Field) (
-	google_backup_credentials *GoogleBackupCredentials, err error) {
+func (obj *pgxcockroachImpl) Get_BackupCredentials_By_Id(ctx context.Context,
+	backup_credentials_id BackupCredentials_Id_Field) (
+	backup_credentials *BackupCredentials, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !obj.txn && txutil.IsInsideTx(ctx) {
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT google_backup_credentials.id, google_backup_credentials.user_id, google_backup_credentials.google_email, google_backup_credentials.access_token, google_backup_credentials.refresh_token, google_backup_credentials.access_token_expiry, google_backup_credentials.account_type, google_backup_credentials.created_at, google_backup_credentials.updated_at FROM google_backup_credentials WHERE google_backup_credentials.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at FROM backup_credentials WHERE backup_credentials.id = ?")
 
 	var __values []any
-	__values = append(__values, google_backup_credentials_id.value())
+	__values = append(__values, backup_credentials_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	google_backup_credentials = &GoogleBackupCredentials{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&google_backup_credentials.Id, &google_backup_credentials.UserId, &google_backup_credentials.GoogleEmail, &google_backup_credentials.AccessToken, &google_backup_credentials.RefreshToken, &google_backup_credentials.AccessTokenExpiry, &google_backup_credentials.AccountType, &google_backup_credentials.CreatedAt, &google_backup_credentials.UpdatedAt)
+	backup_credentials = &BackupCredentials{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
 	if err != nil {
-		return (*GoogleBackupCredentials)(nil), obj.makeErr(err)
+		return (*BackupCredentials)(nil), obj.makeErr(err)
 	}
-	return google_backup_credentials, nil
+	return backup_credentials, nil
 
 }
 
-func (obj *pgxcockroachImpl) All_GoogleBackupCredentials_By_UserId(ctx context.Context,
-	google_backup_credentials_user_id GoogleBackupCredentials_UserId_Field) (
-	rows []*GoogleBackupCredentials, err error) {
+func (obj *pgxcockroachImpl) All_BackupCredentials_By_UserId(ctx context.Context,
+	backup_credentials_user_id BackupCredentials_UserId_Field) (
+	rows []*BackupCredentials, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !obj.txn && txutil.IsInsideTx(ctx) {
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT google_backup_credentials.id, google_backup_credentials.user_id, google_backup_credentials.google_email, google_backup_credentials.access_token, google_backup_credentials.refresh_token, google_backup_credentials.access_token_expiry, google_backup_credentials.account_type, google_backup_credentials.created_at, google_backup_credentials.updated_at FROM google_backup_credentials WHERE google_backup_credentials.user_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at FROM backup_credentials WHERE backup_credentials.user_id = ?")
 
 	var __values []any
-	__values = append(__values, google_backup_credentials_user_id.value())
+	__values = append(__values, backup_credentials_user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	for {
-		rows, err = func() (rows []*GoogleBackupCredentials, err error) {
+		rows, err = func() (rows []*BackupCredentials, err error) {
 			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 			if err != nil {
 				return nil, err
@@ -45277,12 +52175,58 @@ func (obj *pgxcockroachImpl) All_GoogleBackupCredentials_By_UserId(ctx context.C
 			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
-				google_backup_credentials := &GoogleBackupCredentials{}
-				err = __rows.Scan(&google_backup_credentials.Id, &google_backup_credentials.UserId, &google_backup_credentials.GoogleEmail, &google_backup_credentials.AccessToken, &google_backup_credentials.RefreshToken, &google_backup_credentials.AccessTokenExpiry, &google_backup_credentials.AccountType, &google_backup_credentials.CreatedAt, &google_backup_credentials.UpdatedAt)
+				backup_credentials := &BackupCredentials{}
+				err = __rows.Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
 				if err != nil {
 					return nil, err
 				}
-				rows = append(rows, google_backup_credentials)
+				rows = append(rows, backup_credentials)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) All_BackupCredentials_By_UserId_And_Provider(ctx context.Context,
+	backup_credentials_user_id BackupCredentials_UserId_Field,
+	backup_credentials_provider BackupCredentials_Provider_Field) (
+	rows []*BackupCredentials, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at FROM backup_credentials WHERE backup_credentials.user_id = ? AND backup_credentials.provider = ?")
+
+	var __values []any
+	__values = append(__values, backup_credentials_user_id.value(), backup_credentials_provider.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*BackupCredentials, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				backup_credentials := &BackupCredentials{}
+				err = __rows.Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, backup_credentials)
 			}
 			return rows, nil
 		}()
@@ -46205,7 +53149,7 @@ func (obj *pgxcockroachImpl) Get_ProjectInvitation_By_ProjectId_And_Email(ctx co
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at FROM project_invitations WHERE project_invitations.project_id = ? AND project_invitations.email = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at, project_invitations.expires_at FROM project_invitations WHERE project_invitations.project_id = ? AND project_invitations.email = ?")
 
 	var __values []any
 	__values = append(__values, project_invitation_project_id.value(), project_invitation_email.value())
@@ -46214,7 +53158,7 @@ func (obj *pgxcockroachImpl) Get_ProjectInvitation_By_ProjectId_And_Email(ctx co
 	obj.logStmt(__stmt, __values...)
 
 	project_invitation = &ProjectInvitation{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt, &project_invitation.ExpiresAt)
 	if err != nil {
 		return (*ProjectInvitation)(nil), obj.makeErr(err)
 	}
@@ -46230,7 +53174,7 @@ func (obj *pgxcockroachImpl) All_ProjectInvitation_By_Email(ctx context.Context,
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at FROM project_invitations WHERE project_invitations.email = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at, project_invitations.expires_at FROM project_invitations WHERE project_invitations.email = ?")
 
 	var __values []any
 	__values = append(__values, project_invitation_email.value())
@@ -46248,7 +53192,7 @@ func (obj *pgxcockroachImpl) All_ProjectInvitation_By_Email(ctx context.Context,
 
 			for __rows.Next() {
 				project_invitation := &ProjectInvitation{}
-				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt, &project_invitation.ExpiresAt)
 				if err != nil {
 					return nil, err
 				}
@@ -46278,7 +53222,7 @@ func (obj *pgxcockroachImpl) All_ProjectInvitation_By_Project_Status_And_Project
 
 	var __cond_0 = &__sqlbundle_Condition{Left: "projects.status", Equal: true, Right: "?", Null: true}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at FROM project_invitations  JOIN projects ON project_invitations.project_id = projects.id WHERE "), __cond_0, __sqlbundle_Literal(" AND project_invitations.email = ?")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at, project_invitations.expires_at FROM project_invitations  JOIN projects ON project_invitations.project_id = projects.id WHERE "), __cond_0, __sqlbundle_Literal(" AND project_invitations.email = ?")}}
 
 	var __values []any
 	if !project_status.isnull() {
@@ -46300,7 +53244,7 @@ func (obj *pgxcockroachImpl) All_ProjectInvitation_By_Project_Status_And_Project
 
 			for __rows.Next() {
 				project_invitation := &ProjectInvitation{}
-				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt, &project_invitation.ExpiresAt)
 				if err != nil {
 					return nil, err
 				}
@@ -46332,7 +53276,7 @@ func (obj *pgxcockroachImpl) All_ProjectInvitation_By_Project_Status_And_Project
 	var __cond_0 = &__sqlbundle_Condition{Left: "projects.status", Equal: true, Right: "?", Null: true}
 	var __cond_1 = &__sqlbundle_Condition{Left: "users.tenant_id", Equal: true, Right: "?", Null: true}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at FROM project_invitations  JOIN projects ON project_invitations.project_id = projects.id  JOIN users ON project_invitations.inviter_id = users.id WHERE "), __cond_0, __sqlbundle_Literal(" AND project_invitations.email = ? AND "), __cond_1}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at, project_invitations.expires_at FROM project_invitations  JOIN projects ON project_invitations.project_id = projects.id  JOIN users ON project_invitations.inviter_id = users.id WHERE "), __cond_0, __sqlbundle_Literal(" AND project_invitations.email = ? AND "), __cond_1}}
 
 	var __values []any
 	if !project_status.isnull() {
@@ -46358,7 +53302,7 @@ func (obj *pgxcockroachImpl) All_ProjectInvitation_By_Project_Status_And_Project
 
 			for __rows.Next() {
 				project_invitation := &ProjectInvitation{}
-				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt, &project_invitation.ExpiresAt)
 				if err != nil {
 					return nil, err
 				}
@@ -46385,7 +53329,7 @@ func (obj *pgxcockroachImpl) All_ProjectInvitation_By_ProjectId(ctx context.Cont
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at FROM project_invitations WHERE project_invitations.project_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at, project_invitations.expires_at FROM project_invitations WHERE project_invitations.project_id = ?")
 
 	var __values []any
 	__values = append(__values, project_invitation_project_id.value())
@@ -46403,7 +53347,7 @@ func (obj *pgxcockroachImpl) All_ProjectInvitation_By_ProjectId(ctx context.Cont
 
 			for __rows.Next() {
 				project_invitation := &ProjectInvitation{}
-				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt, &project_invitation.ExpiresAt)
 				if err != nil {
 					return nil, err
 				}
@@ -46520,6 +53464,200 @@ func (obj *pgxcockroachImpl) Get_ApiKeyTail_By_Tail(ctx context.Context,
 		return (*ApiKeyTail)(nil), obj.makeErr(err)
 	}
 	return api_key_tail, nil
+
+}
+
+func (obj *pgxcockroachImpl) All_ProjectMemberAclBucket_By_ProjectId(ctx context.Context,
+	project_member_acl_bucket_project_id ProjectMemberAclBucket_ProjectId_Field) (
+	rows []*ProjectMemberAclBucket, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_member_acl_buckets.project_id, project_member_acl_buckets.bucket_name, project_member_acl_buckets.created_at FROM project_member_acl_buckets WHERE project_member_acl_buckets.project_id = ?")
+
+	var __values []any
+	__values = append(__values, project_member_acl_bucket_project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*ProjectMemberAclBucket, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				project_member_acl_bucket := &ProjectMemberAclBucket{}
+				err = __rows.Scan(&project_member_acl_bucket.ProjectId, &project_member_acl_bucket.BucketName, &project_member_acl_bucket.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, project_member_acl_bucket)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) Get_ProjectMemberAclBucket_By_ProjectId_And_BucketName(ctx context.Context,
+	project_member_acl_bucket_project_id ProjectMemberAclBucket_ProjectId_Field,
+	project_member_acl_bucket_bucket_name ProjectMemberAclBucket_BucketName_Field) (
+	project_member_acl_bucket *ProjectMemberAclBucket, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_member_acl_buckets.project_id, project_member_acl_buckets.bucket_name, project_member_acl_buckets.created_at FROM project_member_acl_buckets WHERE project_member_acl_buckets.project_id = ? AND project_member_acl_buckets.bucket_name = ?")
+
+	var __values []any
+	__values = append(__values, project_member_acl_bucket_project_id.value(), project_member_acl_bucket_bucket_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	project_member_acl_bucket = &ProjectMemberAclBucket{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_member_acl_bucket.ProjectId, &project_member_acl_bucket.BucketName, &project_member_acl_bucket.CreatedAt)
+	if err != nil {
+		return (*ProjectMemberAclBucket)(nil), obj.makeErr(err)
+	}
+	return project_member_acl_bucket, nil
+
+}
+
+func (obj *pgxcockroachImpl) All_MemberBucketGrant_By_ProjectId_And_MemberId(ctx context.Context,
+	member_bucket_grant_project_id MemberBucketGrant_ProjectId_Field,
+	member_bucket_grant_member_id MemberBucketGrant_MemberId_Field) (
+	rows []*MemberBucketGrant, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "member_bucket_grants.member_id", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at FROM member_bucket_grants WHERE member_bucket_grants.project_id = ? AND "), __cond_0}}
+
+	var __values []any
+	__values = append(__values, member_bucket_grant_project_id.value())
+	if !member_bucket_grant_member_id.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, member_bucket_grant_member_id.value())
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*MemberBucketGrant, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				member_bucket_grant := &MemberBucketGrant{}
+				err = __rows.Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, member_bucket_grant)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) All_MemberBucketGrant_By_ProjectId_And_InviteEmail(ctx context.Context,
+	member_bucket_grant_project_id MemberBucketGrant_ProjectId_Field,
+	member_bucket_grant_invite_email MemberBucketGrant_InviteEmail_Field) (
+	rows []*MemberBucketGrant, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at FROM member_bucket_grants WHERE member_bucket_grants.project_id = ? AND member_bucket_grants.invite_email = ?")
+
+	var __values []any
+	__values = append(__values, member_bucket_grant_project_id.value(), member_bucket_grant_invite_email.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*MemberBucketGrant, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				member_bucket_grant := &MemberBucketGrant{}
+				err = __rows.Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, member_bucket_grant)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) Get_MemberBucketGrant_By_Id(ctx context.Context,
+	member_bucket_grant_id MemberBucketGrant_Id_Field) (
+	member_bucket_grant *MemberBucketGrant, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at FROM member_bucket_grants WHERE member_bucket_grants.id = ?")
+
+	var __values []any
+	__values = append(__values, member_bucket_grant_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	member_bucket_grant = &MemberBucketGrant{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt)
+	if err != nil {
+		return (*MemberBucketGrant)(nil), obj.makeErr(err)
+	}
+	return member_bucket_grant, nil
 
 }
 
@@ -47130,6 +54268,692 @@ func (obj *pgxcockroachImpl) Limited_BucketMigration_By_State_OrderBy_Asc_Create
 		}
 		return rows, nil
 	}
+
+}
+
+func (obj *pgxcockroachImpl) All_Reseller(ctx context.Context) (
+	rows []*Reseller, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT resellers.id, resellers.name, resellers.email, resellers.password_hash, resellers.company_name, resellers.status, resellers.created_at, resellers.updated_at, resellers.deleted_at, resellers.failed_login_count, resellers.login_lockout_expiration, resellers.activation_code, resellers.signup_id, resellers.new_unverified_email, resellers.email_change_verification_step, resellers.mfa_enabled, resellers.mfa_secret_key, resellers.mfa_recovery_codes FROM resellers")
+
+	var __values []any
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Reseller, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				reseller := &Reseller{}
+				err = __rows.Scan(&reseller.Id, &reseller.Name, &reseller.Email, &reseller.PasswordHash, &reseller.CompanyName, &reseller.Status, &reseller.CreatedAt, &reseller.UpdatedAt, &reseller.DeletedAt, &reseller.FailedLoginCount, &reseller.LoginLockoutExpiration, &reseller.ActivationCode, &reseller.SignupId, &reseller.NewUnverifiedEmail, &reseller.EmailChangeVerificationStep, &reseller.MfaEnabled, &reseller.MfaSecretKey, &reseller.MfaRecoveryCodes)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, reseller)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) Get_Reseller_By_Id(ctx context.Context,
+	reseller_id Reseller_Id_Field) (
+	reseller *Reseller, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT resellers.id, resellers.name, resellers.email, resellers.password_hash, resellers.company_name, resellers.status, resellers.created_at, resellers.updated_at, resellers.deleted_at, resellers.failed_login_count, resellers.login_lockout_expiration, resellers.activation_code, resellers.signup_id, resellers.new_unverified_email, resellers.email_change_verification_step, resellers.mfa_enabled, resellers.mfa_secret_key, resellers.mfa_recovery_codes FROM resellers WHERE resellers.id = ?")
+
+	var __values []any
+	__values = append(__values, reseller_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller = &Reseller{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reseller.Id, &reseller.Name, &reseller.Email, &reseller.PasswordHash, &reseller.CompanyName, &reseller.Status, &reseller.CreatedAt, &reseller.UpdatedAt, &reseller.DeletedAt, &reseller.FailedLoginCount, &reseller.LoginLockoutExpiration, &reseller.ActivationCode, &reseller.SignupId, &reseller.NewUnverifiedEmail, &reseller.EmailChangeVerificationStep, &reseller.MfaEnabled, &reseller.MfaSecretKey, &reseller.MfaRecoveryCodes)
+	if err != nil {
+		return (*Reseller)(nil), obj.makeErr(err)
+	}
+	return reseller, nil
+
+}
+
+func (obj *pgxcockroachImpl) Get_Reseller_By_Email_And_Status_Not_Number(ctx context.Context,
+	reseller_email Reseller_Email_Field) (
+	reseller *Reseller, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT resellers.id, resellers.name, resellers.email, resellers.password_hash, resellers.company_name, resellers.status, resellers.created_at, resellers.updated_at, resellers.deleted_at, resellers.failed_login_count, resellers.login_lockout_expiration, resellers.activation_code, resellers.signup_id, resellers.new_unverified_email, resellers.email_change_verification_step, resellers.mfa_enabled, resellers.mfa_secret_key, resellers.mfa_recovery_codes FROM resellers WHERE resellers.email = ? AND resellers.status != 0")
+
+	var __values []any
+	__values = append(__values, reseller_email.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller = &Reseller{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reseller.Id, &reseller.Name, &reseller.Email, &reseller.PasswordHash, &reseller.CompanyName, &reseller.Status, &reseller.CreatedAt, &reseller.UpdatedAt, &reseller.DeletedAt, &reseller.FailedLoginCount, &reseller.LoginLockoutExpiration, &reseller.ActivationCode, &reseller.SignupId, &reseller.NewUnverifiedEmail, &reseller.EmailChangeVerificationStep, &reseller.MfaEnabled, &reseller.MfaSecretKey, &reseller.MfaRecoveryCodes)
+	if err != nil {
+		return (*Reseller)(nil), obj.makeErr(err)
+	}
+	return reseller, nil
+
+}
+
+func (obj *pgxcockroachImpl) Get_Reseller_By_Email(ctx context.Context,
+	reseller_email Reseller_Email_Field) (
+	reseller *Reseller, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT resellers.id, resellers.name, resellers.email, resellers.password_hash, resellers.company_name, resellers.status, resellers.created_at, resellers.updated_at, resellers.deleted_at, resellers.failed_login_count, resellers.login_lockout_expiration, resellers.activation_code, resellers.signup_id, resellers.new_unverified_email, resellers.email_change_verification_step, resellers.mfa_enabled, resellers.mfa_secret_key, resellers.mfa_recovery_codes FROM resellers WHERE resellers.email = ?")
+
+	var __values []any
+	__values = append(__values, reseller_email.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller = &Reseller{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reseller.Id, &reseller.Name, &reseller.Email, &reseller.PasswordHash, &reseller.CompanyName, &reseller.Status, &reseller.CreatedAt, &reseller.UpdatedAt, &reseller.DeletedAt, &reseller.FailedLoginCount, &reseller.LoginLockoutExpiration, &reseller.ActivationCode, &reseller.SignupId, &reseller.NewUnverifiedEmail, &reseller.EmailChangeVerificationStep, &reseller.MfaEnabled, &reseller.MfaSecretKey, &reseller.MfaRecoveryCodes)
+	if err != nil {
+		return (*Reseller)(nil), obj.makeErr(err)
+	}
+	return reseller, nil
+
+}
+
+func (obj *pgxcockroachImpl) Get_ResellerConfig_By_Id(ctx context.Context,
+	reseller_config_id ResellerConfig_Id_Field) (
+	reseller_config *ResellerConfig, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT reseller_configs.id, reseller_configs.reseller_id, reseller_configs.config, reseller_configs.active_theme_type, reseller_configs.active_theme_id, reseller_configs.created_at, reseller_configs.updated_at FROM reseller_configs WHERE reseller_configs.id = ?")
+
+	var __values []any
+	__values = append(__values, reseller_config_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller_config = &ResellerConfig{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reseller_config.Id, &reseller_config.ResellerId, &reseller_config.Config, &reseller_config.ActiveThemeType, &reseller_config.ActiveThemeId, &reseller_config.CreatedAt, &reseller_config.UpdatedAt)
+	if err != nil {
+		return (*ResellerConfig)(nil), obj.makeErr(err)
+	}
+	return reseller_config, nil
+
+}
+
+func (obj *pgxcockroachImpl) Get_ResellerConfig_By_ResellerId(ctx context.Context,
+	reseller_config_reseller_id ResellerConfig_ResellerId_Field) (
+	reseller_config *ResellerConfig, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT reseller_configs.id, reseller_configs.reseller_id, reseller_configs.config, reseller_configs.active_theme_type, reseller_configs.active_theme_id, reseller_configs.created_at, reseller_configs.updated_at FROM reseller_configs WHERE reseller_configs.reseller_id = ?")
+
+	var __values []any
+	__values = append(__values, reseller_config_reseller_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller_config = &ResellerConfig{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reseller_config.Id, &reseller_config.ResellerId, &reseller_config.Config, &reseller_config.ActiveThemeType, &reseller_config.ActiveThemeId, &reseller_config.CreatedAt, &reseller_config.UpdatedAt)
+	if err != nil {
+		return (*ResellerConfig)(nil), obj.makeErr(err)
+	}
+	return reseller_config, nil
+
+}
+
+func (obj *pgxcockroachImpl) Get_ResellerDomain_By_Id(ctx context.Context,
+	reseller_domain_id ResellerDomain_Id_Field) (
+	reseller_domain *ResellerDomain, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT reseller_domains.id, reseller_domains.reseller_id, reseller_domains.domain, reseller_domains.domain_type, reseller_domains.status, reseller_domains.verification_method, reseller_domains.verification_status, reseller_domains.ssl_status, reseller_domains.dns_target, reseller_domains.verified_at, reseller_domains.created_at, reseller_domains.updated_at, reseller_domains.deleted_at FROM reseller_domains WHERE reseller_domains.id = ?")
+
+	var __values []any
+	__values = append(__values, reseller_domain_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller_domain = &ResellerDomain{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reseller_domain.Id, &reseller_domain.ResellerId, &reseller_domain.Domain, &reseller_domain.DomainType, &reseller_domain.Status, &reseller_domain.VerificationMethod, &reseller_domain.VerificationStatus, &reseller_domain.SslStatus, &reseller_domain.DnsTarget, &reseller_domain.VerifiedAt, &reseller_domain.CreatedAt, &reseller_domain.UpdatedAt, &reseller_domain.DeletedAt)
+	if err != nil {
+		return (*ResellerDomain)(nil), obj.makeErr(err)
+	}
+	return reseller_domain, nil
+
+}
+
+func (obj *pgxcockroachImpl) Get_ResellerDomain_By_ResellerId(ctx context.Context,
+	reseller_domain_reseller_id ResellerDomain_ResellerId_Field) (
+	reseller_domain *ResellerDomain, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT reseller_domains.id, reseller_domains.reseller_id, reseller_domains.domain, reseller_domains.domain_type, reseller_domains.status, reseller_domains.verification_method, reseller_domains.verification_status, reseller_domains.ssl_status, reseller_domains.dns_target, reseller_domains.verified_at, reseller_domains.created_at, reseller_domains.updated_at, reseller_domains.deleted_at FROM reseller_domains WHERE reseller_domains.reseller_id = ?")
+
+	var __values []any
+	__values = append(__values, reseller_domain_reseller_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller_domain = &ResellerDomain{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reseller_domain.Id, &reseller_domain.ResellerId, &reseller_domain.Domain, &reseller_domain.DomainType, &reseller_domain.Status, &reseller_domain.VerificationMethod, &reseller_domain.VerificationStatus, &reseller_domain.SslStatus, &reseller_domain.DnsTarget, &reseller_domain.VerifiedAt, &reseller_domain.CreatedAt, &reseller_domain.UpdatedAt, &reseller_domain.DeletedAt)
+	if err != nil {
+		return (*ResellerDomain)(nil), obj.makeErr(err)
+	}
+	return reseller_domain, nil
+
+}
+
+func (obj *pgxcockroachImpl) Get_ResellerDomain_By_Domain(ctx context.Context,
+	reseller_domain_domain ResellerDomain_Domain_Field) (
+	reseller_domain *ResellerDomain, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT reseller_domains.id, reseller_domains.reseller_id, reseller_domains.domain, reseller_domains.domain_type, reseller_domains.status, reseller_domains.verification_method, reseller_domains.verification_status, reseller_domains.ssl_status, reseller_domains.dns_target, reseller_domains.verified_at, reseller_domains.created_at, reseller_domains.updated_at, reseller_domains.deleted_at FROM reseller_domains WHERE reseller_domains.domain = ? LIMIT 2")
+
+	var __values []any
+	__values = append(__values, reseller_domain_domain.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		reseller_domain, err = func() (reseller_domain *ResellerDomain, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			if !__rows.Next() {
+				return nil, sql.ErrNoRows
+			}
+
+			reseller_domain = &ResellerDomain{}
+			err = __rows.Scan(&reseller_domain.Id, &reseller_domain.ResellerId, &reseller_domain.Domain, &reseller_domain.DomainType, &reseller_domain.Status, &reseller_domain.VerificationMethod, &reseller_domain.VerificationStatus, &reseller_domain.SslStatus, &reseller_domain.DnsTarget, &reseller_domain.VerifiedAt, &reseller_domain.CreatedAt, &reseller_domain.UpdatedAt, &reseller_domain.DeletedAt)
+			if err != nil {
+				return nil, err
+			}
+
+			if __rows.Next() {
+				return nil, errTooManyRows
+			}
+
+			return reseller_domain, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			if errors.Is(err, errTooManyRows) {
+				return nil, tooManyRows("ResellerDomain_By_Domain")
+			}
+			return nil, obj.makeErr(err)
+		}
+		return reseller_domain, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) All_WebappSessionReseller_By_ResellerId(ctx context.Context,
+	webapp_session_reseller_reseller_id WebappSessionReseller_ResellerId_Field) (
+	rows []*WebappSessionReseller, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT webapp_session_resellers.id, webapp_session_resellers.reseller_id, webapp_session_resellers.ip_address, webapp_session_resellers.status, webapp_session_resellers.expires_at FROM webapp_session_resellers WHERE webapp_session_resellers.reseller_id = ?")
+
+	var __values []any
+	__values = append(__values, webapp_session_reseller_reseller_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*WebappSessionReseller, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				webapp_session_reseller := &WebappSessionReseller{}
+				err = __rows.Scan(&webapp_session_reseller.Id, &webapp_session_reseller.ResellerId, &webapp_session_reseller.IpAddress, &webapp_session_reseller.Status, &webapp_session_reseller.ExpiresAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, webapp_session_reseller)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) Get_WebappSessionReseller_By_Id(ctx context.Context,
+	webapp_session_reseller_id WebappSessionReseller_Id_Field) (
+	webapp_session_reseller *WebappSessionReseller, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT webapp_session_resellers.id, webapp_session_resellers.reseller_id, webapp_session_resellers.ip_address, webapp_session_resellers.status, webapp_session_resellers.expires_at FROM webapp_session_resellers WHERE webapp_session_resellers.id = ?")
+
+	var __values []any
+	__values = append(__values, webapp_session_reseller_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	webapp_session_reseller = &WebappSessionReseller{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&webapp_session_reseller.Id, &webapp_session_reseller.ResellerId, &webapp_session_reseller.IpAddress, &webapp_session_reseller.Status, &webapp_session_reseller.ExpiresAt)
+	if err != nil {
+		return (*WebappSessionReseller)(nil), obj.makeErr(err)
+	}
+	return webapp_session_reseller, nil
+
+}
+
+func (obj *pgxcockroachImpl) Get_ResetPasswordTokenReseller_By_Secret(ctx context.Context,
+	reset_password_token_reseller_secret ResetPasswordTokenReseller_Secret_Field) (
+	reset_password_token_reseller *ResetPasswordTokenReseller, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT reset_password_token_resellers.secret, reset_password_token_resellers.owner_id, reset_password_token_resellers.created_at FROM reset_password_token_resellers WHERE reset_password_token_resellers.secret = ?")
+
+	var __values []any
+	__values = append(__values, reset_password_token_reseller_secret.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reset_password_token_reseller = &ResetPasswordTokenReseller{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reset_password_token_reseller.Secret, &reset_password_token_reseller.OwnerId, &reset_password_token_reseller.CreatedAt)
+	if err != nil {
+		return (*ResetPasswordTokenReseller)(nil), obj.makeErr(err)
+	}
+	return reset_password_token_reseller, nil
+
+}
+
+func (obj *pgxcockroachImpl) Get_ResetPasswordTokenReseller_By_OwnerId(ctx context.Context,
+	reset_password_token_reseller_owner_id ResetPasswordTokenReseller_OwnerId_Field) (
+	reset_password_token_reseller *ResetPasswordTokenReseller, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT reset_password_token_resellers.secret, reset_password_token_resellers.owner_id, reset_password_token_resellers.created_at FROM reset_password_token_resellers WHERE reset_password_token_resellers.owner_id = ?")
+
+	var __values []any
+	__values = append(__values, reset_password_token_reseller_owner_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reset_password_token_reseller = &ResetPasswordTokenReseller{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reset_password_token_reseller.Secret, &reset_password_token_reseller.OwnerId, &reset_password_token_reseller.CreatedAt)
+	if err != nil {
+		return (*ResetPasswordTokenReseller)(nil), obj.makeErr(err)
+	}
+	return reset_password_token_reseller, nil
+
+}
+
+func (obj *pgxcockroachImpl) Get_ResellerDeleteRequest_By_ResellerId(ctx context.Context,
+	reseller_delete_request_reseller_id ResellerDeleteRequest_ResellerId_Field) (
+	reseller_delete_request *ResellerDeleteRequest, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT reseller_delete_requests.id, reseller_delete_requests.reseller_id, reseller_delete_requests.status, reseller_delete_requests.error, reseller_delete_requests.delete_at, reseller_delete_requests.created_at FROM reseller_delete_requests WHERE reseller_delete_requests.reseller_id = ? LIMIT 2")
+
+	var __values []any
+	__values = append(__values, reseller_delete_request_reseller_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		reseller_delete_request, err = func() (reseller_delete_request *ResellerDeleteRequest, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			if !__rows.Next() {
+				return nil, sql.ErrNoRows
+			}
+
+			reseller_delete_request = &ResellerDeleteRequest{}
+			err = __rows.Scan(&reseller_delete_request.Id, &reseller_delete_request.ResellerId, &reseller_delete_request.Status, &reseller_delete_request.Error, &reseller_delete_request.DeleteAt, &reseller_delete_request.CreatedAt)
+			if err != nil {
+				return nil, err
+			}
+
+			if __rows.Next() {
+				return nil, errTooManyRows
+			}
+
+			return reseller_delete_request, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			if errors.Is(err, errTooManyRows) {
+				return nil, tooManyRows("ResellerDeleteRequest_By_ResellerId")
+			}
+			return nil, obj.makeErr(err)
+		}
+		return reseller_delete_request, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) All_ThemePreset(ctx context.Context) (
+	rows []*ThemePreset, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT theme_presets.id, theme_presets.slug, theme_presets.name, theme_presets.description, theme_presets.colors, theme_presets.is_system, theme_presets.created_at, theme_presets.updated_at FROM theme_presets")
+
+	var __values []any
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*ThemePreset, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				theme_preset := &ThemePreset{}
+				err = __rows.Scan(&theme_preset.Id, &theme_preset.Slug, &theme_preset.Name, &theme_preset.Description, &theme_preset.Colors, &theme_preset.IsSystem, &theme_preset.CreatedAt, &theme_preset.UpdatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, theme_preset)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) Get_ThemePreset_By_Id(ctx context.Context,
+	theme_preset_id ThemePreset_Id_Field) (
+	theme_preset *ThemePreset, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT theme_presets.id, theme_presets.slug, theme_presets.name, theme_presets.description, theme_presets.colors, theme_presets.is_system, theme_presets.created_at, theme_presets.updated_at FROM theme_presets WHERE theme_presets.id = ?")
+
+	var __values []any
+	__values = append(__values, theme_preset_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	theme_preset = &ThemePreset{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&theme_preset.Id, &theme_preset.Slug, &theme_preset.Name, &theme_preset.Description, &theme_preset.Colors, &theme_preset.IsSystem, &theme_preset.CreatedAt, &theme_preset.UpdatedAt)
+	if err != nil {
+		return (*ThemePreset)(nil), obj.makeErr(err)
+	}
+	return theme_preset, nil
+
+}
+
+func (obj *pgxcockroachImpl) Get_ThemePreset_By_Slug(ctx context.Context,
+	theme_preset_slug ThemePreset_Slug_Field) (
+	theme_preset *ThemePreset, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT theme_presets.id, theme_presets.slug, theme_presets.name, theme_presets.description, theme_presets.colors, theme_presets.is_system, theme_presets.created_at, theme_presets.updated_at FROM theme_presets WHERE theme_presets.slug = ?")
+
+	var __values []any
+	__values = append(__values, theme_preset_slug.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	theme_preset = &ThemePreset{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&theme_preset.Id, &theme_preset.Slug, &theme_preset.Name, &theme_preset.Description, &theme_preset.Colors, &theme_preset.IsSystem, &theme_preset.CreatedAt, &theme_preset.UpdatedAt)
+	if err != nil {
+		return (*ThemePreset)(nil), obj.makeErr(err)
+	}
+	return theme_preset, nil
+
+}
+
+func (obj *pgxcockroachImpl) Get_ThemePreset_By_Name(ctx context.Context,
+	theme_preset_name ThemePreset_Name_Field) (
+	theme_preset *ThemePreset, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT theme_presets.id, theme_presets.slug, theme_presets.name, theme_presets.description, theme_presets.colors, theme_presets.is_system, theme_presets.created_at, theme_presets.updated_at FROM theme_presets WHERE theme_presets.name = ?")
+
+	var __values []any
+	__values = append(__values, theme_preset_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	theme_preset = &ThemePreset{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&theme_preset.Id, &theme_preset.Slug, &theme_preset.Name, &theme_preset.Description, &theme_preset.Colors, &theme_preset.IsSystem, &theme_preset.CreatedAt, &theme_preset.UpdatedAt)
+	if err != nil {
+		return (*ThemePreset)(nil), obj.makeErr(err)
+	}
+	return theme_preset, nil
+
+}
+
+func (obj *pgxcockroachImpl) All_ResellerTheme_By_ResellerId(ctx context.Context,
+	reseller_theme_reseller_id ResellerTheme_ResellerId_Field) (
+	rows []*ResellerTheme, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT reseller_themes.id, reseller_themes.reseller_id, reseller_themes.name, reseller_themes.colors, reseller_themes.created_at, reseller_themes.updated_at FROM reseller_themes WHERE reseller_themes.reseller_id = ?")
+
+	var __values []any
+	__values = append(__values, reseller_theme_reseller_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*ResellerTheme, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				reseller_theme := &ResellerTheme{}
+				err = __rows.Scan(&reseller_theme.Id, &reseller_theme.ResellerId, &reseller_theme.Name, &reseller_theme.Colors, &reseller_theme.CreatedAt, &reseller_theme.UpdatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, reseller_theme)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) Get_ResellerTheme_By_Id(ctx context.Context,
+	reseller_theme_id ResellerTheme_Id_Field) (
+	reseller_theme *ResellerTheme, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT reseller_themes.id, reseller_themes.reseller_id, reseller_themes.name, reseller_themes.colors, reseller_themes.created_at, reseller_themes.updated_at FROM reseller_themes WHERE reseller_themes.id = ?")
+
+	var __values []any
+	__values = append(__values, reseller_theme_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller_theme = &ResellerTheme{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reseller_theme.Id, &reseller_theme.ResellerId, &reseller_theme.Name, &reseller_theme.Colors, &reseller_theme.CreatedAt, &reseller_theme.UpdatedAt)
+	if err != nil {
+		return (*ResellerTheme)(nil), obj.makeErr(err)
+	}
+	return reseller_theme, nil
+
+}
+
+func (obj *pgxcockroachImpl) Get_ResellerTheme_By_Id_And_ResellerId(ctx context.Context,
+	reseller_theme_id ResellerTheme_Id_Field,
+	reseller_theme_reseller_id ResellerTheme_ResellerId_Field) (
+	reseller_theme *ResellerTheme, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT reseller_themes.id, reseller_themes.reseller_id, reseller_themes.name, reseller_themes.colors, reseller_themes.created_at, reseller_themes.updated_at FROM reseller_themes WHERE reseller_themes.id = ? AND reseller_themes.reseller_id = ?")
+
+	var __values []any
+	__values = append(__values, reseller_theme_id.value(), reseller_theme_reseller_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller_theme = &ResellerTheme{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reseller_theme.Id, &reseller_theme.ResellerId, &reseller_theme.Name, &reseller_theme.Colors, &reseller_theme.CreatedAt, &reseller_theme.UpdatedAt)
+	if err != nil {
+		return (*ResellerTheme)(nil), obj.makeErr(err)
+	}
+	return reseller_theme, nil
+
+}
+
+func (obj *pgxcockroachImpl) Get_ResellerTheme_By_ResellerId_And_Name(ctx context.Context,
+	reseller_theme_reseller_id ResellerTheme_ResellerId_Field,
+	reseller_theme_name ResellerTheme_Name_Field) (
+	reseller_theme *ResellerTheme, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT reseller_themes.id, reseller_themes.reseller_id, reseller_themes.name, reseller_themes.colors, reseller_themes.created_at, reseller_themes.updated_at FROM reseller_themes WHERE reseller_themes.reseller_id = ? AND reseller_themes.name = ?")
+
+	var __values []any
+	__values = append(__values, reseller_theme_reseller_id.value(), reseller_theme_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller_theme = &ResellerTheme{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reseller_theme.Id, &reseller_theme.ResellerId, &reseller_theme.Name, &reseller_theme.Colors, &reseller_theme.CreatedAt, &reseller_theme.UpdatedAt)
+	if err != nil {
+		return (*ResellerTheme)(nil), obj.makeErr(err)
+	}
+	return reseller_theme, nil
 
 }
 
@@ -49452,6 +57276,146 @@ func (obj *pgxcockroachImpl) UpdateNoReturn_PeerIdentity_By_NodeId(ctx context.C
 	return nil
 }
 
+func (obj *pgxcockroachImpl) Update_MailExportJob_By_Id(ctx context.Context,
+	mail_export_job_id MailExportJob_Id_Field,
+	update MailExportJob_Update_Fields) (
+	mail_export_job *MailExportJob, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE mail_export_jobs SET "), __sets, __sqlbundle_Literal(" WHERE mail_export_jobs.id = ? RETURNING mail_export_jobs.id, mail_export_jobs.user_id, mail_export_jobs.project_id, mail_export_jobs.access_key_id, mail_export_jobs.bucket, mail_export_jobs.format, mail_export_jobs.mode, mail_export_jobs.prefix, mail_export_jobs.keys_json, mail_export_jobs.access_grant, mail_export_jobs.status, mail_export_jobs.retry_count, mail_export_jobs.progress, mail_export_jobs.processed_files, mail_export_jobs.total_files, mail_export_jobs.processed_bytes, mail_export_jobs.total_bytes, mail_export_jobs.current_object, mail_export_jobs.archive_bucket, mail_export_jobs.archive_key, mail_export_jobs.archive_name, mail_export_jobs.error_message, mail_export_jobs.last_download_charge_id, mail_export_jobs.last_download_charged_bytes, mail_export_jobs.created_at, mail_export_jobs.started_at, mail_export_jobs.completed_at, mail_export_jobs.expires_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.Prefix._set {
+		__values = append(__values, update.Prefix.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("prefix = ?"))
+	}
+
+	if update.KeysJson._set {
+		__values = append(__values, update.KeysJson.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("keys_json = ?"))
+	}
+
+	if update.AccessGrant._set {
+		__values = append(__values, update.AccessGrant.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("access_grant = ?"))
+	}
+
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+
+	if update.RetryCount._set {
+		__values = append(__values, update.RetryCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("retry_count = ?"))
+	}
+
+	if update.Progress._set {
+		__values = append(__values, update.Progress.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("progress = ?"))
+	}
+
+	if update.ProcessedFiles._set {
+		__values = append(__values, update.ProcessedFiles.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("processed_files = ?"))
+	}
+
+	if update.TotalFiles._set {
+		__values = append(__values, update.TotalFiles.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("total_files = ?"))
+	}
+
+	if update.ProcessedBytes._set {
+		__values = append(__values, update.ProcessedBytes.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("processed_bytes = ?"))
+	}
+
+	if update.TotalBytes._set {
+		__values = append(__values, update.TotalBytes.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("total_bytes = ?"))
+	}
+
+	if update.CurrentObject._set {
+		__values = append(__values, update.CurrentObject.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("current_object = ?"))
+	}
+
+	if update.ArchiveBucket._set {
+		__values = append(__values, update.ArchiveBucket.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("archive_bucket = ?"))
+	}
+
+	if update.ArchiveKey._set {
+		__values = append(__values, update.ArchiveKey.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("archive_key = ?"))
+	}
+
+	if update.ArchiveName._set {
+		__values = append(__values, update.ArchiveName.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("archive_name = ?"))
+	}
+
+	if update.ErrorMessage._set {
+		__values = append(__values, update.ErrorMessage.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("error_message = ?"))
+	}
+
+	if update.LastDownloadChargeId._set {
+		__values = append(__values, update.LastDownloadChargeId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_download_charge_id = ?"))
+	}
+
+	if update.LastDownloadChargedBytes._set {
+		__values = append(__values, update.LastDownloadChargedBytes.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_download_charged_bytes = ?"))
+	}
+
+	if update.StartedAt._set {
+		__values = append(__values, update.StartedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("started_at = ?"))
+	}
+
+	if update.CompletedAt._set {
+		__values = append(__values, update.CompletedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("completed_at = ?"))
+	}
+
+	if update.ExpiresAt._set {
+		__values = append(__values, update.ExpiresAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("expires_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, mail_export_job_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	mail_export_job = &MailExportJob{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&mail_export_job.Id, &mail_export_job.UserId, &mail_export_job.ProjectId, &mail_export_job.AccessKeyId, &mail_export_job.Bucket, &mail_export_job.Format, &mail_export_job.Mode, &mail_export_job.Prefix, &mail_export_job.KeysJson, &mail_export_job.AccessGrant, &mail_export_job.Status, &mail_export_job.RetryCount, &mail_export_job.Progress, &mail_export_job.ProcessedFiles, &mail_export_job.TotalFiles, &mail_export_job.ProcessedBytes, &mail_export_job.TotalBytes, &mail_export_job.CurrentObject, &mail_export_job.ArchiveBucket, &mail_export_job.ArchiveKey, &mail_export_job.ArchiveName, &mail_export_job.ErrorMessage, &mail_export_job.LastDownloadChargeId, &mail_export_job.LastDownloadChargedBytes, &mail_export_job.CreatedAt, &mail_export_job.StartedAt, &mail_export_job.CompletedAt, &mail_export_job.ExpiresAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return mail_export_job, nil
+}
+
 func (obj *pgxcockroachImpl) Update_Node_By_Id(ctx context.Context,
 	node_id Node_Id_Field,
 	update Node_Update_Fields) (
@@ -50711,16 +58675,11 @@ func (obj *pgxcockroachImpl) Update_UserNotificationPreference_By_Id(ctx context
 
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE user_notification_preferences SET "), __sets, __sqlbundle_Literal(" WHERE user_notification_preferences.id = ? RETURNING user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE user_notification_preferences SET "), __sets, __sqlbundle_Literal(" WHERE user_notification_preferences.id = ? RETURNING user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []any
 	var __args []any
-
-	if update.Category._set {
-		__values = append(__values, update.Category.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("category = ?"))
-	}
 
 	if update.Preferences._set {
 		__values = append(__values, update.Preferences.value())
@@ -50745,7 +58704,7 @@ func (obj *pgxcockroachImpl) Update_UserNotificationPreference_By_Id(ctx context
 	obj.logStmt(__stmt, __values...)
 
 	user_notification_preference = &UserNotificationPreference{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.Category, &user_notification_preference.Preferences, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.Preferences, &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -50894,10 +58853,10 @@ func (obj *pgxcockroachImpl) UpdateNoReturn_OauthToken_By_Token_And_Kind(ctx con
 	return nil
 }
 
-func (obj *pgxcockroachImpl) Update_GoogleBackupCredentials_By_Id(ctx context.Context,
-	google_backup_credentials_id GoogleBackupCredentials_Id_Field,
-	update GoogleBackupCredentials_Update_Fields) (
-	google_backup_credentials *GoogleBackupCredentials, err error) {
+func (obj *pgxcockroachImpl) Update_BackupCredentials_By_Id(ctx context.Context,
+	backup_credentials_id BackupCredentials_Id_Field,
+	update BackupCredentials_Update_Fields) (
+	backup_credentials *BackupCredentials, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !obj.txn && txutil.IsInsideTx(ctx) {
 		panic("using DB when inside of a transaction")
@@ -50905,7 +58864,7 @@ func (obj *pgxcockroachImpl) Update_GoogleBackupCredentials_By_Id(ctx context.Co
 
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE google_backup_credentials SET "), __sets, __sqlbundle_Literal(" WHERE google_backup_credentials.id = ? RETURNING google_backup_credentials.id, google_backup_credentials.user_id, google_backup_credentials.google_email, google_backup_credentials.access_token, google_backup_credentials.refresh_token, google_backup_credentials.access_token_expiry, google_backup_credentials.account_type, google_backup_credentials.created_at, google_backup_credentials.updated_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE backup_credentials SET "), __sets, __sqlbundle_Literal(" WHERE backup_credentials.id = ? RETURNING backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []any
@@ -50931,12 +58890,22 @@ func (obj *pgxcockroachImpl) Update_GoogleBackupCredentials_By_Id(ctx context.Co
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("account_type = ?"))
 	}
 
+	if update.TenantId._set {
+		__values = append(__values, update.TenantId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("tenant_id = ?"))
+	}
+
+	if update.TenantName._set {
+		__values = append(__values, update.TenantName.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("tenant_name = ?"))
+	}
+
 	__now := obj.db.Hooks.Now().UTC()
 
 	__values = append(__values, __now)
 	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
 
-	__args = append(__args, google_backup_credentials_id.value())
+	__args = append(__args, backup_credentials_id.value())
 
 	__values = append(__values, __args...)
 	__sets.SQL = __sets_sql
@@ -50944,15 +58913,15 @@ func (obj *pgxcockroachImpl) Update_GoogleBackupCredentials_By_Id(ctx context.Co
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	google_backup_credentials = &GoogleBackupCredentials{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&google_backup_credentials.Id, &google_backup_credentials.UserId, &google_backup_credentials.GoogleEmail, &google_backup_credentials.AccessToken, &google_backup_credentials.RefreshToken, &google_backup_credentials.AccessTokenExpiry, &google_backup_credentials.AccountType, &google_backup_credentials.CreatedAt, &google_backup_credentials.UpdatedAt)
+	backup_credentials = &BackupCredentials{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
-	return google_backup_credentials, nil
+	return backup_credentials, nil
 }
 
 func (obj *pgxcockroachImpl) Update_Project_By_Id(ctx context.Context,
@@ -51208,7 +59177,7 @@ func (obj *pgxcockroachImpl) Update_ProjectInvitation_By_ProjectId_And_Email(ctx
 
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE project_invitations SET "), __sets, __sqlbundle_Literal(" WHERE project_invitations.project_id = ? AND project_invitations.email = ? RETURNING project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE project_invitations SET "), __sets, __sqlbundle_Literal(" WHERE project_invitations.project_id = ? AND project_invitations.email = ? RETURNING project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at, project_invitations.expires_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []any
@@ -51224,6 +59193,11 @@ func (obj *pgxcockroachImpl) Update_ProjectInvitation_By_ProjectId_And_Email(ctx
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("created_at = ?"))
 	}
 
+	if update.ExpiresAt._set {
+		__values = append(__values, update.ExpiresAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("expires_at = ?"))
+	}
+
 	if len(__sets_sql.SQLs) == 0 {
 		return nil, emptyUpdate()
 	}
@@ -51237,7 +59211,7 @@ func (obj *pgxcockroachImpl) Update_ProjectInvitation_By_ProjectId_And_Email(ctx
 	obj.logStmt(__stmt, __values...)
 
 	project_invitation = &ProjectInvitation{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt, &project_invitation.ExpiresAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -51286,6 +59260,77 @@ func (obj *pgxcockroachImpl) UpdateNoReturn_ApiKey_By_Id(ctx context.Context,
 		return obj.makeErr(err)
 	}
 	return nil
+}
+
+func (obj *pgxcockroachImpl) Update_MemberBucketGrant_By_Id(ctx context.Context,
+	member_bucket_grant_id MemberBucketGrant_Id_Field,
+	update MemberBucketGrant_Update_Fields) (
+	member_bucket_grant *MemberBucketGrant, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE member_bucket_grants SET "), __sets, __sqlbundle_Literal(" WHERE member_bucket_grants.id = ? RETURNING member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.MemberId._set {
+		__values = append(__values, update.MemberId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("member_id = ?"))
+	}
+
+	if update.AllowList._set {
+		__values = append(__values, update.AllowList.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("allow_list = ?"))
+	}
+
+	if update.AllowDownload._set {
+		__values = append(__values, update.AllowDownload.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("allow_download = ?"))
+	}
+
+	if update.AllowUpload._set {
+		__values = append(__values, update.AllowUpload.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("allow_upload = ?"))
+	}
+
+	if update.AllowDelete._set {
+		__values = append(__values, update.AllowDelete.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("allow_delete = ?"))
+	}
+
+	if update.ExpiresAt._set {
+		__values = append(__values, update.ExpiresAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("expires_at = ?"))
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+
+	__args = append(__args, member_bucket_grant_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	member_bucket_grant = &MemberBucketGrant{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return member_bucket_grant, nil
 }
 
 func (obj *pgxcockroachImpl) Update_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
@@ -51809,6 +59854,586 @@ func (obj *pgxcockroachImpl) Update_BucketMigration_By_Id(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return bucket_migration, nil
+}
+
+func (obj *pgxcockroachImpl) Update_Reseller_By_Id(ctx context.Context,
+	reseller_id Reseller_Id_Field,
+	update Reseller_Update_Fields) (
+	reseller *Reseller, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE resellers SET "), __sets, __sqlbundle_Literal(" WHERE resellers.id = ? RETURNING resellers.id, resellers.name, resellers.email, resellers.password_hash, resellers.company_name, resellers.status, resellers.created_at, resellers.updated_at, resellers.deleted_at, resellers.failed_login_count, resellers.login_lockout_expiration, resellers.activation_code, resellers.signup_id, resellers.new_unverified_email, resellers.email_change_verification_step, resellers.mfa_enabled, resellers.mfa_secret_key, resellers.mfa_recovery_codes")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.Name._set {
+		__values = append(__values, update.Name.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("name = ?"))
+	}
+
+	if update.Email._set {
+		__values = append(__values, update.Email.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("email = ?"))
+	}
+
+	if update.PasswordHash._set {
+		__values = append(__values, update.PasswordHash.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("password_hash = ?"))
+	}
+
+	if update.CompanyName._set {
+		__values = append(__values, update.CompanyName.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("company_name = ?"))
+	}
+
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+
+	if update.UpdatedAt._set {
+		__values = append(__values, update.UpdatedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+	}
+
+	if update.DeletedAt._set {
+		__values = append(__values, update.DeletedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("deleted_at = ?"))
+	}
+
+	if update.FailedLoginCount._set {
+		__values = append(__values, update.FailedLoginCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("failed_login_count = ?"))
+	}
+
+	if update.LoginLockoutExpiration._set {
+		__values = append(__values, update.LoginLockoutExpiration.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("login_lockout_expiration = ?"))
+	}
+
+	if update.ActivationCode._set {
+		__values = append(__values, update.ActivationCode.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("activation_code = ?"))
+	}
+
+	if update.SignupId._set {
+		__values = append(__values, update.SignupId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("signup_id = ?"))
+	}
+
+	if update.NewUnverifiedEmail._set {
+		__values = append(__values, update.NewUnverifiedEmail.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("new_unverified_email = ?"))
+	}
+
+	if update.EmailChangeVerificationStep._set {
+		__values = append(__values, update.EmailChangeVerificationStep.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("email_change_verification_step = ?"))
+	}
+
+	if update.MfaEnabled._set {
+		__values = append(__values, update.MfaEnabled.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("mfa_enabled = ?"))
+	}
+
+	if update.MfaSecretKey._set {
+		__values = append(__values, update.MfaSecretKey.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("mfa_secret_key = ?"))
+	}
+
+	if update.MfaRecoveryCodes._set {
+		__values = append(__values, update.MfaRecoveryCodes.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("mfa_recovery_codes = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, reseller_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller = &Reseller{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reseller.Id, &reseller.Name, &reseller.Email, &reseller.PasswordHash, &reseller.CompanyName, &reseller.Status, &reseller.CreatedAt, &reseller.UpdatedAt, &reseller.DeletedAt, &reseller.FailedLoginCount, &reseller.LoginLockoutExpiration, &reseller.ActivationCode, &reseller.SignupId, &reseller.NewUnverifiedEmail, &reseller.EmailChangeVerificationStep, &reseller.MfaEnabled, &reseller.MfaSecretKey, &reseller.MfaRecoveryCodes)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return reseller, nil
+}
+
+func (obj *pgxcockroachImpl) Update_ResellerConfig_By_Id(ctx context.Context,
+	reseller_config_id ResellerConfig_Id_Field,
+	update ResellerConfig_Update_Fields) (
+	reseller_config *ResellerConfig, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE reseller_configs SET "), __sets, __sqlbundle_Literal(" WHERE reseller_configs.id = ? RETURNING reseller_configs.id, reseller_configs.reseller_id, reseller_configs.config, reseller_configs.active_theme_type, reseller_configs.active_theme_id, reseller_configs.created_at, reseller_configs.updated_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.Config._set {
+		__values = append(__values, update.Config.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("config = ?"))
+	}
+
+	if update.ActiveThemeType._set {
+		__values = append(__values, update.ActiveThemeType.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("active_theme_type = ?"))
+	}
+
+	if update.ActiveThemeId._set {
+		__values = append(__values, update.ActiveThemeId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("active_theme_id = ?"))
+	}
+
+	if update.UpdatedAt._set {
+		__values = append(__values, update.UpdatedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, reseller_config_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller_config = &ResellerConfig{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reseller_config.Id, &reseller_config.ResellerId, &reseller_config.Config, &reseller_config.ActiveThemeType, &reseller_config.ActiveThemeId, &reseller_config.CreatedAt, &reseller_config.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return reseller_config, nil
+}
+
+func (obj *pgxcockroachImpl) Update_ResellerConfig_By_ResellerId(ctx context.Context,
+	reseller_config_reseller_id ResellerConfig_ResellerId_Field,
+	update ResellerConfig_Update_Fields) (
+	reseller_config *ResellerConfig, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE reseller_configs SET "), __sets, __sqlbundle_Literal(" WHERE reseller_configs.reseller_id = ? RETURNING reseller_configs.id, reseller_configs.reseller_id, reseller_configs.config, reseller_configs.active_theme_type, reseller_configs.active_theme_id, reseller_configs.created_at, reseller_configs.updated_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.Config._set {
+		__values = append(__values, update.Config.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("config = ?"))
+	}
+
+	if update.ActiveThemeType._set {
+		__values = append(__values, update.ActiveThemeType.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("active_theme_type = ?"))
+	}
+
+	if update.ActiveThemeId._set {
+		__values = append(__values, update.ActiveThemeId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("active_theme_id = ?"))
+	}
+
+	if update.UpdatedAt._set {
+		__values = append(__values, update.UpdatedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, reseller_config_reseller_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller_config = &ResellerConfig{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reseller_config.Id, &reseller_config.ResellerId, &reseller_config.Config, &reseller_config.ActiveThemeType, &reseller_config.ActiveThemeId, &reseller_config.CreatedAt, &reseller_config.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return reseller_config, nil
+}
+
+func (obj *pgxcockroachImpl) Update_ResellerDomain_By_Id(ctx context.Context,
+	reseller_domain_id ResellerDomain_Id_Field,
+	update ResellerDomain_Update_Fields) (
+	reseller_domain *ResellerDomain, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE reseller_domains SET "), __sets, __sqlbundle_Literal(" WHERE reseller_domains.id = ? RETURNING reseller_domains.id, reseller_domains.reseller_id, reseller_domains.domain, reseller_domains.domain_type, reseller_domains.status, reseller_domains.verification_method, reseller_domains.verification_status, reseller_domains.ssl_status, reseller_domains.dns_target, reseller_domains.verified_at, reseller_domains.created_at, reseller_domains.updated_at, reseller_domains.deleted_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.Domain._set {
+		__values = append(__values, update.Domain.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("domain = ?"))
+	}
+
+	if update.DomainType._set {
+		__values = append(__values, update.DomainType.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("domain_type = ?"))
+	}
+
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+
+	if update.VerificationMethod._set {
+		__values = append(__values, update.VerificationMethod.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("verification_method = ?"))
+	}
+
+	if update.VerificationStatus._set {
+		__values = append(__values, update.VerificationStatus.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("verification_status = ?"))
+	}
+
+	if update.SslStatus._set {
+		__values = append(__values, update.SslStatus.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("ssl_status = ?"))
+	}
+
+	if update.DnsTarget._set {
+		__values = append(__values, update.DnsTarget.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("dns_target = ?"))
+	}
+
+	if update.VerifiedAt._set {
+		__values = append(__values, update.VerifiedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("verified_at = ?"))
+	}
+
+	if update.UpdatedAt._set {
+		__values = append(__values, update.UpdatedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+	}
+
+	if update.DeletedAt._set {
+		__values = append(__values, update.DeletedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("deleted_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, reseller_domain_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller_domain = &ResellerDomain{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reseller_domain.Id, &reseller_domain.ResellerId, &reseller_domain.Domain, &reseller_domain.DomainType, &reseller_domain.Status, &reseller_domain.VerificationMethod, &reseller_domain.VerificationStatus, &reseller_domain.SslStatus, &reseller_domain.DnsTarget, &reseller_domain.VerifiedAt, &reseller_domain.CreatedAt, &reseller_domain.UpdatedAt, &reseller_domain.DeletedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return reseller_domain, nil
+}
+
+func (obj *pgxcockroachImpl) Update_ResellerDomain_By_ResellerId(ctx context.Context,
+	reseller_domain_reseller_id ResellerDomain_ResellerId_Field,
+	update ResellerDomain_Update_Fields) (
+	reseller_domain *ResellerDomain, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE reseller_domains SET "), __sets, __sqlbundle_Literal(" WHERE reseller_domains.reseller_id = ? RETURNING reseller_domains.id, reseller_domains.reseller_id, reseller_domains.domain, reseller_domains.domain_type, reseller_domains.status, reseller_domains.verification_method, reseller_domains.verification_status, reseller_domains.ssl_status, reseller_domains.dns_target, reseller_domains.verified_at, reseller_domains.created_at, reseller_domains.updated_at, reseller_domains.deleted_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.Domain._set {
+		__values = append(__values, update.Domain.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("domain = ?"))
+	}
+
+	if update.DomainType._set {
+		__values = append(__values, update.DomainType.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("domain_type = ?"))
+	}
+
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+
+	if update.VerificationMethod._set {
+		__values = append(__values, update.VerificationMethod.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("verification_method = ?"))
+	}
+
+	if update.VerificationStatus._set {
+		__values = append(__values, update.VerificationStatus.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("verification_status = ?"))
+	}
+
+	if update.SslStatus._set {
+		__values = append(__values, update.SslStatus.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("ssl_status = ?"))
+	}
+
+	if update.DnsTarget._set {
+		__values = append(__values, update.DnsTarget.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("dns_target = ?"))
+	}
+
+	if update.VerifiedAt._set {
+		__values = append(__values, update.VerifiedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("verified_at = ?"))
+	}
+
+	if update.UpdatedAt._set {
+		__values = append(__values, update.UpdatedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+	}
+
+	if update.DeletedAt._set {
+		__values = append(__values, update.DeletedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("deleted_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, reseller_domain_reseller_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller_domain = &ResellerDomain{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reseller_domain.Id, &reseller_domain.ResellerId, &reseller_domain.Domain, &reseller_domain.DomainType, &reseller_domain.Status, &reseller_domain.VerificationMethod, &reseller_domain.VerificationStatus, &reseller_domain.SslStatus, &reseller_domain.DnsTarget, &reseller_domain.VerifiedAt, &reseller_domain.CreatedAt, &reseller_domain.UpdatedAt, &reseller_domain.DeletedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return reseller_domain, nil
+}
+
+func (obj *pgxcockroachImpl) Update_WebappSessionReseller_By_Id(ctx context.Context,
+	webapp_session_reseller_id WebappSessionReseller_Id_Field,
+	update WebappSessionReseller_Update_Fields) (
+	webapp_session_reseller *WebappSessionReseller, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE webapp_session_resellers SET "), __sets, __sqlbundle_Literal(" WHERE webapp_session_resellers.id = ? RETURNING webapp_session_resellers.id, webapp_session_resellers.reseller_id, webapp_session_resellers.ip_address, webapp_session_resellers.status, webapp_session_resellers.expires_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+
+	if update.ExpiresAt._set {
+		__values = append(__values, update.ExpiresAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("expires_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, webapp_session_reseller_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	webapp_session_reseller = &WebappSessionReseller{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&webapp_session_reseller.Id, &webapp_session_reseller.ResellerId, &webapp_session_reseller.IpAddress, &webapp_session_reseller.Status, &webapp_session_reseller.ExpiresAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return webapp_session_reseller, nil
+}
+
+func (obj *pgxcockroachImpl) Update_ThemePreset_By_Id(ctx context.Context,
+	theme_preset_id ThemePreset_Id_Field,
+	update ThemePreset_Update_Fields) (
+	theme_preset *ThemePreset, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE theme_presets SET "), __sets, __sqlbundle_Literal(" WHERE theme_presets.id = ? RETURNING theme_presets.id, theme_presets.slug, theme_presets.name, theme_presets.description, theme_presets.colors, theme_presets.is_system, theme_presets.created_at, theme_presets.updated_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.Description._set {
+		__values = append(__values, update.Description.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("description = ?"))
+	}
+
+	if update.IsSystem._set {
+		__values = append(__values, update.IsSystem.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("is_system = ?"))
+	}
+
+	if update.UpdatedAt._set {
+		__values = append(__values, update.UpdatedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, theme_preset_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	theme_preset = &ThemePreset{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&theme_preset.Id, &theme_preset.Slug, &theme_preset.Name, &theme_preset.Description, &theme_preset.Colors, &theme_preset.IsSystem, &theme_preset.CreatedAt, &theme_preset.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return theme_preset, nil
+}
+
+func (obj *pgxcockroachImpl) Update_ResellerTheme_By_Id(ctx context.Context,
+	reseller_theme_id ResellerTheme_Id_Field,
+	update ResellerTheme_Update_Fields) (
+	reseller_theme *ResellerTheme, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE reseller_themes SET "), __sets, __sqlbundle_Literal(" WHERE reseller_themes.id = ? RETURNING reseller_themes.id, reseller_themes.reseller_id, reseller_themes.name, reseller_themes.colors, reseller_themes.created_at, reseller_themes.updated_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.Name._set {
+		__values = append(__values, update.Name.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("name = ?"))
+	}
+
+	if update.Colors._set {
+		__values = append(__values, update.Colors.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("colors = ?"))
+	}
+
+	if update.UpdatedAt._set {
+		__values = append(__values, update.UpdatedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, reseller_theme_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller_theme = &ResellerTheme{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reseller_theme.Id, &reseller_theme.ResellerId, &reseller_theme.Name, &reseller_theme.Colors, &reseller_theme.CreatedAt, &reseller_theme.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return reseller_theme, nil
 }
 
 func (obj *pgxcockroachImpl) Update_User_By_Id(ctx context.Context,
@@ -53610,6 +62235,135 @@ func (obj *pgxcockroachImpl) Delete_ApiKey_By_ProjectId_And_CreatedBy(ctx contex
 
 }
 
+func (obj *pgxcockroachImpl) Delete_ProjectMemberAclBucket_By_ProjectId_And_BucketName(ctx context.Context,
+	project_member_acl_bucket_project_id ProjectMemberAclBucket_ProjectId_Field,
+	project_member_acl_bucket_bucket_name ProjectMemberAclBucket_BucketName_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM project_member_acl_buckets WHERE project_member_acl_buckets.project_id = ? AND project_member_acl_buckets.bucket_name = ?")
+
+	var __values []any
+	__values = append(__values, project_member_acl_bucket_project_id.value(), project_member_acl_bucket_bucket_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *pgxcockroachImpl) Delete_MemberBucketGrant_By_ProjectId_And_MemberId(ctx context.Context,
+	member_bucket_grant_project_id MemberBucketGrant_ProjectId_Field,
+	member_bucket_grant_member_id MemberBucketGrant_MemberId_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "member_bucket_grants.member_id", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("DELETE FROM member_bucket_grants WHERE member_bucket_grants.project_id = ? AND "), __cond_0}}
+
+	var __values []any
+	__values = append(__values, member_bucket_grant_project_id.value())
+	if !member_bucket_grant_member_id.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, member_bucket_grant_member_id.value())
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
+func (obj *pgxcockroachImpl) Delete_MemberBucketGrant_By_ProjectId_And_InviteEmail(ctx context.Context,
+	member_bucket_grant_project_id MemberBucketGrant_ProjectId_Field,
+	member_bucket_grant_invite_email MemberBucketGrant_InviteEmail_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM member_bucket_grants WHERE member_bucket_grants.project_id = ? AND member_bucket_grants.invite_email = ?")
+
+	var __values []any
+	__values = append(__values, member_bucket_grant_project_id.value(), member_bucket_grant_invite_email.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
+func (obj *pgxcockroachImpl) Delete_MemberBucketGrant_By_Id(ctx context.Context,
+	member_bucket_grant_id MemberBucketGrant_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM member_bucket_grants WHERE member_bucket_grants.id = ?")
+
+	var __values []any
+	__values = append(__values, member_bucket_grant_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *pgxcockroachImpl) Delete_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
 	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 	bucket_metainfo_name BucketMetainfo_Name_Field) (
@@ -53759,6 +62513,247 @@ func (obj *pgxcockroachImpl) Delete_RepairQueue_By_UpdatedAt_Less(ctx context.Co
 	}
 
 	return count, nil
+
+}
+
+func (obj *pgxcockroachImpl) Delete_Reseller_By_Id(ctx context.Context,
+	reseller_id Reseller_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM resellers WHERE resellers.id = ?")
+
+	var __values []any
+	__values = append(__values, reseller_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *pgxcockroachImpl) Delete_ResellerConfig_By_Id(ctx context.Context,
+	reseller_config_id ResellerConfig_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM reseller_configs WHERE reseller_configs.id = ?")
+
+	var __values []any
+	__values = append(__values, reseller_config_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *pgxcockroachImpl) Delete_ResellerDomain_By_Id(ctx context.Context,
+	reseller_domain_id ResellerDomain_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM reseller_domains WHERE reseller_domains.id = ?")
+
+	var __values []any
+	__values = append(__values, reseller_domain_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *pgxcockroachImpl) Delete_WebappSessionReseller_By_Id(ctx context.Context,
+	webapp_session_reseller_id WebappSessionReseller_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM webapp_session_resellers WHERE webapp_session_resellers.id = ?")
+
+	var __values []any
+	__values = append(__values, webapp_session_reseller_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *pgxcockroachImpl) Delete_WebappSessionReseller_By_ResellerId(ctx context.Context,
+	webapp_session_reseller_reseller_id WebappSessionReseller_ResellerId_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM webapp_session_resellers WHERE webapp_session_resellers.reseller_id = ?")
+
+	var __values []any
+	__values = append(__values, webapp_session_reseller_reseller_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
+func (obj *pgxcockroachImpl) Delete_WebappSessionReseller_By_ResellerId_And_Id_Not(ctx context.Context,
+	webapp_session_reseller_reseller_id WebappSessionReseller_ResellerId_Field,
+	webapp_session_reseller_id_not WebappSessionReseller_Id_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM webapp_session_resellers WHERE webapp_session_resellers.reseller_id = ? AND webapp_session_resellers.id != ?")
+
+	var __values []any
+	__values = append(__values, webapp_session_reseller_reseller_id.value(), webapp_session_reseller_id_not.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
+func (obj *pgxcockroachImpl) Delete_ResetPasswordTokenReseller_By_Secret(ctx context.Context,
+	reset_password_token_reseller_secret ResetPasswordTokenReseller_Secret_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM reset_password_token_resellers WHERE reset_password_token_resellers.secret = ?")
+
+	var __values []any
+	__values = append(__values, reset_password_token_reseller_secret.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *pgxcockroachImpl) Delete_ResellerTheme_By_Id(ctx context.Context,
+	reseller_theme_id ResellerTheme_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM reseller_themes WHERE reseller_themes.id = ?")
+
+	var __values []any
+	__values = append(__values, reseller_theme_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
 
 }
 
@@ -54080,6 +63075,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM project_member_acl_buckets;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM project_members;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -54100,7 +63105,7 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM google_backup_credentials;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM member_bucket_grants;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -54140,7 +63145,27 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM backup_credentials;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM api_keys;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM webapp_session_resellers;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -54231,6 +63256,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM users;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM theme_presets;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -54380,6 +63415,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM reset_password_token_resellers;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM reset_password_token_developers;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -54391,6 +63436,56 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM reset_password_tokens;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM reseller_themes;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM reseller_domains;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM reseller_delete_requests;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM reseller_configs;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM resellers;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -54580,6 +63675,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM mail_export_jobs;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM key_versions;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -54751,6 +63856,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM backup_final_statuses;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM audit_logs;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -54969,6 +64084,67 @@ func (obj *spannerImpl) Create_ReverificationAudits(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return reverification_audits, nil
+
+}
+
+func (obj *spannerImpl) CreateNoReturn_AuditLog(ctx context.Context,
+	audit_log_id AuditLog_Id_Field,
+	audit_log_actor_id AuditLog_ActorId_Field,
+	audit_log_action AuditLog_Action_Field,
+	audit_log_message AuditLog_Message_Field,
+	audit_log_status AuditLog_Status_Field,
+	optional AuditLog_Create_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+	__id_val := audit_log_id.value()
+	__actor_id_val := audit_log_actor_id.value()
+	__action_val := audit_log_action.value()
+	__resource_val := optional.Resource.value()
+	__message_val := audit_log_message.value()
+	__ip_address_val := optional.IpAddress.value()
+	__status_val := audit_log_status.value()
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, actor_id, action, resource, message, ip_address, status")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO audit_logs "), __clause}}
+
+	var __values []any
+	__values = append(__values, __id_val, __actor_id_val, __action_val, __resource_val, __message_val, __ip_address_val, __status_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.Timestamp._set {
+		__values = append(__values, optional.Timestamp.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("timestamp"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 && __columns.SQL == nil {
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("timestamp"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+	}
+
+	if len(__optional_columns.SQLs) > 0 {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
 
 }
 
@@ -56044,6 +65220,81 @@ func (obj *spannerImpl) CreateNoReturn_Revocation(ctx context.Context,
 
 }
 
+func (obj *spannerImpl) Create_MailExportJob(ctx context.Context,
+	mail_export_job_id MailExportJob_Id_Field,
+	mail_export_job_user_id MailExportJob_UserId_Field,
+	mail_export_job_project_id MailExportJob_ProjectId_Field,
+	mail_export_job_access_key_id MailExportJob_AccessKeyId_Field,
+	mail_export_job_bucket MailExportJob_Bucket_Field,
+	mail_export_job_format MailExportJob_Format_Field,
+	mail_export_job_mode MailExportJob_Mode_Field,
+	mail_export_job_status MailExportJob_Status_Field,
+	mail_export_job_retry_count MailExportJob_RetryCount_Field,
+	mail_export_job_progress MailExportJob_Progress_Field,
+	mail_export_job_processed_files MailExportJob_ProcessedFiles_Field,
+	mail_export_job_total_files MailExportJob_TotalFiles_Field,
+	mail_export_job_processed_bytes MailExportJob_ProcessedBytes_Field,
+	mail_export_job_total_bytes MailExportJob_TotalBytes_Field,
+	optional MailExportJob_Create_Fields) (
+	mail_export_job *MailExportJob, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := mail_export_job_id.value()
+	__user_id_val := mail_export_job_user_id.value()
+	__project_id_val := mail_export_job_project_id.value()
+	__access_key_id_val := mail_export_job_access_key_id.value()
+	__bucket_val := mail_export_job_bucket.value()
+	__format_val := mail_export_job_format.value()
+	__mode_val := mail_export_job_mode.value()
+	__prefix_val := optional.Prefix.value()
+	__keys_json_val := spannerConvertJSON(optional.KeysJson.value())
+	__access_grant_val := optional.AccessGrant.value()
+	__status_val := mail_export_job_status.value()
+	__retry_count_val := mail_export_job_retry_count.value()
+	__progress_val := mail_export_job_progress.value()
+	__processed_files_val := mail_export_job_processed_files.value()
+	__total_files_val := mail_export_job_total_files.value()
+	__processed_bytes_val := mail_export_job_processed_bytes.value()
+	__total_bytes_val := mail_export_job_total_bytes.value()
+	__current_object_val := optional.CurrentObject.value()
+	__archive_bucket_val := optional.ArchiveBucket.value()
+	__archive_key_val := optional.ArchiveKey.value()
+	__archive_name_val := optional.ArchiveName.value()
+	__error_message_val := optional.ErrorMessage.value()
+	__last_download_charge_id_val := optional.LastDownloadChargeId.value()
+	__last_download_charged_bytes_val := optional.LastDownloadChargedBytes.value()
+	__created_at_val := __now
+	__started_at_val := optional.StartedAt.value()
+	__completed_at_val := optional.CompletedAt.value()
+	__expires_at_val := optional.ExpiresAt.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO mail_export_jobs ( id, user_id, project_id, access_key_id, bucket, format, mode, prefix, keys_json, access_grant, status, retry_count, progress, processed_files, total_files, processed_bytes, total_bytes, current_object, archive_bucket, archive_key, archive_name, error_message, last_download_charge_id, last_download_charged_bytes, created_at, started_at, completed_at, expires_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) THEN RETURN mail_export_jobs.id, mail_export_jobs.user_id, mail_export_jobs.project_id, mail_export_jobs.access_key_id, mail_export_jobs.bucket, mail_export_jobs.format, mail_export_jobs.mode, mail_export_jobs.prefix, mail_export_jobs.keys_json, mail_export_jobs.access_grant, mail_export_jobs.status, mail_export_jobs.retry_count, mail_export_jobs.progress, mail_export_jobs.processed_files, mail_export_jobs.total_files, mail_export_jobs.processed_bytes, mail_export_jobs.total_bytes, mail_export_jobs.current_object, mail_export_jobs.archive_bucket, mail_export_jobs.archive_key, mail_export_jobs.archive_name, mail_export_jobs.error_message, mail_export_jobs.last_download_charge_id, mail_export_jobs.last_download_charged_bytes, mail_export_jobs.created_at, mail_export_jobs.started_at, mail_export_jobs.completed_at, mail_export_jobs.expires_at")
+
+	var __values []any
+	__values = append(__values, __id_val, __user_id_val, __project_id_val, __access_key_id_val, __bucket_val, __format_val, __mode_val, __prefix_val, __keys_json_val, __access_grant_val, __status_val, __retry_count_val, __progress_val, __processed_files_val, __total_files_val, __processed_bytes_val, __total_bytes_val, __current_object_val, __archive_bucket_val, __archive_key_val, __archive_name_val, __error_message_val, __last_download_charge_id_val, __last_download_charged_bytes_val, __created_at_val, __started_at_val, __completed_at_val, __expires_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	mail_export_job = &MailExportJob{}
+	if !obj.txn {
+		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&mail_export_job.Id, &mail_export_job.UserId, &mail_export_job.ProjectId, &mail_export_job.AccessKeyId, &mail_export_job.Bucket, &mail_export_job.Format, &mail_export_job.Mode, &mail_export_job.Prefix, spannerConvertJSON(&mail_export_job.KeysJson), &mail_export_job.AccessGrant, &mail_export_job.Status, &mail_export_job.RetryCount, &mail_export_job.Progress, &mail_export_job.ProcessedFiles, &mail_export_job.TotalFiles, &mail_export_job.ProcessedBytes, &mail_export_job.TotalBytes, &mail_export_job.CurrentObject, &mail_export_job.ArchiveBucket, &mail_export_job.ArchiveKey, &mail_export_job.ArchiveName, &mail_export_job.ErrorMessage, &mail_export_job.LastDownloadChargeId, &mail_export_job.LastDownloadChargedBytes, &mail_export_job.CreatedAt, &mail_export_job.StartedAt, &mail_export_job.CompletedAt, &mail_export_job.ExpiresAt)
+		})
+	} else {
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&mail_export_job.Id, &mail_export_job.UserId, &mail_export_job.ProjectId, &mail_export_job.AccessKeyId, &mail_export_job.Bucket, &mail_export_job.Format, &mail_export_job.Mode, &mail_export_job.Prefix, spannerConvertJSON(&mail_export_job.KeysJson), &mail_export_job.AccessGrant, &mail_export_job.Status, &mail_export_job.RetryCount, &mail_export_job.Progress, &mail_export_job.ProcessedFiles, &mail_export_job.TotalFiles, &mail_export_job.ProcessedBytes, &mail_export_job.TotalBytes, &mail_export_job.CurrentObject, &mail_export_job.ArchiveBucket, &mail_export_job.ArchiveKey, &mail_export_job.ArchiveName, &mail_export_job.ErrorMessage, &mail_export_job.LastDownloadChargeId, &mail_export_job.LastDownloadChargedBytes, &mail_export_job.CreatedAt, &mail_export_job.StartedAt, &mail_export_job.CompletedAt, &mail_export_job.ExpiresAt)
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return mail_export_job, nil
+
+}
+
 func (obj *spannerImpl) ReplaceNoReturn_NodeApiVersion(ctx context.Context,
 	node_api_version_id NodeApiVersion_Id_Field,
 	node_api_version_api_version NodeApiVersion_ApiVersion_Field) (
@@ -56595,8 +65846,7 @@ func (obj *spannerImpl) Create_UserNotificationPreference(ctx context.Context,
 	user_notification_preference_id UserNotificationPreference_Id_Field,
 	user_notification_preference_user_id UserNotificationPreference_UserId_Field,
 	user_notification_preference_preferences UserNotificationPreference_Preferences_Field,
-	user_notification_preference_updated_at UserNotificationPreference_UpdatedAt_Field,
-	optional UserNotificationPreference_Create_Fields) (
+	user_notification_preference_updated_at UserNotificationPreference_UpdatedAt_Field) (
 	user_notification_preference *UserNotificationPreference, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !obj.txn && txutil.IsInsideTx(ctx) {
@@ -56606,15 +65856,14 @@ func (obj *spannerImpl) Create_UserNotificationPreference(ctx context.Context,
 	__now := obj.db.Hooks.Now().UTC()
 	__id_val := user_notification_preference_id.value()
 	__user_id_val := user_notification_preference_user_id.value()
-	__category_val := optional.Category.value()
 	__preferences_val := spannerConvertJSON(user_notification_preference_preferences.value())
 	__created_at_val := __now
 	__updated_at_val := user_notification_preference_updated_at.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO user_notification_preferences ( id, user_id, category, preferences, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ? ) THEN RETURN user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO user_notification_preferences ( id, user_id, preferences, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ? ) THEN RETURN user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at")
 
 	var __values []any
-	__values = append(__values, __id_val, __user_id_val, __category_val, __preferences_val, __created_at_val, __updated_at_val)
+	__values = append(__values, __id_val, __user_id_val, __preferences_val, __created_at_val, __updated_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -56622,10 +65871,10 @@ func (obj *spannerImpl) Create_UserNotificationPreference(ctx context.Context,
 	user_notification_preference = &UserNotificationPreference{}
 	if !obj.txn {
 		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
-			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.Category, spannerConvertJSON(&user_notification_preference.Preferences), &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&user_notification_preference.Id, &user_notification_preference.UserId, spannerConvertJSON(&user_notification_preference.Preferences), &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
 		})
 	} else {
-		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.Category, spannerConvertJSON(&user_notification_preference.Preferences), &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&user_notification_preference.Id, &user_notification_preference.UserId, spannerConvertJSON(&user_notification_preference.Preferences), &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
 	}
 	if err != nil {
 		return nil, obj.makeErr(err)
@@ -56749,49 +65998,53 @@ func (obj *spannerImpl) CreateNoReturn_OauthToken(ctx context.Context,
 
 }
 
-func (obj *spannerImpl) Create_GoogleBackupCredentials(ctx context.Context,
-	google_backup_credentials_id GoogleBackupCredentials_Id_Field,
-	google_backup_credentials_user_id GoogleBackupCredentials_UserId_Field,
-	google_backup_credentials_google_email GoogleBackupCredentials_GoogleEmail_Field,
-	google_backup_credentials_access_token GoogleBackupCredentials_AccessToken_Field,
-	optional GoogleBackupCredentials_Create_Fields) (
-	google_backup_credentials *GoogleBackupCredentials, err error) {
+func (obj *spannerImpl) Create_BackupCredentials(ctx context.Context,
+	backup_credentials_id BackupCredentials_Id_Field,
+	backup_credentials_user_id BackupCredentials_UserId_Field,
+	backup_credentials_provider BackupCredentials_Provider_Field,
+	backup_credentials_email BackupCredentials_Email_Field,
+	backup_credentials_access_token BackupCredentials_AccessToken_Field,
+	optional BackupCredentials_Create_Fields) (
+	backup_credentials *BackupCredentials, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !obj.txn && txutil.IsInsideTx(ctx) {
 		panic("using DB when inside of a transaction")
 	}
 
 	__now := obj.db.Hooks.Now().UTC()
-	__id_val := google_backup_credentials_id.value()
-	__user_id_val := google_backup_credentials_user_id.value()
-	__google_email_val := google_backup_credentials_google_email.value()
-	__access_token_val := google_backup_credentials_access_token.value()
+	__id_val := backup_credentials_id.value()
+	__user_id_val := backup_credentials_user_id.value()
+	__provider_val := backup_credentials_provider.value()
+	__email_val := backup_credentials_email.value()
+	__access_token_val := backup_credentials_access_token.value()
 	__refresh_token_val := optional.RefreshToken.value()
 	__access_token_expiry_val := optional.AccessTokenExpiry.value()
 	__account_type_val := optional.AccountType.value()
+	__tenant_id_val := optional.TenantId.value()
+	__tenant_name_val := optional.TenantName.value()
 	__created_at_val := __now
 	__updated_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO google_backup_credentials ( id, user_id, google_email, access_token, refresh_token, access_token_expiry, account_type, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? ) THEN RETURN google_backup_credentials.id, google_backup_credentials.user_id, google_backup_credentials.google_email, google_backup_credentials.access_token, google_backup_credentials.refresh_token, google_backup_credentials.access_token_expiry, google_backup_credentials.account_type, google_backup_credentials.created_at, google_backup_credentials.updated_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO backup_credentials ( id, user_id, provider, email, access_token, refresh_token, access_token_expiry, account_type, tenant_id, tenant_name, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) THEN RETURN backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at")
 
 	var __values []any
-	__values = append(__values, __id_val, __user_id_val, __google_email_val, __access_token_val, __refresh_token_val, __access_token_expiry_val, __account_type_val, __created_at_val, __updated_at_val)
+	__values = append(__values, __id_val, __user_id_val, __provider_val, __email_val, __access_token_val, __refresh_token_val, __access_token_expiry_val, __account_type_val, __tenant_id_val, __tenant_name_val, __created_at_val, __updated_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	google_backup_credentials = &GoogleBackupCredentials{}
+	backup_credentials = &BackupCredentials{}
 	if !obj.txn {
 		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
-			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&google_backup_credentials.Id, &google_backup_credentials.UserId, &google_backup_credentials.GoogleEmail, &google_backup_credentials.AccessToken, &google_backup_credentials.RefreshToken, &google_backup_credentials.AccessTokenExpiry, &google_backup_credentials.AccountType, &google_backup_credentials.CreatedAt, &google_backup_credentials.UpdatedAt)
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
 		})
 	} else {
-		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&google_backup_credentials.Id, &google_backup_credentials.UserId, &google_backup_credentials.GoogleEmail, &google_backup_credentials.AccessToken, &google_backup_credentials.RefreshToken, &google_backup_credentials.AccessTokenExpiry, &google_backup_credentials.AccountType, &google_backup_credentials.CreatedAt, &google_backup_credentials.UpdatedAt)
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
 	}
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
-	return google_backup_credentials, nil
+	return backup_credentials, nil
 
 }
 
@@ -56993,11 +66246,12 @@ func (obj *spannerImpl) Replace_ProjectInvitation(ctx context.Context,
 	__email_val := project_invitation_email.value()
 	__inviter_id_val := optional.InviterId.value()
 	__created_at_val := __now
+	__expires_at_val := optional.ExpiresAt.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT OR UPDATE INTO project_invitations ( project_id, email, inviter_id, created_at ) VALUES ( ?, ?, ?, ? ) THEN RETURN project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT OR UPDATE INTO project_invitations ( project_id, email, inviter_id, created_at, expires_at ) VALUES ( ?, ?, ?, ?, ? ) THEN RETURN project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at, project_invitations.expires_at")
 
 	var __values []any
-	__values = append(__values, __project_id_val, __email_val, __inviter_id_val, __created_at_val)
+	__values = append(__values, __project_id_val, __email_val, __inviter_id_val, __created_at_val, __expires_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -57005,10 +66259,10 @@ func (obj *spannerImpl) Replace_ProjectInvitation(ctx context.Context,
 	project_invitation = &ProjectInvitation{}
 	if !obj.txn {
 		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
-			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt, &project_invitation.ExpiresAt)
 		})
 	} else {
-		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt, &project_invitation.ExpiresAt)
 	}
 	if err != nil {
 		return nil, obj.makeErr(err)
@@ -57125,6 +66379,98 @@ func (obj *spannerImpl) Replace_ApiKeyTail(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return api_key_tail, nil
+
+}
+
+func (obj *spannerImpl) Create_ProjectMemberAclBucket(ctx context.Context,
+	project_member_acl_bucket_project_id ProjectMemberAclBucket_ProjectId_Field,
+	project_member_acl_bucket_bucket_name ProjectMemberAclBucket_BucketName_Field) (
+	project_member_acl_bucket *ProjectMemberAclBucket, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__project_id_val := project_member_acl_bucket_project_id.value()
+	__bucket_name_val := project_member_acl_bucket_bucket_name.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO project_member_acl_buckets ( project_id, bucket_name, created_at ) VALUES ( ?, ?, ? ) THEN RETURN project_member_acl_buckets.project_id, project_member_acl_buckets.bucket_name, project_member_acl_buckets.created_at")
+
+	var __values []any
+	__values = append(__values, __project_id_val, __bucket_name_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	project_member_acl_bucket = &ProjectMemberAclBucket{}
+	if !obj.txn {
+		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&project_member_acl_bucket.ProjectId, &project_member_acl_bucket.BucketName, &project_member_acl_bucket.CreatedAt)
+		})
+	} else {
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&project_member_acl_bucket.ProjectId, &project_member_acl_bucket.BucketName, &project_member_acl_bucket.CreatedAt)
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return project_member_acl_bucket, nil
+
+}
+
+func (obj *spannerImpl) Create_MemberBucketGrant(ctx context.Context,
+	member_bucket_grant_id MemberBucketGrant_Id_Field,
+	member_bucket_grant_project_id MemberBucketGrant_ProjectId_Field,
+	member_bucket_grant_invite_email MemberBucketGrant_InviteEmail_Field,
+	member_bucket_grant_bucket MemberBucketGrant_Bucket_Field,
+	member_bucket_grant_prefix MemberBucketGrant_Prefix_Field,
+	member_bucket_grant_allow_list MemberBucketGrant_AllowList_Field,
+	member_bucket_grant_allow_download MemberBucketGrant_AllowDownload_Field,
+	member_bucket_grant_allow_upload MemberBucketGrant_AllowUpload_Field,
+	member_bucket_grant_allow_delete MemberBucketGrant_AllowDelete_Field,
+	optional MemberBucketGrant_Create_Fields) (
+	member_bucket_grant *MemberBucketGrant, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := member_bucket_grant_id.value()
+	__project_id_val := member_bucket_grant_project_id.value()
+	__member_id_val := optional.MemberId.value()
+	__invite_email_val := member_bucket_grant_invite_email.value()
+	__bucket_val := member_bucket_grant_bucket.value()
+	__prefix_val := member_bucket_grant_prefix.value()
+	__allow_list_val := member_bucket_grant_allow_list.value()
+	__allow_download_val := member_bucket_grant_allow_download.value()
+	__allow_upload_val := member_bucket_grant_allow_upload.value()
+	__allow_delete_val := member_bucket_grant_allow_delete.value()
+	__created_at_val := __now
+	__updated_at_val := __now
+	__expires_at_val := optional.ExpiresAt.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO member_bucket_grants ( id, project_id, member_id, invite_email, bucket, prefix, allow_list, allow_download, allow_upload, allow_delete, created_at, updated_at, expires_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) THEN RETURN member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at")
+
+	var __values []any
+	__values = append(__values, __id_val, __project_id_val, __member_id_val, __invite_email_val, __bucket_val, __prefix_val, __allow_list_val, __allow_download_val, __allow_upload_val, __allow_delete_val, __created_at_val, __updated_at_val, __expires_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	member_bucket_grant = &MemberBucketGrant{}
+	if !obj.txn {
+		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt)
+		})
+	} else {
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt)
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return member_bucket_grant, nil
 
 }
 
@@ -57352,6 +66698,448 @@ func (obj *spannerImpl) Create_BucketMigration(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return bucket_migration, nil
+
+}
+
+func (obj *spannerImpl) Create_Reseller(ctx context.Context,
+	reseller_id Reseller_Id_Field,
+	reseller_name Reseller_Name_Field,
+	reseller_email Reseller_Email_Field,
+	reseller_password_hash Reseller_PasswordHash_Field,
+	reseller_updated_at Reseller_UpdatedAt_Field,
+	optional Reseller_Create_Fields) (
+	reseller *Reseller, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := reseller_id.value()
+	__name_val := reseller_name.value()
+	__email_val := reseller_email.value()
+	__password_hash_val := reseller_password_hash.value()
+	__company_name_val := optional.CompanyName.value()
+	__status_val := int(0)
+	__created_at_val := __now
+	__updated_at_val := reseller_updated_at.value()
+	__deleted_at_val := optional.DeletedAt.value()
+	__failed_login_count_val := optional.FailedLoginCount.value()
+	__login_lockout_expiration_val := optional.LoginLockoutExpiration.value()
+	__activation_code_val := optional.ActivationCode.value()
+	__signup_id_val := optional.SignupId.value()
+	__new_unverified_email_val := optional.NewUnverifiedEmail.value()
+	__mfa_secret_key_val := optional.MfaSecretKey.value()
+	__mfa_recovery_codes_val := optional.MfaRecoveryCodes.value()
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, name, email, password_hash, company_name, status, created_at, updated_at, deleted_at, failed_login_count, login_lockout_expiration, activation_code, signup_id, new_unverified_email, mfa_secret_key, mfa_recovery_codes")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO resellers "), __clause, __sqlbundle_Literal(" THEN RETURN resellers.id, resellers.name, resellers.email, resellers.password_hash, resellers.company_name, resellers.status, resellers.created_at, resellers.updated_at, resellers.deleted_at, resellers.failed_login_count, resellers.login_lockout_expiration, resellers.activation_code, resellers.signup_id, resellers.new_unverified_email, resellers.email_change_verification_step, resellers.mfa_enabled, resellers.mfa_secret_key, resellers.mfa_recovery_codes")}}
+
+	var __values []any
+	__values = append(__values, __id_val, __name_val, __email_val, __password_hash_val, __company_name_val, __status_val, __created_at_val, __updated_at_val, __deleted_at_val, __failed_login_count_val, __login_lockout_expiration_val, __activation_code_val, __signup_id_val, __new_unverified_email_val, __mfa_secret_key_val, __mfa_recovery_codes_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.EmailChangeVerificationStep._set {
+		__values = append(__values, optional.EmailChangeVerificationStep.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("email_change_verification_step"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.MfaEnabled._set {
+		__values = append(__values, optional.MfaEnabled.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("mfa_enabled"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 && __columns.SQL == nil {
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("email_change_verification_step"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("mfa_enabled"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+	}
+
+	if len(__optional_columns.SQLs) > 0 {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller = &Reseller{}
+	if !obj.txn {
+		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&reseller.Id, &reseller.Name, &reseller.Email, &reseller.PasswordHash, &reseller.CompanyName, &reseller.Status, &reseller.CreatedAt, &reseller.UpdatedAt, &reseller.DeletedAt, &reseller.FailedLoginCount, &reseller.LoginLockoutExpiration, &reseller.ActivationCode, &reseller.SignupId, &reseller.NewUnverifiedEmail, &reseller.EmailChangeVerificationStep, &reseller.MfaEnabled, &reseller.MfaSecretKey, &reseller.MfaRecoveryCodes)
+		})
+	} else {
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&reseller.Id, &reseller.Name, &reseller.Email, &reseller.PasswordHash, &reseller.CompanyName, &reseller.Status, &reseller.CreatedAt, &reseller.UpdatedAt, &reseller.DeletedAt, &reseller.FailedLoginCount, &reseller.LoginLockoutExpiration, &reseller.ActivationCode, &reseller.SignupId, &reseller.NewUnverifiedEmail, &reseller.EmailChangeVerificationStep, &reseller.MfaEnabled, &reseller.MfaSecretKey, &reseller.MfaRecoveryCodes)
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return reseller, nil
+
+}
+
+func (obj *spannerImpl) Create_ResellerConfig(ctx context.Context,
+	reseller_config_id ResellerConfig_Id_Field,
+	reseller_config_reseller_id ResellerConfig_ResellerId_Field,
+	reseller_config_config ResellerConfig_Config_Field,
+	reseller_config_updated_at ResellerConfig_UpdatedAt_Field,
+	optional ResellerConfig_Create_Fields) (
+	reseller_config *ResellerConfig, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := reseller_config_id.value()
+	__reseller_id_val := reseller_config_reseller_id.value()
+	__config_val := spannerConvertJSON(reseller_config_config.value())
+	__active_theme_id_val := optional.ActiveThemeId.value()
+	__created_at_val := __now
+	__updated_at_val := reseller_config_updated_at.value()
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, reseller_id, config, active_theme_id, created_at, updated_at")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO reseller_configs "), __clause, __sqlbundle_Literal(" THEN RETURN reseller_configs.id, reseller_configs.reseller_id, reseller_configs.config, reseller_configs.active_theme_type, reseller_configs.active_theme_id, reseller_configs.created_at, reseller_configs.updated_at")}}
+
+	var __values []any
+	__values = append(__values, __id_val, __reseller_id_val, __config_val, __active_theme_id_val, __created_at_val, __updated_at_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.ActiveThemeType._set {
+		__values = append(__values, optional.ActiveThemeType.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("active_theme_type"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 && __columns.SQL == nil {
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("active_theme_type"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+	}
+
+	if len(__optional_columns.SQLs) > 0 {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller_config = &ResellerConfig{}
+	if !obj.txn {
+		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&reseller_config.Id, &reseller_config.ResellerId, spannerConvertJSON(&reseller_config.Config), &reseller_config.ActiveThemeType, &reseller_config.ActiveThemeId, &reseller_config.CreatedAt, &reseller_config.UpdatedAt)
+		})
+	} else {
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&reseller_config.Id, &reseller_config.ResellerId, spannerConvertJSON(&reseller_config.Config), &reseller_config.ActiveThemeType, &reseller_config.ActiveThemeId, &reseller_config.CreatedAt, &reseller_config.UpdatedAt)
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return reseller_config, nil
+
+}
+
+func (obj *spannerImpl) Create_ResellerDomain(ctx context.Context,
+	reseller_domain_id ResellerDomain_Id_Field,
+	reseller_domain_reseller_id ResellerDomain_ResellerId_Field,
+	reseller_domain_domain ResellerDomain_Domain_Field,
+	reseller_domain_domain_type ResellerDomain_DomainType_Field,
+	reseller_domain_status ResellerDomain_Status_Field,
+	reseller_domain_verification_status ResellerDomain_VerificationStatus_Field,
+	reseller_domain_ssl_status ResellerDomain_SslStatus_Field,
+	reseller_domain_updated_at ResellerDomain_UpdatedAt_Field,
+	optional ResellerDomain_Create_Fields) (
+	reseller_domain *ResellerDomain, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := reseller_domain_id.value()
+	__reseller_id_val := reseller_domain_reseller_id.value()
+	__domain_val := reseller_domain_domain.value()
+	__domain_type_val := reseller_domain_domain_type.value()
+	__status_val := reseller_domain_status.value()
+	__verification_method_val := optional.VerificationMethod.value()
+	__verification_status_val := reseller_domain_verification_status.value()
+	__ssl_status_val := reseller_domain_ssl_status.value()
+	__dns_target_val := optional.DnsTarget.value()
+	__verified_at_val := optional.VerifiedAt.value()
+	__created_at_val := __now
+	__updated_at_val := reseller_domain_updated_at.value()
+	__deleted_at_val := optional.DeletedAt.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO reseller_domains ( id, reseller_id, domain, domain_type, status, verification_method, verification_status, ssl_status, dns_target, verified_at, created_at, updated_at, deleted_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) THEN RETURN reseller_domains.id, reseller_domains.reseller_id, reseller_domains.domain, reseller_domains.domain_type, reseller_domains.status, reseller_domains.verification_method, reseller_domains.verification_status, reseller_domains.ssl_status, reseller_domains.dns_target, reseller_domains.verified_at, reseller_domains.created_at, reseller_domains.updated_at, reseller_domains.deleted_at")
+
+	var __values []any
+	__values = append(__values, __id_val, __reseller_id_val, __domain_val, __domain_type_val, __status_val, __verification_method_val, __verification_status_val, __ssl_status_val, __dns_target_val, __verified_at_val, __created_at_val, __updated_at_val, __deleted_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller_domain = &ResellerDomain{}
+	if !obj.txn {
+		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&reseller_domain.Id, &reseller_domain.ResellerId, &reseller_domain.Domain, &reseller_domain.DomainType, &reseller_domain.Status, &reseller_domain.VerificationMethod, &reseller_domain.VerificationStatus, &reseller_domain.SslStatus, &reseller_domain.DnsTarget, &reseller_domain.VerifiedAt, &reseller_domain.CreatedAt, &reseller_domain.UpdatedAt, &reseller_domain.DeletedAt)
+		})
+	} else {
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&reseller_domain.Id, &reseller_domain.ResellerId, &reseller_domain.Domain, &reseller_domain.DomainType, &reseller_domain.Status, &reseller_domain.VerificationMethod, &reseller_domain.VerificationStatus, &reseller_domain.SslStatus, &reseller_domain.DnsTarget, &reseller_domain.VerifiedAt, &reseller_domain.CreatedAt, &reseller_domain.UpdatedAt, &reseller_domain.DeletedAt)
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return reseller_domain, nil
+
+}
+
+func (obj *spannerImpl) Create_WebappSessionReseller(ctx context.Context,
+	webapp_session_reseller_id WebappSessionReseller_Id_Field,
+	webapp_session_reseller_reseller_id WebappSessionReseller_ResellerId_Field,
+	webapp_session_reseller_ip_address WebappSessionReseller_IpAddress_Field,
+	webapp_session_reseller_expires_at WebappSessionReseller_ExpiresAt_Field) (
+	webapp_session_reseller *WebappSessionReseller, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+	__id_val := webapp_session_reseller_id.value()
+	__reseller_id_val := webapp_session_reseller_reseller_id.value()
+	__ip_address_val := webapp_session_reseller_ip_address.value()
+	__status_val := int(0)
+	__expires_at_val := webapp_session_reseller_expires_at.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO webapp_session_resellers ( id, reseller_id, ip_address, status, expires_at ) VALUES ( ?, ?, ?, ?, ? ) THEN RETURN webapp_session_resellers.id, webapp_session_resellers.reseller_id, webapp_session_resellers.ip_address, webapp_session_resellers.status, webapp_session_resellers.expires_at")
+
+	var __values []any
+	__values = append(__values, __id_val, __reseller_id_val, __ip_address_val, __status_val, __expires_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	webapp_session_reseller = &WebappSessionReseller{}
+	if !obj.txn {
+		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&webapp_session_reseller.Id, &webapp_session_reseller.ResellerId, &webapp_session_reseller.IpAddress, &webapp_session_reseller.Status, &webapp_session_reseller.ExpiresAt)
+		})
+	} else {
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&webapp_session_reseller.Id, &webapp_session_reseller.ResellerId, &webapp_session_reseller.IpAddress, &webapp_session_reseller.Status, &webapp_session_reseller.ExpiresAt)
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return webapp_session_reseller, nil
+
+}
+
+func (obj *spannerImpl) Create_ResetPasswordTokenReseller(ctx context.Context,
+	reset_password_token_reseller_secret ResetPasswordTokenReseller_Secret_Field,
+	reset_password_token_reseller_owner_id ResetPasswordTokenReseller_OwnerId_Field) (
+	reset_password_token_reseller *ResetPasswordTokenReseller, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__secret_val := reset_password_token_reseller_secret.value()
+	__owner_id_val := reset_password_token_reseller_owner_id.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO reset_password_token_resellers ( secret, owner_id, created_at ) VALUES ( ?, ?, ? ) THEN RETURN reset_password_token_resellers.secret, reset_password_token_resellers.owner_id, reset_password_token_resellers.created_at")
+
+	var __values []any
+	__values = append(__values, __secret_val, __owner_id_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reset_password_token_reseller = &ResetPasswordTokenReseller{}
+	if !obj.txn {
+		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&reset_password_token_reseller.Secret, &reset_password_token_reseller.OwnerId, &reset_password_token_reseller.CreatedAt)
+		})
+	} else {
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&reset_password_token_reseller.Secret, &reset_password_token_reseller.OwnerId, &reset_password_token_reseller.CreatedAt)
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return reset_password_token_reseller, nil
+
+}
+
+func (obj *spannerImpl) Create_ResellerDeleteRequest(ctx context.Context,
+	reseller_delete_request_id ResellerDeleteRequest_Id_Field,
+	reseller_delete_request_reseller_id ResellerDeleteRequest_ResellerId_Field,
+	reseller_delete_request_status ResellerDeleteRequest_Status_Field,
+	reseller_delete_request_delete_at ResellerDeleteRequest_DeleteAt_Field,
+	optional ResellerDeleteRequest_Create_Fields) (
+	reseller_delete_request *ResellerDeleteRequest, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := reseller_delete_request_id.value()
+	__reseller_id_val := reseller_delete_request_reseller_id.value()
+	__status_val := reseller_delete_request_status.value()
+	__error_val := optional.Error.value()
+	__delete_at_val := reseller_delete_request_delete_at.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO reseller_delete_requests ( id, reseller_id, status, error, delete_at, created_at ) VALUES ( ?, ?, ?, ?, ?, ? ) THEN RETURN reseller_delete_requests.id, reseller_delete_requests.reseller_id, reseller_delete_requests.status, reseller_delete_requests.error, reseller_delete_requests.delete_at, reseller_delete_requests.created_at")
+
+	var __values []any
+	__values = append(__values, __id_val, __reseller_id_val, __status_val, __error_val, __delete_at_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller_delete_request = &ResellerDeleteRequest{}
+	if !obj.txn {
+		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&reseller_delete_request.Id, &reseller_delete_request.ResellerId, &reseller_delete_request.Status, &reseller_delete_request.Error, &reseller_delete_request.DeleteAt, &reseller_delete_request.CreatedAt)
+		})
+	} else {
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&reseller_delete_request.Id, &reseller_delete_request.ResellerId, &reseller_delete_request.Status, &reseller_delete_request.Error, &reseller_delete_request.DeleteAt, &reseller_delete_request.CreatedAt)
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return reseller_delete_request, nil
+
+}
+
+func (obj *spannerImpl) Create_ThemePreset(ctx context.Context,
+	theme_preset_id ThemePreset_Id_Field,
+	theme_preset_slug ThemePreset_Slug_Field,
+	theme_preset_name ThemePreset_Name_Field,
+	theme_preset_colors ThemePreset_Colors_Field,
+	theme_preset_updated_at ThemePreset_UpdatedAt_Field,
+	optional ThemePreset_Create_Fields) (
+	theme_preset *ThemePreset, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := theme_preset_id.value()
+	__slug_val := theme_preset_slug.value()
+	__name_val := theme_preset_name.value()
+	__description_val := optional.Description.value()
+	__colors_val := spannerConvertJSON(theme_preset_colors.value())
+	__created_at_val := __now
+	__updated_at_val := theme_preset_updated_at.value()
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, slug, name, description, colors, created_at, updated_at")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO theme_presets "), __clause, __sqlbundle_Literal(" THEN RETURN theme_presets.id, theme_presets.slug, theme_presets.name, theme_presets.description, theme_presets.colors, theme_presets.is_system, theme_presets.created_at, theme_presets.updated_at")}}
+
+	var __values []any
+	__values = append(__values, __id_val, __slug_val, __name_val, __description_val, __colors_val, __created_at_val, __updated_at_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.IsSystem._set {
+		__values = append(__values, optional.IsSystem.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("is_system"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 && __columns.SQL == nil {
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("is_system"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+	}
+
+	if len(__optional_columns.SQLs) > 0 {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	theme_preset = &ThemePreset{}
+	if !obj.txn {
+		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&theme_preset.Id, &theme_preset.Slug, &theme_preset.Name, &theme_preset.Description, spannerConvertJSON(&theme_preset.Colors), &theme_preset.IsSystem, &theme_preset.CreatedAt, &theme_preset.UpdatedAt)
+		})
+	} else {
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&theme_preset.Id, &theme_preset.Slug, &theme_preset.Name, &theme_preset.Description, spannerConvertJSON(&theme_preset.Colors), &theme_preset.IsSystem, &theme_preset.CreatedAt, &theme_preset.UpdatedAt)
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return theme_preset, nil
+
+}
+
+func (obj *spannerImpl) Create_ResellerTheme(ctx context.Context,
+	reseller_theme_id ResellerTheme_Id_Field,
+	reseller_theme_reseller_id ResellerTheme_ResellerId_Field,
+	reseller_theme_name ResellerTheme_Name_Field,
+	reseller_theme_colors ResellerTheme_Colors_Field,
+	reseller_theme_updated_at ResellerTheme_UpdatedAt_Field) (
+	reseller_theme *ResellerTheme, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := reseller_theme_id.value()
+	__reseller_id_val := reseller_theme_reseller_id.value()
+	__name_val := reseller_theme_name.value()
+	__colors_val := spannerConvertJSON(reseller_theme_colors.value())
+	__created_at_val := __now
+	__updated_at_val := reseller_theme_updated_at.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO reseller_themes ( id, reseller_id, name, colors, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ? ) THEN RETURN reseller_themes.id, reseller_themes.reseller_id, reseller_themes.name, reseller_themes.colors, reseller_themes.created_at, reseller_themes.updated_at")
+
+	var __values []any
+	__values = append(__values, __id_val, __reseller_id_val, __name_val, __colors_val, __created_at_val, __updated_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller_theme = &ResellerTheme{}
+	if !obj.txn {
+		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&reseller_theme.Id, &reseller_theme.ResellerId, &reseller_theme.Name, spannerConvertJSON(&reseller_theme.Colors), &reseller_theme.CreatedAt, &reseller_theme.UpdatedAt)
+		})
+	} else {
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&reseller_theme.Id, &reseller_theme.ResellerId, &reseller_theme.Name, spannerConvertJSON(&reseller_theme.Colors), &reseller_theme.CreatedAt, &reseller_theme.UpdatedAt)
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return reseller_theme, nil
 
 }
 
@@ -58869,6 +68657,31 @@ func (obj *spannerImpl) First_ReverificationAudits_By_NodeId_OrderBy_Asc_StreamI
 		}
 		return reverification_audits, nil
 	}
+
+}
+
+func (obj *spannerImpl) Get_AuditLog_By_Id(ctx context.Context,
+	audit_log_id AuditLog_Id_Field) (
+	audit_log *AuditLog, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT audit_logs.id, audit_logs.timestamp, audit_logs.actor_id, audit_logs.action, audit_logs.resource, audit_logs.message, audit_logs.ip_address, audit_logs.status FROM audit_logs WHERE audit_logs.id = ?")
+
+	var __values []any
+	__values = append(__values, audit_log_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	audit_log = &AuditLog{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&audit_log.Id, &audit_log.Timestamp, &audit_log.ActorId, &audit_log.Action, &audit_log.Resource, &audit_log.Message, &audit_log.IpAddress, &audit_log.Status)
+	if err != nil {
+		return (*AuditLog)(nil), obj.makeErr(err)
+	}
+	return audit_log, nil
 
 }
 
@@ -61148,6 +70961,31 @@ func (obj *spannerImpl) Get_PeerIdentity_LeafSerialNumber_By_NodeId(ctx context.
 
 }
 
+func (obj *spannerImpl) Get_MailExportJob_By_Id(ctx context.Context,
+	mail_export_job_id MailExportJob_Id_Field) (
+	mail_export_job *MailExportJob, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT mail_export_jobs.id, mail_export_jobs.user_id, mail_export_jobs.project_id, mail_export_jobs.access_key_id, mail_export_jobs.bucket, mail_export_jobs.format, mail_export_jobs.mode, mail_export_jobs.prefix, mail_export_jobs.keys_json, mail_export_jobs.access_grant, mail_export_jobs.status, mail_export_jobs.retry_count, mail_export_jobs.progress, mail_export_jobs.processed_files, mail_export_jobs.total_files, mail_export_jobs.processed_bytes, mail_export_jobs.total_bytes, mail_export_jobs.current_object, mail_export_jobs.archive_bucket, mail_export_jobs.archive_key, mail_export_jobs.archive_name, mail_export_jobs.error_message, mail_export_jobs.last_download_charge_id, mail_export_jobs.last_download_charged_bytes, mail_export_jobs.created_at, mail_export_jobs.started_at, mail_export_jobs.completed_at, mail_export_jobs.expires_at FROM mail_export_jobs WHERE mail_export_jobs.id = ?")
+
+	var __values []any
+	__values = append(__values, mail_export_job_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	mail_export_job = &MailExportJob{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&mail_export_job.Id, &mail_export_job.UserId, &mail_export_job.ProjectId, &mail_export_job.AccessKeyId, &mail_export_job.Bucket, &mail_export_job.Format, &mail_export_job.Mode, &mail_export_job.Prefix, spannerConvertJSON(&mail_export_job.KeysJson), &mail_export_job.AccessGrant, &mail_export_job.Status, &mail_export_job.RetryCount, &mail_export_job.Progress, &mail_export_job.ProcessedFiles, &mail_export_job.TotalFiles, &mail_export_job.ProcessedBytes, &mail_export_job.TotalBytes, &mail_export_job.CurrentObject, &mail_export_job.ArchiveBucket, &mail_export_job.ArchiveKey, &mail_export_job.ArchiveName, &mail_export_job.ErrorMessage, &mail_export_job.LastDownloadChargeId, &mail_export_job.LastDownloadChargedBytes, &mail_export_job.CreatedAt, &mail_export_job.StartedAt, &mail_export_job.CompletedAt, &mail_export_job.ExpiresAt)
+	if err != nil {
+		return (*MailExportJob)(nil), obj.makeErr(err)
+	}
+	return mail_export_job, nil
+
+}
+
 func (obj *spannerImpl) Get_Node_By_Id(ctx context.Context,
 	node_id Node_Id_Field) (
 	node *Node, err error) {
@@ -62281,7 +72119,7 @@ func (obj *spannerImpl) Get_UserNotificationPreference_By_Id(ctx context.Context
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at FROM user_notification_preferences WHERE user_notification_preferences.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at FROM user_notification_preferences WHERE user_notification_preferences.id = ?")
 
 	var __values []any
 	__values = append(__values, user_notification_preference_id.value())
@@ -62290,56 +72128,11 @@ func (obj *spannerImpl) Get_UserNotificationPreference_By_Id(ctx context.Context
 	obj.logStmt(__stmt, __values...)
 
 	user_notification_preference = &UserNotificationPreference{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.Category, spannerConvertJSON(&user_notification_preference.Preferences), &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_notification_preference.Id, &user_notification_preference.UserId, spannerConvertJSON(&user_notification_preference.Preferences), &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
 	if err != nil {
 		return (*UserNotificationPreference)(nil), obj.makeErr(err)
 	}
 	return user_notification_preference, nil
-
-}
-
-func (obj *spannerImpl) All_UserNotificationPreference_By_UserId(ctx context.Context,
-	user_notification_preference_user_id UserNotificationPreference_UserId_Field) (
-	rows []*UserNotificationPreference, err error) {
-	defer mon.Task()(&ctx)(&err)
-	if !obj.txn && txutil.IsInsideTx(ctx) {
-		panic("using DB when inside of a transaction")
-	}
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at FROM user_notification_preferences WHERE user_notification_preferences.user_id = ?")
-
-	var __values []any
-	__values = append(__values, user_notification_preference_user_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	for {
-		rows, err = func() (rows []*UserNotificationPreference, err error) {
-			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-			if err != nil {
-				return nil, err
-			}
-			defer closeRows(__rows, &err)
-
-			for __rows.Next() {
-				user_notification_preference := &UserNotificationPreference{}
-				err = __rows.Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.Category, spannerConvertJSON(&user_notification_preference.Preferences), &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
-				if err != nil {
-					return nil, err
-				}
-				rows = append(rows, user_notification_preference)
-			}
-			return rows, nil
-		}()
-		if err != nil {
-			if obj.shouldRetry(err) {
-				continue
-			}
-			return nil, obj.makeErr(err)
-		}
-		return rows, nil
-	}
 
 }
 
@@ -62351,7 +72144,7 @@ func (obj *spannerImpl) Get_UserNotificationPreference_By_UserId(ctx context.Con
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at FROM user_notification_preferences WHERE user_notification_preferences.user_id = ? LIMIT 2")
+	var __embed_stmt = __sqlbundle_Literal("SELECT user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at FROM user_notification_preferences WHERE user_notification_preferences.user_id = ?")
 
 	var __values []any
 	__values = append(__values, user_notification_preference_user_id.value())
@@ -62359,102 +72152,12 @@ func (obj *spannerImpl) Get_UserNotificationPreference_By_UserId(ctx context.Con
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	for {
-		user_notification_preference, err = func() (user_notification_preference *UserNotificationPreference, err error) {
-			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-			if err != nil {
-				return nil, err
-			}
-			defer closeRows(__rows, &err)
-
-			if !__rows.Next() {
-				return nil, sql.ErrNoRows
-			}
-
-			user_notification_preference = &UserNotificationPreference{}
-			err = __rows.Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.Category, spannerConvertJSON(&user_notification_preference.Preferences), &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
-			if err != nil {
-				return nil, err
-			}
-
-			if __rows.Next() {
-				return nil, errTooManyRows
-			}
-
-			return user_notification_preference, nil
-		}()
-		if err != nil {
-			if obj.shouldRetry(err) {
-				continue
-			}
-			if errors.Is(err, errTooManyRows) {
-				return nil, tooManyRows("UserNotificationPreference_By_UserId")
-			}
-			return nil, obj.makeErr(err)
-		}
-		return user_notification_preference, nil
+	user_notification_preference = &UserNotificationPreference{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_notification_preference.Id, &user_notification_preference.UserId, spannerConvertJSON(&user_notification_preference.Preferences), &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
+	if err != nil {
+		return (*UserNotificationPreference)(nil), obj.makeErr(err)
 	}
-
-}
-
-func (obj *spannerImpl) Get_UserNotificationPreference_By_UserId_And_Category(ctx context.Context,
-	user_notification_preference_user_id UserNotificationPreference_UserId_Field,
-	user_notification_preference_category UserNotificationPreference_Category_Field) (
-	user_notification_preference *UserNotificationPreference, err error) {
-	defer mon.Task()(&ctx)(&err)
-	if !obj.txn && txutil.IsInsideTx(ctx) {
-		panic("using DB when inside of a transaction")
-	}
-
-	var __cond_0 = &__sqlbundle_Condition{Left: "user_notification_preferences.category", Equal: true, Right: "?", Null: true}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at FROM user_notification_preferences WHERE user_notification_preferences.user_id = ? AND "), __cond_0, __sqlbundle_Literal(" LIMIT 2")}}
-
-	var __values []any
-	__values = append(__values, user_notification_preference_user_id.value())
-	if !user_notification_preference_category.isnull() {
-		__cond_0.Null = false
-		__values = append(__values, user_notification_preference_category.value())
-	}
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	for {
-		user_notification_preference, err = func() (user_notification_preference *UserNotificationPreference, err error) {
-			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-			if err != nil {
-				return nil, err
-			}
-			defer closeRows(__rows, &err)
-
-			if !__rows.Next() {
-				return nil, sql.ErrNoRows
-			}
-
-			user_notification_preference = &UserNotificationPreference{}
-			err = __rows.Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.Category, spannerConvertJSON(&user_notification_preference.Preferences), &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
-			if err != nil {
-				return nil, err
-			}
-
-			if __rows.Next() {
-				return nil, errTooManyRows
-			}
-
-			return user_notification_preference, nil
-		}()
-		if err != nil {
-			if obj.shouldRetry(err) {
-				continue
-			}
-			if errors.Is(err, errTooManyRows) {
-				return nil, tooManyRows("UserNotificationPreference_By_UserId_And_Category")
-			}
-			return nil, obj.makeErr(err)
-		}
-		return user_notification_preference, nil
-	}
+	return user_notification_preference, nil
 
 }
 
@@ -62534,49 +72237,49 @@ func (obj *spannerImpl) Get_OauthToken_By_Kind_And_Token(ctx context.Context,
 
 }
 
-func (obj *spannerImpl) Get_GoogleBackupCredentials_By_Id(ctx context.Context,
-	google_backup_credentials_id GoogleBackupCredentials_Id_Field) (
-	google_backup_credentials *GoogleBackupCredentials, err error) {
+func (obj *spannerImpl) Get_BackupCredentials_By_Id(ctx context.Context,
+	backup_credentials_id BackupCredentials_Id_Field) (
+	backup_credentials *BackupCredentials, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !obj.txn && txutil.IsInsideTx(ctx) {
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT google_backup_credentials.id, google_backup_credentials.user_id, google_backup_credentials.google_email, google_backup_credentials.access_token, google_backup_credentials.refresh_token, google_backup_credentials.access_token_expiry, google_backup_credentials.account_type, google_backup_credentials.created_at, google_backup_credentials.updated_at FROM google_backup_credentials WHERE google_backup_credentials.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at FROM backup_credentials WHERE backup_credentials.id = ?")
 
 	var __values []any
-	__values = append(__values, google_backup_credentials_id.value())
+	__values = append(__values, backup_credentials_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	google_backup_credentials = &GoogleBackupCredentials{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&google_backup_credentials.Id, &google_backup_credentials.UserId, &google_backup_credentials.GoogleEmail, &google_backup_credentials.AccessToken, &google_backup_credentials.RefreshToken, &google_backup_credentials.AccessTokenExpiry, &google_backup_credentials.AccountType, &google_backup_credentials.CreatedAt, &google_backup_credentials.UpdatedAt)
+	backup_credentials = &BackupCredentials{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
 	if err != nil {
-		return (*GoogleBackupCredentials)(nil), obj.makeErr(err)
+		return (*BackupCredentials)(nil), obj.makeErr(err)
 	}
-	return google_backup_credentials, nil
+	return backup_credentials, nil
 
 }
 
-func (obj *spannerImpl) All_GoogleBackupCredentials_By_UserId(ctx context.Context,
-	google_backup_credentials_user_id GoogleBackupCredentials_UserId_Field) (
-	rows []*GoogleBackupCredentials, err error) {
+func (obj *spannerImpl) All_BackupCredentials_By_UserId(ctx context.Context,
+	backup_credentials_user_id BackupCredentials_UserId_Field) (
+	rows []*BackupCredentials, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !obj.txn && txutil.IsInsideTx(ctx) {
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT google_backup_credentials.id, google_backup_credentials.user_id, google_backup_credentials.google_email, google_backup_credentials.access_token, google_backup_credentials.refresh_token, google_backup_credentials.access_token_expiry, google_backup_credentials.account_type, google_backup_credentials.created_at, google_backup_credentials.updated_at FROM google_backup_credentials WHERE google_backup_credentials.user_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at FROM backup_credentials WHERE backup_credentials.user_id = ?")
 
 	var __values []any
-	__values = append(__values, google_backup_credentials_user_id.value())
+	__values = append(__values, backup_credentials_user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	for {
-		rows, err = func() (rows []*GoogleBackupCredentials, err error) {
+		rows, err = func() (rows []*BackupCredentials, err error) {
 			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 			if err != nil {
 				return nil, err
@@ -62584,12 +72287,58 @@ func (obj *spannerImpl) All_GoogleBackupCredentials_By_UserId(ctx context.Contex
 			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
-				google_backup_credentials := &GoogleBackupCredentials{}
-				err = __rows.Scan(&google_backup_credentials.Id, &google_backup_credentials.UserId, &google_backup_credentials.GoogleEmail, &google_backup_credentials.AccessToken, &google_backup_credentials.RefreshToken, &google_backup_credentials.AccessTokenExpiry, &google_backup_credentials.AccountType, &google_backup_credentials.CreatedAt, &google_backup_credentials.UpdatedAt)
+				backup_credentials := &BackupCredentials{}
+				err = __rows.Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
 				if err != nil {
 					return nil, err
 				}
-				rows = append(rows, google_backup_credentials)
+				rows = append(rows, backup_credentials)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) All_BackupCredentials_By_UserId_And_Provider(ctx context.Context,
+	backup_credentials_user_id BackupCredentials_UserId_Field,
+	backup_credentials_provider BackupCredentials_Provider_Field) (
+	rows []*BackupCredentials, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at FROM backup_credentials WHERE backup_credentials.user_id = ? AND backup_credentials.provider = ?")
+
+	var __values []any
+	__values = append(__values, backup_credentials_user_id.value(), backup_credentials_provider.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*BackupCredentials, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				backup_credentials := &BackupCredentials{}
+				err = __rows.Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, backup_credentials)
 			}
 			return rows, nil
 		}()
@@ -63512,7 +73261,7 @@ func (obj *spannerImpl) Get_ProjectInvitation_By_ProjectId_And_Email(ctx context
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at FROM project_invitations WHERE project_invitations.project_id = ? AND project_invitations.email = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at, project_invitations.expires_at FROM project_invitations WHERE project_invitations.project_id = ? AND project_invitations.email = ?")
 
 	var __values []any
 	__values = append(__values, project_invitation_project_id.value(), project_invitation_email.value())
@@ -63521,7 +73270,7 @@ func (obj *spannerImpl) Get_ProjectInvitation_By_ProjectId_And_Email(ctx context
 	obj.logStmt(__stmt, __values...)
 
 	project_invitation = &ProjectInvitation{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt, &project_invitation.ExpiresAt)
 	if err != nil {
 		return (*ProjectInvitation)(nil), obj.makeErr(err)
 	}
@@ -63537,7 +73286,7 @@ func (obj *spannerImpl) All_ProjectInvitation_By_Email(ctx context.Context,
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at FROM project_invitations WHERE project_invitations.email = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at, project_invitations.expires_at FROM project_invitations WHERE project_invitations.email = ?")
 
 	var __values []any
 	__values = append(__values, project_invitation_email.value())
@@ -63555,7 +73304,7 @@ func (obj *spannerImpl) All_ProjectInvitation_By_Email(ctx context.Context,
 
 			for __rows.Next() {
 				project_invitation := &ProjectInvitation{}
-				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt, &project_invitation.ExpiresAt)
 				if err != nil {
 					return nil, err
 				}
@@ -63585,7 +73334,7 @@ func (obj *spannerImpl) All_ProjectInvitation_By_Project_Status_And_ProjectInvit
 
 	var __cond_0 = &__sqlbundle_Condition{Left: "projects.status", Equal: true, Right: "?", Null: true}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at FROM project_invitations  JOIN projects ON project_invitations.project_id = projects.id WHERE "), __cond_0, __sqlbundle_Literal(" AND project_invitations.email = ?")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at, project_invitations.expires_at FROM project_invitations  JOIN projects ON project_invitations.project_id = projects.id WHERE "), __cond_0, __sqlbundle_Literal(" AND project_invitations.email = ?")}}
 
 	var __values []any
 	if !project_status.isnull() {
@@ -63607,7 +73356,7 @@ func (obj *spannerImpl) All_ProjectInvitation_By_Project_Status_And_ProjectInvit
 
 			for __rows.Next() {
 				project_invitation := &ProjectInvitation{}
-				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt, &project_invitation.ExpiresAt)
 				if err != nil {
 					return nil, err
 				}
@@ -63639,7 +73388,7 @@ func (obj *spannerImpl) All_ProjectInvitation_By_Project_Status_And_ProjectInvit
 	var __cond_0 = &__sqlbundle_Condition{Left: "projects.status", Equal: true, Right: "?", Null: true}
 	var __cond_1 = &__sqlbundle_Condition{Left: "users.tenant_id", Equal: true, Right: "?", Null: true}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at FROM project_invitations  JOIN projects ON project_invitations.project_id = projects.id  JOIN users ON project_invitations.inviter_id = users.id WHERE "), __cond_0, __sqlbundle_Literal(" AND project_invitations.email = ? AND "), __cond_1}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at, project_invitations.expires_at FROM project_invitations  JOIN projects ON project_invitations.project_id = projects.id  JOIN users ON project_invitations.inviter_id = users.id WHERE "), __cond_0, __sqlbundle_Literal(" AND project_invitations.email = ? AND "), __cond_1}}
 
 	var __values []any
 	if !project_status.isnull() {
@@ -63665,7 +73414,7 @@ func (obj *spannerImpl) All_ProjectInvitation_By_Project_Status_And_ProjectInvit
 
 			for __rows.Next() {
 				project_invitation := &ProjectInvitation{}
-				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt, &project_invitation.ExpiresAt)
 				if err != nil {
 					return nil, err
 				}
@@ -63692,7 +73441,7 @@ func (obj *spannerImpl) All_ProjectInvitation_By_ProjectId(ctx context.Context,
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at FROM project_invitations WHERE project_invitations.project_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at, project_invitations.expires_at FROM project_invitations WHERE project_invitations.project_id = ?")
 
 	var __values []any
 	__values = append(__values, project_invitation_project_id.value())
@@ -63710,7 +73459,7 @@ func (obj *spannerImpl) All_ProjectInvitation_By_ProjectId(ctx context.Context,
 
 			for __rows.Next() {
 				project_invitation := &ProjectInvitation{}
-				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt, &project_invitation.ExpiresAt)
 				if err != nil {
 					return nil, err
 				}
@@ -63827,6 +73576,200 @@ func (obj *spannerImpl) Get_ApiKeyTail_By_Tail(ctx context.Context,
 		return (*ApiKeyTail)(nil), obj.makeErr(err)
 	}
 	return api_key_tail, nil
+
+}
+
+func (obj *spannerImpl) All_ProjectMemberAclBucket_By_ProjectId(ctx context.Context,
+	project_member_acl_bucket_project_id ProjectMemberAclBucket_ProjectId_Field) (
+	rows []*ProjectMemberAclBucket, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_member_acl_buckets.project_id, project_member_acl_buckets.bucket_name, project_member_acl_buckets.created_at FROM project_member_acl_buckets WHERE project_member_acl_buckets.project_id = ?")
+
+	var __values []any
+	__values = append(__values, project_member_acl_bucket_project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*ProjectMemberAclBucket, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				project_member_acl_bucket := &ProjectMemberAclBucket{}
+				err = __rows.Scan(&project_member_acl_bucket.ProjectId, &project_member_acl_bucket.BucketName, &project_member_acl_bucket.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, project_member_acl_bucket)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) Get_ProjectMemberAclBucket_By_ProjectId_And_BucketName(ctx context.Context,
+	project_member_acl_bucket_project_id ProjectMemberAclBucket_ProjectId_Field,
+	project_member_acl_bucket_bucket_name ProjectMemberAclBucket_BucketName_Field) (
+	project_member_acl_bucket *ProjectMemberAclBucket, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_member_acl_buckets.project_id, project_member_acl_buckets.bucket_name, project_member_acl_buckets.created_at FROM project_member_acl_buckets WHERE project_member_acl_buckets.project_id = ? AND project_member_acl_buckets.bucket_name = ?")
+
+	var __values []any
+	__values = append(__values, project_member_acl_bucket_project_id.value(), project_member_acl_bucket_bucket_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	project_member_acl_bucket = &ProjectMemberAclBucket{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_member_acl_bucket.ProjectId, &project_member_acl_bucket.BucketName, &project_member_acl_bucket.CreatedAt)
+	if err != nil {
+		return (*ProjectMemberAclBucket)(nil), obj.makeErr(err)
+	}
+	return project_member_acl_bucket, nil
+
+}
+
+func (obj *spannerImpl) All_MemberBucketGrant_By_ProjectId_And_MemberId(ctx context.Context,
+	member_bucket_grant_project_id MemberBucketGrant_ProjectId_Field,
+	member_bucket_grant_member_id MemberBucketGrant_MemberId_Field) (
+	rows []*MemberBucketGrant, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "member_bucket_grants.member_id", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at FROM member_bucket_grants WHERE member_bucket_grants.project_id = ? AND "), __cond_0}}
+
+	var __values []any
+	__values = append(__values, member_bucket_grant_project_id.value())
+	if !member_bucket_grant_member_id.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, member_bucket_grant_member_id.value())
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*MemberBucketGrant, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				member_bucket_grant := &MemberBucketGrant{}
+				err = __rows.Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, member_bucket_grant)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) All_MemberBucketGrant_By_ProjectId_And_InviteEmail(ctx context.Context,
+	member_bucket_grant_project_id MemberBucketGrant_ProjectId_Field,
+	member_bucket_grant_invite_email MemberBucketGrant_InviteEmail_Field) (
+	rows []*MemberBucketGrant, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at FROM member_bucket_grants WHERE member_bucket_grants.project_id = ? AND member_bucket_grants.invite_email = ?")
+
+	var __values []any
+	__values = append(__values, member_bucket_grant_project_id.value(), member_bucket_grant_invite_email.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*MemberBucketGrant, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				member_bucket_grant := &MemberBucketGrant{}
+				err = __rows.Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, member_bucket_grant)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) Get_MemberBucketGrant_By_Id(ctx context.Context,
+	member_bucket_grant_id MemberBucketGrant_Id_Field) (
+	member_bucket_grant *MemberBucketGrant, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at FROM member_bucket_grants WHERE member_bucket_grants.id = ?")
+
+	var __values []any
+	__values = append(__values, member_bucket_grant_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	member_bucket_grant = &MemberBucketGrant{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt)
+	if err != nil {
+		return (*MemberBucketGrant)(nil), obj.makeErr(err)
+	}
+	return member_bucket_grant, nil
 
 }
 
@@ -64440,6 +74383,692 @@ func (obj *spannerImpl) Limited_BucketMigration_By_State_OrderBy_Asc_CreatedAt(c
 		}
 		return rows, nil
 	}
+
+}
+
+func (obj *spannerImpl) All_Reseller(ctx context.Context) (
+	rows []*Reseller, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT resellers.id, resellers.name, resellers.email, resellers.password_hash, resellers.company_name, resellers.status, resellers.created_at, resellers.updated_at, resellers.deleted_at, resellers.failed_login_count, resellers.login_lockout_expiration, resellers.activation_code, resellers.signup_id, resellers.new_unverified_email, resellers.email_change_verification_step, resellers.mfa_enabled, resellers.mfa_secret_key, resellers.mfa_recovery_codes FROM resellers")
+
+	var __values []any
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Reseller, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				reseller := &Reseller{}
+				err = __rows.Scan(&reseller.Id, &reseller.Name, &reseller.Email, &reseller.PasswordHash, &reseller.CompanyName, &reseller.Status, &reseller.CreatedAt, &reseller.UpdatedAt, &reseller.DeletedAt, &reseller.FailedLoginCount, &reseller.LoginLockoutExpiration, &reseller.ActivationCode, &reseller.SignupId, &reseller.NewUnverifiedEmail, &reseller.EmailChangeVerificationStep, &reseller.MfaEnabled, &reseller.MfaSecretKey, &reseller.MfaRecoveryCodes)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, reseller)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) Get_Reseller_By_Id(ctx context.Context,
+	reseller_id Reseller_Id_Field) (
+	reseller *Reseller, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT resellers.id, resellers.name, resellers.email, resellers.password_hash, resellers.company_name, resellers.status, resellers.created_at, resellers.updated_at, resellers.deleted_at, resellers.failed_login_count, resellers.login_lockout_expiration, resellers.activation_code, resellers.signup_id, resellers.new_unverified_email, resellers.email_change_verification_step, resellers.mfa_enabled, resellers.mfa_secret_key, resellers.mfa_recovery_codes FROM resellers WHERE resellers.id = ?")
+
+	var __values []any
+	__values = append(__values, reseller_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller = &Reseller{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reseller.Id, &reseller.Name, &reseller.Email, &reseller.PasswordHash, &reseller.CompanyName, &reseller.Status, &reseller.CreatedAt, &reseller.UpdatedAt, &reseller.DeletedAt, &reseller.FailedLoginCount, &reseller.LoginLockoutExpiration, &reseller.ActivationCode, &reseller.SignupId, &reseller.NewUnverifiedEmail, &reseller.EmailChangeVerificationStep, &reseller.MfaEnabled, &reseller.MfaSecretKey, &reseller.MfaRecoveryCodes)
+	if err != nil {
+		return (*Reseller)(nil), obj.makeErr(err)
+	}
+	return reseller, nil
+
+}
+
+func (obj *spannerImpl) Get_Reseller_By_Email_And_Status_Not_Number(ctx context.Context,
+	reseller_email Reseller_Email_Field) (
+	reseller *Reseller, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT resellers.id, resellers.name, resellers.email, resellers.password_hash, resellers.company_name, resellers.status, resellers.created_at, resellers.updated_at, resellers.deleted_at, resellers.failed_login_count, resellers.login_lockout_expiration, resellers.activation_code, resellers.signup_id, resellers.new_unverified_email, resellers.email_change_verification_step, resellers.mfa_enabled, resellers.mfa_secret_key, resellers.mfa_recovery_codes FROM resellers WHERE resellers.email = ? AND resellers.status != 0")
+
+	var __values []any
+	__values = append(__values, reseller_email.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller = &Reseller{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reseller.Id, &reseller.Name, &reseller.Email, &reseller.PasswordHash, &reseller.CompanyName, &reseller.Status, &reseller.CreatedAt, &reseller.UpdatedAt, &reseller.DeletedAt, &reseller.FailedLoginCount, &reseller.LoginLockoutExpiration, &reseller.ActivationCode, &reseller.SignupId, &reseller.NewUnverifiedEmail, &reseller.EmailChangeVerificationStep, &reseller.MfaEnabled, &reseller.MfaSecretKey, &reseller.MfaRecoveryCodes)
+	if err != nil {
+		return (*Reseller)(nil), obj.makeErr(err)
+	}
+	return reseller, nil
+
+}
+
+func (obj *spannerImpl) Get_Reseller_By_Email(ctx context.Context,
+	reseller_email Reseller_Email_Field) (
+	reseller *Reseller, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT resellers.id, resellers.name, resellers.email, resellers.password_hash, resellers.company_name, resellers.status, resellers.created_at, resellers.updated_at, resellers.deleted_at, resellers.failed_login_count, resellers.login_lockout_expiration, resellers.activation_code, resellers.signup_id, resellers.new_unverified_email, resellers.email_change_verification_step, resellers.mfa_enabled, resellers.mfa_secret_key, resellers.mfa_recovery_codes FROM resellers WHERE resellers.email = ?")
+
+	var __values []any
+	__values = append(__values, reseller_email.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller = &Reseller{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reseller.Id, &reseller.Name, &reseller.Email, &reseller.PasswordHash, &reseller.CompanyName, &reseller.Status, &reseller.CreatedAt, &reseller.UpdatedAt, &reseller.DeletedAt, &reseller.FailedLoginCount, &reseller.LoginLockoutExpiration, &reseller.ActivationCode, &reseller.SignupId, &reseller.NewUnverifiedEmail, &reseller.EmailChangeVerificationStep, &reseller.MfaEnabled, &reseller.MfaSecretKey, &reseller.MfaRecoveryCodes)
+	if err != nil {
+		return (*Reseller)(nil), obj.makeErr(err)
+	}
+	return reseller, nil
+
+}
+
+func (obj *spannerImpl) Get_ResellerConfig_By_Id(ctx context.Context,
+	reseller_config_id ResellerConfig_Id_Field) (
+	reseller_config *ResellerConfig, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT reseller_configs.id, reseller_configs.reseller_id, reseller_configs.config, reseller_configs.active_theme_type, reseller_configs.active_theme_id, reseller_configs.created_at, reseller_configs.updated_at FROM reseller_configs WHERE reseller_configs.id = ?")
+
+	var __values []any
+	__values = append(__values, reseller_config_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller_config = &ResellerConfig{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reseller_config.Id, &reseller_config.ResellerId, spannerConvertJSON(&reseller_config.Config), &reseller_config.ActiveThemeType, &reseller_config.ActiveThemeId, &reseller_config.CreatedAt, &reseller_config.UpdatedAt)
+	if err != nil {
+		return (*ResellerConfig)(nil), obj.makeErr(err)
+	}
+	return reseller_config, nil
+
+}
+
+func (obj *spannerImpl) Get_ResellerConfig_By_ResellerId(ctx context.Context,
+	reseller_config_reseller_id ResellerConfig_ResellerId_Field) (
+	reseller_config *ResellerConfig, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT reseller_configs.id, reseller_configs.reseller_id, reseller_configs.config, reseller_configs.active_theme_type, reseller_configs.active_theme_id, reseller_configs.created_at, reseller_configs.updated_at FROM reseller_configs WHERE reseller_configs.reseller_id = ?")
+
+	var __values []any
+	__values = append(__values, reseller_config_reseller_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller_config = &ResellerConfig{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reseller_config.Id, &reseller_config.ResellerId, spannerConvertJSON(&reseller_config.Config), &reseller_config.ActiveThemeType, &reseller_config.ActiveThemeId, &reseller_config.CreatedAt, &reseller_config.UpdatedAt)
+	if err != nil {
+		return (*ResellerConfig)(nil), obj.makeErr(err)
+	}
+	return reseller_config, nil
+
+}
+
+func (obj *spannerImpl) Get_ResellerDomain_By_Id(ctx context.Context,
+	reseller_domain_id ResellerDomain_Id_Field) (
+	reseller_domain *ResellerDomain, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT reseller_domains.id, reseller_domains.reseller_id, reseller_domains.domain, reseller_domains.domain_type, reseller_domains.status, reseller_domains.verification_method, reseller_domains.verification_status, reseller_domains.ssl_status, reseller_domains.dns_target, reseller_domains.verified_at, reseller_domains.created_at, reseller_domains.updated_at, reseller_domains.deleted_at FROM reseller_domains WHERE reseller_domains.id = ?")
+
+	var __values []any
+	__values = append(__values, reseller_domain_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller_domain = &ResellerDomain{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reseller_domain.Id, &reseller_domain.ResellerId, &reseller_domain.Domain, &reseller_domain.DomainType, &reseller_domain.Status, &reseller_domain.VerificationMethod, &reseller_domain.VerificationStatus, &reseller_domain.SslStatus, &reseller_domain.DnsTarget, &reseller_domain.VerifiedAt, &reseller_domain.CreatedAt, &reseller_domain.UpdatedAt, &reseller_domain.DeletedAt)
+	if err != nil {
+		return (*ResellerDomain)(nil), obj.makeErr(err)
+	}
+	return reseller_domain, nil
+
+}
+
+func (obj *spannerImpl) Get_ResellerDomain_By_ResellerId(ctx context.Context,
+	reseller_domain_reseller_id ResellerDomain_ResellerId_Field) (
+	reseller_domain *ResellerDomain, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT reseller_domains.id, reseller_domains.reseller_id, reseller_domains.domain, reseller_domains.domain_type, reseller_domains.status, reseller_domains.verification_method, reseller_domains.verification_status, reseller_domains.ssl_status, reseller_domains.dns_target, reseller_domains.verified_at, reseller_domains.created_at, reseller_domains.updated_at, reseller_domains.deleted_at FROM reseller_domains WHERE reseller_domains.reseller_id = ?")
+
+	var __values []any
+	__values = append(__values, reseller_domain_reseller_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller_domain = &ResellerDomain{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reseller_domain.Id, &reseller_domain.ResellerId, &reseller_domain.Domain, &reseller_domain.DomainType, &reseller_domain.Status, &reseller_domain.VerificationMethod, &reseller_domain.VerificationStatus, &reseller_domain.SslStatus, &reseller_domain.DnsTarget, &reseller_domain.VerifiedAt, &reseller_domain.CreatedAt, &reseller_domain.UpdatedAt, &reseller_domain.DeletedAt)
+	if err != nil {
+		return (*ResellerDomain)(nil), obj.makeErr(err)
+	}
+	return reseller_domain, nil
+
+}
+
+func (obj *spannerImpl) Get_ResellerDomain_By_Domain(ctx context.Context,
+	reseller_domain_domain ResellerDomain_Domain_Field) (
+	reseller_domain *ResellerDomain, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT reseller_domains.id, reseller_domains.reseller_id, reseller_domains.domain, reseller_domains.domain_type, reseller_domains.status, reseller_domains.verification_method, reseller_domains.verification_status, reseller_domains.ssl_status, reseller_domains.dns_target, reseller_domains.verified_at, reseller_domains.created_at, reseller_domains.updated_at, reseller_domains.deleted_at FROM reseller_domains WHERE reseller_domains.domain = ? LIMIT 2")
+
+	var __values []any
+	__values = append(__values, reseller_domain_domain.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		reseller_domain, err = func() (reseller_domain *ResellerDomain, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			if !__rows.Next() {
+				return nil, sql.ErrNoRows
+			}
+
+			reseller_domain = &ResellerDomain{}
+			err = __rows.Scan(&reseller_domain.Id, &reseller_domain.ResellerId, &reseller_domain.Domain, &reseller_domain.DomainType, &reseller_domain.Status, &reseller_domain.VerificationMethod, &reseller_domain.VerificationStatus, &reseller_domain.SslStatus, &reseller_domain.DnsTarget, &reseller_domain.VerifiedAt, &reseller_domain.CreatedAt, &reseller_domain.UpdatedAt, &reseller_domain.DeletedAt)
+			if err != nil {
+				return nil, err
+			}
+
+			if __rows.Next() {
+				return nil, errTooManyRows
+			}
+
+			return reseller_domain, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			if errors.Is(err, errTooManyRows) {
+				return nil, tooManyRows("ResellerDomain_By_Domain")
+			}
+			return nil, obj.makeErr(err)
+		}
+		return reseller_domain, nil
+	}
+
+}
+
+func (obj *spannerImpl) All_WebappSessionReseller_By_ResellerId(ctx context.Context,
+	webapp_session_reseller_reseller_id WebappSessionReseller_ResellerId_Field) (
+	rows []*WebappSessionReseller, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT webapp_session_resellers.id, webapp_session_resellers.reseller_id, webapp_session_resellers.ip_address, webapp_session_resellers.status, webapp_session_resellers.expires_at FROM webapp_session_resellers WHERE webapp_session_resellers.reseller_id = ?")
+
+	var __values []any
+	__values = append(__values, webapp_session_reseller_reseller_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*WebappSessionReseller, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				webapp_session_reseller := &WebappSessionReseller{}
+				err = __rows.Scan(&webapp_session_reseller.Id, &webapp_session_reseller.ResellerId, &webapp_session_reseller.IpAddress, &webapp_session_reseller.Status, &webapp_session_reseller.ExpiresAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, webapp_session_reseller)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) Get_WebappSessionReseller_By_Id(ctx context.Context,
+	webapp_session_reseller_id WebappSessionReseller_Id_Field) (
+	webapp_session_reseller *WebappSessionReseller, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT webapp_session_resellers.id, webapp_session_resellers.reseller_id, webapp_session_resellers.ip_address, webapp_session_resellers.status, webapp_session_resellers.expires_at FROM webapp_session_resellers WHERE webapp_session_resellers.id = ?")
+
+	var __values []any
+	__values = append(__values, webapp_session_reseller_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	webapp_session_reseller = &WebappSessionReseller{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&webapp_session_reseller.Id, &webapp_session_reseller.ResellerId, &webapp_session_reseller.IpAddress, &webapp_session_reseller.Status, &webapp_session_reseller.ExpiresAt)
+	if err != nil {
+		return (*WebappSessionReseller)(nil), obj.makeErr(err)
+	}
+	return webapp_session_reseller, nil
+
+}
+
+func (obj *spannerImpl) Get_ResetPasswordTokenReseller_By_Secret(ctx context.Context,
+	reset_password_token_reseller_secret ResetPasswordTokenReseller_Secret_Field) (
+	reset_password_token_reseller *ResetPasswordTokenReseller, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT reset_password_token_resellers.secret, reset_password_token_resellers.owner_id, reset_password_token_resellers.created_at FROM reset_password_token_resellers WHERE reset_password_token_resellers.secret = ?")
+
+	var __values []any
+	__values = append(__values, reset_password_token_reseller_secret.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reset_password_token_reseller = &ResetPasswordTokenReseller{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reset_password_token_reseller.Secret, &reset_password_token_reseller.OwnerId, &reset_password_token_reseller.CreatedAt)
+	if err != nil {
+		return (*ResetPasswordTokenReseller)(nil), obj.makeErr(err)
+	}
+	return reset_password_token_reseller, nil
+
+}
+
+func (obj *spannerImpl) Get_ResetPasswordTokenReseller_By_OwnerId(ctx context.Context,
+	reset_password_token_reseller_owner_id ResetPasswordTokenReseller_OwnerId_Field) (
+	reset_password_token_reseller *ResetPasswordTokenReseller, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT reset_password_token_resellers.secret, reset_password_token_resellers.owner_id, reset_password_token_resellers.created_at FROM reset_password_token_resellers WHERE reset_password_token_resellers.owner_id = ?")
+
+	var __values []any
+	__values = append(__values, reset_password_token_reseller_owner_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reset_password_token_reseller = &ResetPasswordTokenReseller{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reset_password_token_reseller.Secret, &reset_password_token_reseller.OwnerId, &reset_password_token_reseller.CreatedAt)
+	if err != nil {
+		return (*ResetPasswordTokenReseller)(nil), obj.makeErr(err)
+	}
+	return reset_password_token_reseller, nil
+
+}
+
+func (obj *spannerImpl) Get_ResellerDeleteRequest_By_ResellerId(ctx context.Context,
+	reseller_delete_request_reseller_id ResellerDeleteRequest_ResellerId_Field) (
+	reseller_delete_request *ResellerDeleteRequest, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT reseller_delete_requests.id, reseller_delete_requests.reseller_id, reseller_delete_requests.status, reseller_delete_requests.error, reseller_delete_requests.delete_at, reseller_delete_requests.created_at FROM reseller_delete_requests WHERE reseller_delete_requests.reseller_id = ? LIMIT 2")
+
+	var __values []any
+	__values = append(__values, reseller_delete_request_reseller_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		reseller_delete_request, err = func() (reseller_delete_request *ResellerDeleteRequest, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			if !__rows.Next() {
+				return nil, sql.ErrNoRows
+			}
+
+			reseller_delete_request = &ResellerDeleteRequest{}
+			err = __rows.Scan(&reseller_delete_request.Id, &reseller_delete_request.ResellerId, &reseller_delete_request.Status, &reseller_delete_request.Error, &reseller_delete_request.DeleteAt, &reseller_delete_request.CreatedAt)
+			if err != nil {
+				return nil, err
+			}
+
+			if __rows.Next() {
+				return nil, errTooManyRows
+			}
+
+			return reseller_delete_request, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			if errors.Is(err, errTooManyRows) {
+				return nil, tooManyRows("ResellerDeleteRequest_By_ResellerId")
+			}
+			return nil, obj.makeErr(err)
+		}
+		return reseller_delete_request, nil
+	}
+
+}
+
+func (obj *spannerImpl) All_ThemePreset(ctx context.Context) (
+	rows []*ThemePreset, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT theme_presets.id, theme_presets.slug, theme_presets.name, theme_presets.description, theme_presets.colors, theme_presets.is_system, theme_presets.created_at, theme_presets.updated_at FROM theme_presets")
+
+	var __values []any
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*ThemePreset, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				theme_preset := &ThemePreset{}
+				err = __rows.Scan(&theme_preset.Id, &theme_preset.Slug, &theme_preset.Name, &theme_preset.Description, spannerConvertJSON(&theme_preset.Colors), &theme_preset.IsSystem, &theme_preset.CreatedAt, &theme_preset.UpdatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, theme_preset)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) Get_ThemePreset_By_Id(ctx context.Context,
+	theme_preset_id ThemePreset_Id_Field) (
+	theme_preset *ThemePreset, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT theme_presets.id, theme_presets.slug, theme_presets.name, theme_presets.description, theme_presets.colors, theme_presets.is_system, theme_presets.created_at, theme_presets.updated_at FROM theme_presets WHERE theme_presets.id = ?")
+
+	var __values []any
+	__values = append(__values, theme_preset_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	theme_preset = &ThemePreset{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&theme_preset.Id, &theme_preset.Slug, &theme_preset.Name, &theme_preset.Description, spannerConvertJSON(&theme_preset.Colors), &theme_preset.IsSystem, &theme_preset.CreatedAt, &theme_preset.UpdatedAt)
+	if err != nil {
+		return (*ThemePreset)(nil), obj.makeErr(err)
+	}
+	return theme_preset, nil
+
+}
+
+func (obj *spannerImpl) Get_ThemePreset_By_Slug(ctx context.Context,
+	theme_preset_slug ThemePreset_Slug_Field) (
+	theme_preset *ThemePreset, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT theme_presets.id, theme_presets.slug, theme_presets.name, theme_presets.description, theme_presets.colors, theme_presets.is_system, theme_presets.created_at, theme_presets.updated_at FROM theme_presets WHERE theme_presets.slug = ?")
+
+	var __values []any
+	__values = append(__values, theme_preset_slug.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	theme_preset = &ThemePreset{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&theme_preset.Id, &theme_preset.Slug, &theme_preset.Name, &theme_preset.Description, spannerConvertJSON(&theme_preset.Colors), &theme_preset.IsSystem, &theme_preset.CreatedAt, &theme_preset.UpdatedAt)
+	if err != nil {
+		return (*ThemePreset)(nil), obj.makeErr(err)
+	}
+	return theme_preset, nil
+
+}
+
+func (obj *spannerImpl) Get_ThemePreset_By_Name(ctx context.Context,
+	theme_preset_name ThemePreset_Name_Field) (
+	theme_preset *ThemePreset, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT theme_presets.id, theme_presets.slug, theme_presets.name, theme_presets.description, theme_presets.colors, theme_presets.is_system, theme_presets.created_at, theme_presets.updated_at FROM theme_presets WHERE theme_presets.name = ?")
+
+	var __values []any
+	__values = append(__values, theme_preset_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	theme_preset = &ThemePreset{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&theme_preset.Id, &theme_preset.Slug, &theme_preset.Name, &theme_preset.Description, spannerConvertJSON(&theme_preset.Colors), &theme_preset.IsSystem, &theme_preset.CreatedAt, &theme_preset.UpdatedAt)
+	if err != nil {
+		return (*ThemePreset)(nil), obj.makeErr(err)
+	}
+	return theme_preset, nil
+
+}
+
+func (obj *spannerImpl) All_ResellerTheme_By_ResellerId(ctx context.Context,
+	reseller_theme_reseller_id ResellerTheme_ResellerId_Field) (
+	rows []*ResellerTheme, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT reseller_themes.id, reseller_themes.reseller_id, reseller_themes.name, reseller_themes.colors, reseller_themes.created_at, reseller_themes.updated_at FROM reseller_themes WHERE reseller_themes.reseller_id = ?")
+
+	var __values []any
+	__values = append(__values, reseller_theme_reseller_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*ResellerTheme, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				reseller_theme := &ResellerTheme{}
+				err = __rows.Scan(&reseller_theme.Id, &reseller_theme.ResellerId, &reseller_theme.Name, spannerConvertJSON(&reseller_theme.Colors), &reseller_theme.CreatedAt, &reseller_theme.UpdatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, reseller_theme)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) Get_ResellerTheme_By_Id(ctx context.Context,
+	reseller_theme_id ResellerTheme_Id_Field) (
+	reseller_theme *ResellerTheme, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT reseller_themes.id, reseller_themes.reseller_id, reseller_themes.name, reseller_themes.colors, reseller_themes.created_at, reseller_themes.updated_at FROM reseller_themes WHERE reseller_themes.id = ?")
+
+	var __values []any
+	__values = append(__values, reseller_theme_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller_theme = &ResellerTheme{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reseller_theme.Id, &reseller_theme.ResellerId, &reseller_theme.Name, spannerConvertJSON(&reseller_theme.Colors), &reseller_theme.CreatedAt, &reseller_theme.UpdatedAt)
+	if err != nil {
+		return (*ResellerTheme)(nil), obj.makeErr(err)
+	}
+	return reseller_theme, nil
+
+}
+
+func (obj *spannerImpl) Get_ResellerTheme_By_Id_And_ResellerId(ctx context.Context,
+	reseller_theme_id ResellerTheme_Id_Field,
+	reseller_theme_reseller_id ResellerTheme_ResellerId_Field) (
+	reseller_theme *ResellerTheme, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT reseller_themes.id, reseller_themes.reseller_id, reseller_themes.name, reseller_themes.colors, reseller_themes.created_at, reseller_themes.updated_at FROM reseller_themes WHERE reseller_themes.id = ? AND reseller_themes.reseller_id = ?")
+
+	var __values []any
+	__values = append(__values, reseller_theme_id.value(), reseller_theme_reseller_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller_theme = &ResellerTheme{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reseller_theme.Id, &reseller_theme.ResellerId, &reseller_theme.Name, spannerConvertJSON(&reseller_theme.Colors), &reseller_theme.CreatedAt, &reseller_theme.UpdatedAt)
+	if err != nil {
+		return (*ResellerTheme)(nil), obj.makeErr(err)
+	}
+	return reseller_theme, nil
+
+}
+
+func (obj *spannerImpl) Get_ResellerTheme_By_ResellerId_And_Name(ctx context.Context,
+	reseller_theme_reseller_id ResellerTheme_ResellerId_Field,
+	reseller_theme_name ResellerTheme_Name_Field) (
+	reseller_theme *ResellerTheme, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT reseller_themes.id, reseller_themes.reseller_id, reseller_themes.name, reseller_themes.colors, reseller_themes.created_at, reseller_themes.updated_at FROM reseller_themes WHERE reseller_themes.reseller_id = ? AND reseller_themes.name = ?")
+
+	var __values []any
+	__values = append(__values, reseller_theme_reseller_id.value(), reseller_theme_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller_theme = &ResellerTheme{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reseller_theme.Id, &reseller_theme.ResellerId, &reseller_theme.Name, spannerConvertJSON(&reseller_theme.Colors), &reseller_theme.CreatedAt, &reseller_theme.UpdatedAt)
+	if err != nil {
+		return (*ResellerTheme)(nil), obj.makeErr(err)
+	}
+	return reseller_theme, nil
 
 }
 
@@ -66728,6 +77357,127 @@ func (obj *spannerImpl) UpdateNoReturn_PeerIdentity_By_NodeId(ctx context.Contex
 	return nil
 }
 
+func (obj *spannerImpl) Update_MailExportJob_By_Id(ctx context.Context,
+	mail_export_job_id MailExportJob_Id_Field,
+	update MailExportJob_Update_Fields) (
+	mail_export_job *MailExportJob, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE mail_export_jobs SET "), __sets, __sqlbundle_Literal(" WHERE mail_export_jobs.id = ? THEN RETURN mail_export_jobs.id, mail_export_jobs.user_id, mail_export_jobs.project_id, mail_export_jobs.access_key_id, mail_export_jobs.bucket, mail_export_jobs.format, mail_export_jobs.mode, mail_export_jobs.prefix, mail_export_jobs.keys_json, mail_export_jobs.access_grant, mail_export_jobs.status, mail_export_jobs.retry_count, mail_export_jobs.progress, mail_export_jobs.processed_files, mail_export_jobs.total_files, mail_export_jobs.processed_bytes, mail_export_jobs.total_bytes, mail_export_jobs.current_object, mail_export_jobs.archive_bucket, mail_export_jobs.archive_key, mail_export_jobs.archive_name, mail_export_jobs.error_message, mail_export_jobs.last_download_charge_id, mail_export_jobs.last_download_charged_bytes, mail_export_jobs.created_at, mail_export_jobs.started_at, mail_export_jobs.completed_at, mail_export_jobs.expires_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.Prefix._set {
+		__values = append(__values, update.Prefix.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("prefix = ?"))
+	}
+	if update.KeysJson._set {
+		__values = append(__values, spannerConvertJSON(update.KeysJson.value()))
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("keys_json = ?"))
+	}
+	if update.AccessGrant._set {
+		__values = append(__values, update.AccessGrant.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("access_grant = ?"))
+	}
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+	if update.RetryCount._set {
+		__values = append(__values, update.RetryCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("retry_count = ?"))
+	}
+	if update.Progress._set {
+		__values = append(__values, update.Progress.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("progress = ?"))
+	}
+	if update.ProcessedFiles._set {
+		__values = append(__values, update.ProcessedFiles.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("processed_files = ?"))
+	}
+	if update.TotalFiles._set {
+		__values = append(__values, update.TotalFiles.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("total_files = ?"))
+	}
+	if update.ProcessedBytes._set {
+		__values = append(__values, update.ProcessedBytes.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("processed_bytes = ?"))
+	}
+	if update.TotalBytes._set {
+		__values = append(__values, update.TotalBytes.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("total_bytes = ?"))
+	}
+	if update.CurrentObject._set {
+		__values = append(__values, update.CurrentObject.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("current_object = ?"))
+	}
+	if update.ArchiveBucket._set {
+		__values = append(__values, update.ArchiveBucket.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("archive_bucket = ?"))
+	}
+	if update.ArchiveKey._set {
+		__values = append(__values, update.ArchiveKey.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("archive_key = ?"))
+	}
+	if update.ArchiveName._set {
+		__values = append(__values, update.ArchiveName.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("archive_name = ?"))
+	}
+	if update.ErrorMessage._set {
+		__values = append(__values, update.ErrorMessage.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("error_message = ?"))
+	}
+	if update.LastDownloadChargeId._set {
+		__values = append(__values, update.LastDownloadChargeId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_download_charge_id = ?"))
+	}
+	if update.LastDownloadChargedBytes._set {
+		__values = append(__values, update.LastDownloadChargedBytes.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_download_charged_bytes = ?"))
+	}
+	if update.StartedAt._set {
+		__values = append(__values, update.StartedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("started_at = ?"))
+	}
+	if update.CompletedAt._set {
+		__values = append(__values, update.CompletedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("completed_at = ?"))
+	}
+	if update.ExpiresAt._set {
+		__values = append(__values, update.ExpiresAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("expires_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, mail_export_job_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	mail_export_job = &MailExportJob{}
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&mail_export_job.Id, &mail_export_job.UserId, &mail_export_job.ProjectId, &mail_export_job.AccessKeyId, &mail_export_job.Bucket, &mail_export_job.Format, &mail_export_job.Mode, &mail_export_job.Prefix, spannerConvertJSON(&mail_export_job.KeysJson), &mail_export_job.AccessGrant, &mail_export_job.Status, &mail_export_job.RetryCount, &mail_export_job.Progress, &mail_export_job.ProcessedFiles, &mail_export_job.TotalFiles, &mail_export_job.ProcessedBytes, &mail_export_job.TotalBytes, &mail_export_job.CurrentObject, &mail_export_job.ArchiveBucket, &mail_export_job.ArchiveKey, &mail_export_job.ArchiveName, &mail_export_job.ErrorMessage, &mail_export_job.LastDownloadChargeId, &mail_export_job.LastDownloadChargedBytes, &mail_export_job.CreatedAt, &mail_export_job.StartedAt, &mail_export_job.CompletedAt, &mail_export_job.ExpiresAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return mail_export_job, nil
+}
+
 func (obj *spannerImpl) Update_Node_By_Id(ctx context.Context,
 	node_id Node_Id_Field,
 	update Node_Update_Fields) (
@@ -67817,16 +78567,12 @@ func (obj *spannerImpl) Update_UserNotificationPreference_By_Id(ctx context.Cont
 
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE user_notification_preferences SET "), __sets, __sqlbundle_Literal(" WHERE user_notification_preferences.id = ? THEN RETURN user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.category, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE user_notification_preferences SET "), __sets, __sqlbundle_Literal(" WHERE user_notification_preferences.id = ? THEN RETURN user_notification_preferences.id, user_notification_preferences.user_id, user_notification_preferences.preferences, user_notification_preferences.created_at, user_notification_preferences.updated_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []any
 	var __args []any
 
-	if update.Category._set {
-		__values = append(__values, update.Category.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("category = ?"))
-	}
 	if update.Preferences._set {
 		__values = append(__values, spannerConvertJSON(update.Preferences.value()))
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("preferences = ?"))
@@ -67849,7 +78595,7 @@ func (obj *spannerImpl) Update_UserNotificationPreference_By_Id(ctx context.Cont
 	obj.logStmt(__stmt, __values...)
 
 	user_notification_preference = &UserNotificationPreference{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&user_notification_preference.Id, &user_notification_preference.UserId, &user_notification_preference.Category, spannerConvertJSON(&user_notification_preference.Preferences), &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&user_notification_preference.Id, &user_notification_preference.UserId, spannerConvertJSON(&user_notification_preference.Preferences), &user_notification_preference.CreatedAt, &user_notification_preference.UpdatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -67995,10 +78741,10 @@ func (obj *spannerImpl) UpdateNoReturn_OauthToken_By_Token_And_Kind(ctx context.
 	return nil
 }
 
-func (obj *spannerImpl) Update_GoogleBackupCredentials_By_Id(ctx context.Context,
-	google_backup_credentials_id GoogleBackupCredentials_Id_Field,
-	update GoogleBackupCredentials_Update_Fields) (
-	google_backup_credentials *GoogleBackupCredentials, err error) {
+func (obj *spannerImpl) Update_BackupCredentials_By_Id(ctx context.Context,
+	backup_credentials_id BackupCredentials_Id_Field,
+	update BackupCredentials_Update_Fields) (
+	backup_credentials *BackupCredentials, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !obj.txn && txutil.IsInsideTx(ctx) {
 		panic("using DB when inside of a transaction")
@@ -68006,7 +78752,7 @@ func (obj *spannerImpl) Update_GoogleBackupCredentials_By_Id(ctx context.Context
 
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE google_backup_credentials SET "), __sets, __sqlbundle_Literal(" WHERE google_backup_credentials.id = ? THEN RETURN google_backup_credentials.id, google_backup_credentials.user_id, google_backup_credentials.google_email, google_backup_credentials.access_token, google_backup_credentials.refresh_token, google_backup_credentials.access_token_expiry, google_backup_credentials.account_type, google_backup_credentials.created_at, google_backup_credentials.updated_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE backup_credentials SET "), __sets, __sqlbundle_Literal(" WHERE backup_credentials.id = ? THEN RETURN backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []any
@@ -68028,13 +78774,21 @@ func (obj *spannerImpl) Update_GoogleBackupCredentials_By_Id(ctx context.Context
 		__values = append(__values, update.AccountType.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("account_type = ?"))
 	}
+	if update.TenantId._set {
+		__values = append(__values, update.TenantId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("tenant_id = ?"))
+	}
+	if update.TenantName._set {
+		__values = append(__values, update.TenantName.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("tenant_name = ?"))
+	}
 
 	__now := obj.db.Hooks.Now().UTC()
 
 	__values = append(__values, __now)
 	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
 
-	__args = append(__args, google_backup_credentials_id.value())
+	__args = append(__args, backup_credentials_id.value())
 
 	__values = append(__values, __args...)
 	__sets.SQL = __sets_sql
@@ -68042,15 +78796,15 @@ func (obj *spannerImpl) Update_GoogleBackupCredentials_By_Id(ctx context.Context
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	google_backup_credentials = &GoogleBackupCredentials{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&google_backup_credentials.Id, &google_backup_credentials.UserId, &google_backup_credentials.GoogleEmail, &google_backup_credentials.AccessToken, &google_backup_credentials.RefreshToken, &google_backup_credentials.AccessTokenExpiry, &google_backup_credentials.AccountType, &google_backup_credentials.CreatedAt, &google_backup_credentials.UpdatedAt)
+	backup_credentials = &BackupCredentials{}
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
-	return google_backup_credentials, nil
+	return backup_credentials, nil
 }
 
 func (obj *spannerImpl) Update_Project_By_Id(ctx context.Context,
@@ -68276,7 +79030,7 @@ func (obj *spannerImpl) Update_ProjectInvitation_By_ProjectId_And_Email(ctx cont
 
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE project_invitations SET "), __sets, __sqlbundle_Literal(" WHERE project_invitations.project_id = ? AND project_invitations.email = ? THEN RETURN project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE project_invitations SET "), __sets, __sqlbundle_Literal(" WHERE project_invitations.project_id = ? AND project_invitations.email = ? THEN RETURN project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at, project_invitations.expires_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []any
@@ -68289,6 +79043,10 @@ func (obj *spannerImpl) Update_ProjectInvitation_By_ProjectId_And_Email(ctx cont
 	if update.CreatedAt._set {
 		__values = append(__values, update.CreatedAt.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("created_at = ?"))
+	}
+	if update.ExpiresAt._set {
+		__values = append(__values, update.ExpiresAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("expires_at = ?"))
 	}
 
 	if len(__sets_sql.SQLs) == 0 {
@@ -68304,7 +79062,7 @@ func (obj *spannerImpl) Update_ProjectInvitation_By_ProjectId_And_Email(ctx cont
 	obj.logStmt(__stmt, __values...)
 
 	project_invitation = &ProjectInvitation{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt, &project_invitation.ExpiresAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -68353,6 +79111,72 @@ func (obj *spannerImpl) UpdateNoReturn_ApiKey_By_Id(ctx context.Context,
 		return obj.makeErr(err)
 	}
 	return nil
+}
+
+func (obj *spannerImpl) Update_MemberBucketGrant_By_Id(ctx context.Context,
+	member_bucket_grant_id MemberBucketGrant_Id_Field,
+	update MemberBucketGrant_Update_Fields) (
+	member_bucket_grant *MemberBucketGrant, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE member_bucket_grants SET "), __sets, __sqlbundle_Literal(" WHERE member_bucket_grants.id = ? THEN RETURN member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.MemberId._set {
+		__values = append(__values, update.MemberId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("member_id = ?"))
+	}
+	if update.AllowList._set {
+		__values = append(__values, update.AllowList.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("allow_list = ?"))
+	}
+	if update.AllowDownload._set {
+		__values = append(__values, update.AllowDownload.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("allow_download = ?"))
+	}
+	if update.AllowUpload._set {
+		__values = append(__values, update.AllowUpload.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("allow_upload = ?"))
+	}
+	if update.AllowDelete._set {
+		__values = append(__values, update.AllowDelete.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("allow_delete = ?"))
+	}
+	if update.ExpiresAt._set {
+		__values = append(__values, update.ExpiresAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("expires_at = ?"))
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+
+	__args = append(__args, member_bucket_grant_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	member_bucket_grant = &MemberBucketGrant{}
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return member_bucket_grant, nil
 }
 
 func (obj *spannerImpl) Update_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
@@ -68818,6 +79642,542 @@ func (obj *spannerImpl) Update_BucketMigration_By_Id(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return bucket_migration, nil
+}
+
+func (obj *spannerImpl) Update_Reseller_By_Id(ctx context.Context,
+	reseller_id Reseller_Id_Field,
+	update Reseller_Update_Fields) (
+	reseller *Reseller, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE resellers SET "), __sets, __sqlbundle_Literal(" WHERE resellers.id = ? THEN RETURN resellers.id, resellers.name, resellers.email, resellers.password_hash, resellers.company_name, resellers.status, resellers.created_at, resellers.updated_at, resellers.deleted_at, resellers.failed_login_count, resellers.login_lockout_expiration, resellers.activation_code, resellers.signup_id, resellers.new_unverified_email, resellers.email_change_verification_step, resellers.mfa_enabled, resellers.mfa_secret_key, resellers.mfa_recovery_codes")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.Name._set {
+		__values = append(__values, update.Name.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("name = ?"))
+	}
+	if update.Email._set {
+		__values = append(__values, update.Email.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("email = ?"))
+	}
+	if update.PasswordHash._set {
+		__values = append(__values, update.PasswordHash.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("password_hash = ?"))
+	}
+	if update.CompanyName._set {
+		__values = append(__values, update.CompanyName.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("company_name = ?"))
+	}
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+	if update.UpdatedAt._set {
+		__values = append(__values, update.UpdatedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+	}
+	if update.DeletedAt._set {
+		__values = append(__values, update.DeletedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("deleted_at = ?"))
+	}
+	if update.FailedLoginCount._set {
+		__values = append(__values, update.FailedLoginCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("failed_login_count = ?"))
+	}
+	if update.LoginLockoutExpiration._set {
+		__values = append(__values, update.LoginLockoutExpiration.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("login_lockout_expiration = ?"))
+	}
+	if update.ActivationCode._set {
+		__values = append(__values, update.ActivationCode.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("activation_code = ?"))
+	}
+	if update.SignupId._set {
+		__values = append(__values, update.SignupId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("signup_id = ?"))
+	}
+	if update.NewUnverifiedEmail._set {
+		__values = append(__values, update.NewUnverifiedEmail.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("new_unverified_email = ?"))
+	}
+	if update.EmailChangeVerificationStep._set {
+		__values = append(__values, update.EmailChangeVerificationStep.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("email_change_verification_step = ?"))
+	}
+	if update.MfaEnabled._set {
+		__values = append(__values, update.MfaEnabled.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("mfa_enabled = ?"))
+	}
+	if update.MfaSecretKey._set {
+		__values = append(__values, update.MfaSecretKey.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("mfa_secret_key = ?"))
+	}
+	if update.MfaRecoveryCodes._set {
+		__values = append(__values, update.MfaRecoveryCodes.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("mfa_recovery_codes = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, reseller_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller = &Reseller{}
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&reseller.Id, &reseller.Name, &reseller.Email, &reseller.PasswordHash, &reseller.CompanyName, &reseller.Status, &reseller.CreatedAt, &reseller.UpdatedAt, &reseller.DeletedAt, &reseller.FailedLoginCount, &reseller.LoginLockoutExpiration, &reseller.ActivationCode, &reseller.SignupId, &reseller.NewUnverifiedEmail, &reseller.EmailChangeVerificationStep, &reseller.MfaEnabled, &reseller.MfaSecretKey, &reseller.MfaRecoveryCodes)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return reseller, nil
+}
+
+func (obj *spannerImpl) Update_ResellerConfig_By_Id(ctx context.Context,
+	reseller_config_id ResellerConfig_Id_Field,
+	update ResellerConfig_Update_Fields) (
+	reseller_config *ResellerConfig, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE reseller_configs SET "), __sets, __sqlbundle_Literal(" WHERE reseller_configs.id = ? THEN RETURN reseller_configs.id, reseller_configs.reseller_id, reseller_configs.config, reseller_configs.active_theme_type, reseller_configs.active_theme_id, reseller_configs.created_at, reseller_configs.updated_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.Config._set {
+		__values = append(__values, spannerConvertJSON(update.Config.value()))
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("config = ?"))
+	}
+	if update.ActiveThemeType._set {
+		__values = append(__values, update.ActiveThemeType.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("active_theme_type = ?"))
+	}
+	if update.ActiveThemeId._set {
+		__values = append(__values, update.ActiveThemeId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("active_theme_id = ?"))
+	}
+	if update.UpdatedAt._set {
+		__values = append(__values, update.UpdatedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, reseller_config_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller_config = &ResellerConfig{}
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&reseller_config.Id, &reseller_config.ResellerId, spannerConvertJSON(&reseller_config.Config), &reseller_config.ActiveThemeType, &reseller_config.ActiveThemeId, &reseller_config.CreatedAt, &reseller_config.UpdatedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return reseller_config, nil
+}
+
+func (obj *spannerImpl) Update_ResellerConfig_By_ResellerId(ctx context.Context,
+	reseller_config_reseller_id ResellerConfig_ResellerId_Field,
+	update ResellerConfig_Update_Fields) (
+	reseller_config *ResellerConfig, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE reseller_configs SET "), __sets, __sqlbundle_Literal(" WHERE reseller_configs.reseller_id = ? THEN RETURN reseller_configs.id, reseller_configs.reseller_id, reseller_configs.config, reseller_configs.active_theme_type, reseller_configs.active_theme_id, reseller_configs.created_at, reseller_configs.updated_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.Config._set {
+		__values = append(__values, spannerConvertJSON(update.Config.value()))
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("config = ?"))
+	}
+	if update.ActiveThemeType._set {
+		__values = append(__values, update.ActiveThemeType.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("active_theme_type = ?"))
+	}
+	if update.ActiveThemeId._set {
+		__values = append(__values, update.ActiveThemeId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("active_theme_id = ?"))
+	}
+	if update.UpdatedAt._set {
+		__values = append(__values, update.UpdatedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, reseller_config_reseller_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller_config = &ResellerConfig{}
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&reseller_config.Id, &reseller_config.ResellerId, spannerConvertJSON(&reseller_config.Config), &reseller_config.ActiveThemeType, &reseller_config.ActiveThemeId, &reseller_config.CreatedAt, &reseller_config.UpdatedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return reseller_config, nil
+}
+
+func (obj *spannerImpl) Update_ResellerDomain_By_Id(ctx context.Context,
+	reseller_domain_id ResellerDomain_Id_Field,
+	update ResellerDomain_Update_Fields) (
+	reseller_domain *ResellerDomain, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE reseller_domains SET "), __sets, __sqlbundle_Literal(" WHERE reseller_domains.id = ? THEN RETURN reseller_domains.id, reseller_domains.reseller_id, reseller_domains.domain, reseller_domains.domain_type, reseller_domains.status, reseller_domains.verification_method, reseller_domains.verification_status, reseller_domains.ssl_status, reseller_domains.dns_target, reseller_domains.verified_at, reseller_domains.created_at, reseller_domains.updated_at, reseller_domains.deleted_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.Domain._set {
+		__values = append(__values, update.Domain.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("domain = ?"))
+	}
+	if update.DomainType._set {
+		__values = append(__values, update.DomainType.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("domain_type = ?"))
+	}
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+	if update.VerificationMethod._set {
+		__values = append(__values, update.VerificationMethod.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("verification_method = ?"))
+	}
+	if update.VerificationStatus._set {
+		__values = append(__values, update.VerificationStatus.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("verification_status = ?"))
+	}
+	if update.SslStatus._set {
+		__values = append(__values, update.SslStatus.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("ssl_status = ?"))
+	}
+	if update.DnsTarget._set {
+		__values = append(__values, update.DnsTarget.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("dns_target = ?"))
+	}
+	if update.VerifiedAt._set {
+		__values = append(__values, update.VerifiedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("verified_at = ?"))
+	}
+	if update.UpdatedAt._set {
+		__values = append(__values, update.UpdatedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+	}
+	if update.DeletedAt._set {
+		__values = append(__values, update.DeletedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("deleted_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, reseller_domain_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller_domain = &ResellerDomain{}
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&reseller_domain.Id, &reseller_domain.ResellerId, &reseller_domain.Domain, &reseller_domain.DomainType, &reseller_domain.Status, &reseller_domain.VerificationMethod, &reseller_domain.VerificationStatus, &reseller_domain.SslStatus, &reseller_domain.DnsTarget, &reseller_domain.VerifiedAt, &reseller_domain.CreatedAt, &reseller_domain.UpdatedAt, &reseller_domain.DeletedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return reseller_domain, nil
+}
+
+func (obj *spannerImpl) Update_ResellerDomain_By_ResellerId(ctx context.Context,
+	reseller_domain_reseller_id ResellerDomain_ResellerId_Field,
+	update ResellerDomain_Update_Fields) (
+	reseller_domain *ResellerDomain, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE reseller_domains SET "), __sets, __sqlbundle_Literal(" WHERE reseller_domains.reseller_id = ? THEN RETURN reseller_domains.id, reseller_domains.reseller_id, reseller_domains.domain, reseller_domains.domain_type, reseller_domains.status, reseller_domains.verification_method, reseller_domains.verification_status, reseller_domains.ssl_status, reseller_domains.dns_target, reseller_domains.verified_at, reseller_domains.created_at, reseller_domains.updated_at, reseller_domains.deleted_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.Domain._set {
+		__values = append(__values, update.Domain.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("domain = ?"))
+	}
+	if update.DomainType._set {
+		__values = append(__values, update.DomainType.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("domain_type = ?"))
+	}
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+	if update.VerificationMethod._set {
+		__values = append(__values, update.VerificationMethod.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("verification_method = ?"))
+	}
+	if update.VerificationStatus._set {
+		__values = append(__values, update.VerificationStatus.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("verification_status = ?"))
+	}
+	if update.SslStatus._set {
+		__values = append(__values, update.SslStatus.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("ssl_status = ?"))
+	}
+	if update.DnsTarget._set {
+		__values = append(__values, update.DnsTarget.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("dns_target = ?"))
+	}
+	if update.VerifiedAt._set {
+		__values = append(__values, update.VerifiedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("verified_at = ?"))
+	}
+	if update.UpdatedAt._set {
+		__values = append(__values, update.UpdatedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+	}
+	if update.DeletedAt._set {
+		__values = append(__values, update.DeletedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("deleted_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, reseller_domain_reseller_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller_domain = &ResellerDomain{}
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&reseller_domain.Id, &reseller_domain.ResellerId, &reseller_domain.Domain, &reseller_domain.DomainType, &reseller_domain.Status, &reseller_domain.VerificationMethod, &reseller_domain.VerificationStatus, &reseller_domain.SslStatus, &reseller_domain.DnsTarget, &reseller_domain.VerifiedAt, &reseller_domain.CreatedAt, &reseller_domain.UpdatedAt, &reseller_domain.DeletedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return reseller_domain, nil
+}
+
+func (obj *spannerImpl) Update_WebappSessionReseller_By_Id(ctx context.Context,
+	webapp_session_reseller_id WebappSessionReseller_Id_Field,
+	update WebappSessionReseller_Update_Fields) (
+	webapp_session_reseller *WebappSessionReseller, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE webapp_session_resellers SET "), __sets, __sqlbundle_Literal(" WHERE webapp_session_resellers.id = ? THEN RETURN webapp_session_resellers.id, webapp_session_resellers.reseller_id, webapp_session_resellers.ip_address, webapp_session_resellers.status, webapp_session_resellers.expires_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+	if update.ExpiresAt._set {
+		__values = append(__values, update.ExpiresAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("expires_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, webapp_session_reseller_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	webapp_session_reseller = &WebappSessionReseller{}
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&webapp_session_reseller.Id, &webapp_session_reseller.ResellerId, &webapp_session_reseller.IpAddress, &webapp_session_reseller.Status, &webapp_session_reseller.ExpiresAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return webapp_session_reseller, nil
+}
+
+func (obj *spannerImpl) Update_ThemePreset_By_Id(ctx context.Context,
+	theme_preset_id ThemePreset_Id_Field,
+	update ThemePreset_Update_Fields) (
+	theme_preset *ThemePreset, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE theme_presets SET "), __sets, __sqlbundle_Literal(" WHERE theme_presets.id = ? THEN RETURN theme_presets.id, theme_presets.slug, theme_presets.name, theme_presets.description, theme_presets.colors, theme_presets.is_system, theme_presets.created_at, theme_presets.updated_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.Description._set {
+		__values = append(__values, update.Description.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("description = ?"))
+	}
+	if update.IsSystem._set {
+		__values = append(__values, update.IsSystem.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("is_system = ?"))
+	}
+	if update.UpdatedAt._set {
+		__values = append(__values, update.UpdatedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, theme_preset_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	theme_preset = &ThemePreset{}
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&theme_preset.Id, &theme_preset.Slug, &theme_preset.Name, &theme_preset.Description, spannerConvertJSON(&theme_preset.Colors), &theme_preset.IsSystem, &theme_preset.CreatedAt, &theme_preset.UpdatedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return theme_preset, nil
+}
+
+func (obj *spannerImpl) Update_ResellerTheme_By_Id(ctx context.Context,
+	reseller_theme_id ResellerTheme_Id_Field,
+	update ResellerTheme_Update_Fields) (
+	reseller_theme *ResellerTheme, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE reseller_themes SET "), __sets, __sqlbundle_Literal(" WHERE reseller_themes.id = ? THEN RETURN reseller_themes.id, reseller_themes.reseller_id, reseller_themes.name, reseller_themes.colors, reseller_themes.created_at, reseller_themes.updated_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.Name._set {
+		__values = append(__values, update.Name.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("name = ?"))
+	}
+	if update.Colors._set {
+		__values = append(__values, spannerConvertJSON(update.Colors.value()))
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("colors = ?"))
+	}
+	if update.UpdatedAt._set {
+		__values = append(__values, update.UpdatedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, reseller_theme_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reseller_theme = &ResellerTheme{}
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&reseller_theme.Id, &reseller_theme.ResellerId, &reseller_theme.Name, spannerConvertJSON(&reseller_theme.Colors), &reseller_theme.CreatedAt, &reseller_theme.UpdatedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return reseller_theme, nil
 }
 
 func (obj *spannerImpl) Update_User_By_Id(ctx context.Context,
@@ -70547,6 +81907,135 @@ func (obj *spannerImpl) Delete_ApiKey_By_ProjectId_And_CreatedBy(ctx context.Con
 
 }
 
+func (obj *spannerImpl) Delete_ProjectMemberAclBucket_By_ProjectId_And_BucketName(ctx context.Context,
+	project_member_acl_bucket_project_id ProjectMemberAclBucket_ProjectId_Field,
+	project_member_acl_bucket_bucket_name ProjectMemberAclBucket_BucketName_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM project_member_acl_buckets WHERE project_member_acl_buckets.project_id = ? AND project_member_acl_buckets.bucket_name = ?")
+
+	var __values []any
+	__values = append(__values, project_member_acl_bucket_project_id.value(), project_member_acl_bucket_bucket_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *spannerImpl) Delete_MemberBucketGrant_By_ProjectId_And_MemberId(ctx context.Context,
+	member_bucket_grant_project_id MemberBucketGrant_ProjectId_Field,
+	member_bucket_grant_member_id MemberBucketGrant_MemberId_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "member_bucket_grants.member_id", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("DELETE FROM member_bucket_grants WHERE member_bucket_grants.project_id = ? AND "), __cond_0}}
+
+	var __values []any
+	__values = append(__values, member_bucket_grant_project_id.value())
+	if !member_bucket_grant_member_id.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, member_bucket_grant_member_id.value())
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
+func (obj *spannerImpl) Delete_MemberBucketGrant_By_ProjectId_And_InviteEmail(ctx context.Context,
+	member_bucket_grant_project_id MemberBucketGrant_ProjectId_Field,
+	member_bucket_grant_invite_email MemberBucketGrant_InviteEmail_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM member_bucket_grants WHERE member_bucket_grants.project_id = ? AND member_bucket_grants.invite_email = ?")
+
+	var __values []any
+	__values = append(__values, member_bucket_grant_project_id.value(), member_bucket_grant_invite_email.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
+func (obj *spannerImpl) Delete_MemberBucketGrant_By_Id(ctx context.Context,
+	member_bucket_grant_id MemberBucketGrant_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM member_bucket_grants WHERE member_bucket_grants.id = ?")
+
+	var __values []any
+	__values = append(__values, member_bucket_grant_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *spannerImpl) Delete_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
 	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 	bucket_metainfo_name BucketMetainfo_Name_Field) (
@@ -70696,6 +82185,247 @@ func (obj *spannerImpl) Delete_RepairQueue_By_UpdatedAt_Less(ctx context.Context
 	}
 
 	return count, nil
+
+}
+
+func (obj *spannerImpl) Delete_Reseller_By_Id(ctx context.Context,
+	reseller_id Reseller_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM resellers WHERE resellers.id = ?")
+
+	var __values []any
+	__values = append(__values, reseller_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *spannerImpl) Delete_ResellerConfig_By_Id(ctx context.Context,
+	reseller_config_id ResellerConfig_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM reseller_configs WHERE reseller_configs.id = ?")
+
+	var __values []any
+	__values = append(__values, reseller_config_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *spannerImpl) Delete_ResellerDomain_By_Id(ctx context.Context,
+	reseller_domain_id ResellerDomain_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM reseller_domains WHERE reseller_domains.id = ?")
+
+	var __values []any
+	__values = append(__values, reseller_domain_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *spannerImpl) Delete_WebappSessionReseller_By_Id(ctx context.Context,
+	webapp_session_reseller_id WebappSessionReseller_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM webapp_session_resellers WHERE webapp_session_resellers.id = ?")
+
+	var __values []any
+	__values = append(__values, webapp_session_reseller_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *spannerImpl) Delete_WebappSessionReseller_By_ResellerId(ctx context.Context,
+	webapp_session_reseller_reseller_id WebappSessionReseller_ResellerId_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM webapp_session_resellers WHERE webapp_session_resellers.reseller_id = ?")
+
+	var __values []any
+	__values = append(__values, webapp_session_reseller_reseller_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
+func (obj *spannerImpl) Delete_WebappSessionReseller_By_ResellerId_And_Id_Not(ctx context.Context,
+	webapp_session_reseller_reseller_id WebappSessionReseller_ResellerId_Field,
+	webapp_session_reseller_id_not WebappSessionReseller_Id_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM webapp_session_resellers WHERE webapp_session_resellers.reseller_id = ? AND webapp_session_resellers.id != ?")
+
+	var __values []any
+	__values = append(__values, webapp_session_reseller_reseller_id.value(), webapp_session_reseller_id_not.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
+func (obj *spannerImpl) Delete_ResetPasswordTokenReseller_By_Secret(ctx context.Context,
+	reset_password_token_reseller_secret ResetPasswordTokenReseller_Secret_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM reset_password_token_resellers WHERE reset_password_token_resellers.secret = ?")
+
+	var __values []any
+	__values = append(__values, reset_password_token_reseller_secret.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *spannerImpl) Delete_ResellerTheme_By_Id(ctx context.Context,
+	reseller_theme_id ResellerTheme_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM reseller_themes WHERE reseller_themes.id = ?")
+
+	var __values []any
+	__values = append(__values, reseller_theme_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
 
 }
 
@@ -71013,6 +82743,16 @@ func (obj *spannerImpl) deleteAll(ctx context.Context) (count int64, err error) 
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM project_member_acl_buckets;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM project_members;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -71033,7 +82773,7 @@ func (obj *spannerImpl) deleteAll(ctx context.Context) (count int64, err error) 
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM google_backup_credentials;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM member_bucket_grants;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -71073,7 +82813,27 @@ func (obj *spannerImpl) deleteAll(ctx context.Context) (count int64, err error) 
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM backup_credentials;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM api_keys;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM webapp_session_resellers;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -71164,6 +82924,16 @@ func (obj *spannerImpl) deleteAll(ctx context.Context) (count int64, err error) 
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM users;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM theme_presets;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -71313,6 +83083,16 @@ func (obj *spannerImpl) deleteAll(ctx context.Context) (count int64, err error) 
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM reset_password_token_resellers;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM reset_password_token_developers;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -71324,6 +83104,56 @@ func (obj *spannerImpl) deleteAll(ctx context.Context) (count int64, err error) 
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM reset_password_tokens;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM reseller_themes;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM reseller_domains;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM reseller_delete_requests;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM reseller_configs;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM resellers;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -71513,6 +83343,16 @@ func (obj *spannerImpl) deleteAll(ctx context.Context) (count int64, err error) 
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM mail_export_jobs;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM key_versions;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -71693,6 +83533,16 @@ func (obj *spannerImpl) deleteAll(ctx context.Context) (count int64, err error) 
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM audit_logs;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM admins;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -71749,6 +83599,15 @@ type Methods interface {
 	All_Admin_By_Email(ctx context.Context,
 		admin_email Admin_Email_Field) (
 		rows []*Admin, err error)
+
+	All_BackupCredentials_By_UserId(ctx context.Context,
+		backup_credentials_user_id BackupCredentials_UserId_Field) (
+		rows []*BackupCredentials, err error)
+
+	All_BackupCredentials_By_UserId_And_Provider(ctx context.Context,
+		backup_credentials_user_id BackupCredentials_UserId_Field,
+		backup_credentials_provider BackupCredentials_Provider_Field) (
+		rows []*BackupCredentials, err error)
 
 	All_BackupFinalStatus_OrderBy_Desc_BackupDate(ctx context.Context) (
 		rows []*BackupFinalStatus, err error)
@@ -71864,9 +83723,15 @@ type Methods interface {
 		fcm_tokens_user_id FcmTokens_UserId_Field) (
 		rows []*FcmTokens, err error)
 
-	All_GoogleBackupCredentials_By_UserId(ctx context.Context,
-		google_backup_credentials_user_id GoogleBackupCredentials_UserId_Field) (
-		rows []*GoogleBackupCredentials, err error)
+	All_MemberBucketGrant_By_ProjectId_And_InviteEmail(ctx context.Context,
+		member_bucket_grant_project_id MemberBucketGrant_ProjectId_Field,
+		member_bucket_grant_invite_email MemberBucketGrant_InviteEmail_Field) (
+		rows []*MemberBucketGrant, err error)
+
+	All_MemberBucketGrant_By_ProjectId_And_MemberId(ctx context.Context,
+		member_bucket_grant_project_id MemberBucketGrant_ProjectId_Field,
+		member_bucket_grant_member_id MemberBucketGrant_MemberId_Field) (
+		rows []*MemberBucketGrant, err error)
 
 	All_NodeSmartContractUpdates(ctx context.Context) (
 		rows []*NodeSmartContractUpdates, err error)
@@ -71917,6 +83782,10 @@ type Methods interface {
 		user_tenant_id User_TenantId_Field) (
 		rows []*ProjectInvitation, err error)
 
+	All_ProjectMemberAclBucket_By_ProjectId(ctx context.Context,
+		project_member_acl_bucket_project_id ProjectMemberAclBucket_ProjectId_Field) (
+		rows []*ProjectMemberAclBucket, err error)
+
 	All_ProjectMember_By_MemberId(ctx context.Context,
 		project_member_member_id ProjectMember_MemberId_Field) (
 		rows []*ProjectMember, err error)
@@ -71945,6 +83814,13 @@ type Methods interface {
 	All_PushNotifications_By_UserId(ctx context.Context,
 		push_notifications_user_id PushNotifications_UserId_Field) (
 		rows []*PushNotifications, err error)
+
+	All_Reseller(ctx context.Context) (
+		rows []*Reseller, err error)
+
+	All_ResellerTheme_By_ResellerId(ctx context.Context,
+		reseller_theme_reseller_id ResellerTheme_ResellerId_Field) (
+		rows []*ResellerTheme, err error)
 
 	All_RestApiKey_By_UserId(ctx context.Context,
 		rest_api_key_user_id RestApiKey_UserId_Field) (
@@ -71981,12 +83857,11 @@ type Methods interface {
 	All_StorjscanWallet(ctx context.Context) (
 		rows []*StorjscanWallet, err error)
 
+	All_ThemePreset(ctx context.Context) (
+		rows []*ThemePreset, err error)
+
 	All_User(ctx context.Context) (
 		rows []*User, err error)
-
-	All_UserNotificationPreference_By_UserId(ctx context.Context,
-		user_notification_preference_user_id UserNotificationPreference_UserId_Field) (
-		rows []*UserNotificationPreference, err error)
 
 	All_User_By_NormalizedEmail(ctx context.Context,
 		user_normalized_email User_NormalizedEmail_Field) (
@@ -72000,6 +83875,10 @@ type Methods interface {
 	All_WebappSessionDeveloper_By_DeveloperId(ctx context.Context,
 		webapp_session_developer_developer_id WebappSessionDeveloper_DeveloperId_Field) (
 		rows []*WebappSessionDeveloper, err error)
+
+	All_WebappSessionReseller_By_ResellerId(ctx context.Context,
+		webapp_session_reseller_reseller_id WebappSessionReseller_ResellerId_Field) (
+		rows []*WebappSessionReseller, err error)
 
 	All_WebappSession_By_UserId(ctx context.Context,
 		webapp_session_user_id WebappSession_UserId_Field) (
@@ -72020,6 +83899,15 @@ type Methods interface {
 	Count_User_By_Status(ctx context.Context,
 		user_status User_Status_Field) (
 		count int64, err error)
+
+	CreateNoReturn_AuditLog(ctx context.Context,
+		audit_log_id AuditLog_Id_Field,
+		audit_log_actor_id AuditLog_ActorId_Field,
+		audit_log_action AuditLog_Action_Field,
+		audit_log_message AuditLog_Message_Field,
+		audit_log_status AuditLog_Status_Field,
+		optional AuditLog_Create_Fields) (
+		err error)
 
 	CreateNoReturn_BackupFinalStatus(ctx context.Context,
 		backup_final_status_backup_date BackupFinalStatus_BackupDate_Field,
@@ -72166,6 +84054,15 @@ type Methods interface {
 		optional ApiKey_Create_Fields) (
 		api_key *ApiKey, err error)
 
+	Create_BackupCredentials(ctx context.Context,
+		backup_credentials_id BackupCredentials_Id_Field,
+		backup_credentials_user_id BackupCredentials_UserId_Field,
+		backup_credentials_provider BackupCredentials_Provider_Field,
+		backup_credentials_email BackupCredentials_Email_Field,
+		backup_credentials_access_token BackupCredentials_AccessToken_Field,
+		optional BackupCredentials_Create_Fields) (
+		backup_credentials *BackupCredentials, err error)
+
 	Create_BillingTransaction(ctx context.Context,
 		billing_transaction_user_id BillingTransaction_UserId_Field,
 		billing_transaction_amount BillingTransaction_Amount_Field,
@@ -72298,13 +84195,36 @@ type Methods interface {
 		optional FcmTokens_Create_Fields) (
 		fcm_tokens *FcmTokens, err error)
 
-	Create_GoogleBackupCredentials(ctx context.Context,
-		google_backup_credentials_id GoogleBackupCredentials_Id_Field,
-		google_backup_credentials_user_id GoogleBackupCredentials_UserId_Field,
-		google_backup_credentials_google_email GoogleBackupCredentials_GoogleEmail_Field,
-		google_backup_credentials_access_token GoogleBackupCredentials_AccessToken_Field,
-		optional GoogleBackupCredentials_Create_Fields) (
-		google_backup_credentials *GoogleBackupCredentials, err error)
+	Create_MailExportJob(ctx context.Context,
+		mail_export_job_id MailExportJob_Id_Field,
+		mail_export_job_user_id MailExportJob_UserId_Field,
+		mail_export_job_project_id MailExportJob_ProjectId_Field,
+		mail_export_job_access_key_id MailExportJob_AccessKeyId_Field,
+		mail_export_job_bucket MailExportJob_Bucket_Field,
+		mail_export_job_format MailExportJob_Format_Field,
+		mail_export_job_mode MailExportJob_Mode_Field,
+		mail_export_job_status MailExportJob_Status_Field,
+		mail_export_job_retry_count MailExportJob_RetryCount_Field,
+		mail_export_job_progress MailExportJob_Progress_Field,
+		mail_export_job_processed_files MailExportJob_ProcessedFiles_Field,
+		mail_export_job_total_files MailExportJob_TotalFiles_Field,
+		mail_export_job_processed_bytes MailExportJob_ProcessedBytes_Field,
+		mail_export_job_total_bytes MailExportJob_TotalBytes_Field,
+		optional MailExportJob_Create_Fields) (
+		mail_export_job *MailExportJob, err error)
+
+	Create_MemberBucketGrant(ctx context.Context,
+		member_bucket_grant_id MemberBucketGrant_Id_Field,
+		member_bucket_grant_project_id MemberBucketGrant_ProjectId_Field,
+		member_bucket_grant_invite_email MemberBucketGrant_InviteEmail_Field,
+		member_bucket_grant_bucket MemberBucketGrant_Bucket_Field,
+		member_bucket_grant_prefix MemberBucketGrant_Prefix_Field,
+		member_bucket_grant_allow_list MemberBucketGrant_AllowList_Field,
+		member_bucket_grant_allow_download MemberBucketGrant_AllowDownload_Field,
+		member_bucket_grant_allow_upload MemberBucketGrant_AllowUpload_Field,
+		member_bucket_grant_allow_delete MemberBucketGrant_AllowDelete_Field,
+		optional MemberBucketGrant_Create_Fields) (
+		member_bucket_grant *MemberBucketGrant, err error)
 
 	Create_NodeEvent(ctx context.Context,
 		node_event_id NodeEvent_Id_Field,
@@ -72353,6 +84273,11 @@ type Methods interface {
 		optional ProjectMember_Create_Fields) (
 		project_member *ProjectMember, err error)
 
+	Create_ProjectMemberAclBucket(ctx context.Context,
+		project_member_acl_bucket_project_id ProjectMemberAclBucket_ProjectId_Field,
+		project_member_acl_bucket_bucket_name ProjectMemberAclBucket_BucketName_Field) (
+		project_member_acl_bucket *ProjectMemberAclBucket, err error)
+
 	Create_PushNotifications(ctx context.Context,
 		push_notifications_id PushNotifications_Id_Field,
 		push_notifications_user_id PushNotifications_UserId_Field,
@@ -72380,6 +84305,51 @@ type Methods interface {
 		optional Reputation_Create_Fields) (
 		reputation *Reputation, err error)
 
+	Create_Reseller(ctx context.Context,
+		reseller_id Reseller_Id_Field,
+		reseller_name Reseller_Name_Field,
+		reseller_email Reseller_Email_Field,
+		reseller_password_hash Reseller_PasswordHash_Field,
+		reseller_updated_at Reseller_UpdatedAt_Field,
+		optional Reseller_Create_Fields) (
+		reseller *Reseller, err error)
+
+	Create_ResellerConfig(ctx context.Context,
+		reseller_config_id ResellerConfig_Id_Field,
+		reseller_config_reseller_id ResellerConfig_ResellerId_Field,
+		reseller_config_config ResellerConfig_Config_Field,
+		reseller_config_updated_at ResellerConfig_UpdatedAt_Field,
+		optional ResellerConfig_Create_Fields) (
+		reseller_config *ResellerConfig, err error)
+
+	Create_ResellerDeleteRequest(ctx context.Context,
+		reseller_delete_request_id ResellerDeleteRequest_Id_Field,
+		reseller_delete_request_reseller_id ResellerDeleteRequest_ResellerId_Field,
+		reseller_delete_request_status ResellerDeleteRequest_Status_Field,
+		reseller_delete_request_delete_at ResellerDeleteRequest_DeleteAt_Field,
+		optional ResellerDeleteRequest_Create_Fields) (
+		reseller_delete_request *ResellerDeleteRequest, err error)
+
+	Create_ResellerDomain(ctx context.Context,
+		reseller_domain_id ResellerDomain_Id_Field,
+		reseller_domain_reseller_id ResellerDomain_ResellerId_Field,
+		reseller_domain_domain ResellerDomain_Domain_Field,
+		reseller_domain_domain_type ResellerDomain_DomainType_Field,
+		reseller_domain_status ResellerDomain_Status_Field,
+		reseller_domain_verification_status ResellerDomain_VerificationStatus_Field,
+		reseller_domain_ssl_status ResellerDomain_SslStatus_Field,
+		reseller_domain_updated_at ResellerDomain_UpdatedAt_Field,
+		optional ResellerDomain_Create_Fields) (
+		reseller_domain *ResellerDomain, err error)
+
+	Create_ResellerTheme(ctx context.Context,
+		reseller_theme_id ResellerTheme_Id_Field,
+		reseller_theme_reseller_id ResellerTheme_ResellerId_Field,
+		reseller_theme_name ResellerTheme_Name_Field,
+		reseller_theme_colors ResellerTheme_Colors_Field,
+		reseller_theme_updated_at ResellerTheme_UpdatedAt_Field) (
+		reseller_theme *ResellerTheme, err error)
+
 	Create_ResetPasswordToken(ctx context.Context,
 		reset_password_token_secret ResetPasswordToken_Secret_Field,
 		reset_password_token_owner_id ResetPasswordToken_OwnerId_Field) (
@@ -72389,6 +84359,11 @@ type Methods interface {
 		reset_password_token_developer_secret ResetPasswordTokenDeveloper_Secret_Field,
 		reset_password_token_developer_owner_id ResetPasswordTokenDeveloper_OwnerId_Field) (
 		reset_password_token_developer *ResetPasswordTokenDeveloper, err error)
+
+	Create_ResetPasswordTokenReseller(ctx context.Context,
+		reset_password_token_reseller_secret ResetPasswordTokenReseller_Secret_Field,
+		reset_password_token_reseller_owner_id ResetPasswordTokenReseller_OwnerId_Field) (
+		reset_password_token_reseller *ResetPasswordTokenReseller, err error)
 
 	Create_ReverificationAudits(ctx context.Context,
 		reverification_audits_node_id ReverificationAudits_NodeId_Field,
@@ -72429,6 +84404,15 @@ type Methods interface {
 		stripecoinpayments_tx_conversion_rate_rate_numeric StripecoinpaymentsTxConversionRate_RateNumeric_Field) (
 		stripecoinpayments_tx_conversion_rate *StripecoinpaymentsTxConversionRate, err error)
 
+	Create_ThemePreset(ctx context.Context,
+		theme_preset_id ThemePreset_Id_Field,
+		theme_preset_slug ThemePreset_Slug_Field,
+		theme_preset_name ThemePreset_Name_Field,
+		theme_preset_colors ThemePreset_Colors_Field,
+		theme_preset_updated_at ThemePreset_UpdatedAt_Field,
+		optional ThemePreset_Create_Fields) (
+		theme_preset *ThemePreset, err error)
+
 	Create_User(ctx context.Context,
 		user_id User_Id_Field,
 		user_email User_Email_Field,
@@ -72450,8 +84434,7 @@ type Methods interface {
 		user_notification_preference_id UserNotificationPreference_Id_Field,
 		user_notification_preference_user_id UserNotificationPreference_UserId_Field,
 		user_notification_preference_preferences UserNotificationPreference_Preferences_Field,
-		user_notification_preference_updated_at UserNotificationPreference_UpdatedAt_Field,
-		optional UserNotificationPreference_Create_Fields) (
+		user_notification_preference_updated_at UserNotificationPreference_UpdatedAt_Field) (
 		user_notification_preference *UserNotificationPreference, err error)
 
 	Create_ValueAttribution(ctx context.Context,
@@ -72474,6 +84457,13 @@ type Methods interface {
 		webapp_session_developer_ip_address WebappSessionDeveloper_IpAddress_Field,
 		webapp_session_developer_expires_at WebappSessionDeveloper_ExpiresAt_Field) (
 		webapp_session_developer *WebappSessionDeveloper, err error)
+
+	Create_WebappSessionReseller(ctx context.Context,
+		webapp_session_reseller_id WebappSessionReseller_Id_Field,
+		webapp_session_reseller_reseller_id WebappSessionReseller_ResellerId_Field,
+		webapp_session_reseller_ip_address WebappSessionReseller_IpAddress_Field,
+		webapp_session_reseller_expires_at WebappSessionReseller_ExpiresAt_Field) (
+		webapp_session_reseller *WebappSessionReseller, err error)
 
 	Delete_AccountFreezeEvent_By_UserId(ctx context.Context,
 		account_freeze_event_user_id AccountFreezeEvent_UserId_Field) (
@@ -72567,6 +84557,20 @@ type Methods interface {
 		fcm_tokens_user_id FcmTokens_UserId_Field) (
 		count int64, err error)
 
+	Delete_MemberBucketGrant_By_Id(ctx context.Context,
+		member_bucket_grant_id MemberBucketGrant_Id_Field) (
+		deleted bool, err error)
+
+	Delete_MemberBucketGrant_By_ProjectId_And_InviteEmail(ctx context.Context,
+		member_bucket_grant_project_id MemberBucketGrant_ProjectId_Field,
+		member_bucket_grant_invite_email MemberBucketGrant_InviteEmail_Field) (
+		count int64, err error)
+
+	Delete_MemberBucketGrant_By_ProjectId_And_MemberId(ctx context.Context,
+		member_bucket_grant_project_id MemberBucketGrant_ProjectId_Field,
+		member_bucket_grant_member_id MemberBucketGrant_MemberId_Field) (
+		count int64, err error)
+
 	Delete_NodeEvent_By_CreatedAt_Less(ctx context.Context,
 		node_event_created_at_less NodeEvent_CreatedAt_Field) (
 		count int64, err error)
@@ -72582,6 +84586,11 @@ type Methods interface {
 	Delete_ProjectInvitation_By_ProjectId_And_Email(ctx context.Context,
 		project_invitation_project_id ProjectInvitation_ProjectId_Field,
 		project_invitation_email ProjectInvitation_Email_Field) (
+		deleted bool, err error)
+
+	Delete_ProjectMemberAclBucket_By_ProjectId_And_BucketName(ctx context.Context,
+		project_member_acl_bucket_project_id ProjectMemberAclBucket_ProjectId_Field,
+		project_member_acl_bucket_bucket_name ProjectMemberAclBucket_BucketName_Field) (
 		deleted bool, err error)
 
 	Delete_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context,
@@ -72605,8 +84614,28 @@ type Methods interface {
 		repair_queue_updated_at_less RepairQueue_UpdatedAt_Field) (
 		count int64, err error)
 
+	Delete_ResellerConfig_By_Id(ctx context.Context,
+		reseller_config_id ResellerConfig_Id_Field) (
+		deleted bool, err error)
+
+	Delete_ResellerDomain_By_Id(ctx context.Context,
+		reseller_domain_id ResellerDomain_Id_Field) (
+		deleted bool, err error)
+
+	Delete_ResellerTheme_By_Id(ctx context.Context,
+		reseller_theme_id ResellerTheme_Id_Field) (
+		deleted bool, err error)
+
+	Delete_Reseller_By_Id(ctx context.Context,
+		reseller_id Reseller_Id_Field) (
+		deleted bool, err error)
+
 	Delete_ResetPasswordTokenDeveloper_By_Secret(ctx context.Context,
 		reset_password_token_developer_secret ResetPasswordTokenDeveloper_Secret_Field) (
+		deleted bool, err error)
+
+	Delete_ResetPasswordTokenReseller_By_Secret(ctx context.Context,
+		reset_password_token_reseller_secret ResetPasswordTokenReseller_Secret_Field) (
 		deleted bool, err error)
 
 	Delete_ResetPasswordToken_By_Secret(ctx context.Context,
@@ -72651,6 +84680,19 @@ type Methods interface {
 	Delete_WebappSessionDeveloper_By_Id(ctx context.Context,
 		webapp_session_developer_id WebappSessionDeveloper_Id_Field) (
 		deleted bool, err error)
+
+	Delete_WebappSessionReseller_By_Id(ctx context.Context,
+		webapp_session_reseller_id WebappSessionReseller_Id_Field) (
+		deleted bool, err error)
+
+	Delete_WebappSessionReseller_By_ResellerId(ctx context.Context,
+		webapp_session_reseller_reseller_id WebappSessionReseller_ResellerId_Field) (
+		count int64, err error)
+
+	Delete_WebappSessionReseller_By_ResellerId_And_Id_Not(ctx context.Context,
+		webapp_session_reseller_reseller_id WebappSessionReseller_ResellerId_Field,
+		webapp_session_reseller_id_not WebappSessionReseller_Id_Field) (
+		count int64, err error)
 
 	Delete_WebappSession_By_Id(ctx context.Context,
 		webapp_session_id WebappSession_Id_Field) (
@@ -72724,6 +84766,14 @@ type Methods interface {
 	Get_ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Project_RateLimitHead_Project_BurstLimitHead_Project_RateLimitGet_Project_BurstLimitGet_Project_RateLimitPut_Project_BurstLimitPut_Project_RateLimitList_Project_BurstLimitList_Project_RateLimitDel_Project_BurstLimitDel_Project_SegmentLimit_Project_UsageLimit_Project_BandwidthLimit_Project_UserSpecifiedUsageLimit_Project_UserSpecifiedBandwidthLimit_By_ApiKey_Head(ctx context.Context,
 		api_key_head ApiKey_Head_Field) (
 		row *ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Project_RateLimitHead_Project_BurstLimitHead_Project_RateLimitGet_Project_BurstLimitGet_Project_RateLimitPut_Project_BurstLimitPut_Project_RateLimitList_Project_BurstLimitList_Project_RateLimitDel_Project_BurstLimitDel_Project_SegmentLimit_Project_UsageLimit_Project_BandwidthLimit_Project_UserSpecifiedUsageLimit_Project_UserSpecifiedBandwidthLimit_Row, err error)
+
+	Get_AuditLog_By_Id(ctx context.Context,
+		audit_log_id AuditLog_Id_Field) (
+		audit_log *AuditLog, err error)
+
+	Get_BackupCredentials_By_Id(ctx context.Context,
+		backup_credentials_id BackupCredentials_Id_Field) (
+		backup_credentials *BackupCredentials, err error)
 
 	Get_BackupFinalStatus_By_BackupDate(ctx context.Context,
 		backup_final_status_backup_date BackupFinalStatus_BackupDate_Field) (
@@ -72850,13 +84900,17 @@ type Methods interface {
 		fcm_tokens_token FcmTokens_Token_Field) (
 		fcm_tokens *FcmTokens, err error)
 
-	Get_GoogleBackupCredentials_By_Id(ctx context.Context,
-		google_backup_credentials_id GoogleBackupCredentials_Id_Field) (
-		google_backup_credentials *GoogleBackupCredentials, err error)
-
 	Get_KeyVersion_Version_By_KeyId(ctx context.Context,
 		key_version_key_id KeyVersion_KeyId_Field) (
 		row *Version_Row, err error)
+
+	Get_MailExportJob_By_Id(ctx context.Context,
+		mail_export_job_id MailExportJob_Id_Field) (
+		mail_export_job *MailExportJob, err error)
+
+	Get_MemberBucketGrant_By_Id(ctx context.Context,
+		member_bucket_grant_id MemberBucketGrant_Id_Field) (
+		member_bucket_grant *MemberBucketGrant, err error)
 
 	Get_NodeEvent_By_Id(ctx context.Context,
 		node_event_id NodeEvent_Id_Field) (
@@ -72903,6 +84957,11 @@ type Methods interface {
 		project_invitation_project_id ProjectInvitation_ProjectId_Field,
 		project_invitation_email ProjectInvitation_Email_Field) (
 		project_invitation *ProjectInvitation, err error)
+
+	Get_ProjectMemberAclBucket_By_ProjectId_And_BucketName(ctx context.Context,
+		project_member_acl_bucket_project_id ProjectMemberAclBucket_ProjectId_Field,
+		project_member_acl_bucket_bucket_name ProjectMemberAclBucket_BucketName_Field) (
+		project_member_acl_bucket *ProjectMemberAclBucket, err error)
 
 	Get_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context,
 		project_member_member_id ProjectMember_MemberId_Field,
@@ -73002,6 +85061,56 @@ type Methods interface {
 		reputation_id Reputation_Id_Field) (
 		reputation *Reputation, err error)
 
+	Get_ResellerConfig_By_Id(ctx context.Context,
+		reseller_config_id ResellerConfig_Id_Field) (
+		reseller_config *ResellerConfig, err error)
+
+	Get_ResellerConfig_By_ResellerId(ctx context.Context,
+		reseller_config_reseller_id ResellerConfig_ResellerId_Field) (
+		reseller_config *ResellerConfig, err error)
+
+	Get_ResellerDeleteRequest_By_ResellerId(ctx context.Context,
+		reseller_delete_request_reseller_id ResellerDeleteRequest_ResellerId_Field) (
+		reseller_delete_request *ResellerDeleteRequest, err error)
+
+	Get_ResellerDomain_By_Domain(ctx context.Context,
+		reseller_domain_domain ResellerDomain_Domain_Field) (
+		reseller_domain *ResellerDomain, err error)
+
+	Get_ResellerDomain_By_Id(ctx context.Context,
+		reseller_domain_id ResellerDomain_Id_Field) (
+		reseller_domain *ResellerDomain, err error)
+
+	Get_ResellerDomain_By_ResellerId(ctx context.Context,
+		reseller_domain_reseller_id ResellerDomain_ResellerId_Field) (
+		reseller_domain *ResellerDomain, err error)
+
+	Get_ResellerTheme_By_Id(ctx context.Context,
+		reseller_theme_id ResellerTheme_Id_Field) (
+		reseller_theme *ResellerTheme, err error)
+
+	Get_ResellerTheme_By_Id_And_ResellerId(ctx context.Context,
+		reseller_theme_id ResellerTheme_Id_Field,
+		reseller_theme_reseller_id ResellerTheme_ResellerId_Field) (
+		reseller_theme *ResellerTheme, err error)
+
+	Get_ResellerTheme_By_ResellerId_And_Name(ctx context.Context,
+		reseller_theme_reseller_id ResellerTheme_ResellerId_Field,
+		reseller_theme_name ResellerTheme_Name_Field) (
+		reseller_theme *ResellerTheme, err error)
+
+	Get_Reseller_By_Email(ctx context.Context,
+		reseller_email Reseller_Email_Field) (
+		reseller *Reseller, err error)
+
+	Get_Reseller_By_Email_And_Status_Not_Number(ctx context.Context,
+		reseller_email Reseller_Email_Field) (
+		reseller *Reseller, err error)
+
+	Get_Reseller_By_Id(ctx context.Context,
+		reseller_id Reseller_Id_Field) (
+		reseller *Reseller, err error)
+
 	Get_ResetPasswordTokenDeveloper_By_OwnerId(ctx context.Context,
 		reset_password_token_developer_owner_id ResetPasswordTokenDeveloper_OwnerId_Field) (
 		reset_password_token_developer *ResetPasswordTokenDeveloper, err error)
@@ -73009,6 +85118,14 @@ type Methods interface {
 	Get_ResetPasswordTokenDeveloper_By_Secret(ctx context.Context,
 		reset_password_token_developer_secret ResetPasswordTokenDeveloper_Secret_Field) (
 		reset_password_token_developer *ResetPasswordTokenDeveloper, err error)
+
+	Get_ResetPasswordTokenReseller_By_OwnerId(ctx context.Context,
+		reset_password_token_reseller_owner_id ResetPasswordTokenReseller_OwnerId_Field) (
+		reset_password_token_reseller *ResetPasswordTokenReseller, err error)
+
+	Get_ResetPasswordTokenReseller_By_Secret(ctx context.Context,
+		reset_password_token_reseller_secret ResetPasswordTokenReseller_Secret_Field) (
+		reset_password_token_reseller *ResetPasswordTokenReseller, err error)
 
 	Get_ResetPasswordToken_By_OwnerId(ctx context.Context,
 		reset_password_token_owner_id ResetPasswordToken_OwnerId_Field) (
@@ -73065,6 +85182,18 @@ type Methods interface {
 		stripecoinpayments_tx_conversion_rate_tx_id StripecoinpaymentsTxConversionRate_TxId_Field) (
 		stripecoinpayments_tx_conversion_rate *StripecoinpaymentsTxConversionRate, err error)
 
+	Get_ThemePreset_By_Id(ctx context.Context,
+		theme_preset_id ThemePreset_Id_Field) (
+		theme_preset *ThemePreset, err error)
+
+	Get_ThemePreset_By_Name(ctx context.Context,
+		theme_preset_name ThemePreset_Name_Field) (
+		theme_preset *ThemePreset, err error)
+
+	Get_ThemePreset_By_Slug(ctx context.Context,
+		theme_preset_slug ThemePreset_Slug_Field) (
+		theme_preset *ThemePreset, err error)
+
 	Get_UserDeleteRequest_By_UserId(ctx context.Context,
 		user_delete_request_user_id UserDeleteRequest_UserId_Field) (
 		user_delete_request *UserDeleteRequest, err error)
@@ -73075,11 +85204,6 @@ type Methods interface {
 
 	Get_UserNotificationPreference_By_UserId(ctx context.Context,
 		user_notification_preference_user_id UserNotificationPreference_UserId_Field) (
-		user_notification_preference *UserNotificationPreference, err error)
-
-	Get_UserNotificationPreference_By_UserId_And_Category(ctx context.Context,
-		user_notification_preference_user_id UserNotificationPreference_UserId_Field,
-		user_notification_preference_category UserNotificationPreference_Category_Field) (
 		user_notification_preference *UserNotificationPreference, err error)
 
 	Get_UserSettings_By_UserId(ctx context.Context,
@@ -73135,6 +85259,10 @@ type Methods interface {
 	Get_WebappSessionDeveloper_By_Id(ctx context.Context,
 		webapp_session_developer_id WebappSessionDeveloper_Id_Field) (
 		webapp_session_developer *WebappSessionDeveloper, err error)
+
+	Get_WebappSessionReseller_By_Id(ctx context.Context,
+		webapp_session_reseller_id WebappSessionReseller_Id_Field) (
+		webapp_session_reseller *WebappSessionReseller, err error)
 
 	Get_WebappSession_By_Id(ctx context.Context,
 		webapp_session_id WebappSession_Id_Field) (
@@ -73398,6 +85526,11 @@ type Methods interface {
 		update Admin_Update_Fields) (
 		admin *Admin, err error)
 
+	Update_BackupCredentials_By_Id(ctx context.Context,
+		backup_credentials_id BackupCredentials_Id_Field,
+		update BackupCredentials_Update_Fields) (
+		backup_credentials *BackupCredentials, err error)
+
 	Update_BackupFinalStatus_By_BackupDate(ctx context.Context,
 		backup_final_status_backup_date BackupFinalStatus_BackupDate_Field,
 		update BackupFinalStatus_Update_Fields) (
@@ -73475,15 +85608,20 @@ type Methods interface {
 		update FcmTokens_Update_Fields) (
 		fcm_tokens *FcmTokens, err error)
 
-	Update_GoogleBackupCredentials_By_Id(ctx context.Context,
-		google_backup_credentials_id GoogleBackupCredentials_Id_Field,
-		update GoogleBackupCredentials_Update_Fields) (
-		google_backup_credentials *GoogleBackupCredentials, err error)
-
 	Update_KeyVersion_By_KeyId(ctx context.Context,
 		key_version_key_id KeyVersion_KeyId_Field,
 		update KeyVersion_Update_Fields) (
 		key_version *KeyVersion, err error)
+
+	Update_MailExportJob_By_Id(ctx context.Context,
+		mail_export_job_id MailExportJob_Id_Field,
+		update MailExportJob_Update_Fields) (
+		mail_export_job *MailExportJob, err error)
+
+	Update_MemberBucketGrant_By_Id(ctx context.Context,
+		member_bucket_grant_id MemberBucketGrant_Id_Field,
+		update MemberBucketGrant_Update_Fields) (
+		member_bucket_grant *MemberBucketGrant, err error)
 
 	Update_Node_By_Id(ctx context.Context,
 		node_id Node_Id_Field,
@@ -73543,6 +85681,36 @@ type Methods interface {
 		update Reputation_Update_Fields) (
 		reputation *Reputation, err error)
 
+	Update_ResellerConfig_By_Id(ctx context.Context,
+		reseller_config_id ResellerConfig_Id_Field,
+		update ResellerConfig_Update_Fields) (
+		reseller_config *ResellerConfig, err error)
+
+	Update_ResellerConfig_By_ResellerId(ctx context.Context,
+		reseller_config_reseller_id ResellerConfig_ResellerId_Field,
+		update ResellerConfig_Update_Fields) (
+		reseller_config *ResellerConfig, err error)
+
+	Update_ResellerDomain_By_Id(ctx context.Context,
+		reseller_domain_id ResellerDomain_Id_Field,
+		update ResellerDomain_Update_Fields) (
+		reseller_domain *ResellerDomain, err error)
+
+	Update_ResellerDomain_By_ResellerId(ctx context.Context,
+		reseller_domain_reseller_id ResellerDomain_ResellerId_Field,
+		update ResellerDomain_Update_Fields) (
+		reseller_domain *ResellerDomain, err error)
+
+	Update_ResellerTheme_By_Id(ctx context.Context,
+		reseller_theme_id ResellerTheme_Id_Field,
+		update ResellerTheme_Update_Fields) (
+		reseller_theme *ResellerTheme, err error)
+
+	Update_Reseller_By_Id(ctx context.Context,
+		reseller_id Reseller_Id_Field,
+		update Reseller_Update_Fields) (
+		reseller *Reseller, err error)
+
 	Update_StripeCustomer_By_UserId(ctx context.Context,
 		stripe_customer_user_id StripeCustomer_UserId_Field,
 		update StripeCustomer_Update_Fields) (
@@ -73552,6 +85720,11 @@ type Methods interface {
 		stripecoinpayments_invoice_project_record_id StripecoinpaymentsInvoiceProjectRecord_Id_Field,
 		update StripecoinpaymentsInvoiceProjectRecord_Update_Fields) (
 		stripecoinpayments_invoice_project_record *StripecoinpaymentsInvoiceProjectRecord, err error)
+
+	Update_ThemePreset_By_Id(ctx context.Context,
+		theme_preset_id ThemePreset_Id_Field,
+		update ThemePreset_Update_Fields) (
+		theme_preset *ThemePreset, err error)
 
 	Update_UserNotificationPreference_By_Id(ctx context.Context,
 		user_notification_preference_id UserNotificationPreference_Id_Field,
@@ -73583,6 +85756,11 @@ type Methods interface {
 		webapp_session_developer_id WebappSessionDeveloper_Id_Field,
 		update WebappSessionDeveloper_Update_Fields) (
 		webapp_session_developer *WebappSessionDeveloper, err error)
+
+	Update_WebappSessionReseller_By_Id(ctx context.Context,
+		webapp_session_reseller_id WebappSessionReseller_Id_Field,
+		update WebappSessionReseller_Update_Fields) (
+		webapp_session_reseller *WebappSessionReseller, err error)
 
 	Update_WebappSession_By_Id(ctx context.Context,
 		webapp_session_id WebappSession_Id_Field,

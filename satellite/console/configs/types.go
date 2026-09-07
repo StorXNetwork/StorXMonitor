@@ -27,33 +27,6 @@ const (
 	ConfigTypePopupMessages ConfigType = "popup_messages"
 )
 
-// PreferenceCategory represents the category for user notification preferences.
-type PreferenceCategory string
-
-const (
-	// PreferenceCategoryBilling represents billing-related notifications.
-	PreferenceCategoryBilling PreferenceCategory = "billing"
-	// PreferenceCategoryBackup represents backup-related notifications.
-	PreferenceCategoryBackup PreferenceCategory = "backup"
-	// PreferenceCategoryAccount represents account-related notifications.
-	PreferenceCategoryAccount PreferenceCategory = "account"
-	// PreferenceCategoryVault represents vault-related notifications.
-	PreferenceCategoryVault PreferenceCategory = "vault"
-)
-
-// ValidPreferenceCategories contains all valid preference categories.
-var ValidPreferenceCategories = map[string]bool{
-	string(PreferenceCategoryBilling): true,
-	string(PreferenceCategoryBackup):  true,
-	string(PreferenceCategoryAccount): true,
-	string(PreferenceCategoryVault):   true,
-}
-
-// IsValidPreferenceCategory checks if a category string is valid.
-func IsValidPreferenceCategory(category string) bool {
-	return ValidPreferenceCategories[category]
-}
-
 // NotificationType represents the type of notification channel.
 type NotificationType string
 
@@ -170,7 +143,7 @@ type TemplateData struct {
 	DefaultVariables map[string]interface{} `json:"default_variables"` // Default variable values
 }
 
-// UserNotificationPreference represents a user's notification preference.
+// UserNotificationPreference represents a user's global notification preference.
 // Preferences map should only contain keys: push, email, sms
 // Values should be numbers 1-4 representing priority levels:
 //
@@ -178,7 +151,6 @@ type TemplateData struct {
 type UserNotificationPreference struct {
 	ID          uuid.UUID
 	UserID      uuid.UUID
-	Category    string                 // Required category: billing, backup, account, or vault
 	Preferences map[string]interface{} // Keys: push, email, sms. Values: 1-4 (marketing, info, warning, critical)
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
@@ -204,7 +176,6 @@ type UpdateConfigRequest struct {
 // CreateUserPreferenceRequest represents a request to create user preferences.
 type CreateUserPreferenceRequest struct {
 	UserID      uuid.UUID
-	Category    string
 	Preferences map[string]interface{}
 }
 

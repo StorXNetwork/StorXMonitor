@@ -34,9 +34,17 @@ func NewUserNotificationPreferences(log *zap.Logger, service *console.Service) *
 	}
 }
 
-// GetUserPreferences handles GET /api/v0/user/notification-preferences - Get current user's preferences.
-// Query parameters:
-//   - category: Filter by category (optional)
+// GetUserPreferences handles GET /api/v0/user/notification-preferences - Get current user's global preferences.
+//
+// @Summary      Get notification preferences
+// @Description  **Full route:** `GET /api/v0/user/notification-preferences`. Settings → Notification preferences. Returns a JSON **array** with zero or one global preference row. Each row `Preferences` map uses keys `push`, `email`, `sms` with minimum priority levels 1–4 (marketing, info, warning, critical).
+// @Tags         settings-notification-preferences
+// @Produce      json
+// @Success      200  {array}   UserNotificationPreferenceSwagger
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Failure      500  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /user/notification-preferences [get]
 func (u *UserNotificationPreferences) GetUserPreferences(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -49,46 +57,36 @@ func (u *UserNotificationPreferences) GetUserPreferences(w http.ResponseWriter, 
 	}
 
 	preferenceService := configs.NewPreferenceService(u.service.GetUserNotificationPreferences())
-
-	// Parse query parameters
-	category := r.URL.Query().Get("category")
-
-	// Validate category if provided
-	if category != "" {
-		if !configs.IsValidPreferenceCategory(category) {
-			web.ServeJSONError(ctx, u.log, w, http.StatusBadRequest, ErrUserNotificationPreferencesAPI.New("invalid category. Valid categories are: billing, backup, account, vault"))
-			return
-		}
-	}
-
-	// If category is provided, get single preference by category
-	if category != "" {
-		preference, err := preferenceService.GetUserPreferenceByCategory(ctx, user.ID, category)
-		if err != nil {
-			web.ServeJSONError(ctx, u.log, w, http.StatusInternalServerError, ErrUserNotificationPreferencesAPI.Wrap(err))
-			return
-		}
+	preference, err := preferenceService.GetUserPreference(ctx, user.ID)
+	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
-		if err = json.NewEncoder(w).Encode(preference); err != nil {
+		if err = json.NewEncoder(w).Encode([]configs.UserNotificationPreference{}); err != nil {
 			u.log.Error("failed to encode response", zap.Error(err), zap.Stringer("user_id", user.ID))
 		}
 		return
 	}
 
-	// If no filters, get all preferences
-	preferences, err := preferenceService.GetUserPreferences(ctx, user.ID)
-	if err != nil {
-		web.ServeJSONError(ctx, u.log, w, http.StatusInternalServerError, ErrUserNotificationPreferencesAPI.Wrap(err))
-		return
-	}
-
 	w.Header().Set("Content-Type", "application/json")
-	if err = json.NewEncoder(w).Encode(preferences); err != nil {
+	if err = json.NewEncoder(w).Encode([]configs.UserNotificationPreference{preference}); err != nil {
 		u.log.Error("failed to encode response", zap.Error(err), zap.Stringer("user_id", user.ID))
 	}
 }
 
-// UpsertUserPreference handles PUT /api/v0/user/notification-preferences - Create or update user preferences.
+// UpsertUserPreference handles PUT /api/v0/user/notification-preferences - Create or update global user preferences.
+//
+// @Summary      Create or update notification preference
+// @Description  **Full route:** `PUT /api/v0/user/notification-preferences`. Settings → Notification preferences. Upserts global channel thresholds applied to all notifications. `preferences` may include any of `push`, `email`, `sms` — each value is minimum priority to receive: 1=marketing, 2=info, 3=warning, 4=critical (string names `marketing`/`info`/`warning`/`critical` also accepted). Returns `201` on create, `200` on update.
+// @Tags         settings-notification-preferences
+// @Accept       json
+// @Produce      json
+// @Param        body  body  UpsertUserNotificationPreferenceSwaggerRequest  true  "Global channel preferences"
+// @Success      200   {object}  UserNotificationPreferenceSwagger
+// @Success      201   {object}  UserNotificationPreferenceSwagger
+// @Failure      400   {object}  SwaggerErrorResponse
+// @Failure      401   {object}  SwaggerErrorResponse
+// @Failure      500   {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /user/notification-preferences [put]
 func (u *UserNotificationPreferences) UpsertUserPreference(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -101,7 +99,6 @@ func (u *UserNotificationPreferences) UpsertUserPreference(w http.ResponseWriter
 	}
 
 	var req struct {
-		Category    string                 `json:"category"`
 		Preferences map[string]interface{} `json:"preferences"`
 	}
 
@@ -110,20 +107,6 @@ func (u *UserNotificationPreferences) UpsertUserPreference(w http.ResponseWriter
 		return
 	}
 
-	// Validate category (required)
-	if req.Category == "" {
-		web.ServeJSONError(ctx, u.log, w, http.StatusBadRequest, ErrUserNotificationPreferencesAPI.New("category is required"))
-		return
-	}
-
-	if !configs.IsValidPreferenceCategory(req.Category) {
-		web.ServeJSONError(ctx, u.log, w, http.StatusBadRequest, ErrUserNotificationPreferencesAPI.New("invalid category. Valid categories are: billing, backup, account, vault"))
-		return
-	}
-
-	// Validate and normalize preferences
-	// Only allows keys: push, email, sms
-	// Values must be numbers 1-4 (or strings: marketing=1, info=2, warning=3, critical=4)
 	if req.Preferences == nil {
 		req.Preferences = make(map[string]interface{})
 	}
@@ -135,7 +118,7 @@ func (u *UserNotificationPreferences) UpsertUserPreference(w http.ResponseWriter
 	}
 
 	preferenceService := configs.NewPreferenceService(u.service.GetUserNotificationPreferences())
-	preference, isUpdate, err := preferenceService.UpsertUserPreference(ctx, user.ID, req.Category, normalizedPreferences)
+	preference, isUpdate, err := preferenceService.UpsertUserPreference(ctx, user.ID, normalizedPreferences)
 	if err != nil {
 		web.ServeJSONError(ctx, u.log, w, http.StatusInternalServerError, ErrUserNotificationPreferencesAPI.Wrap(err))
 		return

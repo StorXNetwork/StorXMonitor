@@ -1,12 +1,20 @@
 package socialmedia
 
+import (
+	"net"
+	"net/http"
+	"strings"
+)
+
 type Config struct {
 	ClientOrigin string `mapstructure:"CLIENT_ORIGIN"`
 
 	GoogleClientID                  string `mapstructure:"GOOGLE_OAUTH_CLIENT_ID"`
 	GoogleClientSecret              string `mapstructure:"GOOGLE_OAUTH_CLIENT_SECRET"`
-	GoogleOAuthRedirectUrl_register string `mapstructure:"GOOGLE_OAUTH_REDIRECT_URL_REGISTER"`
-	GoogleOAuthRedirectUrl_login    string `mapstructure:"GOOGLE_OAUTH_REDIRECT_URL_LOGIN"`
+	GoogleOAuthRedirectUrl_register     string `mapstructure:"GOOGLE_OAUTH_REDIRECT_URL_REGISTER"`
+	GoogleOAuthRedirectUrl_login        string `mapstructure:"GOOGLE_OAUTH_REDIRECT_URL_LOGIN"`
+	GoogleOAuthRedirectUrl_googlebackup string `mapstructure:"GOOGLE_OAUTH_REDIRECT_URL_GOOGLE_BACKUP"`
+	GoogleOAuthRedirectUrl_seller       string `mapstructure:"GOOGLE_OAUTH_REDIRECT_URL_SELLER"`
 
 	FacebookClientID                  string `mapstructure:"FACEBOOK_CLIENT_ID"`
 	FacebookClientSecret              string `mapstructure:"FACEBOOK_CLIENT_SECRET"`
@@ -57,6 +65,14 @@ func SetGoogleSocialMediaConfig(clientID string, clientSecret string, redirectUr
 	configVal.GoogleOAuthRedirectUrl_login = redirectUrl_login
 }
 
+func SetGoogleBackupOAuthRedirectURL(redirectURL string) {
+	configVal.GoogleOAuthRedirectUrl_googlebackup = redirectURL
+}
+
+func SetGoogleSellerOAuthRedirectURL(redirectURL string) {
+	configVal.GoogleOAuthRedirectUrl_seller = redirectURL
+}
+
 func SetFacebookSocialMediaConfig(clientID string, clientSecret string, redirectUrl_register string, redirectUrl_login string) {
 	configVal.FacebookClientID = clientID
 	configVal.FacebookClientSecret = clientSecret
@@ -102,4 +118,66 @@ func SetPipeDriveSocialMediaConfig(clientID, clientSecret, redirectUrl string) {
 
 func SetConfig(config *Config) {
 	configVal = config
+}
+
+// ResolveRequestOrigin returns the frontend origin for google-backup OAuth redirect_uri.
+// Uses request Host (X-Forwarded-Host / r.Host) only; UI does not send Origin.
+// Local dev falls back to google-backup-redirect-urlstring / client-origin when Host is loopback.
+func ResolveRequestOrigin(r *http.Request) string {
+	if r == nil {
+		return googleBackupOriginFallback()
+	}
+	host := requestHostHeader(r)
+	if host == "" {
+		return googleBackupOriginFallback()
+	}
+	if fb := googleBackupOriginFallback(); fb != "" && isLoopbackHost(host) {
+		return fb
+	}
+	return requestScheme(r) + "://" + strings.ToLower(host)
+}
+
+func googleBackupOriginFallback() string {
+	if v := strings.TrimSpace(configVal.GoogleOAuthRedirectUrl_googlebackup); v != "" {
+		return strings.TrimRight(v, "/")
+	}
+	return strings.TrimRight(strings.TrimSpace(configVal.ClientOrigin), "/")
+}
+
+func requestHostHeader(r *http.Request) string {
+	host := strings.TrimSpace(r.Header.Get("X-Forwarded-Host"))
+	if host != "" {
+		if first, _, _ := strings.Cut(host, ","); first != "" {
+			return strings.TrimSpace(first)
+		}
+	}
+	return strings.TrimSpace(r.Host)
+}
+
+func requestScheme(r *http.Request) string {
+	if proto := strings.TrimSpace(r.Header.Get("X-Forwarded-Proto")); proto != "" {
+		if first, _, _ := strings.Cut(proto, ","); first != "" {
+			proto = strings.TrimSpace(first)
+		}
+		proto = strings.ToLower(proto)
+		if proto == "http" || proto == "https" {
+			return proto
+		}
+	}
+	if r.TLS != nil {
+		return "https"
+	}
+	return "http"
+}
+
+func isLoopbackHost(host string) bool {
+	host = strings.TrimSpace(strings.ToLower(host))
+	if host == "" {
+		return false
+	}
+	h := host
+	if hostname, _, err := net.SplitHostPort(host); err == nil {
+		h = hostname
+	}
+	return h == "localhost" || h == "127.0.0.1" || h == "::1"
 }

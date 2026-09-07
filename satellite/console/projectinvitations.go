@@ -36,4 +36,7 @@ type ProjectInvitation struct {
 	Email     string
 	InviterID *uuid.UUID
 	CreatedAt time.Time
+	// ExpiresAt is when the invite link stops being valid.
+	// Nil means fall back to CreatedAt + ProjectInvitationExpiration config.
+	ExpiresAt *time.Time `json:"expiresAt,omitempty"`
 }

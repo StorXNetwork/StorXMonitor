@@ -73,3 +73,27 @@ func (m *MailV2) SendEmail(ctx context.Context, msg *Message) (err error) {
 	log.Printf("[mailv2] sent successfully to %v", toAddrs)
 	return nil
 }
+
+// Verify checks SMTP host reachability and auth without sending a message.
+func (m *MailV2) Verify(ctx context.Context) (err error) {
+	host, portStr, err := net.SplitHostPort(m.ServerAddress)
+	if err != nil {
+		return err
+	}
+	p, err := strconv.Atoi(portStr)
+	if err != nil {
+		return err
+	}
+
+	d := gomail.NewDialer(host, p, m.Auth.Username, m.Auth.Password)
+	d.TLSConfig = &tls.Config{InsecureSkipVerify: true}
+	if p == 465 {
+		d.SSL = true
+	}
+
+	closer, err := d.Dial()
+	if err != nil {
+		return err
+	}
+	return closer.Close()
+}

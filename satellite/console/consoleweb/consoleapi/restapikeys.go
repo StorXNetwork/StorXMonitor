@@ -11,10 +11,10 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/StorXNetwork/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/private/web"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/restapikeys"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // RestAPIKeys is an api controller that exposes REST API related functionality.
@@ -74,6 +74,9 @@ func (rA *RestAPIKeys) CreateRestKey(w http.ResponseWriter, r *http.Request) {
 	}
 
 	key, _, err := rA.service.Create(ctx, data.Name, data.Expiration)
+	if svc, ok := rA.service.(*console.Service); ok {
+		svc.RecordUserAudit(ctx, "REST_KEY_CREATE", "REST API key", "REST API key created", err)
+	}
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
 			rA.serveJSONError(ctx, w, http.StatusUnauthorized, err)
@@ -118,6 +121,9 @@ func (rA *RestAPIKeys) RevokeRestKeys(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = rA.service.RevokeByIDs(ctx, ids)
+	if svc, ok := rA.service.(*console.Service); ok {
+		svc.RecordUserAudit(ctx, "REST_KEY_REVOKE", "REST API key", "REST API key revoked", err)
+	}
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
 			rA.serveJSONError(ctx, w, http.StatusUnauthorized, err)

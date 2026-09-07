@@ -1131,6 +1131,14 @@ func (users *users) UpdatePaidTier(ctx context.Context, id uuid.UUID, paidTier b
 func (users *users) CreateDeleteRequest(ctx context.Context, userID uuid.UUID, deleteAt time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	existing, err := users.GetActiveDeleteRequest(ctx, userID)
+	if err != nil {
+		return err
+	}
+	if existing != nil {
+		return console.ErrConflict.New("delete request already exists")
+	}
+
 	id, err := uuid.New()
 	if err != nil {
 		return Error.Wrap(err)
@@ -1147,10 +1155,79 @@ func (users *users) CreateDeleteRequest(ctx context.Context, userID uuid.UUID, d
 	)
 
 	if err != nil {
-		fmt.Println("error creating delete request", err, id.String(), userID.String())
 		return Error.Wrap(err)
 	}
 
+	return nil
+}
+
+// GetActiveDeleteRequest returns the INIT delete request for a user, if any.
+func (users *users) GetActiveDeleteRequest(ctx context.Context, userID uuid.UUID) (req *console.UserDeleteRequest, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	row := users.db.QueryRowContext(ctx, users.db.Rebind(`
+		SELECT id, user_id, status, delete_at, created_at, error
+		FROM user_delete_requests
+		WHERE user_id = ? AND status = 'INIT'
+		ORDER BY created_at DESC
+		LIMIT 1
+	`), userID[:])
+
+	var (
+		idBytes, userIDBytes []byte
+		status               string
+		deleteAt, createdAt  time.Time
+		errMsg               sql.NullString
+	)
+	err = row.Scan(&idBytes, &userIDBytes, &status, &deleteAt, &createdAt, &errMsg)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	id, err := uuid.FromBytes(idBytes)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	uid, err := uuid.FromBytes(userIDBytes)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	req = &console.UserDeleteRequest{
+		ID:        id,
+		UserID:    uid,
+		Status:    status,
+		DeleteAt:  deleteAt,
+		CreatedAt: createdAt,
+	}
+	if errMsg.Valid {
+		req.Error = &errMsg.String
+	}
+	return req, nil
+}
+
+// CancelDeleteRequest marks the user's INIT delete request as cancelled.
+func (users *users) CancelDeleteRequest(ctx context.Context, userID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	result, err := users.db.ExecContext(ctx, users.db.Rebind(`
+		UPDATE user_delete_requests
+		SET status = 'cancelled'
+		WHERE user_id = ? AND status = 'INIT'
+	`), userID[:])
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	n, err := result.RowsAffected()
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	if n == 0 {
+		return console.ErrConflict.New("no active delete request to cancel")
+	}
 	return nil
 }
 

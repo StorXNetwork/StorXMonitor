@@ -1000,8 +1000,12 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 		return nil, err
 	}
 
-	if err := endpoint.checkDownloadLimits(ctx, keyInfo); err != nil {
-		return nil, err
+	internalDownload := endpoint.useInternalGetDownload(trusted, req.Header.UserAgent)
+
+	if !internalDownload {
+		if err := endpoint.checkDownloadLimits(ctx, keyInfo); err != nil {
+			return nil, err
+		}
 	}
 	if endpoint.config.DownloadLimiter.Enabled {
 		if !endpoint.singleObjectDownloadLimitCache.Allow(endpoint.rateLimiterTime(),
@@ -1087,21 +1091,24 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 		downloadSizes := endpoint.calculateDownloadSizes(streamRange, segment, object.Encryption)
 
 		// Update the current bandwidth cache value incrementing the SegmentSize.
-		err = endpoint.projectUsage.UpdateProjectBandwidthUsage(ctx, keyInfoToLimits(keyInfo), downloadSizes.encryptedSize)
-		if err != nil {
-			// don't log errors if it was user cancellation
-			if errors.Is(ctx.Err(), context.Canceled) {
-				return nil, rpcstatus.Wrap(rpcstatus.Canceled, err)
-			}
+		// Internal (mail-export) downloads skip live/reserved user bandwidth.
+		if !internalDownload {
+			err = endpoint.projectUsage.UpdateProjectBandwidthUsage(ctx, keyInfoToLimits(keyInfo), downloadSizes.encryptedSize)
+			if err != nil {
+				// don't log errors if it was user cancellation
+				if errors.Is(ctx.Err(), context.Canceled) {
+					return nil, rpcstatus.Wrap(rpcstatus.Canceled, err)
+				}
 
-			// log it and continue. it's most likely our own fault that we couldn't
-			// track it, and the only thing that will be affected is our per-project
-			// bandwidth limits.
-			endpoint.log.Error(
-				"Could not track the new project's bandwidth usage when downloading an object",
-				zap.Stringer("public_id", keyInfo.ProjectPublicID),
-				zap.Error(err),
-			)
+				// log it and continue. it's most likely our own fault that we couldn't
+				// track it, and the only thing that will be affected is our per-project
+				// bandwidth limits.
+				endpoint.log.Error(
+					"Could not track the new project's bandwidth usage when downloading an object",
+					zap.Stringer("public_id", keyInfo.ProjectPublicID),
+					zap.Error(err),
+				)
+			}
 		}
 
 		encryptedKeyNonce, err := storxnetwork.NonceFromBytes(segment.EncryptedKeyNonce)
@@ -1110,8 +1117,8 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 		}
 
 		if segment.Inline() {
-			// skip egress tracking for server-side copy operation
-			if !req.ServerSideCopy {
+			// skip egress tracking for server-side copy and internal mail-export downloads
+			if !req.ServerSideCopy && !internalDownload {
 				if err := endpoint.orders.UpdateGetInlineOrder(ctx, object.Location().Bucket(), downloadSizes.plainSize); err != nil {
 					return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to update GET inline order")
 				}
@@ -1173,6 +1180,8 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 			}
 
 			limits, privateKey, err = endpoint.orders.CreateLiteGetOrderLimits(ctx, peer, bucketLocation, segment, req.GetDesiredNodes(), downloadSizes.orderLimit)
+		} else if internalDownload {
+			limits, privateKey, err = endpoint.orders.CreateInternalGetOrderLimits(ctx, peer, bucketLocation, segment, req.GetDesiredNodes(), downloadSizes.orderLimit)
 		} else {
 			limits, privateKey, err = endpoint.orders.CreateGetOrderLimits(ctx, peer, bucketLocation, segment, req.GetDesiredNodes(), downloadSizes.orderLimit)
 		}

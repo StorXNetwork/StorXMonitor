@@ -283,8 +283,6 @@ func NewVerifierData(r *http.Request) *VerifierData {
 func NewVerifierDataFromString(s string) *VerifierData {
 	out := &VerifierData{}
 	_ = json.Unmarshal([]byte(s), out)
-
-	fmt.Println("out", out, "s", s)
 	return out
 }
 

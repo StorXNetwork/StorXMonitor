@@ -437,7 +437,7 @@ func CreateServer(logger *zap.Logger,
 
 	return consoleweb.NewServer(logger, *cwconfig, service, consoleService, oidcService, mailService, hubspotMailService, analytics, abTesting,
 		accountFreezeService, ssoService, csrfService, listener, stripePublicKey, storjscanCfg.Confirmations, nodeURL,
-		analyticsConfig, notificationService, pc.PackagePlans, stripeService, developerService, pc.MinimumCharge, prices, summaries, ecfg.Enabled, ssoCfg.Enabled), nil
+		analyticsConfig, notificationService, pc.PackagePlans, stripeService, developerService, pc.MinimumCharge, prices, summaries, ecfg.Enabled, ssoCfg.Enabled, nil), nil
 }
 
 // CreateService creates console service.
@@ -465,11 +465,11 @@ func CreateService(log *zap.Logger, store console.DB, restKeys restapikeys.DB, o
 	}
 	return console.NewService(log, store, restKeys, oauthRestKeys, projectAccounting, projectUsage, buckets, attributions, accounts, depositWallets,
 		billingDb, analytics, tokens, mailService, hubspotMailService, accountFreezeService, emission, kmsService, valdiService, ssoService,
-		cw.ExternalAddress, cw.ExternalAddress, cw.SatelliteName, cfg.WhiteLabel, mcfg.ProjectLimits.MaxBuckets, ssoCfg.Enabled, placements,
+		cw.ExternalAddress, cw.ExternalAddress, cw.SatelliteName, mcfg.ProjectLimits.MaxBuckets, ssoCfg.Enabled, placements,
 		console.VersioningConfig{
 			UseBucketLevelObjectVersioning: mcfg.UseBucketLevelObjectVersioning,
 		},
 		cfg, pc.StripeCoinPayments.SkuEnabled, loginURL, cw.SupportURL(), bucketEventing,
 		entitlementsService, entitlementsConfig, pc.PlacementPriceOverrides.ToMap(), productModels,
-		pc.MinimumCharge.Amount, minimumChargeDate, pc.PackagePlans.Packages, cw.BackupToolsURL, nil)
+		pc.MinimumCharge.Amount, minimumChargeDate, pc.PackagePlans.Packages, cw.BackupToolsURL, cw.BackupToolsAPIKey, nil)
 }

@@ -32,6 +32,7 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
 	"github.com/StorXNetwork/StorXMonitor/satellite/repair/queue"
 	"github.com/StorXNetwork/StorXMonitor/satellite/reputation"
+	"github.com/StorXNetwork/StorXMonitor/satellite/seller"
 	"github.com/StorXNetwork/StorXMonitor/satellite/revocation"
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/consoledb"
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
@@ -294,6 +295,12 @@ func (dbc *satelliteDBCollection) Web3Auth() backup.DB {
 func (dbc *satelliteDBCollection) AdminUsers() admin.Users {
 	db := dbc.getByName("console")
 	return &adminUsers{db: db}
+}
+
+// Seller returns database for seller/reseller service.
+func (dbc *satelliteDBCollection) Seller() seller.DB {
+	db := dbc.getByName("console")
+	return &sellerDB{db: db}
 }
 
 // LiveAccounting returns database for caching project usage data.

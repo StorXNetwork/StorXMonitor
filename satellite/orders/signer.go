@@ -98,6 +98,11 @@ func NewSignerGet(service *Service, rootPieceID storxnetwork.PieceID, orderCreat
 	return NewSigner(service, rootPieceID, time.Time{}, orderCreation, limit, pb.PieceAction_GET, bucket)
 }
 
+// NewSignerGetInternal creates a new signer for internal (non-billable) get orders.
+func NewSignerGetInternal(service *Service, rootPieceID storxnetwork.PieceID, orderCreation time.Time, limit int64, bucket metabase.BucketLocation) (*Signer, error) {
+	return NewSigner(service, rootPieceID, time.Time{}, orderCreation, limit, pb.PieceAction_GET_INTERNAL, bucket)
+}
+
 // NewSignerPut creates a new signer for put orders.
 func NewSignerPut(service *Service, pieceExpiration time.Time, orderCreation time.Time, limit int64, bucket metabase.BucketLocation) (*Signer, error) {
 	rootPieceID := storxnetwork.NewPieceID()

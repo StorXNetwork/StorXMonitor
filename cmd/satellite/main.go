@@ -142,6 +142,11 @@ var (
 		Short: "Run the satellite Developer Console",
 		RunE:  cmdDeveloperRun,
 	}
+	runSellerCmd = &cobra.Command{
+		Use:   "seller",
+		Short: "Run the satellite Seller Console",
+		RunE:  cmdSellerRun,
+	}
 	runGCCmd = &cobra.Command{
 		Use:   "garbage-collection",
 		Short: "Run the satellite garbage collection process to send generated bloom filters to storage nodes",
@@ -539,6 +544,7 @@ func init() {
 	runCmd.AddCommand(runUICmd)
 	runCmd.AddCommand(runAdminCmd)
 	runCmd.AddCommand(runDeveloperCmd)
+	runCmd.AddCommand(runSellerCmd)
 	runCmd.AddCommand(runRepairerCmd)
 	runCmd.AddCommand(runAuditorCmd)
 	runCmd.AddCommand(runGCCmd)
@@ -610,6 +616,7 @@ func init() {
 	process.Bind(runUICmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runAdminCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runDeveloperCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(runSellerCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runRepairerCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runAuditorCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runGCCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))

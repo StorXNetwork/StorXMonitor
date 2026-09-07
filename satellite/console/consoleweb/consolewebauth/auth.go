@@ -35,21 +35,30 @@ func NewCookieAuth(settings, ssoStateSettings, ssoEmailTokenSettings CookieSetti
 	}
 }
 
-// GetToken retrieves token from request.
+// GetToken retrieves token from request cookie, or from _tokenKey header (Swagger curl export).
 func (auth *CookieAuth) GetToken(r *http.Request) (console.TokenInfo, error) {
+	var tokenValue string
+	var expiresAt time.Time
+
 	cookie, err := r.Cookie(auth.settings.Name)
-	if err != nil {
-		return console.TokenInfo{}, err
+	if err == nil {
+		tokenValue = cookie.Value
+		expiresAt = cookie.Expires
+	} else {
+		tokenValue = r.Header.Get(auth.settings.Name)
+		if tokenValue == "" {
+			return console.TokenInfo{}, err
+		}
 	}
 
-	token, err := consoleauth.FromBase64URLString(cookie.Value)
+	token, err := consoleauth.FromBase64URLString(tokenValue)
 	if err != nil {
 		return console.TokenInfo{}, err
 	}
 
 	return console.TokenInfo{
 		Token:     token,
-		ExpiresAt: cookie.Expires,
+		ExpiresAt: expiresAt,
 	}, nil
 }
 

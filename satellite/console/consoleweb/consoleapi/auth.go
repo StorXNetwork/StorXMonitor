@@ -5,11 +5,13 @@ package consoleapi
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"math/big"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -22,6 +24,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
 
+	"github.com/StorXNetwork/common/http/requestid"
 	"github.com/StorXNetwork/common/uuid"
 
 	"github.com/StorXNetwork/StorXMonitor/private/post"
@@ -32,6 +35,7 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth/csrf"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth/sso"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consoleapi/socialmedia"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consoleapi/utils"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consolewebauth"
 	"github.com/StorXNetwork/StorXMonitor/satellite/mailservice"
 	"github.com/StorXNetwork/StorXMonitor/satellite/tenancy"
@@ -48,6 +52,7 @@ var (
 )
 
 var mainPageURL string = "/project-dashboard"
+var cancelDeletionPageURL string = "/account/cancel-deletion"
 var signupPageURL string = "/signup"
 var loginPageURL string = "/login"
 var signupSuccessURL string = "/project-dashboard"
@@ -69,8 +74,6 @@ type Auth struct {
 	badPasswords              map[string]struct{}
 	badPasswordsEncoded       string
 	validAnnouncementNames    []string
-	whiteLabelConfig          console.TenantWhiteLabelConfig
-	singleWhiteLabel          console.SingleWhiteLabelConfig
 	service                   *console.Service
 	accountFreezeService      *console.AccountFreezeService
 	analytics                 *analytics.Service
@@ -113,8 +116,6 @@ func NewAuth(
 	cookieAuth *consolewebauth.CookieAuth, analytics *analytics.Service, ssoService *sso.Service, csrfService *csrf.Service,
 	satelliteName, externalAddress, letUsKnowURL, termsAndConditionsURL, contactInfoURL, generalRequestURL string,
 	activationCodeEnabled, memberAccountsEnabled bool, badPasswords map[string]struct{}, badPasswordsEncoded string, validAnnouncementNames []string,
-	whiteLabelConfig console.TenantWhiteLabelConfig,
-	singleWhiteLabel console.SingleWhiteLabelConfig,
 ) *Auth {
 	return &Auth{
 		log:                    log,
@@ -126,8 +127,6 @@ func NewAuth(
 		SatelliteName:          satelliteName,
 		ActivationCodeEnabled:  activationCodeEnabled,
 		MemberAccountsEnabled:  memberAccountsEnabled,
-		whiteLabelConfig:       whiteLabelConfig,
-		singleWhiteLabel:       singleWhiteLabel,
 		service:                service,
 		accountFreezeService:   accountFreezeService,
 		mailService:            mailService,
@@ -230,25 +229,316 @@ func (a *Auth) MigrateToWeb3(w http.ResponseWriter, r *http.Request) {
 }
 
 // getExternalAddress returns the external address for the current tenant context.
-// If a tenant-specific external address is configured, it returns that; otherwise, it falls back
-// to the global external address.
 func (a *Auth) getExternalAddress(ctx context.Context) string {
-	// Check single-brand mode first
-	if a.singleWhiteLabel.Enabled() && a.singleWhiteLabel.ExternalAddress != "" {
-		return a.singleWhiteLabel.ExternalAddress
-	}
-
-	// Multi-tenant lookup
-	tenantID := tenancy.TenantIDFromContext(ctx)
-	if tenantID != "" {
-		if wlConfig, ok := a.whiteLabelConfig.Value[tenantID]; ok && wlConfig.ExternalAddress != "" {
-			return wlConfig.ExternalAddress
-		}
-	}
-	return a.ExternalAddress
+	return a.service.ExternalAddressForContext(ctx)
 }
 
-// Token authenticates user by credentials and returns auth token.
+func (a *Auth) recordFailedLoginByEmail(ctx context.Context, email, failureMessage string) {
+	a.service.RecordUserAuditForEmail(ctx, email, "AUTH_LOGIN", "Session", "User logged in", console.ErrLoginCredentials.New(failureMessage))
+}
+
+// Register creates a new user account with email and password.
+func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var registerData struct {
+		FullName         string `json:"fullName"`
+		ShortName        string `json:"shortName"`
+		Email            string `json:"email"`
+		Partner          string `json:"partner"`
+		UserAgent        []byte `json:"userAgent"`
+		Password         string `json:"password"`
+		SecretInput      string `json:"secret"`
+		ReferrerUserID   string `json:"referrerUserId"`
+		IsProfessional   bool   `json:"isProfessional"`
+		Position         string `json:"position"`
+		CompanyName      string `json:"companyName"`
+		StorageNeeds     string `json:"storageNeeds"`
+		EmployeeCount    string `json:"employeeCount"`
+		HaveSalesContact bool   `json:"haveSalesContact"`
+		CaptchaResponse  string `json:"captchaResponse"`
+		SignupPromoCode  string `json:"signupPromoCode"`
+		IsMinimal        bool   `json:"isMinimal"`
+	}
+
+	err = json.NewDecoder(r.Body).Decode(&registerData)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	verifier := socialmedia.NewVerifierData(r)
+	if r.URL.Query().Has("zoho-insert") {
+		a.log.Debug("inserting lead in Zoho CRM")
+		go zohoInsertLead(context.Background(), registerData.FullName, registerData.Email, a.log, verifier)
+	}
+
+	registerData.Email = strings.TrimSpace(registerData.Email)
+
+	if !utils.ValidateEmail(registerData.Email) {
+		a.serveJSONError(ctx, w, console.ErrValidation.Wrap(errs.New("Invalid email.")))
+		return
+	}
+
+	if a.badPasswords != nil {
+		if _, exists := a.badPasswords[registerData.Password]; exists {
+			a.serveJSONError(ctx, w, console.ErrValidation.Wrap(errs.New("The password you chose is on a list of insecure or breached passwords. Please choose a different one.")))
+			return
+		}
+	}
+
+	if len([]rune(registerData.Partner)) > 100 {
+		a.serveJSONError(ctx, w, console.ErrValidation.Wrap(errs.New("Partner must be less than or equal to 100 characters")))
+		return
+	}
+
+	if len([]rune(registerData.SignupPromoCode)) > 100 {
+		a.serveJSONError(ctx, w, console.ErrValidation.Wrap(errs.New("Promo code must be less than or equal to 100 characters")))
+		return
+	}
+
+	verified, unverified, err := a.service.GetUserByEmailWithUnverified(ctx, registerData.Email)
+	if err != nil && !console.ErrEmailNotFound.Has(err) {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	if verified != nil {
+		satelliteAddress := a.getExternalAddress(ctx)
+		if !strings.HasSuffix(satelliteAddress, "/") {
+			satelliteAddress += "/"
+		}
+		a.mailService.SendRenderedAsync(
+			ctx,
+			[]post.Address{{Address: verified.Email}},
+			&console.AccountAlreadyExistsEmail{
+				Origin:            satelliteAddress,
+				SatelliteName:     a.SatelliteName,
+				SignInLink:        satelliteAddress + "login",
+				ResetPasswordLink: satelliteAddress + "forgot-password",
+				CreateAccountLink: satelliteAddress + "signup",
+			},
+		)
+
+		a.serveJSONError(ctx, w, console.ErrAlreadyMember.Wrap(errs.New("The requested Email ID is already registered. Please try again using a different email address.")))
+		return
+	}
+
+	var user *console.User
+	if len(unverified) > 0 {
+		user = &unverified[0]
+	} else {
+		secret, err := console.RegistrationSecretFromBase64(registerData.SecretInput)
+		if err != nil {
+			a.serveJSONError(ctx, w, err)
+			return
+		}
+
+		if registerData.Partner != "" {
+			registerData.UserAgent = []byte(registerData.Partner)
+		}
+
+		ip, err := web.GetRequestIP(r)
+		if err != nil {
+			a.serveJSONError(ctx, w, err)
+			return
+		}
+
+		var code string
+		var requestID string
+		if a.ActivationCodeEnabled {
+			randNum, err := rand.Int(rand.Reader, big.NewInt(900000))
+			if err != nil {
+				a.serveJSONError(ctx, w, console.Error.Wrap(err))
+				return
+			}
+			randNum = randNum.Add(randNum, big.NewInt(100000))
+			code = randNum.String()
+
+			requestID = requestid.FromContext(ctx)
+		}
+
+		var utmParams *console.UtmParams
+		if verifier != nil {
+			utmParams = &console.UtmParams{
+				UtmTerm:     verifier.UTMTerm,
+				UtmContent:  verifier.UTMContent,
+				UtmSource:   verifier.UTMSource,
+				UtmMedium:   verifier.UTMMedium,
+				UtmCampaign: verifier.UTMCampaign,
+			}
+		}
+
+		user, err = a.service.CreateUser(ctx,
+			console.CreateUser{
+				FullName:         registerData.FullName,
+				ShortName:        registerData.ShortName,
+				Email:            registerData.Email,
+				UserAgent:        registerData.UserAgent,
+				Password:         registerData.Password,
+				IsProfessional:   registerData.IsProfessional,
+				Position:         registerData.Position,
+				CompanyName:      registerData.CompanyName,
+				EmployeeCount:    registerData.EmployeeCount,
+				HaveSalesContact: registerData.HaveSalesContact,
+				CaptchaResponse:  registerData.CaptchaResponse,
+				IP:               ip,
+				SignupPromoCode:  registerData.SignupPromoCode,
+				ActivationCode:   code,
+				SignupId:         requestID,
+				AllowNoName:      registerData.IsMinimal,
+				Source:           "Register",
+				UtmParams:        utmParams,
+			},
+			secret, false,
+		)
+		if err != nil {
+			if !console.ErrEmailUsed.Has(err) {
+				a.serveJSONError(ctx, w, err)
+			}
+			return
+		}
+
+		invites, err := a.service.GetInvitesByEmail(ctx, registerData.Email)
+		if err != nil {
+			a.log.Error("Could not get invitations", zap.String("email", registerData.Email), zap.Error(err))
+		} else if len(invites) > 0 {
+			var firstInvite console.ProjectInvitation
+			for _, inv := range invites {
+				if inv.InviterID != nil && (firstInvite.CreatedAt.IsZero() || inv.CreatedAt.Before(firstInvite.CreatedAt)) {
+					firstInvite = inv
+				}
+			}
+			if firstInvite.InviterID != nil {
+				inviter, err := a.service.GetUser(ctx, *firstInvite.InviterID)
+				if err != nil {
+					a.log.Error("Error getting inviter info", zap.String("ID", firstInvite.InviterID.String()), zap.Error(err))
+				} else {
+					a.analytics.TrackInviteLinkSignup(inviter.Email, registerData.Email)
+				}
+			}
+		}
+
+		referrer := r.URL.Query().Get("referrer")
+		if referrer == "" {
+			referrer = r.Referer()
+		}
+		hubspotUTK := ""
+		hubspotCookie, err := r.Cookie("hubspotutk")
+		if err == nil {
+			hubspotUTK = hubspotCookie.Value
+		}
+
+		trackCreateUserFields := analytics.TrackCreateUserFields{
+			ID:            user.ID,
+			AnonymousID:   loadSession(r),
+			FullName:      user.FullName,
+			Email:         user.Email,
+			Type:          analytics.Personal,
+			OriginHeader:  r.Header.Get("Origin"),
+			Referrer:      referrer,
+			HubspotUTK:    hubspotUTK,
+			UserAgent:     string(user.UserAgent),
+			SignupCaptcha: user.SignupCaptcha,
+		}
+		if user.IsProfessional {
+			trackCreateUserFields.Type = analytics.Professional
+			trackCreateUserFields.EmployeeCount = user.EmployeeCount
+			trackCreateUserFields.CompanyName = user.CompanyName
+			trackCreateUserFields.StorageNeeds = registerData.StorageNeeds
+			trackCreateUserFields.JobTitle = user.Position
+			trackCreateUserFields.HaveSalesContact = user.HaveSalesContact
+		}
+		a.analytics.TrackCreateUser(trackCreateUserFields)
+	}
+
+	if a.ActivationCodeEnabled {
+		*user, err = a.service.SetActivationCodeAndSignupID(ctx, *user)
+		if err != nil {
+			a.serveJSONError(ctx, w, err)
+			return
+		}
+
+		a.mailService.SendRenderedAsync(
+			ctx,
+			[]post.Address{{Address: user.Email}},
+			&console.AccountActivationCodeEmail{
+				ActivationCode: user.ActivationCode,
+			},
+		)
+
+		return
+	}
+
+	token, err := a.service.GenerateActivationToken(ctx, user.ID, user.Email)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	link := a.ActivateAccountURL + "?token=" + token
+
+	a.mailService.SendRenderedAsync(
+		ctx,
+		[]post.Address{{Address: user.Email}},
+		&console.AccountActivationEmail{
+			Username:       user.FullName,
+			ActivationLink: link,
+			Origin:         a.ExternalAddress,
+		},
+	)
+
+	customExpiry := 24 * 7 * time.Hour
+
+	ip, err := web.GetRequestIP(r)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	tokenInfo, err := a.service.GenerateSessionToken(ctx, user.ID, user.Email, ip, r.UserAgent(), LoadAjsAnonymousID(r), nil, nil, &customExpiry)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+	a.log.Info("registration session token created", zap.String("token", tokenInfo.Token.String()))
+
+	authed := console.WithUser(ctx, user)
+
+	project, err := a.service.CreateProject(authed, console.UpsertProjectInfo{
+		Name: "My Project",
+	})
+	if err != nil {
+		a.log.Error("Error in Default Project:", zap.Error(err))
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	a.log.Info("Default Project Name: " + project.Name)
+}
+
+// Token authenticates user by email and password and returns session token with onboarding metadata.
+//
+// @Summary      Email + password login
+// @Description  **Full route:** `POST /api/v0/auth/token`
+//
+// Authenticates with email and password. Sets `_tokenKey` session cookie.
+// On success returns the same `onboarding` and `google_backup` payload as `GET /auth/google-backup`
+// (`google_backup` only when the user has stored Google backup credentials; scopes refreshed via refresh token).
+// If MFA is enabled, first call may return HTTP 200 with an MFA required error — resubmit with `mfaPasscode` or `mfaRecoveryCode`.
+// **CSRF:** when enabled, call `GET /config` first (sets `csrf_token` cookie), Authorize **CSRFAuth** with `csrfToken`, then call this endpoint. Mismatch returns HTTP 403 `Invalid CSRF token`.
+// @Tags         auth-email-login
+// @Accept       json
+// @Produce      json
+// @Param        body          body      AuthTokenSwaggerRequest       true   "Email, password, captcha"
+// @Success      200           {object}  AuthCredentialLoginSwaggerResponse
+// @Failure      400           {object}  SwaggerErrorResponse
+// @Failure      401           {object}  SwaggerErrorResponse
+// @Failure      403           {object}  SwaggerErrorResponse
+// @Security     CSRFAuth
+// @Router       /auth/token [post]
 func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -262,7 +552,9 @@ func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if tokenRequest.Password == "" {
-		a.serveJSONError(ctx, w, console.ErrValidation.New("password is required"))
+		loginErr := console.ErrValidation.New("password is required")
+		a.service.RecordUserAuditForEmail(ctx, tokenRequest.Email, "AUTH_LOGIN", "Session", "User logged in", loginErr)
+		a.serveJSONError(ctx, w, loginErr)
 		return
 	}
 
@@ -275,6 +567,7 @@ func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 	tokenRequest.AnonymousID = LoadAjsAnonymousID(r)
 
 	tokenInfo, err := a.service.Token(ctx, tokenRequest)
+	a.service.RecordUserAuditForEmail(ctx, tokenRequest.Email, "AUTH_LOGIN", "Session", "User logged in", err)
 	if err != nil {
 		if console.ErrMFAMissing.Has(err) {
 			web.ServeCustomJSONError(ctx, a.log, w, http.StatusOK, err, a.getUserErrorMessage(err))
@@ -285,17 +578,27 @@ func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.cookieAuth.SetTokenCookie(w, *tokenInfo)
-
-	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(struct {
-		console.TokenInfo
-		Token string `json:"token"`
-	}{*tokenInfo, tokenInfo.Token.String()})
+	verified, unverified, err := a.service.GetUserByEmailWithUnverified(ctx, tokenRequest.Email)
 	if err != nil {
-		a.log.Error("token handler could not encode token response", zap.Error(ErrAuthAPI.Wrap(err)))
+		a.log.Error("token handler could not load user after successful login", zap.String("email", tokenRequest.Email), zap.Error(err))
+		a.serveJSONError(ctx, w, console.Error.New("login succeeded but user could not be loaded"))
 		return
 	}
+	if verified == nil {
+		for i := range unverified {
+			if unverified[i].Status == console.PendingDeletion {
+				verified = &unverified[i]
+				break
+			}
+		}
+	}
+	if verified == nil {
+		a.log.Error("token handler could not load user after successful login", zap.String("email", tokenRequest.Email))
+		a.serveJSONError(ctx, w, console.Error.New("login succeeded but user could not be loaded"))
+		return
+	}
+
+	a.writeCredentialAuthSuccess(w, ctx, verified, *tokenInfo, googleBackupAuthActionLoggedIn)
 }
 
 // AuthenticateSso logs in/signs up a user using already authenticated
@@ -368,12 +671,14 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 
 	user, err := a.service.GetUserForSsoAuth(ctx, *claims, provider, ip, userAgent)
 	if err != nil {
+		a.service.RecordUserAuditForEmail(ctx, claims.Email, "AUTH_LOGIN", "Session", "User logged in", err)
 		a.log.Error("Error getting user for sso auth", zap.Error(err))
 		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
 		return
 	}
 
 	tokenInfo, err := a.service.GenerateSessionToken(ctx, user.ID, user.Email, ip, userAgent, LoadAjsAnonymousID(r), nil, nil, nil)
+	a.service.RecordUserAuditForUser(ctx, user, "AUTH_LOGIN", "Session", "User logged in", err)
 	if err != nil {
 		a.log.Error("Failed to generate session token", zap.Error(err))
 		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
@@ -533,6 +838,7 @@ func (a *Auth) Logout(w http.ResponseWriter, r *http.Request) {
 	// 	return
 	// }
 
+	a.service.RecordUserAudit(ctx, "AUTH_LOGOUT", "Session", "User logged out", nil)
 	a.cookieAuth.RemoveTokenCookie(w)
 }
 
@@ -723,14 +1029,7 @@ func (a *Auth) RegisterGoogleForApp(w http.ResponseWriter, r *http.Request) {
 
 	a.log.Info("Sending registration welcome email to user: " + user.Email)
 	if a.mailService != nil {
-		a.mailService.SendRenderedAsync(
-			ctx,
-			[]post.Address{{Address: user.Email}},
-			&console.RegistrationWelcomeEmail{
-				Username:  user.FullName,
-				LoginLink: fmt.Sprint(cnf.ClientOrigin, loginPageURL),
-			},
-		)
+		a.sendRegistrationWelcomeEmail(ctx, user.Email, user.FullName)
 	} else {
 		a.log.Warn("mailService is nil; skipping RegistrationWelcomeEmail", zap.String("email", user.Email))
 	}
@@ -738,7 +1037,8 @@ func (a *Auth) RegisterGoogleForApp(w http.ResponseWriter, r *http.Request) {
 	authed := console.WithUser(ctx, user)
 
 	project, err := a.service.CreateProject(authed, console.UpsertProjectInfo{
-		Name: "My Project",
+		Name:             "My Project",
+		ManagePassphrase: true,
 	})
 	if err != nil {
 		a.log.Error("Error in Default Project:")
@@ -765,6 +1065,11 @@ func loadSession(req *http.Request) string {
 
 // SendResponse sends a response to the client.
 func (a *Auth) SendResponse(w http.ResponseWriter, r *http.Request, errorMessage, redirectUri string) {
+	a.sendAuthRedirect(w, r, errorMessage, redirectUri, "")
+}
+
+// sendAuthRedirect sends redirect (302) or JSON with optional onboarding_status.
+func (a *Auth) sendAuthRedirect(w http.ResponseWriter, r *http.Request, errorMessage, redirectUri, onboardingStatus string) {
 	if !r.URL.Query().Has("json") {
 		if errorMessage != "" {
 			redirectUri += "?error=" + errorMessage
@@ -773,26 +1078,38 @@ func (a *Auth) SendResponse(w http.ResponseWriter, r *http.Request, errorMessage
 		return
 	}
 
-	a.sendJsonResponse(w, errorMessage, redirectUri)
+	a.sendJSONAuthRedirect(w, errorMessage, redirectUri, onboardingStatus)
 }
 
 // sendJsonResponse is a helper function to send a JSON response with a given status code
 func (a *Auth) sendJsonResponse(w http.ResponseWriter, errorMessage, redirectUri string) {
+	a.sendJSONAuthRedirect(w, errorMessage, redirectUri, "")
+}
+
+func (a *Auth) sendJSONAuthRedirect(w http.ResponseWriter, errorMessage, redirectUri, onboardingStatus string) {
 	w.Header().Set("Content-Type", "application/json")
 	if errorMessage != "" {
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		body := map[string]interface{}{
 			"error":        errorMessage,
 			"redirect_url": redirectUri,
-		})
+		}
+		if onboardingStatus != "" {
+			body["onboarding_status"] = onboardingStatus
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(body)
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	body := map[string]interface{}{
 		"redirect_url": redirectUri,
 		"success":      true,
-	})
+	}
+	if onboardingStatus != "" {
+		body["onboarding_status"] = onboardingStatus
+	}
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(body)
 }
 
 func (a *Auth) InitUnstoppableDomainRegister(w http.ResponseWriter, r *http.Request) {
@@ -985,6 +1302,7 @@ func (a *Auth) HandleXLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if verified == nil {
+		a.recordFailedLoginByEmail(ctx, userI.Data.Username+"@no-email.com", "Your email id is not registered")
 		a.SendResponse(w, r, "Your email id is not registered", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 		// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, signupPageURL)+"?error=Your email id is not registered", http.StatusTemporaryRedirect)
 		return
@@ -1127,7 +1445,8 @@ func (a *Auth) HandleXRegister(w http.ResponseWriter, r *http.Request) {
 	authed := console.WithUser(ctx, user)
 
 	project, err := a.service.CreateProject(authed, console.UpsertProjectInfo{
-		Name: "My Project",
+		Name:             "My Project",
+		ManagePassphrase: true,
 	})
 	if err != nil {
 		a.log.Error("Error in Default Project:")
@@ -1270,7 +1589,8 @@ func (a *Auth) HandleUnstoppableRegister(w http.ResponseWriter, r *http.Request)
 	authed := console.WithUser(ctx, user)
 
 	project, err := a.service.CreateProject(authed, console.UpsertProjectInfo{
-		Name: "My Project",
+		Name:             "My Project",
+		ManagePassphrase: true,
 	})
 	if err != nil {
 		a.log.Error("Error in Default Project:")
@@ -1317,6 +1637,7 @@ func (a *Auth) LoginUserUnstoppable(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if verified == nil {
+		a.recordFailedLoginByEmail(ctx, responseBody.Sub+"@ud.me", "Your email id is not registered")
 		a.SendResponse(w, r, "Your email id is not registered", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 		return
 	}
@@ -1439,7 +1760,8 @@ func (a *Auth) HandleAppleRegister(w http.ResponseWriter, r *http.Request) {
 	authed := console.WithUser(ctx, user)
 
 	project, err := a.service.CreateProject(authed, console.UpsertProjectInfo{
-		Name: "My Project",
+		Name:             "My Project",
+		ManagePassphrase: true,
 	})
 	if err != nil {
 		a.log.Error("Error in Default Project:")
@@ -1479,12 +1801,621 @@ func (a *Auth) LoginUserApple(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if verified == nil {
+		a.recordFailedLoginByEmail(ctx, responseBody.Email, "Your email id is not registered")
 		a.SendResponse(w, r, "Your email id is not registered", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 		return
 	}
 
 	a.TokenGoogleWrapper(r.Context(), responseBody.Email, "", w, r)
 	a.SendResponse(w, r, "", fmt.Sprint(cnf.ClientOrigin, mainPageURL))
+}
+
+const googleBackupAuthActionRegistered = "registered"
+const googleBackupAuthActionLoggedIn = "logged_in"
+
+type googleBackupOAuthTokens struct {
+	idToken           string
+	accessToken       string
+	refreshToken      string
+	googleScope       string
+	walletID          string
+	accessTokenExpiry time.Time
+}
+
+func (a *Auth) writeGoogleBackupAuthSuccess(w http.ResponseWriter, action string, onboarding console.GoogleBackupOnboardingAPI, googleBackup map[string]interface{}) {
+	a.writeGoogleBackupAuthSuccessWithPending(w, action, onboarding, googleBackup, false, nil)
+}
+
+func (a *Auth) writeGoogleBackupAuthSuccessWithPending(w http.ResponseWriter, action string, onboarding console.GoogleBackupOnboardingAPI, googleBackup map[string]interface{}, accountPendingDeletion bool, deleteAt *time.Time) {
+	w.Header().Set("Content-Type", "application/json")
+	payload := map[string]interface{}{
+		"success":    true,
+		"action":     action,
+		"onboarding": onboarding,
+	}
+	if googleBackup != nil {
+		payload["google_backup"] = googleBackup
+	}
+	if accountPendingDeletion {
+		payload["account_pending_deletion"] = true
+		if deleteAt != nil {
+			payload["delete_at"] = deleteAt.UTC()
+		}
+	}
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(payload)
+}
+
+// pendingDeletionUserFromUnverified returns a PendingDeletion account if present.
+// GetByEmail* only puts Active users in verified; soft-deleted users are in unverified.
+func pendingDeletionUserFromUnverified(unverified []console.User) *console.User {
+	for i := range unverified {
+		if unverified[i].Status == console.PendingDeletion {
+			return &unverified[i]
+		}
+	}
+	return nil
+}
+
+type credentialAuthSuccessResponse struct {
+	console.TokenInfo
+	Token        string                            `json:"token"`
+	Success      bool                              `json:"success"`
+	Action       string                            `json:"action"`
+	Onboarding   console.GoogleBackupOnboardingAPI `json:"onboarding"`
+	GoogleBackup map[string]interface{}            `json:"google_backup,omitempty"`
+}
+
+// writeCredentialAuthSuccess returns the session token plus the same onboarding and google_backup
+// payload as GET /auth/google-backup (scopes refreshed from stored refresh token when present).
+func (a *Auth) writeCredentialAuthSuccess(w http.ResponseWriter, ctx context.Context, user *console.User, tokenInfo console.TokenInfo, action string) {
+	a.cookieAuth.SetTokenCookie(w, tokenInfo)
+
+	authed := console.WithUser(ctx, user)
+	sessionToken := tokenInfo.Token.String()
+
+	var googleBackup map[string]interface{}
+	backupPayload, backupErr := a.service.LoadGoogleBackupAtLogin(authed, sessionToken)
+	if backupErr != nil {
+		a.log.Warn("failed to load google backup metadata at credential auth", zap.Error(backupErr))
+		googleBackup = map[string]interface{}{
+			"error": backupErr.Error(),
+		}
+	} else {
+		googleBackup = backupPayload
+	}
+
+	onboarding, err := a.service.GetGoogleBackupOnboarding(authed)
+	if err != nil {
+		a.log.Warn("failed to read onboarding at credential auth", zap.Error(err))
+		onboarding = console.GoogleBackupOnboardingAPI{}
+	}
+	if err := a.service.EnsureInviteeOnboardingSkipped(authed); err != nil {
+		a.log.Warn("failed to skip onboarding for invitee at credential auth", zap.Error(err))
+	} else if onboarding.OnboardingStatus != console.OnboardingStatusCompleted {
+		if refreshed, rErr := a.service.GetGoogleBackupOnboarding(authed); rErr == nil {
+			onboarding = refreshed
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(credentialAuthSuccessResponse{
+		TokenInfo:    tokenInfo,
+		Token:        sessionToken,
+		Success:      true,
+		Action:       action,
+		Onboarding:   onboarding,
+		GoogleBackup: googleBackup,
+	}); err != nil {
+		a.log.Error("could not encode credential auth response", zap.Error(ErrAuthAPI.Wrap(err)))
+	}
+}
+
+func (a *Auth) writeGoogleBackupAuthError(w http.ResponseWriter, message string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusInternalServerError)
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": false,
+		"error":   message,
+	})
+}
+
+func (a *Auth) sendRegistrationWelcomeEmail(ctx context.Context, email, fullName string) {
+	if a.mailService == nil {
+		return
+	}
+	loginLink := a.getExternalAddress(ctx)
+	if !strings.HasSuffix(loginLink, "/") {
+		loginLink += "/"
+	}
+	loginLink += strings.TrimPrefix(loginPageURL, "/")
+	a.mailService.SendRenderedAsync(
+		tenancy.DetachContext(ctx),
+		[]post.Address{{Address: email}},
+		&console.RegistrationWelcomeEmail{
+			Username:  fullName,
+			LoginLink: loginLink,
+		},
+	)
+}
+
+// GoogleBackupAuth handles combined Google OAuth register-or-login for Google Backup.
+//
+// @Summary      Google Backup auth (register or login)
+// @Description  **Route:** `GET /api/v0/auth/google-backup`. Exchanges OAuth code; `redirect_uri` is derived server-side from request Host (e.g. `https://cyberls.com` or `http://localhost:3000` via config fallback). If email exists, logs in; otherwise registers. Returns JSON with `action`, `onboarding`, and `google_backup`. Sets session cookie.
+// @Tags         google-backup-onboarding
+// @Produce      json
+// @Param        code         query  string  true   "Fresh Google OAuth code (single-use)"
+// @Param        state        query  string  false  "OAuth state (UTM / verifier payload)"
+// @Param        zoho-insert  query  bool    false  "When true, inserts CRM lead in Zoho"
+// @Success      200          {object}  GoogleBackupAuthSuccess  "Set-Cookie: _tokenKey"
+// @Failure      500          {object}  GoogleBackupAuthError
+// @Router       /auth/google-backup [get]
+func (a *Auth) GoogleBackupAuth(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	code := r.URL.Query().Get("code")
+	if code == "" {
+		a.writeGoogleBackupAuthError(w, "Authorization code not provided!")
+		return
+	}
+
+	redirectURI := socialmedia.ResolveRequestOrigin(r)
+	session, err := socialmedia.ExchangeGoogleAuthCodeWithRedirect(code, "googlebackup", r.URL.Query().Has("zoho-insert"), redirectURI)
+	if err != nil {
+		a.log.Error("google-backup: google token exchange failed",
+			zap.Bool("zoho_insert", r.URL.Query().Has("zoho-insert")),
+			zap.Int("code_len", len(code)),
+			zap.Error(err),
+		)
+		a.writeGoogleBackupAuthError(w, "Error getting token from Google!")
+		return
+	}
+
+	a.googleBackupAuthFromGoogle(w, r, googleBackupOAuthTokens{
+		idToken:           session.Tokens.Id_token,
+		accessToken:       session.Tokens.Access_token,
+		refreshToken:      session.Tokens.Refresh_token,
+		googleScope:       session.Tokens.Scope,
+		accessTokenExpiry: session.Tokens.ExpiresAt,
+	})
+}
+
+func (a *Auth) googleBackupAuthFromGoogle(w http.ResponseWriter, r *http.Request, tokens googleBackupOAuthTokens) {
+	ctx := r.Context()
+	cnf := socialmedia.GetConfig()
+
+	googleuser, err := socialmedia.GetGoogleUserByAccessToken(tokens.accessToken)
+	if err != nil {
+		a.writeGoogleBackupAuthError(w, "Error getting user details from Google!")
+		return
+	}
+
+	verified, unverified, err := a.service.GetUserByEmailWithUnverified_google(ctx, googleuser.Email)
+	if err != nil && !console.ErrEmailNotFound.Has(err) {
+		a.writeGoogleBackupAuthError(w, "Error getting user details from system!")
+		return
+	}
+
+	if verified == nil {
+		if pending := pendingDeletionUserFromUnverified(unverified); pending != nil {
+			verified = pending
+		}
+	}
+
+	if verified != nil {
+		a.completeGoogleBackupLogin(w, r, ctx, verified, googleuser, tokens)
+		return
+	}
+
+	a.completeGoogleBackupRegister(w, r, ctx, cnf, googleuser, tokens, unverified)
+}
+
+func (a *Auth) completeGoogleBackupRegister(w http.ResponseWriter, r *http.Request, ctx context.Context, cnf *socialmedia.Config, googleuser *socialmedia.GoogleUserResult, tokens googleBackupOAuthTokens, unverified []console.User) {
+	state := r.URL.Query().Get("state")
+	verifier := socialmedia.NewVerifierDataFromString(state)
+	if r.URL.Query().Has("zoho-insert") {
+		a.log.Debug("inserting lead in Zoho CRM")
+		go zohoInsertLead(context.Background(), googleuser.Name, googleuser.Email, a.log, verifier)
+	}
+
+	var user *console.User
+	if len(unverified) > 0 {
+		// Soft-deleted accounts must never enter register/CreateProject.
+		if pending := pendingDeletionUserFromUnverified(unverified); pending != nil {
+			a.completeGoogleBackupLogin(w, r, ctx, pending, googleuser, tokens)
+			return
+		}
+		user = &unverified[0]
+	} else {
+		secret, err := console.RegistrationSecretFromBase64("")
+		if err != nil {
+			a.writeGoogleBackupAuthError(w, "Error creating secret!")
+			return
+		}
+
+		ip, err := web.GetRequestIP(r)
+		if err != nil {
+			a.writeGoogleBackupAuthError(w, "Error getting IP!")
+			return
+		}
+
+		var utmParams *console.UtmParams
+		if verifier != nil {
+			utmParams = &console.UtmParams{
+				UtmTerm:     verifier.UTMTerm,
+				UtmContent:  verifier.UTMContent,
+				UtmSource:   verifier.UTMSource,
+				UtmMedium:   verifier.UTMMedium,
+				UtmCampaign: verifier.UTMCampaign,
+			}
+		}
+
+		user, err = a.service.CreateUser(ctx,
+			console.CreateUser{
+				FullName:  googleuser.Name,
+				Email:     googleuser.Email,
+				Status:    1,
+				IP:        ip,
+				Source:    "Google",
+				WalletId:  tokens.walletID,
+				UtmParams: utmParams,
+			},
+			secret, true,
+		)
+		if err != nil {
+			a.writeGoogleBackupAuthError(w, "Error creating user!")
+			return
+		}
+
+		referrer := r.URL.Query().Get("referrer")
+		if referrer == "" {
+			referrer = r.Referer()
+		}
+		hubspotUTK := ""
+		hubspotCookie, err := r.Cookie("hubspotutk")
+		if err == nil {
+			hubspotUTK = hubspotCookie.Value
+		}
+
+		trackCreateUserFields := analytics.TrackCreateUserFields{
+			ID:           user.ID,
+			AnonymousID:  loadSession(r),
+			FullName:     user.FullName,
+			Email:        user.Email,
+			Type:         analytics.Personal,
+			OriginHeader: r.Header.Get("Origin"),
+			Referrer:     referrer,
+			HubspotUTK:   hubspotUTK,
+			UserAgent:    string(user.UserAgent),
+		}
+		if user.IsProfessional {
+			trackCreateUserFields.Type = analytics.Professional
+			trackCreateUserFields.EmployeeCount = user.EmployeeCount
+			trackCreateUserFields.CompanyName = user.CompanyName
+			trackCreateUserFields.JobTitle = user.Position
+			trackCreateUserFields.HaveSalesContact = user.HaveSalesContact
+		}
+		a.analytics.TrackCreateUser(trackCreateUserFields)
+	}
+
+	sessionToken, err := a.issueSessionTokenForGoogleUser(ctx, googleuser.Email, "", w, r)
+	if err != nil {
+		a.writeGoogleBackupAuthError(w, "Error creating session token!")
+		return
+	}
+
+	if a.mailService != nil {
+		a.sendRegistrationWelcomeEmail(ctx, user.Email, user.FullName)
+	}
+
+	authed := console.WithUser(ctx, user)
+
+	project, err := a.service.CreateProject(authed, console.UpsertProjectInfo{
+		Name:             "My Project",
+		ManagePassphrase: true,
+	})
+	if err != nil {
+		a.writeGoogleBackupAuthError(w, "Error creating default project!")
+		return
+	}
+	a.log.Info("Default Project Name: " + project.Name)
+
+	if err := a.service.InitGoogleBackupOnboarding(authed); err != nil {
+		a.log.Warn("failed to init google backup onboarding status", zap.Error(err))
+	}
+
+	var googleBackup map[string]interface{}
+	backupResult, backupErr := a.service.RegisterGoogleBackupCredential(authed, googleuser.Email, tokens.accessToken, tokens.refreshToken, tokens.googleScope, tokens.accessTokenExpiry, sessionToken)
+	if backupErr != nil {
+		a.log.Error("failed to fetch Google backup metadata during registration", zap.Error(backupErr))
+		googleBackup = map[string]interface{}{
+			"error": backupErr.Error(),
+		}
+	} else {
+		googleBackup = console.GoogleBackupRegistrationPayload(backupResult)
+	}
+
+	onboarding, err := a.service.GetGoogleBackupOnboarding(authed)
+	if err != nil {
+		a.log.Warn("failed to read onboarding after registration", zap.Error(err))
+		onboarding = console.GoogleBackupOnboardingAPI{
+			OnboardingStart:  true,
+			OnboardingEnd:    false,
+			OnboardingStep:   console.OnboardingStepGoogleBackupPending,
+			OnboardingStatus: console.OnboardingStatusPending,
+		}
+	}
+
+	a.service.RecordUserAudit(authed, "AUTH_GOOGLE_BACKUP", "Google Backup", "Google Backup registration completed", nil)
+	a.writeGoogleBackupAuthSuccess(w, googleBackupAuthActionRegistered, onboarding, googleBackup)
+}
+
+func (a *Auth) completeGoogleBackupLogin(w http.ResponseWriter, r *http.Request, ctx context.Context, user *console.User, googleuser *socialmedia.GoogleUserResult, tokens googleBackupOAuthTokens) {
+	sessionToken, err := a.issueSessionTokenForGoogleUser(ctx, googleuser.Email, "", w, r)
+	if err != nil {
+		a.writeGoogleBackupAuthError(w, "Error creating session token!")
+		return
+	}
+
+	authed := console.WithUser(ctx, user)
+
+	// Pending deletion: do not refresh credentials / onboarding or create projects — UI must cancel first.
+	if user.Status == console.PendingDeletion {
+		pending, deleteAt, pendingErr := a.service.GetAccountPendingDeletionInfo(authed)
+		if pendingErr != nil {
+			a.log.Warn("failed to load pending deletion info at google-backup login", zap.Error(pendingErr))
+			pending = true
+		}
+		a.service.RecordUserAudit(authed, "AUTH_GOOGLE_BACKUP", "Google Backup", "Google Backup login while pending deletion", nil)
+		a.writeGoogleBackupAuthSuccessWithPending(w, googleBackupAuthActionLoggedIn, console.GoogleBackupOnboardingAPI{}, nil, pending, deleteAt)
+		return
+	}
+
+	var googleBackup map[string]interface{}
+	if tokens.accessToken != "" {
+		backupResult, backupErr := a.service.RegisterGoogleBackupCredential(authed, googleuser.Email, tokens.accessToken, tokens.refreshToken, tokens.googleScope, tokens.accessTokenExpiry, sessionToken)
+		if backupErr != nil {
+			a.log.Warn("failed to refresh Google backup metadata at login", zap.Error(backupErr))
+			googleBackup = map[string]interface{}{
+				"error": backupErr.Error(),
+			}
+		} else {
+			googleBackup = console.GoogleBackupRegistrationPayload(backupResult)
+		}
+	}
+
+	onboarding, err := a.service.GetGoogleBackupOnboarding(authed)
+	if err != nil {
+		a.log.Warn("failed to read onboarding at login", zap.Error(err))
+		onboarding = console.GoogleBackupOnboardingAPI{}
+	}
+	if err := a.service.EnsureInviteeOnboardingSkipped(authed); err != nil {
+		a.log.Warn("failed to skip onboarding for invitee at login", zap.Error(err))
+	} else if onboarding.OnboardingStatus != console.OnboardingStatusCompleted {
+		if refreshed, rErr := a.service.GetGoogleBackupOnboarding(authed); rErr == nil {
+			onboarding = refreshed
+		}
+	}
+
+	a.service.RecordUserAudit(authed, "AUTH_GOOGLE_BACKUP", "Google Backup", "Google Backup login completed", nil)
+	a.writeGoogleBackupAuthSuccess(w, googleBackupAuthActionLoggedIn, onboarding, googleBackup)
+}
+
+// RegisterGoogle handles Google OAuth signup, stores Google Backup credentials, and returns domain-users metadata.
+func (a *Auth) RegisterGoogle(w http.ResponseWriter, r *http.Request) {
+	cnf := socialmedia.GetConfig()
+
+	var mode string = "signup"
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	code := r.URL.Query().Get("code")
+
+	if code == "" {
+		a.SendResponse(w, r, "Authorization code not provided!", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+		return
+	}
+
+	tokenRes, err := socialmedia.GetGoogleOauthToken(code, mode, r.URL.Query().Has("zoho-insert"))
+	if err != nil {
+		a.log.Error("register-google: google token exchange failed",
+			zap.String("mode", mode),
+			zap.Bool("zoho_insert", r.URL.Query().Has("zoho-insert")),
+			zap.Int("code_len", len(code)),
+			zap.Error(err),
+		)
+		a.SendResponse(w, r, "Error getting token from Google!", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+		return
+	}
+
+	a.registerUserByIDTokenFromGoogle(w, r, tokenRes.Id_token, tokenRes.Access_token, tokenRes.Refresh_token, tokenRes.Scope, "", tokenRes.ExpiresAt)
+}
+
+func (a *Auth) registerUserByIDTokenFromGoogle(w http.ResponseWriter, r *http.Request, idToken, accessToken, refreshToken, googleScope, walletID string, accessTokenExpiry time.Time) {
+	ctx := r.Context()
+	cnf := socialmedia.GetConfig()
+
+	googleuser, err := socialmedia.GetGoogleUserByAccessToken(accessToken)
+	if err != nil {
+		a.SendResponse(w, r, "Error getting user details from Google!", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+		return
+	}
+
+	state := r.URL.Query().Get("state")
+	verifier := socialmedia.NewVerifierDataFromString(state)
+	if r.URL.Query().Has("zoho-insert") {
+		a.log.Debug("inserting lead in Zoho CRM")
+		go zohoInsertLead(context.Background(), googleuser.Name, googleuser.Email, a.log, verifier)
+	}
+
+	verified, unverified, err := a.service.GetUserByEmailWithUnverified_google(ctx, googleuser.Email)
+	if err != nil && !console.ErrEmailNotFound.Has(err) {
+		a.SendResponse(w, r, "Error getting user details from system!", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+		return
+	}
+
+	var user *console.User
+	if verified != nil {
+		satelliteAddress := a.getExternalAddress(ctx)
+		if !strings.HasSuffix(satelliteAddress, "/") {
+			satelliteAddress += "/"
+		}
+		if a.mailService != nil {
+			a.mailService.SendRenderedAsync(
+				ctx,
+				[]post.Address{{Address: verified.Email}},
+				&console.AccountAlreadyExistsEmail{
+					Origin:            satelliteAddress,
+					SatelliteName:     a.SatelliteName,
+					SignInLink:        satelliteAddress + "login",
+					ResetPasswordLink: satelliteAddress + "forgot-password",
+					CreateAccountLink: satelliteAddress + "signup",
+				},
+			)
+		}
+		a.SendResponse(w, r, "You are already registered!", fmt.Sprint(cnf.ClientOrigin, loginPageURL))
+		return
+	}
+
+	if len(unverified) > 0 {
+		// Soft-deleted: never treat as new signup / CreateProject.
+		if pending := pendingDeletionUserFromUnverified(unverified); pending != nil {
+			a.loginUserConfirmFromIdtokeAndAccessToken(w, r, accessToken)
+			return
+		}
+		user = &unverified[0]
+	} else {
+		secret, err := console.RegistrationSecretFromBase64("")
+		if err != nil {
+			a.SendResponse(w, r, "Error creating secret!", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+			return
+		}
+
+		ip, err := web.GetRequestIP(r)
+		if err != nil {
+			a.SendResponse(w, r, "Error getting IP!", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+			return
+		}
+
+		var utmParams *console.UtmParams
+		if verifier != nil {
+			utmParams = &console.UtmParams{
+				UtmTerm:     verifier.UTMTerm,
+				UtmContent:  verifier.UTMContent,
+				UtmSource:   verifier.UTMSource,
+				UtmMedium:   verifier.UTMMedium,
+				UtmCampaign: verifier.UTMCampaign,
+			}
+		}
+
+		user, err = a.service.CreateUser(ctx,
+			console.CreateUser{
+				FullName:  googleuser.Name,
+				Email:     googleuser.Email,
+				Status:    1,
+				IP:        ip,
+				Source:    "Google",
+				WalletId:  walletID,
+				UtmParams: utmParams,
+			},
+			secret, true,
+		)
+		if err != nil {
+			a.SendResponse(w, r, "Error creating user!", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+			return
+		}
+
+		referrer := r.URL.Query().Get("referrer")
+		if referrer == "" {
+			referrer = r.Referer()
+		}
+		hubspotUTK := ""
+		hubspotCookie, err := r.Cookie("hubspotutk")
+		if err == nil {
+			hubspotUTK = hubspotCookie.Value
+		}
+
+		trackCreateUserFields := analytics.TrackCreateUserFields{
+			ID:           user.ID,
+			AnonymousID:  loadSession(r),
+			FullName:     user.FullName,
+			Email:        user.Email,
+			Type:         analytics.Personal,
+			OriginHeader: r.Header.Get("Origin"),
+			Referrer:     referrer,
+			HubspotUTK:   hubspotUTK,
+			UserAgent:    string(user.UserAgent),
+		}
+		if user.IsProfessional {
+			trackCreateUserFields.Type = analytics.Professional
+			trackCreateUserFields.EmployeeCount = user.EmployeeCount
+			trackCreateUserFields.CompanyName = user.CompanyName
+			trackCreateUserFields.JobTitle = user.Position
+			trackCreateUserFields.HaveSalesContact = user.HaveSalesContact
+		}
+		a.analytics.TrackCreateUser(trackCreateUserFields)
+	}
+
+	sessionToken, err := a.issueSessionTokenForGoogleUser(ctx, googleuser.Email, "", w, r)
+	if err != nil {
+		a.writeGoogleBackupAuthError(w, "Error creating session token!")
+		return
+	}
+
+	if a.mailService != nil {
+		a.sendRegistrationWelcomeEmail(ctx, user.Email, user.FullName)
+	}
+
+	authed := console.WithUser(ctx, user)
+
+	project, err := a.service.CreateProject(authed, console.UpsertProjectInfo{
+		Name:             "My Project",
+		ManagePassphrase: true,
+	})
+	if err != nil {
+		a.log.Error("Error in Default Project:", zap.Error(err))
+		a.SendResponse(w, r, "Error creating default project!", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
+		return
+	}
+
+	a.log.Info("Default Project Name: " + project.Name)
+
+	if err := a.service.InitGoogleBackupOnboarding(authed); err != nil {
+		a.log.Warn("failed to init google backup onboarding status", zap.Error(err))
+	}
+
+	var googleBackup map[string]interface{}
+	backupResult, backupErr := a.service.RegisterGoogleBackupCredential(authed, googleuser.Email, accessToken, refreshToken, googleScope, accessTokenExpiry, sessionToken)
+	if backupErr != nil {
+		a.log.Error("failed to fetch Google backup domain users during registration", zap.Error(backupErr))
+		googleBackup = map[string]interface{}{
+			"error": backupErr.Error(),
+		}
+	} else {
+		googleBackup = console.GoogleBackupRegistrationPayload(backupResult)
+	}
+
+	onboardingStatus := console.OnboardingStatusPending
+	if settings, settingsErr := a.service.GetUserSettings(authed); settingsErr != nil {
+		a.log.Warn("failed to read onboarding status after registration", zap.Error(settingsErr))
+	} else {
+		onboardingStatus = console.GoogleBackupOnboardingStatus(settings)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	payload := map[string]interface{}{
+		"success":           true,
+		"onboarding_status": onboardingStatus,
+	}
+	if googleBackup != nil {
+		payload["google_backup"] = googleBackup
+	}
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(payload)
 }
 
 func (a *Auth) LoginUserConfirmForApp(w http.ResponseWriter, r *http.Request) {
@@ -1503,6 +2434,7 @@ func (a *Auth) LoginUserConfirmForApp(w http.ResponseWriter, r *http.Request) {
 	a.loginUserConfirmFromIdtokeAndAccessToken(w, r, body.AccessToken)
 }
 
+// LoginUserConfirm handles Google OAuth login for existing users (login-google).
 func (a *Auth) LoginUserConfirm(w http.ResponseWriter, r *http.Request) {
 	cnf := socialmedia.GetConfig()
 
@@ -1539,53 +2471,98 @@ func (a *Auth) loginUserConfirmFromIdtokeAndAccessToken(w http.ResponseWriter, r
 		return
 	}
 
-	verified, _, err := a.service.GetUserByEmailWithUnverified_google(ctx, googleuser.Email)
+	verified, unverified, err := a.service.GetUserByEmailWithUnverified_google(ctx, googleuser.Email)
 	if err != nil && !console.ErrEmailNotFound.Has(err) {
 		a.SendResponse(w, r, "Error getting user details from system", fmt.Sprint(cnf.ClientOrigin, loginPageURL))
 		return
 	}
 
 	if verified == nil {
+		for i := range unverified {
+			if unverified[i].Status == console.PendingDeletion {
+				verified = &unverified[i]
+				break
+			}
+		}
+	}
+
+	if verified == nil {
+		a.recordFailedLoginByEmail(ctx, googleuser.Email, "Your email id is not registered")
 		a.SendResponse(w, r, "Your email id is not registered", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 		return
 	}
 
-	a.TokenGoogleWrapper(r.Context(), googleuser.Email, "", w, r)
-	a.SendResponse(w, r, "", fmt.Sprint(cnf.ClientOrigin, mainPageURL))
+	authed := console.WithUser(ctx, verified)
+	redirectURL := fmt.Sprint(cnf.ClientOrigin, mainPageURL)
+
+	ip, ipErr := web.GetRequestIP(r)
+	if ipErr != nil {
+		a.SendResponse(w, r, "Error getting IP", fmt.Sprint(cnf.ClientOrigin, loginPageURL))
+		return
+	}
+
+	tokenInfo, tokenErr := a.service.Token_google(authed, console.AuthUser{
+		Email:     googleuser.Email,
+		UserAgent: r.UserAgent(),
+		IP:        ip,
+	})
+	a.service.RecordUserAuditForEmail(ctx, googleuser.Email, "AUTH_LOGIN", "Session", "User logged in", tokenErr)
+	if tokenErr != nil {
+		a.SendResponse(w, r, "Error getting token from system", fmt.Sprint(cnf.ClientOrigin, loginPageURL))
+		return
+	}
+	a.cookieAuth.SetTokenCookie(w, *tokenInfo)
+
+	// UI contract: pending deletion → cancel-deletion page, never dashboard.
+	if tokenInfo.AccountPendingDeletion {
+		redirectURL = fmt.Sprint(cnf.ClientOrigin, cancelDeletionPageURL)
+		a.sendAuthRedirect(w, r, "", redirectURL, "")
+		return
+	}
+
+	// Optional hint for UI only; skip/resume is client-driven (PATCH /account/onboarding). No forced redirect.
+	var onboardingStatus string
+	if settings, settingsErr := a.service.GetUserSettings(authed); settingsErr != nil {
+		a.log.Warn("failed to load user settings at login", zap.Error(settingsErr))
+	} else {
+		onboardingStatus = console.GoogleBackupOnboardingStatus(settings)
+	}
+
+	a.sendAuthRedirect(w, r, "", redirectURL, onboardingStatus)
 }
 
-func (a *Auth) TokenGoogleWrapper(ctx context.Context, userGmail, key string, w http.ResponseWriter, r *http.Request) {
+func (a *Auth) issueSessionTokenForGoogleUser(ctx context.Context, userGmail, key string, w http.ResponseWriter, r *http.Request) (string, error) {
 	cnf := socialmedia.GetConfig()
-	var err error
 
 	tokenRequest := console.AuthUser{}
 	tokenRequest.Email = userGmail
-	userGmail = ""
 	tokenRequest.UserAgent = r.UserAgent()
-	tokenRequest.IP, err = web.GetRequestIP(r)
+	ip, err := web.GetRequestIP(r)
 	if err != nil {
 		a.SendResponse(w, r, "Error getting IP", fmt.Sprint(cnf.ClientOrigin, loginPageURL))
-		// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, loginPageURL)+"?error=Error getting IP", http.StatusTemporaryRedirect)
-		return
+		return "", ErrAuthAPI.Wrap(err)
 	}
+	tokenRequest.IP = ip
 
 	tokenInfo, err := a.service.Token_google(ctx, tokenRequest)
-
+	a.service.RecordUserAuditForEmail(ctx, userGmail, "AUTH_LOGIN", "Session", "User logged in", err)
 	if err != nil {
 		if console.ErrMFAMissing.Has(err) {
 			a.SendResponse(w, r, "Error getting token from system", fmt.Sprint(cnf.ClientOrigin, loginPageURL))
-			// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, loginPageURL)+"?error=Error getting token from system", http.StatusTemporaryRedirect)
 		} else {
 			a.log.Info("Error authenticating token request", zap.String("email", tokenRequest.Email), zap.Error(ErrAuthAPI.Wrap(err)))
 			a.SendResponse(w, r, "Error getting token from system", fmt.Sprint(cnf.ClientOrigin, loginPageURL))
-			// http.Redirect(w, r, fmt.Sprint(cnf.ClientOrigin, loginPageURL)+"?error=Error getting token from system", http.StatusTemporaryRedirect)
 		}
-		return
+		return "", ErrAuthAPI.Wrap(err)
 	}
 
 	tokenInfo.Token.Key = key
-
 	a.cookieAuth.SetTokenCookie(w, *tokenInfo)
+	return tokenInfo.Token.String(), nil
+}
+
+func (a *Auth) TokenGoogleWrapper(ctx context.Context, userGmail, key string, w http.ResponseWriter, r *http.Request) {
+	_, _ = a.issueSessionTokenForGoogleUser(ctx, userGmail, key, w, r)
 }
 
 func (a *Auth) InitFacebookRegister(w http.ResponseWriter, r *http.Request) {
@@ -1752,7 +2729,8 @@ func (a *Auth) HandleFacebookRegister(w http.ResponseWriter, r *http.Request) {
 	authed := console.WithUser(ctx, user)
 
 	project, err := a.service.CreateProject(authed, console.UpsertProjectInfo{
-		Name: "My Project",
+		Name:             "My Project",
+		ManagePassphrase: true,
 	})
 	//require.NoError(t, err)
 	if err != nil {
@@ -1806,6 +2784,7 @@ func (a *Auth) HandleFacebookLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if verified == nil {
+		a.recordFailedLoginByEmail(ctx, fbUserDetails.Email, "Your email id is not registered")
 		a.SendResponse(w, r, "Your email id is not registered", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 		return
 	}
@@ -2002,7 +2981,8 @@ func (a *Auth) HandleLinkedInRegister(w http.ResponseWriter, r *http.Request) {
 	authed := console.WithUser(ctx, user)
 
 	project, err := a.service.CreateProject(authed, console.UpsertProjectInfo{
-		Name: "My Project",
+		Name:             "My Project",
+		ManagePassphrase: true,
 	})
 
 	if err != nil {
@@ -2189,7 +3169,8 @@ func (a *Auth) HandleLinkedInRegisterWithAuthToken(w http.ResponseWriter, r *htt
 	authed := console.WithUser(ctx, user)
 
 	project, err := a.service.CreateProject(authed, console.UpsertProjectInfo{
-		Name: "My Project",
+		Name:             "My Project",
+		ManagePassphrase: true,
 	})
 
 	if err != nil {
@@ -2204,14 +3185,7 @@ func (a *Auth) HandleLinkedInRegisterWithAuthToken(w http.ResponseWriter, r *htt
 	// login
 	a.TokenGoogleWrapper(ctx, LinkedinUserDetails.Email, body.Key, w, r)
 
-	a.mailService.SendRenderedAsync(
-		ctx,
-		[]post.Address{{Address: user.Email}},
-		&console.RegistrationWelcomeEmail{
-			Username:  user.FullName,
-			LoginLink: fmt.Sprint(cnf.ClientOrigin, loginPageURL),
-		},
-	)
+	a.sendRegistrationWelcomeEmail(ctx, user.Email, user.FullName)
 
 	a.SendResponse(w, r, "", fmt.Sprint(cnf.ClientOrigin, signupSuccessURL))
 }
@@ -2274,6 +3248,7 @@ func (a *Auth) HandleLinkedInLogin(w http.ResponseWriter, r *http.Request) {
 	fmt.Println(verified, unverified)
 
 	if verified == nil {
+		a.recordFailedLoginByEmail(ctx, LinkedinUserDetails.Email, "Your email id is not registered")
 		a.SendResponse(w, r, "Your email id is not registered", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 		return
 	}
@@ -2347,6 +3322,7 @@ func (a *Auth) HandleLinkedInLoginWithAuthToken(w http.ResponseWriter, r *http.R
 	fmt.Println(verified, unverified)
 
 	if verified == nil {
+		a.recordFailedLoginByEmail(ctx, LinkedinUserDetails.Email, "Your email id is not registered")
 		a.SendResponse(w, r, "Your email id ("+LinkedinUserDetails.Email+") is not registered", fmt.Sprint(cnf.ClientOrigin, signupPageURL))
 		return
 	}
@@ -2507,6 +3483,7 @@ func (a *Auth) ActivateAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = a.service.SetAccountActive(ctx, user)
+	a.service.RecordUserAuditForUser(ctx, user, "AUTH_ACTIVATE", "Account", "Account activated", err)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return
@@ -2576,12 +3553,26 @@ func (a *Auth) ChangeEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err = a.service.ChangeEmail(ctx, data.Step, data.Data); err != nil {
+	err = a.service.ChangeEmail(ctx, data.Step, data.Data)
+	a.service.RecordUserAudit(ctx, "ACCOUNT_CHANGE_EMAIL", "Account", "Account email changed", err)
+	if err != nil {
 		a.serveJSONError(ctx, w, err)
 	}
 }
 
 // UpdateAccount updates user's full name and short name.
+//
+// @Summary      Update account display name
+// @Description  **Full route:** `PATCH /api/v0/auth/account`
+// @Tags         auth-account
+// @Accept       json
+// @Produce      json
+// @Param        body  body  UpdateAuthAccountSwaggerRequest  true  "Name fields"
+// @Success      200   "OK"
+// @Failure      400   {object}  SwaggerErrorResponse
+// @Failure      401   {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /auth/account [patch]
 func (a *Auth) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -2598,12 +3589,26 @@ func (a *Auth) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err = a.service.UpdateAccount(ctx, updatedInfo.FullName, updatedInfo.ShortName); err != nil {
+	err = a.service.UpdateAccount(ctx, updatedInfo.FullName, updatedInfo.ShortName)
+	a.service.RecordUserAudit(ctx, "ACCOUNT_UPDATE", "Account", "Account updated", err)
+	if err != nil {
 		a.serveJSONError(ctx, w, err)
 	}
 }
 
-// UpdateAccount updates user's full name and short name.
+// UpdateAccountInfo updates social links and wallet id.
+//
+// @Summary      Update account profile links
+// @Description  **Full route:** `PATCH /api/v0/auth/account/info`
+// @Tags         auth-account
+// @Accept       json
+// @Produce      json
+// @Param        body  body  UpdateAuthAccountInfoSwaggerRequest  true  "Social and wallet fields"
+// @Success      200   "OK"
+// @Failure      400   {object}  SwaggerErrorResponse
+// @Failure      401   {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /auth/account/info [patch]
 func (a *Auth) UpdateAccountInfo(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -2624,18 +3629,29 @@ func (a *Auth) UpdateAccountInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err = a.service.UpdateAccountInfo(ctx, &console.UpdateUserSocialMediaLinks{
+	err = a.service.UpdateAccountInfo(ctx, &console.UpdateUserSocialMediaLinks{
 		SocialLinkedin: updatedInfo.SocialLinkedin,
 		SocialTwitter:  updatedInfo.SocialTwitter,
 		SocialFacebook: updatedInfo.SocialFacebook,
 		SocialGithub:   updatedInfo.SocialGithub,
 		WalletID:       updatedInfo.WalletID,
-	}); err != nil {
+	})
+	a.service.RecordUserAudit(ctx, "ACCOUNT_INFO_UPDATE", "Account", "Account info updated", err)
+	if err != nil {
 		a.serveJSONError(ctx, w, err)
 	}
 }
 
 // GetFreezeStatus checks to see if an account is frozen or warned.
+//
+// @Summary      Account billing freeze status
+// @Description  **Full route:** `GET /api/v0/auth/account/freezestatus`
+// @Tags         auth-account
+// @Produce      json
+// @Success      200  {object}  AuthAccountFreezeStatusSwaggerResponse
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /auth/account/freezestatus [get]
 func (a *Auth) GetFreezeStatus(w http.ResponseWriter, r *http.Request) {
 	type FrozenResult struct {
 		Frozen             bool `json:"frozen"`
@@ -2673,20 +3689,93 @@ func (a *Auth) GetFreezeStatus(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// DeleteAccountRequest starts the account soft-deletion workflow (PendingDeletion + 30-day grace).
+//
+// UI contract: after success, log the user out. While pending, login returns account_pending_deletion
+// and must redirect to /account/cancel-deletion (not the dashboard). Cancel via
+// POST /auth/account/cancel-delete-request.
+//
+// @Summary      Request account deletion
+// @Description  Soft-deletes the account (PendingDeletion), revokes sessions, queues hard delete after 30 calendar days, and notifies Backup-Tools. Blocked when active_subscription. Re-auth is MFA passcode/recovery OR Google OAuth `code` (either one; not both required). Password is not used.
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        body  body  console.AccountDeleteRequest  false  "Re-auth credentials"
+// @Success      202
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Failure      403  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /auth/account/delete-request [post]
 func (a *Auth) DeleteAccountRequest(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	err = a.service.DeleteAccountRequest(ctx)
-	if err != nil {
-		a.serveJSONError(ctx, w, err)
+	var req console.AccountDeleteRequest
+	if r.Body != nil && r.ContentLength != 0 {
+		if decodeErr := json.NewDecoder(r.Body).Decode(&req); decodeErr != nil && decodeErr != io.EOF {
+			a.serveJSONError(ctx, w, console.ErrValidation.Wrap(decodeErr))
+			return
+		}
 	}
 
+	// Google re-auth: exchange OAuth code server-side; never trust a client-supplied email.
+	if code := strings.TrimSpace(req.Code); code != "" {
+		redirectURI := socialmedia.ResolveRequestOrigin(r)
+		session, exchangeErr := socialmedia.ExchangeGoogleAuthCodeWithRedirect(code, "googlebackup", false, redirectURI)
+		if exchangeErr != nil {
+			a.log.Info("delete-request: google re-auth code exchange failed", zap.Error(exchangeErr))
+			a.serveJSONError(ctx, w, console.ErrUnauthorized.New("google re-authentication failed"))
+			return
+		}
+		if session == nil || session.User == nil || strings.TrimSpace(session.User.Email) == "" {
+			a.serveJSONError(ctx, w, console.ErrUnauthorized.New("google re-authentication failed"))
+			return
+		}
+		req.GoogleReauthEmail = session.User.Email
+		req.Code = "" // do not keep the one-time code around
+	}
+
+	err = a.service.DeleteAccountRequest(ctx, req)
+	a.service.RecordUserAudit(ctx, "ACCOUNT_DELETE_REQUEST", "Account", "Account deletion requested", err)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	a.cookieAuth.RemoveTokenCookie(w)
 	w.WriteHeader(http.StatusAccepted)
 }
 
-// SetupAccount updates user's full name and short name.
+// CancelAccountDeleteRequest cancels a pending self-serve account deletion during the grace period.
+//
+// UI contract: call from /account/cancel-deletion; on success navigate to the dashboard.
+//
+// @Summary      Cancel account deletion
+// @Description  Restores Active status, cancels the delete queue row, and notifies Backup-Tools to resume (clear tombstone). Only while PendingDeletion and before hard delete starts.
+// @Tags         auth
+// @Produce      json
+// @Success      200
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Failure      403  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /auth/account/cancel-delete-request [post]
+func (a *Auth) CancelAccountDeleteRequest(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	err = a.service.CancelAccountDeleteRequest(ctx)
+	a.service.RecordUserAudit(ctx, "ACCOUNT_CANCEL_DELETE_REQUEST", "Account", "Account deletion cancelled", err)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+// SetupAccount completes onboarding profile fields.
 func (a *Auth) SetupAccount(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -2700,7 +3789,9 @@ func (a *Auth) SetupAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err = a.service.SetupAccount(ctx, updatedInfo); err != nil {
+	err = a.service.SetupAccount(ctx, updatedInfo)
+	a.service.RecordUserAudit(ctx, "ACCOUNT_SETUP", "Account", "Account setup completed", err)
+	if err != nil {
 		a.serveJSONError(ctx, w, err)
 	}
 }
@@ -2720,6 +3811,16 @@ func (a *Auth) GetBadPasswords(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetAccount returns the authenticated user's profile.
+//
+// @Summary      Get current account
+// @Description  **Full route:** `GET /api/v0/auth/account`
+// @Tags         auth-account
+// @Produce      json
+// @Success      200  {object}  AuthAccountSwaggerResponse
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /auth/account [get]
 func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -2748,6 +3849,8 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 		TrialExpiration       *time.Time `json:"trialExpiration"`
 		HasVarPartner         bool       `json:"hasVarPartner"`
 
+		HasPassword bool `json:"hasPassword"`
+
 		LoginToken string `json:"loginToken"`
 
 		SocialLinkedin string `json:"socialLinkedin"`
@@ -2756,6 +3859,9 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 		SocialGithub   string `json:"socialGithub"`
 
 		WalletId string `json:"walletId"`
+
+		AccountPendingDeletion bool       `json:"account_pending_deletion"`
+		DeleteAt               *time.Time `json:"delete_at,omitempty"`
 	}
 
 	consoleUser, err := console.GetUser(ctx)
@@ -2799,6 +3905,14 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	user.HasPassword = console.HasPasswordSet(consoleUser.PasswordHash)
+
+	user.AccountPendingDeletion, user.DeleteAt, err = a.service.GetAccountPendingDeletionInfo(ctx)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
 	token, err := r.Cookie("_tokenKey")
 	if err == nil {
 		user.LoginToken = token.Value
@@ -2813,6 +3927,19 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 }
 
 // ChangePassword auth user, changes users password for a new one.
+//
+// @Summary      Change password (logged in, password already set)
+// @Description  **Full route:** `POST /api/v0/auth/account/change-password`
+// @Tags         auth-account
+// @Accept       json
+// @Produce      json
+// @Param        X-CSRF-Token  header    string                              false  "From GET /config when CSRF enabled"
+// @Param        body          body      AuthChangePasswordSwaggerRequest      true   "Current and new password"
+// @Success      200
+// @Failure      400  {object}  SwaggerErrorResponse
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /auth/account/change-password [post]
 func (a *Auth) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -2844,6 +3971,54 @@ func (a *Auth) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = a.service.ChangePassword(ctx, passwordChange.CurrentPassword, passwordChange.NewPassword, &sessionID)
+	a.service.RecordUserAudit(ctx, "ACCOUNT_CHANGE_PASSWORD", "Account", "Password changed", err)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+}
+
+// SetPassword sets the initial login password for the authenticated user when none is configured.
+// Call only when GET /auth/account returns hasPassword: false. Skip this step if the user declines.
+//
+// @Summary      Set initial password (optional after Google / email verify)
+// @Description  **Full route:** `POST /api/v0/auth/account/set-password` — requires logged-in session (`_tokenKey` cookie) and CSRF when enabled. **Swagger:** Authorize **CookieAuth** with session token value; Authorize **CSRFAuth** with `csrfToken` from `GET /config`; then call this route. Body: `{ "newPassword": "..." }` (8–64 chars). Returns 409 if password already set.
+// @Tags         auth-set-password
+// @Accept       json
+// @Produce      json
+// @Param        body          body      AuthSetPasswordSwaggerRequest    true   "New password only"
+// @Success      200  "Password set"
+// @Failure      400  {object}  SwaggerErrorResponse
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Failure      403  {object}  SwaggerErrorResponse
+// @Failure      409  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Security     CSRFAuth
+// @Router       /auth/account/set-password [post]
+func (a *Auth) SetPassword(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var passwordSet struct {
+		NewPassword string `json:"newPassword"`
+	}
+
+	err = json.NewDecoder(r.Body).Decode(&passwordSet)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	if a.badPasswords != nil {
+		if _, exists := a.badPasswords[passwordSet.NewPassword]; exists {
+			a.serveJSONError(ctx, w, console.ErrValidation.Wrap(errs.New("The password you chose is on a list of insecure or breached passwords. Please choose a different one.")))
+			return
+		}
+	}
+
+	err = a.service.SetPassword(ctx, passwordSet.NewPassword)
+	a.service.RecordUserAudit(ctx, "ACCOUNT_SET_PASSWORD", "Account", "Initial password set", err)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return
@@ -2851,6 +4026,20 @@ func (a *Auth) ChangePassword(w http.ResponseWriter, r *http.Request) {
 }
 
 // ForgotPassword creates password-reset token and sends email to user.
+//
+// @Summary      Request password reset email
+// @Description  **Full route:** `POST /api/v0/auth/forgot-password`
+//
+// Sends a password recovery email when the account exists. Uses login captcha (`captchaResponse`).
+// Always returns HTTP 200 on valid captcha (no email enumeration).
+// **CSRF:** not required on this route. `Invalid CSRF token` (HTTP 403) only applies to CSRF-protected routes such as `POST /auth/token`.
+// @Tags         auth-password-recovery
+// @Accept       json
+// @Produce      json
+// @Param        body  body  AuthForgotPasswordSwaggerRequest  true  "Email and captcha"
+// @Success      200   "Email sent if account exists"
+// @Failure      400   {object}  SwaggerErrorResponse
+// @Router       /auth/forgot-password [post]
 func (a *Auth) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -3086,6 +4275,20 @@ func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 }
 
 // EnableUserMFA enables multi-factor authentication for the user.
+//
+// @Summary      Enable MFA
+// @Description  **Full route:** `POST /api/v0/auth/mfa/enable`
+//
+// Verifies TOTP passcode, enables MFA, invalidates other sessions, returns new recovery codes.
+// @Tags         auth-account
+// @Accept       json
+// @Produce      json
+// @Param        body  body  MFAEnableSwaggerRequest  true  "TOTP passcode"
+// @Success      200   {array}  string  "Recovery codes"
+// @Failure      400   {object}  SwaggerErrorResponse
+// @Failure      401   {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /auth/mfa/enable [post]
 func (a *Auth) EnableUserMFA(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -3101,6 +4304,7 @@ func (a *Auth) EnableUserMFA(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = a.service.EnableUserMFA(ctx, data.Passcode, time.Now())
+	a.service.RecordUserAudit(ctx, "MFA_ENABLE", "MFA", "MFA enabled", err)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return
@@ -3138,6 +4342,18 @@ func (a *Auth) EnableUserMFA(w http.ResponseWriter, r *http.Request) {
 }
 
 // DisableUserMFA disables multi-factor authentication for the user.
+//
+// @Summary      Disable MFA
+// @Description  **Full route:** `POST /api/v0/auth/mfa/disable`
+// @Tags         auth-account
+// @Accept       json
+// @Produce      json
+// @Param        body  body  MFADisableSwaggerRequest  true  "Passcode or recovery code"
+// @Success      200   "OK"
+// @Failure      400   {object}  SwaggerErrorResponse
+// @Failure      401   {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /auth/mfa/disable [post]
 func (a *Auth) DisableUserMFA(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -3154,6 +4370,7 @@ func (a *Auth) DisableUserMFA(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = a.service.DisableUserMFA(ctx, data.Passcode, time.Now(), data.RecoveryCode)
+	a.service.RecordUserAudit(ctx, "MFA_DISABLE", "MFA", "MFA disabled", err)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return
@@ -3179,12 +4396,25 @@ func (a *Auth) DisableUserMFA(w http.ResponseWriter, r *http.Request) {
 }
 
 // GenerateMFASecretKey creates a new TOTP secret key for the user.
+//
+// @Summary      Generate MFA secret key
+// @Description  **Full route:** `POST /api/v0/auth/mfa/generate-secret-key`
+//
+// Returns TOTP secret for authenticator app setup (MFA must not already be enabled).
+// @Tags         auth-account
+// @Produce      json
+// @Success      200  {string}  string  "TOTP secret key string"
+// @Failure      400  {object}  SwaggerErrorResponse
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /auth/mfa/generate-secret-key [post]
 func (a *Auth) GenerateMFASecretKey(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
 	key, err := a.service.ResetMFASecretKey(ctx)
+	a.service.RecordUserAudit(ctx, "MFA_GENERATE_SECRET", "MFA", "MFA secret key generated", err)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return
@@ -3199,12 +4429,22 @@ func (a *Auth) GenerateMFASecretKey(w http.ResponseWriter, r *http.Request) {
 }
 
 // GenerateMFARecoveryCodes creates a new set of MFA recovery codes for the user.
+//
+// @Summary      Generate MFA recovery codes
+// @Description  **Full route:** `POST /api/v0/auth/mfa/generate-recovery-codes`
+// @Tags         auth-account
+// @Produce      json
+// @Success      200  {array}  string  "Recovery codes"
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /auth/mfa/generate-recovery-codes [post]
 func (a *Auth) GenerateMFARecoveryCodes(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
 	codes, err := a.service.ResetMFARecoveryCodes(ctx, false, "", "")
+	a.service.RecordUserAudit(ctx, "MFA_REGENERATE_RECOVERY", "MFA", "MFA recovery codes generated", err)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return
@@ -3219,6 +4459,18 @@ func (a *Auth) GenerateMFARecoveryCodes(w http.ResponseWriter, r *http.Request) 
 }
 
 // RegenerateMFARecoveryCodes requires MFA code to create a new set of MFA recovery codes for the user.
+//
+// @Summary      Regenerate MFA recovery codes
+// @Description  **Full route:** `POST /api/v0/auth/mfa/regenerate-recovery-codes`
+// @Tags         auth-account
+// @Accept       json
+// @Produce      json
+// @Param        body  body  MFARegenerateRecoveryCodesSwaggerRequest  true  "Passcode or recovery code"
+// @Success      200   {array}  string  "New recovery codes"
+// @Failure      400   {object}  SwaggerErrorResponse
+// @Failure      401   {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /auth/mfa/regenerate-recovery-codes [post]
 func (a *Auth) RegenerateMFARecoveryCodes(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -3235,6 +4487,7 @@ func (a *Auth) RegenerateMFARecoveryCodes(w http.ResponseWriter, r *http.Request
 	}
 
 	codes, err := a.service.ResetMFARecoveryCodes(ctx, true, data.Passcode, data.RecoveryCode)
+	a.service.RecordUserAudit(ctx, "MFA_REGENERATE_RECOVERY", "MFA", "MFA recovery codes regenerated", err)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return
@@ -3249,6 +4502,22 @@ func (a *Auth) RegenerateMFARecoveryCodes(w http.ResponseWriter, r *http.Request
 }
 
 // ResetPassword resets user's password using recovery token.
+//
+// @Summary      Reset password with recovery token
+// @Description  **Full route:** `POST /api/v0/auth/reset-password`
+//
+// Completes forgot-password flow using `token` from the email link (`/password-recovery?token=`).
+// Clears session cookie on success. Returns `code: mfa_required` when MFA is enabled.
+// **CSRF:** not required on this route. After reset, login via `POST /auth/token` — that route requires `GET /config` → Authorize **CSRFAuth** when CSRF protection is enabled.
+// @Tags         auth-password-recovery
+// @Accept       json
+// @Produce      json
+// @Param        body  body  AuthResetPasswordSwaggerRequest  true  "Recovery token and new password"
+// @Success      200   "Password reset; session cookie cleared"
+// @Failure      400   {object}  SwaggerErrorResponse
+// @Failure      401   {object}  SwaggerErrorResponse
+// @Failure      422   {object}  AuthResetPasswordMFARequiredResponse
+// @Router       /auth/reset-password [post]
 func (a *Auth) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -3332,6 +4601,17 @@ func (a *Auth) ResetPassword(w http.ResponseWriter, r *http.Request) {
 }
 
 // RefreshSession refreshes the user's session.
+//
+// @Summary      Refresh login session
+// @Description  **Full route:** `POST /api/v0/auth/refresh-session`
+//
+// Extends session expiry and refreshes `_tokenKey` cookie for the logged-in user.
+// @Tags         auth-account
+// @Produce      json
+// @Success      200  {string}  string  "New session expiresAt (RFC3339)"
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /auth/refresh-session [post]
 func (a *Auth) RefreshSession(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -3350,6 +4630,7 @@ func (a *Auth) RefreshSession(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tokenInfo.ExpiresAt, err = a.service.RefreshSession(ctx, id)
+	a.service.RecordUserAudit(ctx, "AUTH_REFRESH_SESSION", "Session", "Session refreshed", err)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return
@@ -3471,12 +4752,22 @@ func (a *Auth) InvalidateSessionByID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = a.service.InvalidateSession(ctx, sessionID)
+	a.service.RecordUserAudit(ctx, "AUTH_INVALIDATE_SESSION", "Session", "Session invalidated", err)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 	}
 }
 
 // GetUserSettings gets a user's settings.
+//
+// @Summary      Get account settings
+// @Description  **Full route:** `GET /api/v0/auth/account/settings`
+// @Tags         auth-account
+// @Produce      json
+// @Success      200  {object}  AuthUserSettingsSwaggerResponse
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /auth/account/settings [get]
 func (a *Auth) GetUserSettings(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -3525,6 +4816,18 @@ func (a *Auth) SetOnboardingStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 // SetUserSettings updates a user's settings.
+//
+// @Summary      Update account settings
+// @Description  **Full route:** `PATCH /api/v0/auth/account/settings`
+// @Tags         auth-account
+// @Accept       json
+// @Produce      json
+// @Param        body  body  SetAuthUserSettingsSwaggerRequest  true  "Settings patch"
+// @Success      200   {object}  AuthUserSettingsSwaggerResponse
+// @Failure      400   {object}  SwaggerErrorResponse
+// @Failure      401   {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /auth/account/settings [patch]
 func (a *Auth) SetUserSettings(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -3648,7 +4951,7 @@ func (a *Auth) getStatusCode(err error) int {
 		console.ErrActivationCode.Has(err), sso.ErrTokenVerification.Has(err),
 		sso.ErrInvalidState.Has(err):
 		return http.StatusUnauthorized
-	case console.ErrEmailUsed.Has(err), console.ErrMFAConflict.Has(err), console.ErrMFAEnabled.Has(err), console.ErrConflict.Has(err):
+	case console.ErrEmailUsed.Has(err), console.ErrMFAConflict.Has(err), console.ErrMFAEnabled.Has(err), console.ErrConflict.Has(err), console.ErrPasswordAlreadySet.Has(err):
 		return http.StatusConflict
 	case console.ErrLoginRestricted.Has(err), console.ErrTooManyAttempts.Has(err), console.ErrForbidden.Has(err), console.ErrSsoUserRestricted.Has(err), console.ErrProjectInviteInvalid.Has(err):
 		return http.StatusForbidden
@@ -3662,6 +4965,8 @@ func (a *Auth) getStatusCode(err error) int {
 		return http.StatusConflict
 	case console.ErrEmailNotFound.Has(err):
 		return http.StatusNotFound
+	case console.ErrCredentialsInvalid.Has(err), console.ErrReauthRequired.Has(err):
+		return http.StatusUnprocessableEntity
 	default:
 		return http.StatusInternalServerError
 	}
@@ -3678,6 +4983,8 @@ func (a *Auth) getUserErrorMessage(err error) string {
 		return "We are unable to create your account. This is an invite-only alpha, please join our waitlist to receive an invitation"
 	case console.ErrEmailUsed.Has(err):
 		return "This email is already in use; try another"
+	case console.ErrPasswordAlreadySet.Has(err):
+		return "A password is already set on this account; use change-password instead"
 	case console.ErrRecoveryToken.Has(err):
 		if console.ErrTokenExpiration.Has(err) {
 			return "The recovery token has expired"
@@ -3692,7 +4999,7 @@ func (a *Auth) getUserErrorMessage(err error) string {
 	case console.ErrMFARecoveryCode.Has(err):
 		return "The MFA recovery code is not valid or has been previously used"
 	case console.ErrLoginCredentials.Has(err):
-		return "Your login credentials are incorrect, please try again"
+		return err.Error()
 	case console.ErrLoginRestricted.Has(err):
 		return "You can't be authenticated. Please contact support"
 	case console.ErrValidation.Has(err), console.ErrChangePassword.Has(err), console.ErrInvalidProjectLimit.Has(err),
@@ -3782,6 +5089,21 @@ func (a *Auth) RegisterPipedriveForApp(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// DeleteAccount removes a user account (admin verification flow).
+//
+// @Summary      Delete account (admin)
+// @Description  **Full route:** `DELETE /api/v0/auth/account`
+//
+// Requires email and admin verification password in the JSON body.
+// @Tags         auth-account
+// @Accept       json
+// @Produce      json
+// @Param        body  body  DeleteAuthAccountSwaggerRequest  true  "Target email and verification password"
+// @Success      200   "OK"
+// @Failure      400   {object}  SwaggerErrorResponse
+// @Failure      401   {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /auth/account [delete]
 func (a *Auth) DeleteAccount(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -3827,6 +5149,7 @@ func (a *Auth) DeleteAccount(w http.ResponseWriter, r *http.Request) {
 
 	// Call delete account function with the provided email
 	err = a.service.DeleteAccount(ctx, requestData.Email)
+	a.service.RecordUserAuditForEmail(ctx, requestData.Email, "ACCOUNT_DELETE", "Account", "Account deleted", err)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return
@@ -3840,6 +5163,15 @@ func (a *Auth) DeleteAccount(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetUserDeveloperAccess returns all developers with access to the current user's account
+//
+// @Summary      List developer access to my account
+// @Description  **Full route:** `GET /api/v0/auth/developer-access`
+// @Tags         auth-account
+// @Produce      json
+// @Success      200  {array}   UserDeveloperAccessSwaggerItem
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /auth/developer-access [get]
 func (a *Auth) GetUserDeveloperAccess(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -3857,6 +5189,17 @@ func (a *Auth) GetUserDeveloperAccess(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetUserDeveloperAccessHistory returns access history for a specific developer
+//
+// @Summary      Developer access history
+// @Description  **Full route:** `GET /api/v0/auth/developer-access/{clientId}/history`
+// @Tags         auth-account
+// @Produce      json
+// @Param        clientId  path  string  true  "OAuth client ID"
+// @Success      200       {array}   UserDeveloperAccessHistorySwaggerItem
+// @Failure      400       {object}  SwaggerErrorResponse
+// @Failure      401       {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /auth/developer-access/{clientId}/history [get]
 func (a *Auth) GetUserDeveloperAccessHistory(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -3881,6 +5224,17 @@ func (a *Auth) GetUserDeveloperAccessHistory(w http.ResponseWriter, r *http.Requ
 }
 
 // RevokeUserDeveloperAccess revokes a developer's access to the current user's account
+//
+// @Summary      Revoke developer access
+// @Description  **Full route:** `DELETE /api/v0/auth/developer-access/{clientId}/revoke`
+// @Tags         auth-account
+// @Produce      json
+// @Param        clientId  path  string  true  "OAuth client ID"
+// @Success      200       {object}  map[string]string  "message"
+// @Failure      400       {object}  SwaggerErrorResponse
+// @Failure      401       {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /auth/developer-access/{clientId}/revoke [delete]
 func (a *Auth) RevokeUserDeveloperAccess(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -3894,6 +5248,7 @@ func (a *Auth) RevokeUserDeveloperAccess(w http.ResponseWriter, r *http.Request)
 	}
 
 	err = a.service.RevokeUserDeveloperAccess(ctx, clientID)
+	a.service.RecordUserAudit(ctx, "DEVELOPER_ACCESS_REVOKE", "Developer access", "Developer access revoked", err)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return

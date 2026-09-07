@@ -656,9 +656,10 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 	}
 	limit, chunk := message.Limit, message.Chunk
 
-	if limit.Action != pb.PieceAction_GET && limit.Action != pb.PieceAction_GET_REPAIR && limit.Action != pb.PieceAction_GET_AUDIT {
+	if limit.Action != pb.PieceAction_GET && limit.Action != pb.PieceAction_GET_REPAIR &&
+		limit.Action != pb.PieceAction_GET_AUDIT && limit.Action != pb.PieceAction_GET_INTERNAL {
 		return rpcstatus.NamedErrorf("wrong-action", rpcstatus.InvalidArgument,
-			"expected get or get repair or audit action got %v", limit.Action)
+			"expected get or get repair or audit or get internal action got %v", limit.Action)
 	}
 
 	if chunk.ChunkSize > limit.Limit {

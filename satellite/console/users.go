@@ -105,6 +105,10 @@ type Users interface {
 	UpsertSettings(ctx context.Context, userID uuid.UUID, settings UpsertUserSettingsRequest) error
 	// CreateDeleteRequest is a method for creating a delete request for a user.
 	CreateDeleteRequest(ctx context.Context, userID uuid.UUID, deleteAt time.Time) error
+	// GetActiveDeleteRequest returns the INIT delete request for a user, if any.
+	GetActiveDeleteRequest(ctx context.Context, userID uuid.UUID) (*UserDeleteRequest, error)
+	// CancelDeleteRequest marks the user's INIT delete request as cancelled.
+	CancelDeleteRequest(ctx context.Context, userID uuid.UUID) error
 
 	// GetCustomerID returns the customer ID for a given user ID.
 	GetCustomerID(ctx context.Context, id uuid.UUID) (_ string, err error)
@@ -279,6 +283,34 @@ type AuthWithoutPassword struct {
 type TokenInfo struct {
 	consoleauth.Token `json:"token"`
 	ExpiresAt         time.Time `json:"expiresAt"`
+	// AccountPendingDeletion is true when the account is soft-deleted and still within the grace period.
+	// UI must route to /account/cancel-deletion (not the dashboard).
+	AccountPendingDeletion bool `json:"account_pending_deletion,omitempty"`
+	// DeleteAt is when hard deletion is scheduled (RFC3339); set when AccountPendingDeletion is true.
+	DeleteAt *time.Time `json:"delete_at,omitempty"`
+}
+
+// UserDeleteRequest is a queued self-serve account hard-deletion request.
+type UserDeleteRequest struct {
+	ID        uuid.UUID
+	UserID    uuid.UUID
+	Status    string
+	DeleteAt  time.Time
+	CreatedAt time.Time
+	Error     *string
+}
+
+// AccountDeleteRequest holds step-up re-auth for self-serve soft delete.
+// Password is ignored. MFA and Google re-auth are independent alternatives:
+// passing either one is enough (they are not both required).
+type AccountDeleteRequest struct {
+	Password        string `json:"password,omitempty"` // ignored; kept for older clients
+	MFAPasscode     string `json:"mfaPasscode,omitempty"`
+	MFARecoveryCode string `json:"mfaRecoveryCode,omitempty"`
+	// Code is a fresh Google OAuth authorization code for Google re-auth.
+	Code string `json:"code,omitempty"`
+	// GoogleReauthEmail is set by the API after exchanging Code; never accept from the client.
+	GoogleReauthEmail string `json:"-"`
 }
 
 // UserStatus - is used to indicate status of the users account.

@@ -536,7 +536,7 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 	config.Metainfo.RS.Total = atLeastOne(planet.config.StorageNodeCount * 4 / 5)
 	config.Orders.EncryptionKeys = *encryptionKeys
 	config.LiveAccounting.StorageBackend = "redis://" + redis.Addr() + "?db=0"
-	config.Mail.TemplatePath = filepath.Join(developmentRoot, "web/satellite/static/emails")
+	// Embedded mail-templates/emails by default; set mail.template-path to override on disk.
 	config.Console.StaticDir = filepath.Join(developmentRoot, "web/satellite")
 	config.Payments.Storjscan.DisableLoop = true
 

@@ -10,6 +10,7 @@ import (
 	htmltemplate "html/template"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	mailtemplates "github.com/StorXNetwork/StorXMonitor/mail-templates"
 	"github.com/StorXNetwork/StorXMonitor/private/post"
 	"github.com/StorXNetwork/StorXMonitor/satellite/tenancy"
 	"github.com/StorXNetwork/common/context2"
@@ -25,7 +27,7 @@ import (
 // Config defines values needed by mailservice service.
 type Config struct {
 	SMTPServerAddress string `help:"smtp server address" default:"" testDefault:"smtp.mail.test:587"`
-	TemplatePath      string `help:"path to email templates source" default:""`
+	TemplatePath      string `help:"optional override for email templates on disk; empty uses embedded mail-templates/emails" default:""`
 	From              string `help:"sender email address" default:"" testDefault:"Labs <storxnetwork@mail.test>"`
 	AuthType          string `help:"smtp authentication type" releaseDefault:"login" devDefault:"simulate"`
 	Login             string `help:"plain/login auth user login" default:""`
@@ -90,27 +92,54 @@ type emailVars struct {
 type flattenedEmailVars struct {
 	emailVars
 	// Message fields flattened to root for templates that use .Username, .LoginLink, etc.
-	Username              string
-	LoginLink             string
-	FullName              string
-	Email                 string
-	Password              string
-	ActivationLink        string
-	Origin                string
-	Device                string
-	Browser               string
-	Location              string
-	State                 string
-	IPAddress             string
-	LoginTime             string
-	SignInLink            string
-	ResetPasswordLink     string
-	CreateAccountLink     string
-	SatelliteName         string
-	ContactInfoURL        string
-	TermsAndConditionsURL string
-	Name                  string
-	Message               string
+	Username                   string
+	UserName                   string
+	LoginLink                  string
+	FullName                   string
+	Email                      string
+	Password                   string
+	ActivationLink             string
+	Origin                     string
+	Device                     string
+	Browser                    string
+	Location                   string
+	State                      string
+	IPAddress                  string
+	LoginTime                  string
+	SignInLink                 string
+	ResetPasswordLink          string
+	ResetLink                  string
+	CancelPasswordRecoveryLink string
+	DoubleCheckLink            string
+	CreateAccountLink          string
+	CreateAnAccountLink        string
+	SupportTeamLink            string
+	SatelliteName              string
+	ContactInfoURL             string
+	TermsAndConditionsURL      string
+	Name                       string
+	Message                    string
+	InviterEmail               string
+	SignUpLink                 string
+	Region                     string
+	ProjectName                string
+	SupportURL                 string
+	ScheduleMeetingLink        string
+	LockoutDuration            string
+	ActivationCode             string
+	PlanName                   string
+	Price                      string
+	Credit                     string
+	Signature                  string
+	ExpireOn                   string
+	GBsize                     string
+	Bandwidth                  string
+	Error                      string
+	Method                     string
+	ActivityType               string
+	Percentage                 string
+	StorageUsed                string
+	Limit                      string
 }
 
 // copyStringField sets dst to the string value of v.FieldByName(fieldName) if the field exists and is a string.
@@ -120,6 +149,24 @@ func copyStringField(dst *string, v reflect.Value, fieldName string) {
 	}
 }
 
+func copyFormattedDuration(dst *string, v reflect.Value, fieldName string) {
+	f := v.FieldByName(fieldName)
+	if !f.IsValid() || !f.CanInterface() {
+		return
+	}
+	if d, ok := f.Interface().(time.Duration); ok && d > 0 {
+		*dst = d.String()
+	}
+}
+
+func copyFormattedFloat(dst *string, v reflect.Value, fieldName, format string) {
+	f := v.FieldByName(fieldName)
+	if !f.IsValid() || f.Kind() != reflect.Float64 {
+		return
+	}
+	*dst = fmt.Sprintf(format, f.Float())
+}
+
 // Service sends template-backed email messages through SMTP.
 //
 // architecture: Service
@@ -127,8 +174,10 @@ type Service struct {
 	log    *zap.Logger
 	Sender Sender
 
-	tenantConfig    TenantConfig
-	defaultBranding WhiteLabelConfig
+	tenantConfig     TenantConfig
+	defaultBranding  WhiteLabelConfig
+	brandingResolver func(context.Context) (WhiteLabelConfig, bool)
+	senderResolver   func(context.Context) (Sender, bool)
 
 	html *htmltemplate.Template
 	// TODO(yar): prepare plain text version
@@ -148,12 +197,50 @@ func New(log *zap.Logger, sender Sender, templatePath string, cfg TenantConfig, 
 	// 	return nil, err
 	// }
 
-	service.html, err = htmltemplate.ParseGlob(filepath.Join(templatePath, "*.html"))
+	service.html, err = loadHTMLTemplates(templatePath)
 	if err != nil {
-		return nil, errs.Wrap(err)
+		return nil, err
 	}
 
 	return service, nil
+}
+
+// loadHTMLTemplates loads templates from mail-templates/emails on disk or embedded FS.
+// templatePath may be empty (embedded), mail-templates root, or mail-templates/emails.
+func loadHTMLTemplates(templatePath string) (*htmltemplate.Template, error) {
+	if templatePath != "" {
+		emailsDir := resolveEmailsTemplateDir(templatePath)
+		pattern := filepath.Join(emailsDir, "*.html")
+		templates, err := htmltemplate.ParseGlob(pattern)
+		if err != nil {
+			return nil, errs.Wrap(err)
+		}
+		if len(templates.Templates()) == 0 {
+			return nil, errs.New("no email templates found in %s", emailsDir)
+		}
+		return templates, nil
+	}
+
+	templates, err := htmltemplate.ParseFS(mailtemplates.FS, mailtemplates.EmailsDir+"/*.html")
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+	return templates, nil
+}
+
+func resolveEmailsTemplateDir(templatePath string) string {
+	base := filepath.Base(templatePath)
+	if base == mailtemplates.EmailsDir {
+		return templatePath
+	}
+	if base == mailtemplates.RootDir {
+		return filepath.Join(templatePath, mailtemplates.EmailsDir)
+	}
+	// Legacy flat directory containing *.html directly.
+	if matches, _ := filepath.Glob(filepath.Join(templatePath, "*.html")); len(matches) > 0 {
+		return templatePath
+	}
+	return filepath.Join(templatePath, mailtemplates.EmailsDir)
 }
 
 // Close closes and waits for any pending actions.
@@ -175,7 +262,7 @@ func (service *Service) SendRenderedAsync(ctx context.Context, to []post.Address
 	go func() {
 		defer service.sending.Done()
 
-		ctx, cancel := context.WithTimeout(context2.WithoutCancellation(ctx), 5*time.Second)
+		ctx, cancel := context.WithTimeout(context2.WithoutCancellation(ctx), 60*time.Second)
 		defer cancel()
 
 		err := service.SendRendered(ctx, to, msg)
@@ -215,6 +302,7 @@ func (service *Service) SendRendered(ctx context.Context, to []post.Address, msg
 		}
 		if v.Kind() == reflect.Struct {
 			copyStringField(&flatVars.Username, v, "Username")
+			copyStringField(&flatVars.UserName, v, "UserName")
 			copyStringField(&flatVars.LoginLink, v, "LoginLink")
 			copyStringField(&flatVars.FullName, v, "FullName")
 			copyStringField(&flatVars.Email, v, "Email")
@@ -229,12 +317,38 @@ func (service *Service) SendRendered(ctx context.Context, to []post.Address, msg
 			copyStringField(&flatVars.LoginTime, v, "LoginTime")
 			copyStringField(&flatVars.SignInLink, v, "SignInLink")
 			copyStringField(&flatVars.ResetPasswordLink, v, "ResetPasswordLink")
+			copyStringField(&flatVars.ResetLink, v, "ResetLink")
+			copyStringField(&flatVars.CancelPasswordRecoveryLink, v, "CancelPasswordRecoveryLink")
+			copyStringField(&flatVars.DoubleCheckLink, v, "DoubleCheckLink")
 			copyStringField(&flatVars.CreateAccountLink, v, "CreateAccountLink")
+			copyStringField(&flatVars.SupportTeamLink, v, "SupportTeamLink")
 			copyStringField(&flatVars.SatelliteName, v, "SatelliteName")
 			copyStringField(&flatVars.ContactInfoURL, v, "ContactInfoURL")
 			copyStringField(&flatVars.TermsAndConditionsURL, v, "TermsAndConditionsURL")
 			copyStringField(&flatVars.Name, v, "Name")
 			copyStringField(&flatVars.Message, v, "Message")
+			copyStringField(&flatVars.InviterEmail, v, "InviterEmail")
+			copyStringField(&flatVars.SignUpLink, v, "SignUpLink")
+			copyStringField(&flatVars.Region, v, "Region")
+			copyStringField(&flatVars.ProjectName, v, "ProjectName")
+			copyStringField(&flatVars.SupportURL, v, "SupportURL")
+			copyStringField(&flatVars.ScheduleMeetingLink, v, "ScheduleMeetingLink")
+			copyStringField(&flatVars.ActivationCode, v, "ActivationCode")
+			copyStringField(&flatVars.CreateAnAccountLink, v, "CreateAnAccountLink")
+			copyStringField(&flatVars.PlanName, v, "PlanName")
+			copyStringField(&flatVars.Price, v, "Price")
+			copyStringField(&flatVars.Credit, v, "Credit")
+			copyStringField(&flatVars.Signature, v, "Signature")
+			copyStringField(&flatVars.ExpireOn, v, "ExpireOn")
+			copyStringField(&flatVars.GBsize, v, "GBsize")
+			copyStringField(&flatVars.Bandwidth, v, "Bandwidth")
+			copyStringField(&flatVars.Error, v, "Error")
+			copyStringField(&flatVars.Method, v, "Method")
+			copyStringField(&flatVars.ActivityType, v, "ActivityType")
+			copyFormattedDuration(&flatVars.LockoutDuration, v, "LockoutDuration")
+			copyFormattedFloat(&flatVars.Percentage, v, "Percentage", "%.0f")
+			copyFormattedFloat(&flatVars.StorageUsed, v, "StorageUsed", "%.2f")
+			copyFormattedFloat(&flatVars.Limit, v, "Limit", "%.2f")
 		}
 	}
 	templateData := &flatVars
@@ -280,15 +394,22 @@ func (service *Service) SendRendered(ctx context.Context, to []post.Address, msg
 	return err
 }
 
+const defaultPrimaryColor = "#0d1724"
+
 func (service *Service) getEmailVars(ctx context.Context) emailVars {
 	defer mon.Task()(&ctx)(nil)
 
 	defaultVars := emailVars{
-		WhiteLabelConfig: service.defaultBranding,
+		WhiteLabelConfig: withPrimaryColorFallback(service.defaultBranding, defaultPrimaryColor),
+	}
+
+	if service.brandingResolver != nil {
+		if branding, ok := service.brandingResolver(ctx); ok {
+			return emailVars{WhiteLabelConfig: withPrimaryColorFallback(branding, service.defaultBranding.PrimaryColor)}
+		}
 	}
 
 	if len(service.tenantConfig.WhiteLabelConfig) == 0 {
-		// No config provider - return Storj defaults
 		return defaultVars
 	}
 
@@ -299,8 +420,31 @@ func (service *Service) getEmailVars(ctx context.Context) emailVars {
 	}
 
 	return emailVars{
-		WhiteLabelConfig: wlCfg,
+		WhiteLabelConfig: withPrimaryColorFallback(wlCfg, service.defaultBranding.PrimaryColor),
 	}
+}
+
+func withPrimaryColorFallback(cfg WhiteLabelConfig, fallback string) WhiteLabelConfig {
+	if strings.TrimSpace(cfg.PrimaryColor) != "" {
+		return cfg
+	}
+	if strings.TrimSpace(fallback) != "" {
+		cfg.PrimaryColor = fallback
+		return cfg
+	}
+	cfg.PrimaryColor = defaultPrimaryColor
+	return cfg
+}
+
+// SetBrandingResolver sets a callback that supplies tenant-specific branding (e.g. reseller configs).
+func (service *Service) SetBrandingResolver(resolver func(context.Context) (WhiteLabelConfig, bool)) {
+	service.brandingResolver = resolver
+}
+
+// SetSenderResolver sets a callback that supplies tenant-specific SMTP senders (e.g. seller dashboard SMTP).
+// When the resolver returns false, the default satellite mail.* sender is used.
+func (service *Service) SetSenderResolver(resolver func(context.Context) (Sender, bool)) {
+	service.senderResolver = resolver
 }
 
 func (service *Service) getSenderForTenant(ctx context.Context) (Sender, error) {
@@ -314,7 +458,15 @@ func (service *Service) getSenderForTenant(ctx context.Context) (Sender, error) 
 	if sender, exists := service.tenantConfig.TenantSenderMap[tenantID]; exists {
 		return sender, nil
 	}
-	return nil, errs.New("sender not found for tenant ID %s", tenantID)
+
+	if service.senderResolver != nil {
+		if sender, ok := service.senderResolver(ctx); ok && sender != nil {
+			return sender, nil
+		}
+	}
+
+	// CyberLS / missing seller SMTP → satellite mail.* default.
+	return service.Sender, nil
 }
 
 // TestSetTenantSender sets tenant-specific sender for testing purposes.
