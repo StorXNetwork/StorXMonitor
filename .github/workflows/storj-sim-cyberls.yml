@@ -83,12 +83,30 @@ jobs:
         }
         
     - name: Quick file replacement
+      shell: powershell
       run: |
-        # Minimal file operations
-        if (Test-Path "$env:BIN_PATH\storxnetwork-sim.exe") {
-          Remove-Item "$env:BIN_PATH\storxnetwork-sim.exe" -Force -ErrorAction SilentlyContinue
+        $src = "$env:TEMP_PATH\storxnetwork-sim.exe"
+        $dst = "$env:BIN_PATH\storxnetwork-sim.exe"
+        if (-not (Test-Path $src)) { Write-Error "Missing build output: $src"; exit 1 }
+
+        # Wait until destination is unlocked (service may still hold the exe)
+        $deadline = (Get-Date).AddSeconds(30)
+        while ((Test-Path $dst) -and (Get-Date) -lt $deadline) {
+          try {
+            Remove-Item $dst -Force -ErrorAction Stop
+            break
+          } catch {
+            Start-Sleep -Seconds 1
+          }
         }
-        Move-Item "$env:TEMP_PATH\storxnetwork-sim.exe" "$env:BIN_PATH\storxnetwork-sim.exe" -Force
+        if (Test-Path $dst) {
+          Write-Error "Cannot replace $dst (still locked). Stop storxnetworksatellite and retry."
+          exit 1
+        }
+
+        # Copy-Item -Force overwrites reliably; Move-Item fails if dest already exists
+        Copy-Item $src $dst -Force
+        Remove-Item $src -Force -ErrorAction SilentlyContinue
         Write-Host "storxnetwork-sim.exe replaced"
         
     - name: Quick service start
