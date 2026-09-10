@@ -69,20 +69,50 @@ jobs:
     - name: Quick service stop
       run: |
         Set-Location $env:BIN_PATH
-        $status = (Get-Service -Name storxnetworksatellite -ErrorAction SilentlyContinue).Status
-        if ($status -eq "Running" -or $status -eq "Paused" -or $status -eq "StartPending") {
-          & ".\nssm.exe" stop storxnetworksatellite 2>&1 | Out-Null
-          Start-Sleep -Seconds 2
+        # CyberLS may lock storxnetwork-sim.exe via NSSM or a leftover process
+        $svcNames = @('storxnetworksatellite', 'storxnetwork-sim', 'StorXNetworkSim')
+        foreach ($name in $svcNames) {
+          $svc = Get-Service -Name $name -ErrorAction SilentlyContinue
+          if ($svc -and ($svc.Status -eq 'Running' -or $svc.Status -eq 'Paused' -or $svc.Status -eq 'StartPending')) {
+            Write-Host "Stopping service $name (Status=$($svc.Status))"
+            $ErrorActionPreference = 'Continue'
+            & ".\nssm.exe" stop $name 2>&1 | Out-Null
+            $ErrorActionPreference = 'Stop'
+          }
         }
+        # Force-kill any process still holding the binary (Access Denied root cause)
+        Get-Process -Name 'storxnetwork-sim' -ErrorAction SilentlyContinue | ForEach-Object {
+          Write-Host "Killing process $($_.Id) $($_.ProcessName)"
+          Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
+        }
+        Start-Sleep -Seconds 3
 
     - name: Quick file replacement
       run: |
-        # Same as staging, but Copy-Item -Force (Move-Item fails when dest exists/locked on CyberLS)
-        if (Test-Path "$env:BIN_PATH\storxnetwork-sim.exe") {
-          Remove-Item "$env:BIN_PATH\storxnetwork-sim.exe" -Force -ErrorAction SilentlyContinue
+        $src = "$env:TEMP_PATH\storxnetwork-sim.exe"
+        $dst = "$env:BIN_PATH\storxnetwork-sim.exe"
+        if (-not (Test-Path $src)) { Write-Error "Missing build output: $src"; exit 1 }
+
+        # Match satellite-cyberls: wait until dest unlocked, then copy
+        $deadline = (Get-Date).AddSeconds(45)
+        while ((Test-Path $dst) -and (Get-Date) -lt $deadline) {
+          Get-Process -Name 'storxnetwork-sim' -ErrorAction SilentlyContinue |
+            Stop-Process -Force -ErrorAction SilentlyContinue
+          try {
+            Remove-Item $dst -Force -ErrorAction Stop
+            break
+          } catch {
+            Write-Host "Still locked, retrying... $($_.Exception.Message)"
+            Start-Sleep -Seconds 2
+          }
         }
-        Copy-Item "$env:TEMP_PATH\storxnetwork-sim.exe" "$env:BIN_PATH\storxnetwork-sim.exe" -Force
-        Remove-Item "$env:TEMP_PATH\storxnetwork-sim.exe" -Force -ErrorAction SilentlyContinue
+        if (Test-Path $dst) {
+          Write-Error "Cannot replace $dst (still locked). Stop whatever is using storxnetwork-sim.exe and retry."
+          exit 1
+        }
+
+        Copy-Item $src $dst -Force
+        Remove-Item $src -Force -ErrorAction SilentlyContinue
         Write-Host "storxnetwork-sim.exe replaced"
 
     - name: Quick service start
