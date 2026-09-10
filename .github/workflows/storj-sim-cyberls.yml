@@ -67,55 +67,30 @@ jobs:
         }
         
     - name: Quick service stop
-      shell: powershell
       run: |
         Set-Location $env:BIN_PATH
-        $service = Get-Service -Name storxnetworksatellite -ErrorAction SilentlyContinue
-        if (-not $service) {
-          Write-Host "Service storxnetworksatellite not found; skipping stop"
-          exit 0
-        }
-        if ($service.Status -eq "Running" -or $service.Status -eq "Paused" -or $service.Status -eq "StartPending") {
-          $ErrorActionPreference = "Continue"
+        $status = (Get-Service -Name storxnetworksatellite -ErrorAction SilentlyContinue).Status
+        if ($status -eq "Running" -or $status -eq "Paused" -or $status -eq "StartPending") {
           & ".\nssm.exe" stop storxnetworksatellite 2>&1 | Out-Null
-          $ErrorActionPreference = "Stop"
           Start-Sleep -Seconds 2
         }
-        
+
     - name: Quick file replacement
-      shell: powershell
       run: |
-        $src = "$env:TEMP_PATH\storxnetwork-sim.exe"
-        $dst = "$env:BIN_PATH\storxnetwork-sim.exe"
-        if (-not (Test-Path $src)) { Write-Error "Missing build output: $src"; exit 1 }
-
-        # Wait until destination is unlocked (service may still hold the exe)
-        $deadline = (Get-Date).AddSeconds(30)
-        while ((Test-Path $dst) -and (Get-Date) -lt $deadline) {
-          try {
-            Remove-Item $dst -Force -ErrorAction Stop
-            break
-          } catch {
-            Start-Sleep -Seconds 1
-          }
+        # Same as staging, but Copy-Item -Force (Move-Item fails when dest exists/locked on CyberLS)
+        if (Test-Path "$env:BIN_PATH\storxnetwork-sim.exe") {
+          Remove-Item "$env:BIN_PATH\storxnetwork-sim.exe" -Force -ErrorAction SilentlyContinue
         }
-        if (Test-Path $dst) {
-          Write-Error "Cannot replace $dst (still locked). Stop storxnetworksatellite and retry."
-          exit 1
-        }
-
-        # Copy-Item -Force overwrites reliably; Move-Item fails if dest already exists
-        Copy-Item $src $dst -Force
-        Remove-Item $src -Force -ErrorAction SilentlyContinue
+        Copy-Item "$env:TEMP_PATH\storxnetwork-sim.exe" "$env:BIN_PATH\storxnetwork-sim.exe" -Force
+        Remove-Item "$env:TEMP_PATH\storxnetwork-sim.exe" -Force -ErrorAction SilentlyContinue
         Write-Host "storxnetwork-sim.exe replaced"
-        
+
     - name: Quick service start
-      shell: powershell
       run: |
         Set-Location $env:BIN_PATH
         $service = Get-Service -Name storxnetworksatellite -ErrorAction SilentlyContinue
         if (-not $service) {
-          Write-Host "Service storxnetworksatellite not found; skipping start (binary deployed to $env:BIN_PATH\storxnetwork-sim.exe)"
+          Write-Host "Service not found"
           exit 0
         }
 
@@ -133,22 +108,13 @@ jobs:
           Start-Sleep -Seconds 3
           $service.Refresh()
 
-          if ($result -match "Can't open service") {
-            Write-Host "NSSM could not open storxnetworksatellite; binary deployed without service restart"
-            exit 0
-          }
           if ($result -match "SERVICE_START_PENDING" -or $service.Status -eq "Running" -or $service.Status -eq "StartPending") {
             Write-Host "Service started successfully (Status: $($service.Status))"
             exit 0
           }
-          Write-Host "NSSM start output: $result"
-          Write-Host "Service status: $($service.Status)"
-          exit 0
-        }
-
-        if ($service.Status -eq "Running") {
+        } elseif ($service.Status -eq "Running") {
           Write-Host "Service already running"
           exit 0
+        } else {
+          Write-Host "Service in unexpected state: $($service.Status)"
         }
-
-        Write-Host "Service in unexpected state: $($service.Status)"
