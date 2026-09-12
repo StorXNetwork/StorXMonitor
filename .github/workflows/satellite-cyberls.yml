@@ -90,17 +90,35 @@ jobs:
           } -ArgumentList $service, $env:BIN_PATH
         }
         
-        # Wait for all stop jobs to complete (max 10 seconds)
-        $stopJobs | Wait-Job -Timeout 10 | Out-Null
+        # Wait for all stop jobs to complete (max 30 seconds), then let Windows release file locks
+        $stopJobs | Wait-Job -Timeout 30 | Out-Null
+        Start-Sleep -Seconds 3
         Write-Host "All services stopped or timeout reached"
         
     - name: Quick file replacement
+      shell: powershell
       run: |
-        # Minimal file operations
-        if (Test-Path "$env:BIN_PATH\satellite.exe") {
-          Remove-Item "$env:BIN_PATH\satellite.exe" -Force -ErrorAction SilentlyContinue
+        $src = "$env:TEMP_PATH\satellite.exe"
+        $dst = "$env:BIN_PATH\satellite.exe"
+        if (-not (Test-Path $src)) { Write-Error "Missing build output: $src"; exit 1 }
+
+        # Wait until destination is unlocked (NSSM services may still hold the exe)
+        $deadline = (Get-Date).AddSeconds(30)
+        while ((Test-Path $dst) -and (Get-Date) -lt $deadline) {
+          try {
+            Remove-Item $dst -Force -ErrorAction Stop
+            break
+          } catch {
+            Start-Sleep -Seconds 1
+          }
         }
-        Move-Item "$env:TEMP_PATH\satellite.exe" "$env:BIN_PATH\satellite.exe" -Force
+        if (Test-Path $dst) {
+          Write-Error "Cannot replace $dst (still locked). Stop satellite-related services and retry."
+          exit 1
+        }
+
+        Copy-Item $src $dst -Force
+        Remove-Item $src -Force -ErrorAction SilentlyContinue
         Write-Host "satellite.exe replaced"
 
     - name: Deploy mail templates
