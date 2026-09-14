@@ -13,7 +13,8 @@ env:
   BIN_PATH: 'D:\bin'
   TEMP_PATH: 'D:\deployment'
   MAIL_TEMPLATES_PATH: 'D:\Mails'
-  SERVICES: 'StorxBackup,StorxAuditor,storxnetworksatellite'
+  # CyberLS: Cyberls-Satellite (NSSM) runs storxnetwork-sim, which locks satellite.exe children
+  SERVICES: 'Cyberls-Satellite'
 
 jobs:
   build-satellite:
