@@ -69,28 +69,77 @@ jobs:
     - name: Quick service stop
       run: |
         Set-Location $env:BIN_PATH
-        # Same pattern as staging
+        $dst = "$env:BIN_PATH\storxnetwork-sim.exe"
+
         foreach ($name in @('storxnetwork-sim', 'storxnetworksatellite')) {
-          $status = (Get-Service -Name $name -ErrorAction SilentlyContinue).Status
-          if ($status -eq "Running" -or $status -eq "Paused" -or $status -eq "StartPending") {
+          $svc = Get-Service -Name $name -ErrorAction SilentlyContinue
+          if (-not $svc) {
+            Write-Host "Service $name not found"
+            continue
+          }
+          Write-Host "Service $name Status=$($svc.Status)"
+          if ($svc.Status -eq "Running" -or $svc.Status -eq "Paused" -or $svc.Status -eq "StartPending") {
             Write-Host "Stopping $name"
-            & ".\nssm.exe" stop $name 2>&1 | Out-Null
+            & ".\nssm.exe" stop $name 2>&1 | Out-Host
           }
         }
-        # Production: process still holds D:\bin\storxnetwork-sim.exe (same one file)
+
         Get-Process -Name 'storxnetwork-sim' -ErrorAction SilentlyContinue | ForEach-Object {
-          Write-Host "Killing process $($_.Id) $($_.ProcessName)"
+          Write-Host "Killing process Id=$($_.Id) Name=$($_.ProcessName) Path=$($_.Path)"
           Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
         }
         Start-Sleep -Seconds 2
-        
+
+        $left = Get-Process -Name 'storxnetwork-sim' -ErrorAction SilentlyContinue
+        if ($left) {
+          Write-Host "ERROR: storxnetwork-sim still running after kill:"
+          $left | Select-Object Id, ProcessName, Path | Format-Table | Out-String | Write-Host
+        } else {
+          Write-Host "OK: no storxnetwork-sim process"
+        }
+
     - name: Quick file replacement
       run: |
-        if (Test-Path "$env:BIN_PATH\storxnetwork-sim.exe") {
-          Remove-Item "$env:BIN_PATH\storxnetwork-sim.exe" -Force -ErrorAction SilentlyContinue
+        $src = "$env:TEMP_PATH\storxnetwork-sim.exe"
+        $dst = "$env:BIN_PATH\storxnetwork-sim.exe"
+
+        Write-Host "SRC exists=$(Test-Path $src) path=$src"
+        Write-Host "DST exists=$(Test-Path $dst) path=$dst"
+
+        Get-Process -Name 'storxnetwork-sim' -ErrorAction SilentlyContinue | ForEach-Object {
+          Write-Host "Still running before replace: Id=$($_.Id) Path=$($_.Path) — killing"
+          Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
         }
-        Move-Item "$env:TEMP_PATH\storxnetwork-sim.exe" "$env:BIN_PATH\storxnetwork-sim.exe" -Force
-        Write-Host "storxnetwork-sim.exe replaced"
+        Start-Sleep -Seconds 1
+
+        if (Test-Path $dst) {
+          Write-Host "Removing old DST..."
+          try {
+            Remove-Item $dst -Force -ErrorAction Stop
+            Write-Host "Remove-Item OK"
+          } catch {
+            Write-Host "Remove-Item FAILED: $($_.Exception.Message)"
+            Get-Process -Name 'storxnetwork-sim' -ErrorAction SilentlyContinue |
+              Select-Object Id, ProcessName, Path | Format-Table | Out-String | Write-Host
+            Write-Error "Cannot delete $dst (file locked). See process list above."
+            exit 1
+          }
+        } else {
+          Write-Host "DST already absent"
+        }
+
+        if (Test-Path $dst) {
+          Write-Error "DST still exists after Remove-Item: $dst"
+          exit 1
+        }
+        if (-not (Test-Path $src)) {
+          Write-Error "Missing build output: $src"
+          exit 1
+        }
+
+        Write-Host "Moving SRC -> DST"
+        Move-Item $src $dst -Force
+        Write-Host "storxnetwork-sim.exe replaced OK"
         
     - name: Quick service start
       run: |
