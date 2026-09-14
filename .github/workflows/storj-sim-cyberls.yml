@@ -69,7 +69,6 @@ jobs:
     - name: Quick service stop
       run: |
         Set-Location $env:BIN_PATH
-        $dst = "$env:BIN_PATH\storxnetwork-sim.exe"
 
         foreach ($name in @('storxnetwork-sim', 'storxnetworksatellite')) {
           $svc = Get-Service -Name $name -ErrorAction SilentlyContinue
@@ -78,25 +77,27 @@ jobs:
             continue
           }
           Write-Host "Service $name Status=$($svc.Status)"
-          if ($svc.Status -eq "Running" -or $svc.Status -eq "Paused" -or $svc.Status -eq "StartPending") {
-            Write-Host "Stopping $name"
+          if ($svc.Status -ne "Stopped") {
+            Write-Host "Stopping $name via nssm"
             & ".\nssm.exe" stop $name 2>&1 | Out-Host
           }
         }
 
-        Get-Process -Name 'storxnetwork-sim' -ErrorAction SilentlyContinue | ForEach-Object {
-          Write-Host "Killing process Id=$($_.Id) Name=$($_.ProcessName) Path=$($_.Path)"
-          Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
-        }
-        Start-Sleep -Seconds 2
+        # Runner may not kill via Stop-Process (service runs as another user) - use taskkill
+        Write-Host "taskkill /F /IM storxnetwork-sim.exe"
+        $ErrorActionPreference = "Continue"
+        cmd /c "taskkill /F /IM storxnetwork-sim.exe /T" 2>&1 | Out-Host
+        $ErrorActionPreference = "Stop"
+        Start-Sleep -Seconds 3
 
         $left = Get-Process -Name 'storxnetwork-sim' -ErrorAction SilentlyContinue
         if ($left) {
-          Write-Host "ERROR: storxnetwork-sim still running after kill:"
-          $left | Select-Object Id, ProcessName, Path | Format-Table | Out-String | Write-Host
-        } else {
-          Write-Host "OK: no storxnetwork-sim process"
+          Write-Host "Process still alive after taskkill:"
+          $left | Format-Table Id, ProcessName, Path -AutoSize | Out-String | Write-Host
+          Write-Error "Cannot kill storxnetwork-sim (PID(s) still running). Runner needs rights to stop that process/service."
+          exit 1
         }
+        Write-Host "OK: no storxnetwork-sim process"
 
     - name: Quick file replacement
       run: |
@@ -106,11 +107,18 @@ jobs:
         Write-Host "SRC exists=$(Test-Path $src) path=$src"
         Write-Host "DST exists=$(Test-Path $dst) path=$dst"
 
-        Get-Process -Name 'storxnetwork-sim' -ErrorAction SilentlyContinue | ForEach-Object {
-          Write-Host "Still running before replace: Id=$($_.Id) Path=$($_.Path) - killing"
-          Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
+        $left = Get-Process -Name 'storxnetwork-sim' -ErrorAction SilentlyContinue
+        if ($left) {
+          Write-Host "Process back before replace - taskkill again"
+          cmd /c "taskkill /F /IM storxnetwork-sim.exe /T" 2>&1 | Out-Host
+          Start-Sleep -Seconds 2
+          $left = Get-Process -Name 'storxnetwork-sim' -ErrorAction SilentlyContinue
+          if ($left) {
+            $left | Format-Table Id, ProcessName, Path -AutoSize | Out-String | Write-Host
+            Write-Error "storxnetwork-sim still running; cannot replace exe"
+            exit 1
+          }
         }
-        Start-Sleep -Seconds 1
 
         if (Test-Path $dst) {
           Write-Host "Removing old DST..."
@@ -120,8 +128,8 @@ jobs:
           } catch {
             Write-Host "Remove-Item FAILED: $($_.Exception.Message)"
             Get-Process -Name 'storxnetwork-sim' -ErrorAction SilentlyContinue |
-              Select-Object Id, ProcessName, Path | Format-Table | Out-String | Write-Host
-            Write-Error "Cannot delete $dst (file locked). See process list above."
+              Format-Table Id, ProcessName, Path -AutoSize | Out-String | Write-Host
+            Write-Error "Cannot delete $dst (file locked)."
             exit 1
           }
         } else {
