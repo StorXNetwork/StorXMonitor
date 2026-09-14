@@ -679,9 +679,9 @@ func (b *Buckets) CheckUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	project, err := b.service.GetProject(ctx, projectIDParam)
+	snap, err := b.loadProjectQuotaSnapshot(ctx, projectIDParam)
 	if err != nil {
-		if console.ErrUnauthorized.Has(err) {
+		if console.ErrUnauthorized.Has(err) || console.ErrNoMembership.Has(err) {
 			b.serveJSONError(ctx, w, http.StatusUnauthorized, err)
 			return
 		}
@@ -689,37 +689,15 @@ func (b *Buckets) CheckUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	usageLimits, err := b.service.GetProjectUsageLimits(ctx, project.ID)
-	if err != nil {
-		b.serveJSONError(ctx, w, http.StatusInternalServerError, err)
-		return
-	}
-
-	storageLimit := usageLimits.StorageLimit
-	storageUsed := usageLimits.StorageUsed
-	bandwidthLimit := usageLimits.BandwidthLimit
-	bandwidthUsed := usageLimits.BandwidthUsed
-
-	if storageLimit == 0 && storageUsed == 0 && bandwidthLimit == 0 && bandwidthUsed == 0 {
+	if snap.StorageLimit == 0 && snap.StorageUsed == 0 && snap.BandwidthLimit == 0 && snap.BandwidthUsed == 0 {
 		b.sendResponse(w, 0, 0, 0.0, 0, 0, 0.0, false, true, true, "")
 		return
 	}
 
-	remaining := storageLimit - storageUsed
-	remainingBandwidth := bandwidthLimit - bandwidthUsed
-
-	var usagePercent, bandwidthUsagePercent float64
-	if storageLimit > 0 {
-		usagePercent = float64(storageUsed) / float64(storageLimit) * 100
-	}
-	if bandwidthLimit > 0 {
-		bandwidthUsagePercent = float64(bandwidthUsed) / float64(bandwidthLimit) * 100
-	}
-
-	storageAtLimit := storageLimit > 0 && storageUsed >= storageLimit
-	bandwidthAtLimit := bandwidthLimit > 0 && bandwidthUsed >= bandwidthLimit
-	storageAtThreshold := usagePercent >= b.storageWarningThreshold
-	bandwidthAtThreshold := bandwidthUsagePercent >= b.bandwidthWarningThreshold
+	storageAtLimit := snap.StorageLimit > 0 && snap.StorageUsed >= snap.StorageLimit
+	bandwidthAtLimit := snap.BandwidthLimit > 0 && snap.BandwidthUsed >= snap.BandwidthLimit
+	storageAtThreshold := snap.StoragePercent >= b.storageWarningThreshold
+	bandwidthAtThreshold := snap.BandwidthPercent >= b.bandwidthWarningThreshold
 
 	allowUpload := !storageAtLimit
 	allowDownload := !bandwidthAtLimit
@@ -736,21 +714,21 @@ func (b *Buckets) CheckUpload(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// For upload: check storage limit
-		if req.Operation == "upload" && remaining < fileSize {
-			b.sendResponse(w, storageLimit, remaining, usagePercent, bandwidthLimit, remainingBandwidth, bandwidthUsagePercent, true, false, allowDownload, popupMessages.FileSize.StorageExceeded)
+		if req.Operation == "upload" && snap.StorageRemaining < fileSize {
+			b.sendResponse(w, snap.StorageLimit, snap.StorageRemaining, snap.StoragePercent, snap.BandwidthLimit, snap.BandwidthRemaining, snap.BandwidthPercent, true, false, allowDownload, popupMessages.FileSize.StorageExceeded)
 			return
 		}
 
 		// For download: check bandwidth limit
-		if req.Operation == "download" && remainingBandwidth < fileSize {
-			b.sendResponse(w, storageLimit, remaining, usagePercent, bandwidthLimit, remainingBandwidth, bandwidthUsagePercent, true, allowUpload, false, popupMessages.FileSize.BandwidthExceeded)
+		if req.Operation == "download" && snap.BandwidthRemaining < fileSize {
+			b.sendResponse(w, snap.StorageLimit, snap.StorageRemaining, snap.StoragePercent, snap.BandwidthLimit, snap.BandwidthRemaining, snap.BandwidthPercent, true, allowUpload, false, popupMessages.FileSize.BandwidthExceeded)
 			return
 		}
 	}
 
-	popup, message := b.determinePopupMessage(req.Operation, storageAtLimit, bandwidthAtLimit, storageAtThreshold, bandwidthAtThreshold, usagePercent, bandwidthUsagePercent, popupMessages)
+	popup, message := b.determinePopupMessage(req.Operation, storageAtLimit, bandwidthAtLimit, storageAtThreshold, bandwidthAtThreshold, snap.StoragePercent, snap.BandwidthPercent, popupMessages)
 
-	b.sendResponse(w, storageLimit, remaining, usagePercent, bandwidthLimit, remainingBandwidth, bandwidthUsagePercent, popup, allowUpload, allowDownload, message)
+	b.sendResponse(w, snap.StorageLimit, snap.StorageRemaining, snap.StoragePercent, snap.BandwidthLimit, snap.BandwidthRemaining, snap.BandwidthPercent, popup, allowUpload, allowDownload, message)
 }
 
 // formatMessage formats message with actual storage usage percentage and threshold if message is not empty.
@@ -910,6 +888,239 @@ func (b *Buckets) loadPopupMessagesConfig(ctx context.Context) PopupMessagesResp
 	}
 
 	return response
+}
+
+// QuotaMetricLevel is ok | warn | error for one quota dimension.
+type QuotaMetricLevel string
+
+const (
+	QuotaLevelOK    QuotaMetricLevel = "ok"
+	QuotaLevelWarn  QuotaMetricLevel = "warn"
+	QuotaLevelError QuotaMetricLevel = "error"
+)
+
+// QuotaMetricStatus is storage or bandwidth usage for GET /buckets/quota-status.
+type QuotaMetricStatus struct {
+	Used      int64            `json:"used"`
+	Limit     int64            `json:"limit"`
+	Remaining int64            `json:"remaining"`
+	Percent   float64          `json:"percent"`
+	Level     QuotaMetricLevel `json:"level"`
+	Threshold float64          `json:"threshold"`
+	Message   string           `json:"message"`
+}
+
+// QuotaStatusResponse is returned by GET /api/v0/buckets/quota-status.
+type QuotaStatusResponse struct {
+	PopupShow                 bool              `json:"popup_show"`
+	Storage                   QuotaMetricStatus `json:"storage"`
+	Bandwidth                 QuotaMetricStatus `json:"bandwidth"`
+	Message                   string            `json:"message"`
+	UpgradeURL                string            `json:"upgrade_url"`
+	StorageWarningThreshold   float64           `json:"storage_warning_threshold"`
+	BandwidthWarningThreshold float64           `json:"bandwidth_warning_threshold"`
+}
+
+// QuotaStatus returns project storage + bandwidth usage for after-login / sidebar UI.
+//
+// @Summary      Project quota status (storage + bandwidth)
+// @Description  **Full route:** `GET /api/v0/buckets/quota-status?project_id=`
+//
+// Simple status only (no file_size / upload / download). Same usage as check-upload.
+// Levels: ok | warn (≥ threshold) | error (full). Hardcoded messages; combined when both fire.
+// @Tags         buckets-quota-check
+// @Produce      json
+// @Param        project_id  query  string  true  "Project UUID"
+// @Success      200  {object}  QuotaStatusSwaggerResponse
+// @Failure      400  {object}  SwaggerErrorResponse
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Failure      500  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /buckets/quota-status [get]
+func (b *Buckets) QuotaStatus(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	projectIDStr := r.URL.Query().Get("project_id")
+	if projectIDStr == "" {
+		projectIDStr = r.URL.Query().Get("projectID")
+	}
+	if projectIDStr == "" {
+		b.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("project_id is required"))
+		return
+	}
+
+	projectID, err := uuid.FromString(projectIDStr)
+	if err != nil {
+		b.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("invalid project_id: %w", err))
+		return
+	}
+
+	snap, err := b.loadProjectQuotaSnapshot(ctx, projectID)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) || console.ErrNoMembership.Has(err) {
+			b.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+		b.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	storage := buildQuotaMetric(snap.StorageUsed, snap.StorageLimit, b.storageWarningThreshold, "storage")
+	bandwidth := buildQuotaMetric(snap.BandwidthUsed, snap.BandwidthLimit, b.bandwidthWarningThreshold, "bandwidth")
+
+	resp := QuotaStatusResponse{
+		PopupShow:                 storage.Level != QuotaLevelOK || bandwidth.Level != QuotaLevelOK,
+		Storage:                   storage,
+		Bandwidth:                 bandwidth,
+		Message:                   combineQuotaMessages(storage, bandwidth),
+		UpgradeURL:                b.billingURL,
+		StorageWarningThreshold:   b.storageWarningThreshold,
+		BandwidthWarningThreshold: b.bandwidthWarningThreshold,
+	}
+
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		b.log.Error("error encoding quota status", zap.Error(ErrBucketsAPI.Wrap(err)))
+	}
+}
+
+// projectQuotaSnapshot is shared by check-upload and quota-status (same usage source).
+type projectQuotaSnapshot struct {
+	StorageLimit       int64
+	StorageUsed        int64
+	StorageRemaining   int64
+	StoragePercent     float64
+	BandwidthLimit     int64
+	BandwidthUsed      int64
+	BandwidthRemaining int64
+	BandwidthPercent   float64
+}
+
+// loadProjectQuotaSnapshot loads effective storage/bandwidth used+limit once (honors user-set limits).
+func (b *Buckets) loadProjectQuotaSnapshot(ctx context.Context, projectID uuid.UUID) (*projectQuotaSnapshot, error) {
+	usageLimits, err := b.service.GetProjectUsageLimits(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	storageLimit := quotaEffectiveLimit(usageLimits.StorageLimit, usageLimits.UserSetStorageLimit)
+	bandwidthLimit := quotaEffectiveLimit(usageLimits.BandwidthLimit, usageLimits.UserSetBandwidthLimit)
+	storageUsed := usageLimits.StorageUsed
+	bandwidthUsed := usageLimits.BandwidthUsed
+
+	storageRemaining := storageLimit - storageUsed
+	if storageRemaining < 0 {
+		storageRemaining = 0
+	}
+	bandwidthRemaining := bandwidthLimit - bandwidthUsed
+	if bandwidthRemaining < 0 {
+		bandwidthRemaining = 0
+	}
+
+	return &projectQuotaSnapshot{
+		StorageLimit:       storageLimit,
+		StorageUsed:        storageUsed,
+		StorageRemaining:   storageRemaining,
+		StoragePercent:     quotaUsagePercent(storageUsed, storageLimit),
+		BandwidthLimit:     bandwidthLimit,
+		BandwidthUsed:      bandwidthUsed,
+		BandwidthRemaining: bandwidthRemaining,
+		BandwidthPercent:   quotaUsagePercent(bandwidthUsed, bandwidthLimit),
+	}, nil
+}
+
+func quotaEffectiveLimit(base int64, userSet *int64) int64 {
+	if userSet != nil && *userSet > 0 {
+		return *userSet
+	}
+	return base
+}
+
+func quotaUsagePercent(used, limit int64) float64 {
+	if limit <= 0 {
+		return 0
+	}
+	return float64(used) / float64(limit) * 100
+}
+
+func buildQuotaMetric(used, limit int64, threshold float64, kind string) QuotaMetricStatus {
+	percent := quotaUsagePercent(used, limit)
+	remaining := limit - used
+	if remaining < 0 {
+		remaining = 0
+	}
+
+	atLimit := limit > 0 && used >= limit
+	atWarn := percent >= threshold
+
+	level := QuotaLevelOK
+	message := ""
+	switch {
+	case atLimit:
+		level = QuotaLevelError
+		if kind == "storage" {
+			message = fmt.Sprintf("Storage is full — %.0f%% of your plan space is consumed. Upgrade or free space to continue backups.", percent)
+		} else {
+			message = fmt.Sprintf("Bandwidth is full — %.0f%% of your download quota is used. Upgrade or wait for the next billing cycle.", percent)
+		}
+	case atWarn:
+		level = QuotaLevelWarn
+		if kind == "storage" {
+			message = fmt.Sprintf("Storage warning — you have used %.0f%% of your space (threshold %.0f%%). Consider upgrading soon.", percent, threshold)
+		} else {
+			message = fmt.Sprintf("Bandwidth warning — you have used %.0f%% of your download quota (threshold %.0f%%). Consider upgrading soon.", percent, threshold)
+		}
+	}
+
+	return QuotaMetricStatus{
+		Used:      used,
+		Limit:     limit,
+		Remaining: remaining,
+		Percent:   percent,
+		Level:     level,
+		Threshold: threshold,
+		Message:   message,
+	}
+}
+
+// combineQuotaMessages covers storage-only, bandwidth-only, and combined both cases.
+func combineQuotaMessages(storage, bandwidth QuotaMetricStatus) string {
+	sErr := storage.Level == QuotaLevelError
+	bErr := bandwidth.Level == QuotaLevelError
+	sWarn := storage.Level == QuotaLevelWarn
+	bWarn := bandwidth.Level == QuotaLevelWarn
+
+	switch {
+	case sErr && bErr:
+		return fmt.Sprintf(
+			"Storage and bandwidth are both full — storage %.0f%% and bandwidth %.0f%% used. Upgrade your plan to continue backups and downloads.",
+			storage.Percent, bandwidth.Percent,
+		)
+	case sErr && bWarn:
+		return fmt.Sprintf(
+			"Storage is full (%.0f%%) and bandwidth is at warning level (%.0f%%, threshold %.0f%%). Upgrade or free space to continue.",
+			storage.Percent, bandwidth.Percent, bandwidth.Threshold,
+		)
+	case bErr && sWarn:
+		return fmt.Sprintf(
+			"Bandwidth is full (%.0f%%) and storage is at warning level (%.0f%%, threshold %.0f%%). Upgrade or wait for the next billing cycle.",
+			bandwidth.Percent, storage.Percent, storage.Threshold,
+		)
+	case sWarn && bWarn:
+		return fmt.Sprintf(
+			"Storage and bandwidth are both above threshold — storage %.0f%% and bandwidth %.0f%% used (thresholds %.0f%% / %.0f%%). Consider upgrading soon.",
+			storage.Percent, bandwidth.Percent, storage.Threshold, bandwidth.Threshold,
+		)
+	case sErr || sWarn:
+		return storage.Message
+	case bErr || bWarn:
+		return bandwidth.Message
+	default:
+		return ""
+	}
 }
 
 // serveJSONError writes JSON error to response output stream.

@@ -846,6 +846,75 @@ func (s *Service) RefreshStorxTokenForBackupTools(ctx context.Context, req Refre
 	}, nil
 }
 
+// ProjectUsageLimitsForBackupToolsRequest is the Backup-Tools internal usage-limits body.
+type ProjectUsageLimitsForBackupToolsRequest struct {
+	UserID    string
+	ProjectID string
+}
+
+func (r ProjectUsageLimitsForBackupToolsRequest) Validate() error {
+	if strings.TrimSpace(r.UserID) == "" || strings.TrimSpace(r.ProjectID) == "" {
+		return ErrValidation.New("user_id and project_id are required")
+	}
+	if _, err := uuid.FromString(strings.TrimSpace(r.UserID)); err != nil {
+		return ErrValidation.New("invalid user_id")
+	}
+	if _, err := uuid.FromString(strings.TrimSpace(r.ProjectID)); err != nil {
+		return ErrValidation.New("invalid project_id")
+	}
+	return nil
+}
+
+// GetProjectUsageLimitsForBackupTools returns Redis-backed project usage/limits for Backup-Tools.
+// Caller must authenticate the request (X-API-Key). Does not change enforcement or Redis.
+func (s *Service) GetProjectUsageLimitsForBackupTools(ctx context.Context, req ProjectUsageLimitsForBackupToolsRequest) (limits *ProjectUsageLimits, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err := req.Validate(); err != nil {
+		return nil, err
+	}
+
+	userID, err := uuid.FromString(strings.TrimSpace(req.UserID))
+	if err != nil {
+		return nil, ErrValidation.New("invalid user_id")
+	}
+	projectID, err := uuid.FromString(strings.TrimSpace(req.ProjectID))
+	if err != nil {
+		return nil, ErrValidation.New("invalid project_id")
+	}
+
+	member, err := s.isProjectMember(ctx, userID, projectID)
+	if err != nil {
+		if ErrNoMembership.Has(err) {
+			return nil, ErrUnauthorized.Wrap(err)
+		}
+		return nil, Error.Wrap(err)
+	}
+
+	user, err := s.store.Users().Get(ctx, userID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrUnauthorized.New("user not found")
+		}
+		return nil, Error.Wrap(err)
+	}
+	ctx = WithUser(ctx, user)
+
+	prUsageLimits, err := s.getProjectUsageLimits(ctx, member.project.ID, false)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	prObjectsSegments, err := s.projectAccounting.GetProjectObjectsSegments(ctx, member.project.ID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	prUsageLimits.ObjectCount = prObjectsSegments.ObjectCount
+	prUsageLimits.SegmentCount = prObjectsSegments.SegmentCount
+
+	return prUsageLimits, nil
+}
+
 // ClearGoogleBackupTokensRequest is the Backup-Tools internal clear-google-token body.
 type ClearGoogleBackupTokensRequest struct {
 	UserID string
@@ -11384,7 +11453,7 @@ func (s *Service) backupToolsRequest(ctx context.Context, method, path, tokenKey
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := (&http.Client{Timeout: 30 * time.Second}).Do(req)
+	resp, err := (&http.Client{Timeout: 60 * time.Second}).Do(req)
 	if err != nil {
 		return nil, 0, Error.Wrap(err)
 	}

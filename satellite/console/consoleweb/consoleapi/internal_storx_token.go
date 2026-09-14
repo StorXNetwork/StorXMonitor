@@ -129,6 +129,80 @@ func (h *InternalStorxToken) writeClearGoogleTokenJSON(w http.ResponseWriter, st
 	}
 }
 
+type projectUsageLimitsSwaggerRequest struct {
+	UserID    string `json:"user_id"`
+	ProjectID string `json:"project_id"`
+}
+
+type projectUsageLimitsSwaggerResponse struct {
+	StorageLimit   int64  `json:"storageLimit"`
+	StorageUsed    int64  `json:"storageUsed"`
+	BandwidthLimit int64  `json:"bandwidthLimit"`
+	BandwidthUsed  int64  `json:"bandwidthUsed"`
+	ObjectCount    int64  `json:"objectCount,omitempty"`
+	SegmentCount   int64  `json:"segmentCount,omitempty"`
+	Error          string `json:"error,omitempty"`
+}
+
+func (h *InternalStorxToken) writeUsageLimitsJSON(w http.ResponseWriter, status int, payload projectUsageLimitsSwaggerResponse) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	if err := json.NewEncoder(w).Encode(payload); err != nil {
+		h.log.Error("failed to encode internal project usage limits response", zap.Error(err))
+	}
+}
+
+// ProjectUsageLimits handles POST /api/v0/internal/project-usage-limits for Backup-Tools.
+// Returns the same Redis-backed storage/bandwidth used+limit fields as GET usage-limits.
+// Does not modify Redis or enforcement.
+func (h *InternalStorxToken) ProjectUsageLimits(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	if !h.validateBackupToolsAPIKey(r) {
+		h.writeUsageLimitsJSON(w, http.StatusUnauthorized, projectUsageLimitsSwaggerResponse{Error: "unauthorized"})
+		return
+	}
+
+	var body projectUsageLimitsSwaggerRequest
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&body); err != nil {
+		h.writeUsageLimitsJSON(w, http.StatusBadRequest, projectUsageLimitsSwaggerResponse{Error: "invalid request body"})
+		return
+	}
+	if dec.More() {
+		h.writeUsageLimitsJSON(w, http.StatusBadRequest, projectUsageLimitsSwaggerResponse{Error: "invalid request body"})
+		return
+	}
+
+	limits, err := h.service.GetProjectUsageLimitsForBackupTools(ctx, console.ProjectUsageLimitsForBackupToolsRequest{
+		UserID:    body.UserID,
+		ProjectID: body.ProjectID,
+	})
+	if err != nil {
+		status := http.StatusInternalServerError
+		if console.ErrUnauthorized.Has(err) {
+			status = http.StatusUnauthorized
+		} else if console.ErrValidation.Has(err) {
+			status = http.StatusBadRequest
+		}
+		h.log.Debug("internal project usage limits failed", zap.Error(err))
+		h.writeUsageLimitsJSON(w, status, projectUsageLimitsSwaggerResponse{Error: err.Error()})
+		return
+	}
+
+	h.writeUsageLimitsJSON(w, http.StatusOK, projectUsageLimitsSwaggerResponse{
+		StorageLimit:   limits.StorageLimit,
+		StorageUsed:    limits.StorageUsed,
+		BandwidthLimit: limits.BandwidthLimit,
+		BandwidthUsed:  limits.BandwidthUsed,
+		ObjectCount:    limits.ObjectCount,
+		SegmentCount:   limits.SegmentCount,
+	})
+}
+
 // ClearGoogleToken handles POST /api/v0/internal/google-token/clear for Backup-Tools.
 func (h *InternalStorxToken) ClearGoogleToken(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

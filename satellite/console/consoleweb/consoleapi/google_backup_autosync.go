@@ -6,12 +6,14 @@ package consoleapi
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 
 	"github.com/gorilla/mux"
 	"go.uber.org/zap"
 
 	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/configs"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consoleapi/socialmedia"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consolewebauth"
 )
@@ -21,14 +23,16 @@ type GoogleBackup struct {
 	log        *zap.Logger
 	service    *console.Service
 	cookieAuth *consolewebauth.CookieAuth
+	billingURL string
 }
 
 // NewGoogleBackup constructs a Google Backup HTTP controller.
-func NewGoogleBackup(log *zap.Logger, service *console.Service, cookieAuth *consolewebauth.CookieAuth) *GoogleBackup {
+func NewGoogleBackup(log *zap.Logger, service *console.Service, cookieAuth *consolewebauth.CookieAuth, billingURL string) *GoogleBackup {
 	return &GoogleBackup{
 		log:        log,
 		service:    service,
 		cookieAuth: cookieAuth,
+		billingURL: billingURL,
 	}
 }
 
@@ -366,6 +370,96 @@ func (g *GoogleBackup) BackupNowAutoSyncJob(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	writeBackupToolsJSON(w, status, respBody)
+}
+
+// QuotaCheck proxies Backup-Tools Google size vs CyberLS remaining for onboarding/connect.
+// Estimates live in Backup-Tools (same as job-start pre-check). Satellite only proxies
+// and overlays popup text from configs `popup_messages` (same source as check-upload).
+//
+// @Summary      Google backup services storage quota check
+// @Description  **Full route:** `POST /api/v0/buckets/quota-check`
+//
+// Proxies Backup-Tools `POST /auto-sync/job/services-quota-check`. Body: `project_id`, `services[]`, optional `emails`.
+// @Tags         buckets-quota-check
+// @Accept       json
+// @Produce      json
+// @Success      200  {object}  BackupToolsJSONResponse
+// @Failure      400  {object}  SwaggerErrorResponse
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /buckets/quota-check [post]
+func (g *GoogleBackup) QuotaCheck(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	tokenKey, err := g.sessionTokenKey(r)
+	if err != nil {
+		g.serveJSONError(ctx, w, err)
+		return
+	}
+
+	payload, err := io.ReadAll(r.Body)
+	if err != nil {
+		g.serveJSONError(ctx, w, console.ErrValidation.New("invalid request body"))
+		return
+	}
+
+	respBody, status, err := g.service.TriggerGoogleBackupServicesQuotaCheck(ctx, tokenKey, payload)
+	if err != nil {
+		g.serveJSONError(ctx, w, err)
+		return
+	}
+
+	if status == http.StatusOK && len(respBody) > 0 {
+		respBody = g.overlayStorageQuotaPopupMessage(ctx, respBody)
+	}
+	writeBackupToolsJSON(w, status, respBody)
+}
+
+// overlayStorageQuotaPopupMessage sets configs popup text when Backup-Tools reports not allowed.
+func (g *GoogleBackup) overlayStorageQuotaPopupMessage(ctx context.Context, body []byte) []byte {
+	var result map[string]interface{}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return body
+	}
+	allowed, _ := result["allowed"].(bool)
+	if allowed {
+		return body
+	}
+	result["message"] = g.storageExceededPopupMessage(ctx)
+	if g.billingURL != "" {
+		result["upgrade_url"] = g.billingURL
+	}
+	out, err := json.Marshal(result)
+	if err != nil {
+		return body
+	}
+	return out
+}
+
+func (g *GoogleBackup) storageExceededPopupMessage(ctx context.Context) string {
+	fallback := "Not enough CyberLS storage for the selected Google services. You can upgrade, or continue and create the job anyway."
+	configService := configs.NewService(g.service.GetConfigs())
+	dbConfig, err := configService.GetConfigByName(ctx, configs.ConfigTypePopupMessages, "popup")
+	if err != nil || !dbConfig.IsActive {
+		return fallback
+	}
+	raw, err := json.Marshal(dbConfig.ConfigData)
+	if err != nil {
+		return fallback
+	}
+	var msgs PopupMessagesResponse
+	if err := json.Unmarshal(raw, &msgs); err != nil {
+		return fallback
+	}
+	if msgs.FileSize.StorageExceeded != "" {
+		return msgs.FileSize.StorageExceeded
+	}
+	if msgs.Upload.StorageLimit != "" {
+		return msgs.Upload.StorageLimit
+	}
+	return fallback
 }
 
 // UpdateAutoSyncJob toggles a single job active flag (Backup-Tools PUT /auto-sync/job/{job_id}).

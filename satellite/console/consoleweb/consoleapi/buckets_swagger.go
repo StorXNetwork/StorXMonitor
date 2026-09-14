@@ -67,3 +67,25 @@ type CheckUploadSwaggerResponse struct {
 	Message                   string  `json:"message" example:"You have used 100% of your storage quota."`
 	UpgradeURL                string  `json:"upgrade_url" example:"https://billing.example.com"`
 }
+
+// QuotaMetricStatusSwagger is one metric block in GET /api/v0/buckets/quota-status.
+type QuotaMetricStatusSwagger struct {
+	Used      int64   `json:"used" example:"1836097536"`
+	Limit     int64   `json:"limit" example:"2147483648"`
+	Remaining int64   `json:"remaining" example:"311386112"`
+	Percent   float64 `json:"percent" example:"85.5"`
+	Level     string  `json:"level" example:"warn" enums:"ok,warn,error"`
+	Threshold float64 `json:"threshold" example:"80"`
+	Message   string  `json:"message" example:"Storage warning: 85% used (threshold 80%)."`
+}
+
+// QuotaStatusSwaggerResponse is returned by GET /api/v0/buckets/quota-status.
+type QuotaStatusSwaggerResponse struct {
+	PopupShow                 bool                     `json:"popup_show" example:"true"`
+	Storage                   QuotaMetricStatusSwagger `json:"storage"`
+	Bandwidth                 QuotaMetricStatusSwagger `json:"bandwidth"`
+	Message                   string                   `json:"message" example:"Storage warning: 85% used (threshold 80%)."`
+	UpgradeURL                string                   `json:"upgrade_url" example:"/dashboard/billing"`
+	StorageWarningThreshold   float64                  `json:"storage_warning_threshold" example:"80"`
+	BandwidthWarningThreshold float64                  `json:"bandwidth_warning_threshold" example:"80"`
+}
