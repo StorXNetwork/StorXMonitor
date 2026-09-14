@@ -71,12 +71,42 @@ jobs:
       run: |
         Set-Location $env:BIN_PATH
         $name = $env:SERVICE_NAME
-        $status = (Get-Service -Name $name -ErrorAction SilentlyContinue).Status
-        Write-Host "Service $name Status=$status"
-        if ($status -eq "Running" -or $status -eq "Paused" -or $status -eq "StartPending") {
-          Write-Host "Stopping $name"
+        $svc = Get-Service -Name $name -ErrorAction SilentlyContinue
+        if (-not $svc) {
+          Write-Error "Service $name not found"
+          exit 1
+        }
+        Write-Host "Service $name Status=$($svc.Status)"
+        if ($svc.Status -eq "Stopped") {
+          Write-Host "Already stopped"
+          exit 0
+        }
+
+        # Prefer Windows SCM (Stop-Service / sc). nssm often fails with
+        # "Can't open service!" when the runner is not elevated the same as install.
+        $ErrorActionPreference = "Continue"
+        Write-Host "Stop-Service $name"
+        Stop-Service -Name $name -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 2
+        $svc.Refresh()
+        if ($svc.Status -ne "Stopped") {
+          Write-Host "sc.exe stop $name"
+          cmd /c "sc.exe stop `"$name`"" 2>&1 | Out-Host
+          Start-Sleep -Seconds 2
+          $svc.Refresh()
+        }
+        if ($svc.Status -ne "Stopped") {
+          Write-Host "nssm stop $name (fallback)"
           & ".\nssm.exe" stop $name 2>&1 | Out-Host
           Start-Sleep -Seconds 2
+          $svc.Refresh()
+        }
+        $ErrorActionPreference = "Stop"
+
+        Write-Host "Service $name now Status=$($svc.Status)"
+        if ($svc.Status -ne "Stopped") {
+          Write-Error "Could not stop $name (Status=$($svc.Status)). Runner needs rights to control this service (run Actions runner as Admin, or grant service stop permission)."
+          exit 1
         }
         
     - name: Quick file replacement
@@ -106,15 +136,27 @@ jobs:
 
         if ($service.Status -eq "Stopped") {
           $ErrorActionPreference = "Continue"
-          $result = & cmd /c ".\nssm.exe" start $name 2>&1 | Out-String
-          $ErrorActionPreference = "Stop"
-          Start-Sleep -Seconds 3
+          Write-Host "Starting $name"
+          Start-Service -Name $name -ErrorAction SilentlyContinue
+          Start-Sleep -Seconds 2
           $service.Refresh()
-
-          if ($result -match "SERVICE_START_PENDING" -or $service.Status -eq "Running" -or $service.Status -eq "StartPending") {
-            Write-Host "Service $name started (Status: $($service.Status))"
+          if ($service.Status -eq "Stopped") {
+            cmd /c "sc.exe start `"$name`"" 2>&1 | Out-Host
+            Start-Sleep -Seconds 2
+            $service.Refresh()
+          }
+          if ($service.Status -eq "Stopped") {
+            & cmd /c ".\nssm.exe" start $name 2>&1 | Out-Host
+            Start-Sleep -Seconds 3
+            $service.Refresh()
+          }
+          $ErrorActionPreference = "Stop"
+          Write-Host "Service $name Status=$($service.Status)"
+          if ($service.Status -eq "Running" -or $service.Status -eq "StartPending") {
             exit 0
           }
+          Write-Error "Failed to start $name (Status=$($service.Status))"
+          exit 1
         } elseif ($service.Status -eq "Running") {
           Write-Host "Service $name already running"
           exit 0
