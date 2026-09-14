@@ -107,7 +107,7 @@ jobs:
         Write-Host "DST exists=$(Test-Path $dst) path=$dst"
 
         Get-Process -Name 'storxnetwork-sim' -ErrorAction SilentlyContinue | ForEach-Object {
-          Write-Host "Still running before replace: Id=$($_.Id) Path=$($_.Path) — killing"
+          Write-Host "Still running before replace: Id=$($_.Id) Path=$($_.Path) - killing"
           Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
         }
         Start-Sleep -Seconds 1
