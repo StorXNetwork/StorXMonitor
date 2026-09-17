@@ -58,6 +58,7 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/satellite/mailservice/hubspotmails"
 	"github.com/StorXNetwork/StorXMonitor/satellite/oidc"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/gateway"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/paymentsconfig"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
 	"github.com/StorXNetwork/StorXMonitor/satellite/seller"
@@ -302,7 +303,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	mailService *mailservice.Service, hubspotMailService *hubspotmails.Service, analytics *analytics.Service, abTesting *abtesting.Service,
 	accountFreezeService *console.AccountFreezeService, ssoService *sso.Service, csrfService *csrf.Service, listener net.Listener,
 	stripePublicKey string, neededTokenPaymentConfirmations int, nodeURL storxnetwork.NodeURL,
-	analyticsConfig analytics.Config, notificationService *pushnotifications.Service, packagePlans paymentsconfig.PackagePlans, stripe *stripe.Service, developerService *developer.Service,
+	analyticsConfig analytics.Config, notificationService *pushnotifications.Service, packagePlans paymentsconfig.PackagePlans, stripe *stripe.Service, paymentGateway *gateway.Service, developerService *developer.Service,
 	minimumChargeConfig paymentsconfig.MinimumChargeConfig, usagePrices payments.ProjectUsagePriceModel, pps ProductPriceSummaries,
 	entitlementsEnabled bool, ssoEnabled bool, sellerDB seller.DB) *Server {
 	initAdditionalMimeTypes()
@@ -774,7 +775,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 		gatewayConfig := consoleapi.NewGatewayConfig(config.PaymentGateway_APIKey, config.PaymentGateway_APISecret,
 			config.PaymentGateway_Pay_ReqUrl, config.PaymentGateway_Pay_StatusUrl, config.PaymentGateway_Pay_Success_RedirectUrl,
 			config.PaymentGateway_Pay_Failed_RedirectUrl)
-		paymentController := consoleapi.NewPayments(logger, service, accountFreezeService, packagePlans, stripe, gatewayConfig, mailService)
+		paymentController := consoleapi.NewPayments(logger, service, accountFreezeService, packagePlans, stripe, gatewayConfig, mailService, paymentGateway)
 		server.paymentMonitor = paymentController
 
 		paymentsRouter := router.PathPrefix("/api/v0/payments").Subrouter()
@@ -784,31 +785,22 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 		allowedRoutes := []string{"/api/v0/payments/account"} // var partners can still setup stripe account
 		varBlocker := newVarBlockerMiddleWare(&server, config.VarPartners, allowedRoutes)
 		paymentsRouter.Use(varBlocker.withVarBlocker)
-		// paymentsRouter.Handle("/payment-methods", server.userIDRateLimiter.Limit(http.HandlerFunc(paymentController.AddCardByPaymentMethodID))).Methods(http.MethodPost, http.MethodOptions)
-		// paymentsRouter.Handle("/cards", server.userIDRateLimiter.Limit(http.HandlerFunc(paymentController.AddCreditCard))).Methods(http.MethodPost, http.MethodOptions)
-		// paymentsRouter.HandleFunc("/cards", paymentController.MakeCreditCardDefault).Methods(http.MethodPatch, http.MethodOptions)
-		// paymentsRouter.HandleFunc("/cards", paymentController.ListCreditCards).Methods(http.MethodGet, http.MethodOptions)
-		// paymentsRouter.HandleFunc("/cards/{cardId}", paymentController.RemoveCreditCard).Methods(http.MethodDelete, http.MethodOptions)
-		// paymentsRouter.HandleFunc("/account/charges", paymentController.ProjectsCharges).Methods(http.MethodGet, http.MethodOptions)
-		// paymentsRouter.HandleFunc("/account/balance", paymentController.AccountBalance).Methods(http.MethodGet, http.MethodOptions)
-		// paymentsRouter.HandleFunc("/account", paymentController.SetupAccount).Methods(http.MethodPost, http.MethodOptions)
-		// paymentsRouter.HandleFunc("/wallet", paymentController.GetWallet).Methods(http.MethodGet, http.MethodOptions)
-		// paymentsRouter.HandleFunc("/wallet", paymentController.ClaimWallet).Methods(http.MethodPost, http.MethodOptions)
-		// paymentsRouter.HandleFunc("/wallet/payments", paymentController.WalletPayments).Methods(http.MethodGet, http.MethodOptions)
-		// paymentsRouter.HandleFunc("/wallet/payments-with-confirmations", paymentController.WalletPaymentsWithConfirmations).Methods(http.MethodGet, http.MethodOptions)
-		// paymentsRouter.HandleFunc("/billing-history", paymentController.BillingHistory).Methods(http.MethodGet, http.MethodOptions)
-		// paymentsRouter.HandleFunc("/invoice-history", paymentController.InvoiceHistory).Methods(http.MethodGet, http.MethodOptions)
-		// paymentsRouter.Handle("/coupon/apply", server.userIDRateLimiter.Limit(http.HandlerFunc(paymentController.ApplyCouponCode))).Methods(http.MethodPatch, http.MethodOptions)
-		// paymentsRouter.HandleFunc("/coupon", paymentController.GetCoupon).Methods(http.MethodGet, http.MethodOptions)
-		// paymentsRouter.HandleFunc("/pricing", paymentController.GetProjectUsagePriceModel).Methods(http.MethodGet, http.MethodOptions)
-		// if config.PricingPackagesEnabled {
-		// 	paymentsRouter.HandleFunc("/purchase-package", paymentController.PurchasePackage).Methods(http.MethodPost, http.MethodOptions)
-		// 	paymentsRouter.HandleFunc("/package-available", paymentController.PackageAvailable).Methods(http.MethodGet, http.MethodOptions)
-		// }
-		paymentsRouter.HandleFunc("/generate-payment-link", paymentController.GeneratePaymentLink).Methods(http.MethodPost, http.MethodOptions)
+		paymentsRouter.HandleFunc("/checkout", paymentController.CreateCheckout).Methods(http.MethodPost, http.MethodOptions)
+		paymentsRouter.HandleFunc("/methods", paymentController.ListPaymentMethods).Methods(http.MethodGet, http.MethodOptions)
+		paymentsRouter.HandleFunc("/methods", paymentController.SavePaymentMethod).Methods(http.MethodPost, http.MethodOptions)
+		paymentsRouter.HandleFunc("/methods/{id}/default", paymentController.SetDefaultPaymentMethod).Methods(http.MethodPatch, http.MethodOptions)
+		paymentsRouter.HandleFunc("/methods/{id}", paymentController.DeletePaymentMethod).Methods(http.MethodDelete, http.MethodOptions)
+		paymentsRouter.HandleFunc("/subscriptions", paymentController.CreateSubscription).Methods(http.MethodPost, http.MethodOptions)
+		paymentsRouter.HandleFunc("/subscriptions/current", paymentController.GetCurrentSubscription).Methods(http.MethodGet, http.MethodOptions)
+		paymentsRouter.HandleFunc("/subscriptions/cancel", paymentController.CancelSubscription).Methods(http.MethodPost, http.MethodOptions)
 		paymentsRouter.HandleFunc("/coupons", paymentController.GetCoupons).Methods(http.MethodGet, http.MethodOptions)
 		paymentsRouter.HandleFunc("/invoice-history", paymentController.BillingTransactionHistory).Methods(http.MethodGet, http.MethodOptions)
 		router.HandleFunc("/payment-plans", paymentController.HandlePaymentPlans).Methods(http.MethodGet, http.MethodOptions)
+
+		// Webhook must be outside withAuth so Razorpay can call it.
+		webhookRouter := router.PathPrefix("/api/v0/payments/webhook").Subrouter()
+		webhookRouter.Use(server.withCORS)
+		webhookRouter.HandleFunc("/razorpay", paymentController.HandleRazorpayWebhook).Methods(http.MethodPost, http.MethodOptions)
 	}
 
 	bucketsController := consoleapi.NewBuckets(logger, service, server.config.BillingUpgradeURL, server.config.StorageWarningThreshold, server.config.BandwidthWarningThreshold, "secret")

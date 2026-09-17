@@ -58,7 +58,9 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/billing"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/gateway"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/paymentsconfig"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/razorpay"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/storjscan"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
 	"github.com/StorXNetwork/StorXMonitor/satellite/piecelist"
@@ -383,6 +385,34 @@ func Module(ball *mud.Ball) {
 	})
 	storjscan.Module(ball)
 
+	mud.View[DB, gateway.DB](ball, DB.PaymentGateway)
+	mud.Provide[*gateway.Service](ball, func(
+		log *zap.Logger,
+		pc paymentsconfig.Config,
+		gdb gateway.DB,
+		billingDB billing.TransactionsDB,
+		consoleDB console.DB,
+		mailService *mailservice.Service,
+	) *gateway.Service {
+		var providers []gateway.Provider
+		if pc.Razorpay.Enabled {
+			providers = append(providers, razorpay.NewProvider(pc.Razorpay))
+		}
+		return gateway.NewService(
+			log.Named("payment-gateway"),
+			pc.Gateway,
+			gateway.ServiceDependencies{
+				DB:       gdb,
+				Billing:  billingDB,
+				Users:    consoleDB.Users(),
+				Projects: consoleDB.Projects(),
+				Mail:     mailService,
+			},
+			pc.Razorpay.Currency,
+			providers...,
+		)
+	})
+
 }
 
 // EndpointRegistration is a pseudo component to wire server and DRPC endpoints together.
@@ -407,6 +437,7 @@ func CreateServer(logger *zap.Logger,
 	analyticsConfig analytics.Config,
 	notificationService *pushnotifications.Service,
 	stripeService *stripe.Service,
+	paymentGateway *gateway.Service,
 	developerService *developer.Service,
 	ecfg entitlements.Config,
 	ssoCfg sso.Config,
@@ -437,7 +468,7 @@ func CreateServer(logger *zap.Logger,
 
 	return consoleweb.NewServer(logger, *cwconfig, service, consoleService, oidcService, mailService, hubspotMailService, analytics, abTesting,
 		accountFreezeService, ssoService, csrfService, listener, stripePublicKey, storjscanCfg.Confirmations, nodeURL,
-		analyticsConfig, notificationService, pc.PackagePlans, stripeService, developerService, pc.MinimumCharge, prices, summaries, ecfg.Enabled, ssoCfg.Enabled, nil), nil
+		analyticsConfig, notificationService, pc.PackagePlans, stripeService, paymentGateway, developerService, pc.MinimumCharge, prices, summaries, ecfg.Enabled, ssoCfg.Enabled, nil), nil
 }
 
 // CreateService creates console service.

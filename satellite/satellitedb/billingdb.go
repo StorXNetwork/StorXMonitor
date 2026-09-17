@@ -627,7 +627,7 @@ func fromDBXPaymentPlans(dbxPlan *dbx.PaymentPlans) (billing.PaymentPlans, error
 		return billing.PaymentPlans{}, err
 	}
 
-	return billing.PaymentPlans{
+	plan := billing.PaymentPlans{
 		ID:           dbxPlan.Id,
 		Name:         dbxPlan.Name,
 		Storage:      dbxPlan.Storage,
@@ -637,7 +637,11 @@ func fromDBXPaymentPlans(dbxPlan *dbx.PaymentPlans) (billing.PaymentPlans, error
 		ValidityUnit: dbxPlan.ValidityUnit,
 		Benefit:      benefit,
 		Group:        dbxPlan.Group,
-	}, nil
+	}
+	if len(dbxPlan.ProviderPlanIds) > 0 {
+		_ = json.Unmarshal(dbxPlan.ProviderPlanIds, &plan.ProviderPlanIDs)
+	}
+	return plan, nil
 }
 
 func fromDBXCoupon(dbxCoupon *dbx.Coupon) (billing.Coupons, error) {

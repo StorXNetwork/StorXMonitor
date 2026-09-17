@@ -19,6 +19,8 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/billing"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/gateway"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/razorpay"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/storjscan"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
 	"github.com/StorXNetwork/common/memory"
@@ -37,6 +39,8 @@ type Config struct {
 	BillingConfig      billing.Config
 	StripeCoinPayments stripe.Config
 	Storjscan          storjscan.Config
+	Gateway            gateway.Config
+	Razorpay           razorpay.Config
 	UsagePrice         ProjectUsagePrice
 	MinimumCharge      MinimumChargeConfig
 

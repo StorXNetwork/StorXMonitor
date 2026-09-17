@@ -1216,3 +1216,14 @@ CREATE INDEX project_members_project_id_index ON project_members ( project_id ) 
 CREATE INDEX project_member_acl_buckets_project_id_index ON project_member_acl_buckets ( project_id ) ;
 CREATE INDEX rest_api_keys_user_id_index ON rest_api_keys ( user_id ) ;
 CREATE INDEX rest_api_keys_name_index ON rest_api_keys ( name )
+
+
+INSERT INTO "project_member_acl_buckets" ("project_id", "bucket_name", "created_at") VALUES (E'\\361\\342\\363\\371>+F\\256\\263\\300\\274|\\342N\\347\\017'::bytea, 'gmail', '2026-08-01 10:00:00+00');
+INSERT INTO "member_bucket_grants" ("id", "project_id", "member_id", "invite_email", "bucket", "prefix", "allow_list", "allow_download", "allow_upload", "allow_delete", "created_at", "updated_at") VALUES (E'\\146/\\302;\\225\\355O\\323\\276f\\247\\354/6\\241\\040'::bytea, E'\\361\\342\\363\\371>+F\\256\\263\\300\\274|\\342N\\347\\017'::bytea, NULL, 'MEMBER@MAIL.TEST', 'gmail', 'member@mail.test/', true, true, false, false, '2026-08-01 10:00:00+00', '2026-08-01 10:00:00+00');
+
+-- NEW DATA --
+INSERT INTO payment_customers (user_id, provider, provider_customer_id, created_at) VALUES (decode('00000000000000000000000000000011','hex'), 'razorpay', 'cust_test', current_timestamp);
+INSERT INTO payment_methods (id, user_id, provider, provider_method_id, brand, last4, exp_month, exp_year, is_default, created_at) VALUES (decode('00000000000000000000000000000012','hex'), decode('00000000000000000000000000000011','hex'), 'razorpay', 'token_test', 'visa', '1111', 12, 2030, true, current_timestamp);
+INSERT INTO payment_attempts (id, user_id, plan_id, provider, provider_ref, amount_minor, currency, status, coupon_code, metadata, created_at, updated_at) VALUES (decode('00000000000000000000000000000013','hex'), decode('00000000000000000000000000000011','hex'), 1, 'razorpay', 'order_test', 10000, 'INR', 'pending', NULL, NULL, current_timestamp, current_timestamp);
+INSERT INTO payment_subscriptions (id, user_id, plan_id, provider, provider_sub_id, provider_plan_id, status, current_period_end, cancel_at_period_end, default_method_id, coupon_code, created_at, updated_at) VALUES (decode('00000000000000000000000000000014','hex'), decode('00000000000000000000000000000011','hex'), 1, 'razorpay', 'sub_test', 'plan_test', 'active', NULL, false, decode('00000000000000000000000000000012','hex'), NULL, current_timestamp, current_timestamp);
+INSERT INTO payment_events (id, provider, provider_event_id, event_type, payload, attempt_id, subscription_id, received_at) VALUES (decode('00000000000000000000000000000015','hex'), 'razorpay', 'evt_test', 'payment.captured', '{}', decode('00000000000000000000000000000013','hex'), NULL, current_timestamp);

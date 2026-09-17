@@ -69,6 +69,7 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/satellite/overlay/offlinenodes"
 	"github.com/StorXNetwork/StorXMonitor/satellite/overlay/straynodes"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/billing"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/gateway"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/paymentsconfig"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/storjscan"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
@@ -150,6 +151,8 @@ type DB interface {
 	StripeCoinPayments() stripe.DB
 	// Billing returns storjscan transactions database.
 	Billing() billing.TransactionsDB
+	// PaymentGateway returns payment gateway (checkout/cards/subscriptions) database.
+	PaymentGateway() gateway.DB
 	// NodeReputation returns database for node reputation.
 	NodeReputation() audit.NodeReputation
 	// Wallets returns storjscan wallets database.

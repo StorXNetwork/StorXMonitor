@@ -170,6 +170,8 @@ type PaymentPlans struct {
 	Validity     int64     `json:"validity"`
 	ValidityUnit string    `json:"validity_unit"`
 	Group        string    `json:"group"`
+	// ProviderPlanIDs maps provider name to remote plan id.
+	ProviderPlanIDs map[string]string `json:"provider_plan_ids,omitempty"`
 	CreatedAt    time.Time `json:"created_at"`
 }
 

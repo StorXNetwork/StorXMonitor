@@ -805,6 +805,60 @@ func (obj *pgxDB) Schema() []string {
 	PRIMARY KEY ( token )
 )`,
 
+		`CREATE TABLE payment_attempts (
+	id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	plan_id bigint NOT NULL,
+	provider text NOT NULL,
+	provider_ref text NOT NULL,
+	amount_minor bigint NOT NULL,
+	currency text NOT NULL,
+	status text NOT NULL,
+	coupon_code text,
+	metadata jsonb,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( provider, provider_ref )
+)`,
+
+		`CREATE TABLE payment_customers (
+	user_id bytea NOT NULL,
+	provider text NOT NULL,
+	provider_customer_id text NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( user_id, provider ),
+	UNIQUE ( provider, provider_customer_id )
+)`,
+
+		`CREATE TABLE payment_events (
+	id bytea NOT NULL,
+	provider text NOT NULL,
+	provider_event_id text NOT NULL,
+	event_type text NOT NULL,
+	payload jsonb NOT NULL,
+	attempt_id bytea,
+	subscription_id bytea,
+	received_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( provider, provider_event_id )
+)`,
+
+		`CREATE TABLE payment_methods (
+	id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	provider text NOT NULL,
+	provider_method_id text NOT NULL,
+	brand text NOT NULL,
+	last4 text NOT NULL,
+	exp_month integer NOT NULL,
+	exp_year integer NOT NULL,
+	is_default boolean NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( provider, provider_method_id )
+)`,
+
 		`CREATE TABLE payment_plans (
 	id bigserial NOT NULL,
 	name text NOT NULL,
@@ -815,7 +869,26 @@ func (obj *pgxDB) Schema() []string {
 	validity bigint NOT NULL,
 	validity_unit text NOT NULL,
 	group text NOT NULL,
+	provider_plan_ids jsonb,
 	PRIMARY KEY ( id )
+)`,
+
+		`CREATE TABLE payment_subscriptions (
+	id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	plan_id bigint NOT NULL,
+	provider text NOT NULL,
+	provider_sub_id text NOT NULL,
+	provider_plan_id text NOT NULL,
+	status text NOT NULL,
+	current_period_end timestamp with time zone,
+	cancel_at_period_end boolean NOT NULL,
+	default_method_id bytea,
+	coupon_code text,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( provider, provider_sub_id )
 )`,
 
 		`CREATE TABLE peer_identities (
@@ -1580,6 +1653,12 @@ func (obj *pgxDB) Schema() []string {
 
 		`CREATE INDEX oauth_tokens_client_id_index ON oauth_tokens ( client_id )`,
 
+		`CREATE INDEX payment_attempts_user_id_index ON payment_attempts ( user_id )`,
+
+		`CREATE INDEX payment_methods_user_id_provider_index ON payment_methods ( user_id, provider )`,
+
+		`CREATE INDEX payment_subscriptions_user_id_provider_index ON payment_subscriptions ( user_id, provider )`,
+
 		`CREATE INDEX projects_public_id_index ON projects ( public_id )`,
 
 		`CREATE INDEX projects_owner_id_index ON projects ( owner_id )`,
@@ -1781,7 +1860,17 @@ func (obj *pgxDB) DropSchema() []string {
 
 		`DROP TABLE IF EXISTS peer_identities`,
 
+		`DROP TABLE IF EXISTS payment_subscriptions`,
+
 		`DROP TABLE IF EXISTS payment_plans`,
+
+		`DROP TABLE IF EXISTS payment_methods`,
+
+		`DROP TABLE IF EXISTS payment_events`,
+
+		`DROP TABLE IF EXISTS payment_customers`,
+
+		`DROP TABLE IF EXISTS payment_attempts`,
 
 		`DROP TABLE IF EXISTS oauth_tokens`,
 
@@ -2397,6 +2486,60 @@ func (obj *pgxcockroachDB) Schema() []string {
 	PRIMARY KEY ( token )
 )`,
 
+		`CREATE TABLE payment_attempts (
+	id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	plan_id bigint NOT NULL,
+	provider text NOT NULL,
+	provider_ref text NOT NULL,
+	amount_minor bigint NOT NULL,
+	currency text NOT NULL,
+	status text NOT NULL,
+	coupon_code text,
+	metadata jsonb,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( provider, provider_ref )
+)`,
+
+		`CREATE TABLE payment_customers (
+	user_id bytea NOT NULL,
+	provider text NOT NULL,
+	provider_customer_id text NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( user_id, provider ),
+	UNIQUE ( provider, provider_customer_id )
+)`,
+
+		`CREATE TABLE payment_events (
+	id bytea NOT NULL,
+	provider text NOT NULL,
+	provider_event_id text NOT NULL,
+	event_type text NOT NULL,
+	payload jsonb NOT NULL,
+	attempt_id bytea,
+	subscription_id bytea,
+	received_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( provider, provider_event_id )
+)`,
+
+		`CREATE TABLE payment_methods (
+	id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	provider text NOT NULL,
+	provider_method_id text NOT NULL,
+	brand text NOT NULL,
+	last4 text NOT NULL,
+	exp_month integer NOT NULL,
+	exp_year integer NOT NULL,
+	is_default boolean NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( provider, provider_method_id )
+)`,
+
 		`CREATE TABLE payment_plans (
 	id bigserial NOT NULL,
 	name text NOT NULL,
@@ -2407,7 +2550,26 @@ func (obj *pgxcockroachDB) Schema() []string {
 	validity bigint NOT NULL,
 	validity_unit text NOT NULL,
 	group text NOT NULL,
+	provider_plan_ids jsonb,
 	PRIMARY KEY ( id )
+)`,
+
+		`CREATE TABLE payment_subscriptions (
+	id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	plan_id bigint NOT NULL,
+	provider text NOT NULL,
+	provider_sub_id text NOT NULL,
+	provider_plan_id text NOT NULL,
+	status text NOT NULL,
+	current_period_end timestamp with time zone,
+	cancel_at_period_end boolean NOT NULL,
+	default_method_id bytea,
+	coupon_code text,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( provider, provider_sub_id )
 )`,
 
 		`CREATE TABLE peer_identities (
@@ -3172,6 +3334,12 @@ func (obj *pgxcockroachDB) Schema() []string {
 
 		`CREATE INDEX oauth_tokens_client_id_index ON oauth_tokens ( client_id )`,
 
+		`CREATE INDEX payment_attempts_user_id_index ON payment_attempts ( user_id )`,
+
+		`CREATE INDEX payment_methods_user_id_provider_index ON payment_methods ( user_id, provider )`,
+
+		`CREATE INDEX payment_subscriptions_user_id_provider_index ON payment_subscriptions ( user_id, provider )`,
+
 		`CREATE INDEX projects_public_id_index ON projects ( public_id )`,
 
 		`CREATE INDEX projects_owner_id_index ON projects ( owner_id )`,
@@ -3373,7 +3541,17 @@ func (obj *pgxcockroachDB) DropSchema() []string {
 
 		`DROP TABLE IF EXISTS peer_identities`,
 
+		`DROP TABLE IF EXISTS payment_subscriptions`,
+
 		`DROP TABLE IF EXISTS payment_plans`,
+
+		`DROP TABLE IF EXISTS payment_methods`,
+
+		`DROP TABLE IF EXISTS payment_events`,
+
+		`DROP TABLE IF EXISTS payment_customers`,
+
+		`DROP TABLE IF EXISTS payment_attempts`,
 
 		`DROP TABLE IF EXISTS oauth_tokens`,
 
@@ -3959,6 +4137,60 @@ func (obj *spannerDB) Schema() []string {
 	expires_at TIMESTAMP NOT NULL
 ) PRIMARY KEY ( token )`,
 
+		`CREATE TABLE payment_attempts (
+	id BYTES(MAX) NOT NULL,
+	user_id BYTES(MAX) NOT NULL,
+	plan_id INT64 NOT NULL,
+	provider STRING(MAX) NOT NULL,
+	provider_ref STRING(MAX) NOT NULL,
+	amount_minor INT64 NOT NULL,
+	currency STRING(MAX) NOT NULL,
+	status STRING(MAX) NOT NULL,
+	coupon_code STRING(MAX),
+	metadata JSON,
+	created_at TIMESTAMP NOT NULL,
+	updated_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( id )`,
+
+		`CREATE UNIQUE INDEX index_payment_attempts_provider_provider_ref ON payment_attempts ( provider, provider_ref )`,
+
+		`CREATE TABLE payment_customers (
+	user_id BYTES(MAX) NOT NULL,
+	provider STRING(MAX) NOT NULL,
+	provider_customer_id STRING(MAX) NOT NULL,
+	created_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( user_id, provider )`,
+
+		`CREATE UNIQUE INDEX index_payment_customers_provider_provider_customer_id ON payment_customers ( provider, provider_customer_id )`,
+
+		`CREATE TABLE payment_events (
+	id BYTES(MAX) NOT NULL,
+	provider STRING(MAX) NOT NULL,
+	provider_event_id STRING(MAX) NOT NULL,
+	event_type STRING(MAX) NOT NULL,
+	payload JSON NOT NULL,
+	attempt_id BYTES(MAX),
+	subscription_id BYTES(MAX),
+	received_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( id )`,
+
+		`CREATE UNIQUE INDEX index_payment_events_provider_provider_event_id ON payment_events ( provider, provider_event_id )`,
+
+		`CREATE TABLE payment_methods (
+	id BYTES(MAX) NOT NULL,
+	user_id BYTES(MAX) NOT NULL,
+	provider STRING(MAX) NOT NULL,
+	provider_method_id STRING(MAX) NOT NULL,
+	brand STRING(MAX) NOT NULL,
+	last4 STRING(MAX) NOT NULL,
+	exp_month INT64 NOT NULL,
+	exp_year INT64 NOT NULL,
+	is_default BOOL NOT NULL,
+	created_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( id )`,
+
+		`CREATE UNIQUE INDEX index_payment_methods_provider_provider_method_id ON payment_methods ( provider, provider_method_id )`,
+
 		`CREATE SEQUENCE payment_plans_id OPTIONS (sequence_kind='bit_reversed_positive')`,
 
 		`CREATE TABLE payment_plans (
@@ -3970,8 +4202,27 @@ func (obj *spannerDB) Schema() []string {
 	bandwidth INT64 NOT NULL,
 	validity INT64 NOT NULL,
 	validity_unit STRING(MAX) NOT NULL,
-	group STRING(MAX) NOT NULL
+	group STRING(MAX) NOT NULL,
+	provider_plan_ids JSON
 ) PRIMARY KEY ( id )`,
+
+		`CREATE TABLE payment_subscriptions (
+	id BYTES(MAX) NOT NULL,
+	user_id BYTES(MAX) NOT NULL,
+	plan_id INT64 NOT NULL,
+	provider STRING(MAX) NOT NULL,
+	provider_sub_id STRING(MAX) NOT NULL,
+	provider_plan_id STRING(MAX) NOT NULL,
+	status STRING(MAX) NOT NULL,
+	current_period_end TIMESTAMP,
+	cancel_at_period_end BOOL NOT NULL,
+	default_method_id BYTES(MAX),
+	coupon_code STRING(MAX),
+	created_at TIMESTAMP NOT NULL,
+	updated_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( id )`,
+
+		`CREATE UNIQUE INDEX index_payment_subscriptions_provider_provider_sub_id ON payment_subscriptions ( provider, provider_sub_id )`,
 
 		`CREATE TABLE peer_identities (
 	node_id BYTES(MAX) NOT NULL,
@@ -4721,6 +4972,12 @@ func (obj *spannerDB) Schema() []string {
 
 		`CREATE INDEX oauth_tokens_client_id_index ON oauth_tokens ( client_id )`,
 
+		`CREATE INDEX payment_attempts_user_id_index ON payment_attempts ( user_id )`,
+
+		`CREATE INDEX payment_methods_user_id_provider_index ON payment_methods ( user_id, provider )`,
+
+		`CREATE INDEX payment_subscriptions_user_id_provider_index ON payment_subscriptions ( user_id, provider )`,
+
 		`CREATE INDEX projects_public_id_index ON projects ( public_id )`,
 
 		`CREATE INDEX projects_owner_id_index ON projects ( owner_id )`,
@@ -4890,6 +5147,16 @@ func (obj *spannerDB) DropSchema() []string {
 
 		`DROP INDEX IF EXISTS index_registration_tokens_owner_id`,
 
+		`DROP INDEX IF EXISTS index_payment_subscriptions_provider_provider_sub_id`,
+
+		`DROP INDEX IF EXISTS index_payment_methods_provider_provider_method_id`,
+
+		`DROP INDEX IF EXISTS index_payment_events_provider_provider_event_id`,
+
+		`DROP INDEX IF EXISTS index_payment_customers_provider_provider_customer_id`,
+
+		`DROP INDEX IF EXISTS index_payment_attempts_provider_provider_ref`,
+
 		`DROP INDEX IF EXISTS index_configs_config_type_name`,
 
 		`DROP INDEX IF EXISTS accounting_rollups_start_time_index`,
@@ -4961,6 +5228,12 @@ func (obj *spannerDB) DropSchema() []string {
 		`DROP INDEX IF EXISTS oauth_tokens_user_id_index`,
 
 		`DROP INDEX IF EXISTS oauth_tokens_client_id_index`,
+
+		`DROP INDEX IF EXISTS payment_attempts_user_id_index`,
+
+		`DROP INDEX IF EXISTS payment_methods_user_id_provider_index`,
+
+		`DROP INDEX IF EXISTS payment_subscriptions_user_id_provider_index`,
 
 		`DROP INDEX IF EXISTS projects_public_id_index`,
 
@@ -5458,11 +5731,45 @@ func (obj *spannerDB) DropSchema() []string {
 
 		`DROP TABLE IF EXISTS peer_identities`,
 
+		`ALTER TABLE  payment_subscriptions ALTER id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS payment_subscriptions_id`,
+
+		`DROP TABLE IF EXISTS payment_subscriptions`,
+
 		`ALTER TABLE  payment_plans ALTER id SET DEFAULT (null)`,
 
 		`DROP SEQUENCE IF EXISTS payment_plans_id`,
 
 		`DROP TABLE IF EXISTS payment_plans`,
+
+		`ALTER TABLE  payment_methods ALTER id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS payment_methods_id`,
+
+		`DROP TABLE IF EXISTS payment_methods`,
+
+		`ALTER TABLE  payment_events ALTER id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS payment_events_id`,
+
+		`DROP TABLE IF EXISTS payment_events`,
+
+		`ALTER TABLE  payment_customers ALTER user_id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS payment_customers_user_id`,
+
+		`ALTER TABLE  payment_customers ALTER provider SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS payment_customers_provider`,
+
+		`DROP TABLE IF EXISTS payment_customers`,
+
+		`ALTER TABLE  payment_attempts ALTER id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS payment_attempts_id`,
+
+		`DROP TABLE IF EXISTS payment_attempts`,
 
 		`ALTER TABLE  oauth_tokens ALTER token SET DEFAULT (null)`,
 
@@ -12882,29 +13189,747 @@ func (f OauthToken_ExpiresAt_Field) value() any {
 	return f._value
 }
 
+type PaymentAttempts struct {
+	Id          []byte
+	UserId      []byte
+	PlanId      int64
+	Provider    string
+	ProviderRef string
+	AmountMinor int64
+	Currency    string
+	Status      string
+	CouponCode  *string
+	Metadata    []byte
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
+func (PaymentAttempts) _Table() string { return "payment_attempts" }
+
+type PaymentAttempts_Create_Fields struct {
+	CouponCode PaymentAttempts_CouponCode_Field
+	Metadata   PaymentAttempts_Metadata_Field
+}
+
+type PaymentAttempts_Update_Fields struct {
+	ProviderRef PaymentAttempts_ProviderRef_Field
+	Status      PaymentAttempts_Status_Field
+	Metadata    PaymentAttempts_Metadata_Field
+}
+
+type PaymentAttempts_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func PaymentAttempts_Id(v []byte) PaymentAttempts_Id_Field {
+	return PaymentAttempts_Id_Field{_set: true, _value: v}
+}
+
+func (f PaymentAttempts_Id_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type PaymentAttempts_UserId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func PaymentAttempts_UserId(v []byte) PaymentAttempts_UserId_Field {
+	return PaymentAttempts_UserId_Field{_set: true, _value: v}
+}
+
+func (f PaymentAttempts_UserId_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type PaymentAttempts_PlanId_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func PaymentAttempts_PlanId(v int64) PaymentAttempts_PlanId_Field {
+	return PaymentAttempts_PlanId_Field{_set: true, _value: v}
+}
+
+func (f PaymentAttempts_PlanId_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type PaymentAttempts_Provider_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func PaymentAttempts_Provider(v string) PaymentAttempts_Provider_Field {
+	return PaymentAttempts_Provider_Field{_set: true, _value: v}
+}
+
+func (f PaymentAttempts_Provider_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type PaymentAttempts_ProviderRef_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func PaymentAttempts_ProviderRef(v string) PaymentAttempts_ProviderRef_Field {
+	return PaymentAttempts_ProviderRef_Field{_set: true, _value: v}
+}
+
+func (f PaymentAttempts_ProviderRef_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type PaymentAttempts_AmountMinor_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func PaymentAttempts_AmountMinor(v int64) PaymentAttempts_AmountMinor_Field {
+	return PaymentAttempts_AmountMinor_Field{_set: true, _value: v}
+}
+
+func (f PaymentAttempts_AmountMinor_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type PaymentAttempts_Currency_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func PaymentAttempts_Currency(v string) PaymentAttempts_Currency_Field {
+	return PaymentAttempts_Currency_Field{_set: true, _value: v}
+}
+
+func (f PaymentAttempts_Currency_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type PaymentAttempts_Status_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func PaymentAttempts_Status(v string) PaymentAttempts_Status_Field {
+	return PaymentAttempts_Status_Field{_set: true, _value: v}
+}
+
+func (f PaymentAttempts_Status_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type PaymentAttempts_CouponCode_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func PaymentAttempts_CouponCode(v string) PaymentAttempts_CouponCode_Field {
+	return PaymentAttempts_CouponCode_Field{_set: true, _value: &v}
+}
+
+func PaymentAttempts_CouponCode_Raw(v *string) PaymentAttempts_CouponCode_Field {
+	if v == nil {
+		return PaymentAttempts_CouponCode_Null()
+	}
+	return PaymentAttempts_CouponCode(*v)
+}
+
+func PaymentAttempts_CouponCode_Null() PaymentAttempts_CouponCode_Field {
+	return PaymentAttempts_CouponCode_Field{_set: true, _null: true}
+}
+
+func (f PaymentAttempts_CouponCode_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f PaymentAttempts_CouponCode_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type PaymentAttempts_Metadata_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func PaymentAttempts_Metadata(v []byte) PaymentAttempts_Metadata_Field {
+	return PaymentAttempts_Metadata_Field{_set: true, _value: v}
+}
+
+func PaymentAttempts_Metadata_Raw(v []byte) PaymentAttempts_Metadata_Field {
+	if v == nil {
+		return PaymentAttempts_Metadata_Null()
+	}
+	return PaymentAttempts_Metadata(v)
+}
+
+func PaymentAttempts_Metadata_Null() PaymentAttempts_Metadata_Field {
+	return PaymentAttempts_Metadata_Field{_set: true, _null: true}
+}
+
+func (f PaymentAttempts_Metadata_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f PaymentAttempts_Metadata_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type PaymentAttempts_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func PaymentAttempts_CreatedAt(v time.Time) PaymentAttempts_CreatedAt_Field {
+	return PaymentAttempts_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f PaymentAttempts_CreatedAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type PaymentAttempts_UpdatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func PaymentAttempts_UpdatedAt(v time.Time) PaymentAttempts_UpdatedAt_Field {
+	return PaymentAttempts_UpdatedAt_Field{_set: true, _value: v}
+}
+
+func (f PaymentAttempts_UpdatedAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type PaymentCustomers struct {
+	UserId             []byte
+	Provider           string
+	ProviderCustomerId string
+	CreatedAt          time.Time
+}
+
+func (PaymentCustomers) _Table() string { return "payment_customers" }
+
+type PaymentCustomers_Update_Fields struct {
+}
+
+type PaymentCustomers_UserId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func PaymentCustomers_UserId(v []byte) PaymentCustomers_UserId_Field {
+	return PaymentCustomers_UserId_Field{_set: true, _value: v}
+}
+
+func (f PaymentCustomers_UserId_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type PaymentCustomers_Provider_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func PaymentCustomers_Provider(v string) PaymentCustomers_Provider_Field {
+	return PaymentCustomers_Provider_Field{_set: true, _value: v}
+}
+
+func (f PaymentCustomers_Provider_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type PaymentCustomers_ProviderCustomerId_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func PaymentCustomers_ProviderCustomerId(v string) PaymentCustomers_ProviderCustomerId_Field {
+	return PaymentCustomers_ProviderCustomerId_Field{_set: true, _value: v}
+}
+
+func (f PaymentCustomers_ProviderCustomerId_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type PaymentCustomers_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func PaymentCustomers_CreatedAt(v time.Time) PaymentCustomers_CreatedAt_Field {
+	return PaymentCustomers_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f PaymentCustomers_CreatedAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type PaymentEvents struct {
+	Id              []byte
+	Provider        string
+	ProviderEventId string
+	EventType       string
+	Payload         []byte
+	AttemptId       []byte
+	SubscriptionId  []byte
+	ReceivedAt      time.Time
+}
+
+func (PaymentEvents) _Table() string { return "payment_events" }
+
+type PaymentEvents_Create_Fields struct {
+	AttemptId      PaymentEvents_AttemptId_Field
+	SubscriptionId PaymentEvents_SubscriptionId_Field
+}
+
+type PaymentEvents_Update_Fields struct {
+}
+
+type PaymentEvents_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func PaymentEvents_Id(v []byte) PaymentEvents_Id_Field {
+	return PaymentEvents_Id_Field{_set: true, _value: v}
+}
+
+func (f PaymentEvents_Id_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type PaymentEvents_Provider_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func PaymentEvents_Provider(v string) PaymentEvents_Provider_Field {
+	return PaymentEvents_Provider_Field{_set: true, _value: v}
+}
+
+func (f PaymentEvents_Provider_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type PaymentEvents_ProviderEventId_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func PaymentEvents_ProviderEventId(v string) PaymentEvents_ProviderEventId_Field {
+	return PaymentEvents_ProviderEventId_Field{_set: true, _value: v}
+}
+
+func (f PaymentEvents_ProviderEventId_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type PaymentEvents_EventType_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func PaymentEvents_EventType(v string) PaymentEvents_EventType_Field {
+	return PaymentEvents_EventType_Field{_set: true, _value: v}
+}
+
+func (f PaymentEvents_EventType_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type PaymentEvents_Payload_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func PaymentEvents_Payload(v []byte) PaymentEvents_Payload_Field {
+	return PaymentEvents_Payload_Field{_set: true, _value: v}
+}
+
+func (f PaymentEvents_Payload_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type PaymentEvents_AttemptId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func PaymentEvents_AttemptId(v []byte) PaymentEvents_AttemptId_Field {
+	return PaymentEvents_AttemptId_Field{_set: true, _value: v}
+}
+
+func PaymentEvents_AttemptId_Raw(v []byte) PaymentEvents_AttemptId_Field {
+	if v == nil {
+		return PaymentEvents_AttemptId_Null()
+	}
+	return PaymentEvents_AttemptId(v)
+}
+
+func PaymentEvents_AttemptId_Null() PaymentEvents_AttemptId_Field {
+	return PaymentEvents_AttemptId_Field{_set: true, _null: true}
+}
+
+func (f PaymentEvents_AttemptId_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f PaymentEvents_AttemptId_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type PaymentEvents_SubscriptionId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func PaymentEvents_SubscriptionId(v []byte) PaymentEvents_SubscriptionId_Field {
+	return PaymentEvents_SubscriptionId_Field{_set: true, _value: v}
+}
+
+func PaymentEvents_SubscriptionId_Raw(v []byte) PaymentEvents_SubscriptionId_Field {
+	if v == nil {
+		return PaymentEvents_SubscriptionId_Null()
+	}
+	return PaymentEvents_SubscriptionId(v)
+}
+
+func PaymentEvents_SubscriptionId_Null() PaymentEvents_SubscriptionId_Field {
+	return PaymentEvents_SubscriptionId_Field{_set: true, _null: true}
+}
+
+func (f PaymentEvents_SubscriptionId_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f PaymentEvents_SubscriptionId_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type PaymentEvents_ReceivedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func PaymentEvents_ReceivedAt(v time.Time) PaymentEvents_ReceivedAt_Field {
+	return PaymentEvents_ReceivedAt_Field{_set: true, _value: v}
+}
+
+func (f PaymentEvents_ReceivedAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type PaymentMethods struct {
+	Id               []byte
+	UserId           []byte
+	Provider         string
+	ProviderMethodId string
+	Brand            string
+	Last4            string
+	ExpMonth         int
+	ExpYear          int
+	IsDefault        bool
+	CreatedAt        time.Time
+}
+
+func (PaymentMethods) _Table() string { return "payment_methods" }
+
+type PaymentMethods_Update_Fields struct {
+	IsDefault PaymentMethods_IsDefault_Field
+}
+
+type PaymentMethods_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func PaymentMethods_Id(v []byte) PaymentMethods_Id_Field {
+	return PaymentMethods_Id_Field{_set: true, _value: v}
+}
+
+func (f PaymentMethods_Id_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type PaymentMethods_UserId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func PaymentMethods_UserId(v []byte) PaymentMethods_UserId_Field {
+	return PaymentMethods_UserId_Field{_set: true, _value: v}
+}
+
+func (f PaymentMethods_UserId_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type PaymentMethods_Provider_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func PaymentMethods_Provider(v string) PaymentMethods_Provider_Field {
+	return PaymentMethods_Provider_Field{_set: true, _value: v}
+}
+
+func (f PaymentMethods_Provider_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type PaymentMethods_ProviderMethodId_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func PaymentMethods_ProviderMethodId(v string) PaymentMethods_ProviderMethodId_Field {
+	return PaymentMethods_ProviderMethodId_Field{_set: true, _value: v}
+}
+
+func (f PaymentMethods_ProviderMethodId_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type PaymentMethods_Brand_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func PaymentMethods_Brand(v string) PaymentMethods_Brand_Field {
+	return PaymentMethods_Brand_Field{_set: true, _value: v}
+}
+
+func (f PaymentMethods_Brand_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type PaymentMethods_Last4_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func PaymentMethods_Last4(v string) PaymentMethods_Last4_Field {
+	return PaymentMethods_Last4_Field{_set: true, _value: v}
+}
+
+func (f PaymentMethods_Last4_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type PaymentMethods_ExpMonth_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func PaymentMethods_ExpMonth(v int) PaymentMethods_ExpMonth_Field {
+	return PaymentMethods_ExpMonth_Field{_set: true, _value: v}
+}
+
+func (f PaymentMethods_ExpMonth_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type PaymentMethods_ExpYear_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func PaymentMethods_ExpYear(v int) PaymentMethods_ExpYear_Field {
+	return PaymentMethods_ExpYear_Field{_set: true, _value: v}
+}
+
+func (f PaymentMethods_ExpYear_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type PaymentMethods_IsDefault_Field struct {
+	_set   bool
+	_null  bool
+	_value bool
+}
+
+func PaymentMethods_IsDefault(v bool) PaymentMethods_IsDefault_Field {
+	return PaymentMethods_IsDefault_Field{_set: true, _value: v}
+}
+
+func (f PaymentMethods_IsDefault_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type PaymentMethods_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func PaymentMethods_CreatedAt(v time.Time) PaymentMethods_CreatedAt_Field {
+	return PaymentMethods_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f PaymentMethods_CreatedAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
 type PaymentPlans struct {
-	Id           int64
-	Name         string
-	Storage      int64
-	Price        float64
-	Benefit      []byte
-	Bandwidth    int64
-	Validity     int64
-	ValidityUnit string
-	Group        string
+	Id              int64
+	Name            string
+	Storage         int64
+	Price           float64
+	Benefit         []byte
+	Bandwidth       int64
+	Validity        int64
+	ValidityUnit    string
+	Group           string
+	ProviderPlanIds []byte
 }
 
 func (PaymentPlans) _Table() string { return "payment_plans" }
 
+type PaymentPlans_Create_Fields struct {
+	ProviderPlanIds PaymentPlans_ProviderPlanIds_Field
+}
+
 type PaymentPlans_Update_Fields struct {
-	Name         PaymentPlans_Name_Field
-	Storage      PaymentPlans_Storage_Field
-	Price        PaymentPlans_Price_Field
-	Benefit      PaymentPlans_Benefit_Field
-	Bandwidth    PaymentPlans_Bandwidth_Field
-	Validity     PaymentPlans_Validity_Field
-	ValidityUnit PaymentPlans_ValidityUnit_Field
-	Group        PaymentPlans_Group_Field
+	Name            PaymentPlans_Name_Field
+	Storage         PaymentPlans_Storage_Field
+	Price           PaymentPlans_Price_Field
+	Benefit         PaymentPlans_Benefit_Field
+	Bandwidth       PaymentPlans_Bandwidth_Field
+	Validity        PaymentPlans_Validity_Field
+	ValidityUnit    PaymentPlans_ValidityUnit_Field
+	Group           PaymentPlans_Group_Field
+	ProviderPlanIds PaymentPlans_ProviderPlanIds_Field
 }
 
 type PaymentPlans_Id_Field struct {
@@ -13054,6 +14079,335 @@ func PaymentPlans_Group(v string) PaymentPlans_Group_Field {
 }
 
 func (f PaymentPlans_Group_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type PaymentPlans_ProviderPlanIds_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func PaymentPlans_ProviderPlanIds(v []byte) PaymentPlans_ProviderPlanIds_Field {
+	return PaymentPlans_ProviderPlanIds_Field{_set: true, _value: v}
+}
+
+func PaymentPlans_ProviderPlanIds_Raw(v []byte) PaymentPlans_ProviderPlanIds_Field {
+	if v == nil {
+		return PaymentPlans_ProviderPlanIds_Null()
+	}
+	return PaymentPlans_ProviderPlanIds(v)
+}
+
+func PaymentPlans_ProviderPlanIds_Null() PaymentPlans_ProviderPlanIds_Field {
+	return PaymentPlans_ProviderPlanIds_Field{_set: true, _null: true}
+}
+
+func (f PaymentPlans_ProviderPlanIds_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f PaymentPlans_ProviderPlanIds_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type PaymentSubscriptions struct {
+	Id                []byte
+	UserId            []byte
+	PlanId            int64
+	Provider          string
+	ProviderSubId     string
+	ProviderPlanId    string
+	Status            string
+	CurrentPeriodEnd  *time.Time
+	CancelAtPeriodEnd bool
+	DefaultMethodId   []byte
+	CouponCode        *string
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+}
+
+func (PaymentSubscriptions) _Table() string { return "payment_subscriptions" }
+
+type PaymentSubscriptions_Create_Fields struct {
+	CurrentPeriodEnd PaymentSubscriptions_CurrentPeriodEnd_Field
+	DefaultMethodId  PaymentSubscriptions_DefaultMethodId_Field
+	CouponCode       PaymentSubscriptions_CouponCode_Field
+}
+
+type PaymentSubscriptions_Update_Fields struct {
+	Status            PaymentSubscriptions_Status_Field
+	CurrentPeriodEnd  PaymentSubscriptions_CurrentPeriodEnd_Field
+	CancelAtPeriodEnd PaymentSubscriptions_CancelAtPeriodEnd_Field
+	DefaultMethodId   PaymentSubscriptions_DefaultMethodId_Field
+}
+
+type PaymentSubscriptions_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func PaymentSubscriptions_Id(v []byte) PaymentSubscriptions_Id_Field {
+	return PaymentSubscriptions_Id_Field{_set: true, _value: v}
+}
+
+func (f PaymentSubscriptions_Id_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type PaymentSubscriptions_UserId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func PaymentSubscriptions_UserId(v []byte) PaymentSubscriptions_UserId_Field {
+	return PaymentSubscriptions_UserId_Field{_set: true, _value: v}
+}
+
+func (f PaymentSubscriptions_UserId_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type PaymentSubscriptions_PlanId_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func PaymentSubscriptions_PlanId(v int64) PaymentSubscriptions_PlanId_Field {
+	return PaymentSubscriptions_PlanId_Field{_set: true, _value: v}
+}
+
+func (f PaymentSubscriptions_PlanId_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type PaymentSubscriptions_Provider_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func PaymentSubscriptions_Provider(v string) PaymentSubscriptions_Provider_Field {
+	return PaymentSubscriptions_Provider_Field{_set: true, _value: v}
+}
+
+func (f PaymentSubscriptions_Provider_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type PaymentSubscriptions_ProviderSubId_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func PaymentSubscriptions_ProviderSubId(v string) PaymentSubscriptions_ProviderSubId_Field {
+	return PaymentSubscriptions_ProviderSubId_Field{_set: true, _value: v}
+}
+
+func (f PaymentSubscriptions_ProviderSubId_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type PaymentSubscriptions_ProviderPlanId_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func PaymentSubscriptions_ProviderPlanId(v string) PaymentSubscriptions_ProviderPlanId_Field {
+	return PaymentSubscriptions_ProviderPlanId_Field{_set: true, _value: v}
+}
+
+func (f PaymentSubscriptions_ProviderPlanId_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type PaymentSubscriptions_Status_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func PaymentSubscriptions_Status(v string) PaymentSubscriptions_Status_Field {
+	return PaymentSubscriptions_Status_Field{_set: true, _value: v}
+}
+
+func (f PaymentSubscriptions_Status_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type PaymentSubscriptions_CurrentPeriodEnd_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func PaymentSubscriptions_CurrentPeriodEnd(v time.Time) PaymentSubscriptions_CurrentPeriodEnd_Field {
+	return PaymentSubscriptions_CurrentPeriodEnd_Field{_set: true, _value: &v}
+}
+
+func PaymentSubscriptions_CurrentPeriodEnd_Raw(v *time.Time) PaymentSubscriptions_CurrentPeriodEnd_Field {
+	if v == nil {
+		return PaymentSubscriptions_CurrentPeriodEnd_Null()
+	}
+	return PaymentSubscriptions_CurrentPeriodEnd(*v)
+}
+
+func PaymentSubscriptions_CurrentPeriodEnd_Null() PaymentSubscriptions_CurrentPeriodEnd_Field {
+	return PaymentSubscriptions_CurrentPeriodEnd_Field{_set: true, _null: true}
+}
+
+func (f PaymentSubscriptions_CurrentPeriodEnd_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f PaymentSubscriptions_CurrentPeriodEnd_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type PaymentSubscriptions_CancelAtPeriodEnd_Field struct {
+	_set   bool
+	_null  bool
+	_value bool
+}
+
+func PaymentSubscriptions_CancelAtPeriodEnd(v bool) PaymentSubscriptions_CancelAtPeriodEnd_Field {
+	return PaymentSubscriptions_CancelAtPeriodEnd_Field{_set: true, _value: v}
+}
+
+func (f PaymentSubscriptions_CancelAtPeriodEnd_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type PaymentSubscriptions_DefaultMethodId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func PaymentSubscriptions_DefaultMethodId(v []byte) PaymentSubscriptions_DefaultMethodId_Field {
+	return PaymentSubscriptions_DefaultMethodId_Field{_set: true, _value: v}
+}
+
+func PaymentSubscriptions_DefaultMethodId_Raw(v []byte) PaymentSubscriptions_DefaultMethodId_Field {
+	if v == nil {
+		return PaymentSubscriptions_DefaultMethodId_Null()
+	}
+	return PaymentSubscriptions_DefaultMethodId(v)
+}
+
+func PaymentSubscriptions_DefaultMethodId_Null() PaymentSubscriptions_DefaultMethodId_Field {
+	return PaymentSubscriptions_DefaultMethodId_Field{_set: true, _null: true}
+}
+
+func (f PaymentSubscriptions_DefaultMethodId_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f PaymentSubscriptions_DefaultMethodId_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type PaymentSubscriptions_CouponCode_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func PaymentSubscriptions_CouponCode(v string) PaymentSubscriptions_CouponCode_Field {
+	return PaymentSubscriptions_CouponCode_Field{_set: true, _value: &v}
+}
+
+func PaymentSubscriptions_CouponCode_Raw(v *string) PaymentSubscriptions_CouponCode_Field {
+	if v == nil {
+		return PaymentSubscriptions_CouponCode_Null()
+	}
+	return PaymentSubscriptions_CouponCode(*v)
+}
+
+func PaymentSubscriptions_CouponCode_Null() PaymentSubscriptions_CouponCode_Field {
+	return PaymentSubscriptions_CouponCode_Field{_set: true, _null: true}
+}
+
+func (f PaymentSubscriptions_CouponCode_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f PaymentSubscriptions_CouponCode_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type PaymentSubscriptions_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func PaymentSubscriptions_CreatedAt(v time.Time) PaymentSubscriptions_CreatedAt_Field {
+	return PaymentSubscriptions_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f PaymentSubscriptions_CreatedAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type PaymentSubscriptions_UpdatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func PaymentSubscriptions_UpdatedAt(v time.Time) PaymentSubscriptions_UpdatedAt_Field {
+	return PaymentSubscriptions_UpdatedAt_Field{_set: true, _value: v}
+}
+
+func (f PaymentSubscriptions_UpdatedAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -25053,7 +26407,8 @@ func (obj *pgxImpl) Create_PaymentPlans(ctx context.Context,
 	payment_plans_bandwidth PaymentPlans_Bandwidth_Field,
 	payment_plans_validity PaymentPlans_Validity_Field,
 	payment_plans_validity_unit PaymentPlans_ValidityUnit_Field,
-	payment_plans_group PaymentPlans_Group_Field) (
+	payment_plans_group PaymentPlans_Group_Field,
+	optional PaymentPlans_Create_Fields) (
 	payment_plans *PaymentPlans, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !obj.txn && txutil.IsInsideTx(ctx) {
@@ -25067,17 +26422,18 @@ func (obj *pgxImpl) Create_PaymentPlans(ctx context.Context,
 	__validity_val := payment_plans_validity.value()
 	__validity_unit_val := payment_plans_validity_unit.value()
 	__group_val := payment_plans_group.value()
+	__provider_plan_ids_val := optional.ProviderPlanIds.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO payment_plans ( name, storage, price, benefit, bandwidth, validity, validity_unit, group ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING payment_plans.id, payment_plans.name, payment_plans.storage, payment_plans.price, payment_plans.benefit, payment_plans.bandwidth, payment_plans.validity, payment_plans.validity_unit, payment_plans.group")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO payment_plans ( name, storage, price, benefit, bandwidth, validity, validity_unit, group, provider_plan_ids ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING payment_plans.id, payment_plans.name, payment_plans.storage, payment_plans.price, payment_plans.benefit, payment_plans.bandwidth, payment_plans.validity, payment_plans.validity_unit, payment_plans.group, payment_plans.provider_plan_ids")
 
 	var __values []any
-	__values = append(__values, __name_val, __storage_val, __price_val, __benefit_val, __bandwidth_val, __validity_val, __validity_unit_val, __group_val)
+	__values = append(__values, __name_val, __storage_val, __price_val, __benefit_val, __bandwidth_val, __validity_val, __validity_unit_val, __group_val, __provider_plan_ids_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	payment_plans = &PaymentPlans{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_plans.Id, &payment_plans.Name, &payment_plans.Storage, &payment_plans.Price, &payment_plans.Benefit, &payment_plans.Bandwidth, &payment_plans.Validity, &payment_plans.ValidityUnit, &payment_plans.Group)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_plans.Id, &payment_plans.Name, &payment_plans.Storage, &payment_plans.Price, &payment_plans.Benefit, &payment_plans.Bandwidth, &payment_plans.Validity, &payment_plans.ValidityUnit, &payment_plans.Group, &payment_plans.ProviderPlanIds)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -26627,6 +27983,219 @@ func (obj *pgxImpl) Create_BackupCredentials(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return backup_credentials, nil
+
+}
+
+func (obj *pgxImpl) Create_PaymentCustomers(ctx context.Context,
+	payment_customers_user_id PaymentCustomers_UserId_Field,
+	payment_customers_provider PaymentCustomers_Provider_Field,
+	payment_customers_provider_customer_id PaymentCustomers_ProviderCustomerId_Field) (
+	payment_customers *PaymentCustomers, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__user_id_val := payment_customers_user_id.value()
+	__provider_val := payment_customers_provider.value()
+	__provider_customer_id_val := payment_customers_provider_customer_id.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO payment_customers ( user_id, provider, provider_customer_id, created_at ) VALUES ( ?, ?, ?, ? ) RETURNING payment_customers.user_id, payment_customers.provider, payment_customers.provider_customer_id, payment_customers.created_at")
+
+	var __values []any
+	__values = append(__values, __user_id_val, __provider_val, __provider_customer_id_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_customers = &PaymentCustomers{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_customers.UserId, &payment_customers.Provider, &payment_customers.ProviderCustomerId, &payment_customers.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return payment_customers, nil
+
+}
+
+func (obj *pgxImpl) Create_PaymentMethods(ctx context.Context,
+	payment_methods_id PaymentMethods_Id_Field,
+	payment_methods_user_id PaymentMethods_UserId_Field,
+	payment_methods_provider PaymentMethods_Provider_Field,
+	payment_methods_provider_method_id PaymentMethods_ProviderMethodId_Field,
+	payment_methods_brand PaymentMethods_Brand_Field,
+	payment_methods_last4 PaymentMethods_Last4_Field,
+	payment_methods_exp_month PaymentMethods_ExpMonth_Field,
+	payment_methods_exp_year PaymentMethods_ExpYear_Field,
+	payment_methods_is_default PaymentMethods_IsDefault_Field) (
+	payment_methods *PaymentMethods, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := payment_methods_id.value()
+	__user_id_val := payment_methods_user_id.value()
+	__provider_val := payment_methods_provider.value()
+	__provider_method_id_val := payment_methods_provider_method_id.value()
+	__brand_val := payment_methods_brand.value()
+	__last4_val := payment_methods_last4.value()
+	__exp_month_val := payment_methods_exp_month.value()
+	__exp_year_val := payment_methods_exp_year.value()
+	__is_default_val := payment_methods_is_default.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO payment_methods ( id, user_id, provider, provider_method_id, brand, last4, exp_month, exp_year, is_default, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING payment_methods.id, payment_methods.user_id, payment_methods.provider, payment_methods.provider_method_id, payment_methods.brand, payment_methods.last4, payment_methods.exp_month, payment_methods.exp_year, payment_methods.is_default, payment_methods.created_at")
+
+	var __values []any
+	__values = append(__values, __id_val, __user_id_val, __provider_val, __provider_method_id_val, __brand_val, __last4_val, __exp_month_val, __exp_year_val, __is_default_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_methods = &PaymentMethods{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_methods.Id, &payment_methods.UserId, &payment_methods.Provider, &payment_methods.ProviderMethodId, &payment_methods.Brand, &payment_methods.Last4, &payment_methods.ExpMonth, &payment_methods.ExpYear, &payment_methods.IsDefault, &payment_methods.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return payment_methods, nil
+
+}
+
+func (obj *pgxImpl) Create_PaymentAttempts(ctx context.Context,
+	payment_attempts_id PaymentAttempts_Id_Field,
+	payment_attempts_user_id PaymentAttempts_UserId_Field,
+	payment_attempts_plan_id PaymentAttempts_PlanId_Field,
+	payment_attempts_provider PaymentAttempts_Provider_Field,
+	payment_attempts_provider_ref PaymentAttempts_ProviderRef_Field,
+	payment_attempts_amount_minor PaymentAttempts_AmountMinor_Field,
+	payment_attempts_currency PaymentAttempts_Currency_Field,
+	payment_attempts_status PaymentAttempts_Status_Field,
+	optional PaymentAttempts_Create_Fields) (
+	payment_attempts *PaymentAttempts, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := payment_attempts_id.value()
+	__user_id_val := payment_attempts_user_id.value()
+	__plan_id_val := payment_attempts_plan_id.value()
+	__provider_val := payment_attempts_provider.value()
+	__provider_ref_val := payment_attempts_provider_ref.value()
+	__amount_minor_val := payment_attempts_amount_minor.value()
+	__currency_val := payment_attempts_currency.value()
+	__status_val := payment_attempts_status.value()
+	__coupon_code_val := optional.CouponCode.value()
+	__metadata_val := optional.Metadata.value()
+	__created_at_val := __now
+	__updated_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO payment_attempts ( id, user_id, plan_id, provider, provider_ref, amount_minor, currency, status, coupon_code, metadata, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING payment_attempts.id, payment_attempts.user_id, payment_attempts.plan_id, payment_attempts.provider, payment_attempts.provider_ref, payment_attempts.amount_minor, payment_attempts.currency, payment_attempts.status, payment_attempts.coupon_code, payment_attempts.metadata, payment_attempts.created_at, payment_attempts.updated_at")
+
+	var __values []any
+	__values = append(__values, __id_val, __user_id_val, __plan_id_val, __provider_val, __provider_ref_val, __amount_minor_val, __currency_val, __status_val, __coupon_code_val, __metadata_val, __created_at_val, __updated_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_attempts = &PaymentAttempts{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_attempts.Id, &payment_attempts.UserId, &payment_attempts.PlanId, &payment_attempts.Provider, &payment_attempts.ProviderRef, &payment_attempts.AmountMinor, &payment_attempts.Currency, &payment_attempts.Status, &payment_attempts.CouponCode, &payment_attempts.Metadata, &payment_attempts.CreatedAt, &payment_attempts.UpdatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return payment_attempts, nil
+
+}
+
+func (obj *pgxImpl) Create_PaymentSubscriptions(ctx context.Context,
+	payment_subscriptions_id PaymentSubscriptions_Id_Field,
+	payment_subscriptions_user_id PaymentSubscriptions_UserId_Field,
+	payment_subscriptions_plan_id PaymentSubscriptions_PlanId_Field,
+	payment_subscriptions_provider PaymentSubscriptions_Provider_Field,
+	payment_subscriptions_provider_sub_id PaymentSubscriptions_ProviderSubId_Field,
+	payment_subscriptions_provider_plan_id PaymentSubscriptions_ProviderPlanId_Field,
+	payment_subscriptions_status PaymentSubscriptions_Status_Field,
+	payment_subscriptions_cancel_at_period_end PaymentSubscriptions_CancelAtPeriodEnd_Field,
+	optional PaymentSubscriptions_Create_Fields) (
+	payment_subscriptions *PaymentSubscriptions, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := payment_subscriptions_id.value()
+	__user_id_val := payment_subscriptions_user_id.value()
+	__plan_id_val := payment_subscriptions_plan_id.value()
+	__provider_val := payment_subscriptions_provider.value()
+	__provider_sub_id_val := payment_subscriptions_provider_sub_id.value()
+	__provider_plan_id_val := payment_subscriptions_provider_plan_id.value()
+	__status_val := payment_subscriptions_status.value()
+	__current_period_end_val := optional.CurrentPeriodEnd.value()
+	__cancel_at_period_end_val := payment_subscriptions_cancel_at_period_end.value()
+	__default_method_id_val := optional.DefaultMethodId.value()
+	__coupon_code_val := optional.CouponCode.value()
+	__created_at_val := __now
+	__updated_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO payment_subscriptions ( id, user_id, plan_id, provider, provider_sub_id, provider_plan_id, status, current_period_end, cancel_at_period_end, default_method_id, coupon_code, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING payment_subscriptions.id, payment_subscriptions.user_id, payment_subscriptions.plan_id, payment_subscriptions.provider, payment_subscriptions.provider_sub_id, payment_subscriptions.provider_plan_id, payment_subscriptions.status, payment_subscriptions.current_period_end, payment_subscriptions.cancel_at_period_end, payment_subscriptions.default_method_id, payment_subscriptions.coupon_code, payment_subscriptions.created_at, payment_subscriptions.updated_at")
+
+	var __values []any
+	__values = append(__values, __id_val, __user_id_val, __plan_id_val, __provider_val, __provider_sub_id_val, __provider_plan_id_val, __status_val, __current_period_end_val, __cancel_at_period_end_val, __default_method_id_val, __coupon_code_val, __created_at_val, __updated_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_subscriptions = &PaymentSubscriptions{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_subscriptions.Id, &payment_subscriptions.UserId, &payment_subscriptions.PlanId, &payment_subscriptions.Provider, &payment_subscriptions.ProviderSubId, &payment_subscriptions.ProviderPlanId, &payment_subscriptions.Status, &payment_subscriptions.CurrentPeriodEnd, &payment_subscriptions.CancelAtPeriodEnd, &payment_subscriptions.DefaultMethodId, &payment_subscriptions.CouponCode, &payment_subscriptions.CreatedAt, &payment_subscriptions.UpdatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return payment_subscriptions, nil
+
+}
+
+func (obj *pgxImpl) Create_PaymentEvents(ctx context.Context,
+	payment_events_id PaymentEvents_Id_Field,
+	payment_events_provider PaymentEvents_Provider_Field,
+	payment_events_provider_event_id PaymentEvents_ProviderEventId_Field,
+	payment_events_event_type PaymentEvents_EventType_Field,
+	payment_events_payload PaymentEvents_Payload_Field,
+	optional PaymentEvents_Create_Fields) (
+	payment_events *PaymentEvents, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := payment_events_id.value()
+	__provider_val := payment_events_provider.value()
+	__provider_event_id_val := payment_events_provider_event_id.value()
+	__event_type_val := payment_events_event_type.value()
+	__payload_val := payment_events_payload.value()
+	__attempt_id_val := optional.AttemptId.value()
+	__subscription_id_val := optional.SubscriptionId.value()
+	__received_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO payment_events ( id, provider, provider_event_id, event_type, payload, attempt_id, subscription_id, received_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING payment_events.id, payment_events.provider, payment_events.provider_event_id, payment_events.event_type, payment_events.payload, payment_events.attempt_id, payment_events.subscription_id, payment_events.received_at")
+
+	var __values []any
+	__values = append(__values, __id_val, __provider_val, __provider_event_id_val, __event_type_val, __payload_val, __attempt_id_val, __subscription_id_val, __received_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_events = &PaymentEvents{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_events.Id, &payment_events.Provider, &payment_events.ProviderEventId, &payment_events.EventType, &payment_events.Payload, &payment_events.AttemptId, &payment_events.SubscriptionId, &payment_events.ReceivedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return payment_events, nil
 
 }
 
@@ -29307,7 +30876,7 @@ func (obj *pgxImpl) Get_PaymentPlans_By_Id(ctx context.Context,
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT payment_plans.id, payment_plans.name, payment_plans.storage, payment_plans.price, payment_plans.benefit, payment_plans.bandwidth, payment_plans.validity, payment_plans.validity_unit, payment_plans.group FROM payment_plans WHERE payment_plans.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_plans.id, payment_plans.name, payment_plans.storage, payment_plans.price, payment_plans.benefit, payment_plans.bandwidth, payment_plans.validity, payment_plans.validity_unit, payment_plans.group, payment_plans.provider_plan_ids FROM payment_plans WHERE payment_plans.id = ?")
 
 	var __values []any
 	__values = append(__values, payment_plans_id.value())
@@ -29316,7 +30885,7 @@ func (obj *pgxImpl) Get_PaymentPlans_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	payment_plans = &PaymentPlans{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_plans.Id, &payment_plans.Name, &payment_plans.Storage, &payment_plans.Price, &payment_plans.Benefit, &payment_plans.Bandwidth, &payment_plans.Validity, &payment_plans.ValidityUnit, &payment_plans.Group)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_plans.Id, &payment_plans.Name, &payment_plans.Storage, &payment_plans.Price, &payment_plans.Benefit, &payment_plans.Bandwidth, &payment_plans.Validity, &payment_plans.ValidityUnit, &payment_plans.Group, &payment_plans.ProviderPlanIds)
 	if err != nil {
 		return (*PaymentPlans)(nil), obj.makeErr(err)
 	}
@@ -29331,7 +30900,7 @@ func (obj *pgxImpl) All_PaymentPlans(ctx context.Context) (
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT payment_plans.id, payment_plans.name, payment_plans.storage, payment_plans.price, payment_plans.benefit, payment_plans.bandwidth, payment_plans.validity, payment_plans.validity_unit, payment_plans.group FROM payment_plans")
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_plans.id, payment_plans.name, payment_plans.storage, payment_plans.price, payment_plans.benefit, payment_plans.bandwidth, payment_plans.validity, payment_plans.validity_unit, payment_plans.group, payment_plans.provider_plan_ids FROM payment_plans")
 
 	var __values []any
 
@@ -29348,7 +30917,7 @@ func (obj *pgxImpl) All_PaymentPlans(ctx context.Context) (
 
 			for __rows.Next() {
 				payment_plans := &PaymentPlans{}
-				err = __rows.Scan(&payment_plans.Id, &payment_plans.Name, &payment_plans.Storage, &payment_plans.Price, &payment_plans.Benefit, &payment_plans.Bandwidth, &payment_plans.Validity, &payment_plans.ValidityUnit, &payment_plans.Group)
+				err = __rows.Scan(&payment_plans.Id, &payment_plans.Name, &payment_plans.Storage, &payment_plans.Price, &payment_plans.Benefit, &payment_plans.Bandwidth, &payment_plans.Validity, &payment_plans.ValidityUnit, &payment_plans.Group, &payment_plans.ProviderPlanIds)
 				if err != nil {
 					return nil, err
 				}
@@ -29375,7 +30944,7 @@ func (obj *pgxImpl) All_PaymentPlans_By_Group(ctx context.Context,
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT payment_plans.id, payment_plans.name, payment_plans.storage, payment_plans.price, payment_plans.benefit, payment_plans.bandwidth, payment_plans.validity, payment_plans.validity_unit, payment_plans.group FROM payment_plans WHERE payment_plans.group = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_plans.id, payment_plans.name, payment_plans.storage, payment_plans.price, payment_plans.benefit, payment_plans.bandwidth, payment_plans.validity, payment_plans.validity_unit, payment_plans.group, payment_plans.provider_plan_ids FROM payment_plans WHERE payment_plans.group = ?")
 
 	var __values []any
 	__values = append(__values, payment_plans_group.value())
@@ -29393,7 +30962,7 @@ func (obj *pgxImpl) All_PaymentPlans_By_Group(ctx context.Context,
 
 			for __rows.Next() {
 				payment_plans := &PaymentPlans{}
-				err = __rows.Scan(&payment_plans.Id, &payment_plans.Name, &payment_plans.Storage, &payment_plans.Price, &payment_plans.Benefit, &payment_plans.Bandwidth, &payment_plans.Validity, &payment_plans.ValidityUnit, &payment_plans.Group)
+				err = __rows.Scan(&payment_plans.Id, &payment_plans.Name, &payment_plans.Storage, &payment_plans.Price, &payment_plans.Benefit, &payment_plans.Bandwidth, &payment_plans.Validity, &payment_plans.ValidityUnit, &payment_plans.Group, &payment_plans.ProviderPlanIds)
 				if err != nil {
 					return nil, err
 				}
@@ -32644,6 +34213,385 @@ func (obj *pgxImpl) All_BackupCredentials_By_UserId_And_Provider(ctx context.Con
 		}
 		return rows, nil
 	}
+
+}
+
+func (obj *pgxImpl) Get_PaymentCustomers_By_UserId_And_Provider(ctx context.Context,
+	payment_customers_user_id PaymentCustomers_UserId_Field,
+	payment_customers_provider PaymentCustomers_Provider_Field) (
+	payment_customers *PaymentCustomers, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_customers.user_id, payment_customers.provider, payment_customers.provider_customer_id, payment_customers.created_at FROM payment_customers WHERE payment_customers.user_id = ? AND payment_customers.provider = ?")
+
+	var __values []any
+	__values = append(__values, payment_customers_user_id.value(), payment_customers_provider.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_customers = &PaymentCustomers{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_customers.UserId, &payment_customers.Provider, &payment_customers.ProviderCustomerId, &payment_customers.CreatedAt)
+	if err != nil {
+		return (*PaymentCustomers)(nil), obj.makeErr(err)
+	}
+	return payment_customers, nil
+
+}
+
+func (obj *pgxImpl) Get_PaymentCustomers_By_Provider_And_ProviderCustomerId(ctx context.Context,
+	payment_customers_provider PaymentCustomers_Provider_Field,
+	payment_customers_provider_customer_id PaymentCustomers_ProviderCustomerId_Field) (
+	payment_customers *PaymentCustomers, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_customers.user_id, payment_customers.provider, payment_customers.provider_customer_id, payment_customers.created_at FROM payment_customers WHERE payment_customers.provider = ? AND payment_customers.provider_customer_id = ?")
+
+	var __values []any
+	__values = append(__values, payment_customers_provider.value(), payment_customers_provider_customer_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_customers = &PaymentCustomers{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_customers.UserId, &payment_customers.Provider, &payment_customers.ProviderCustomerId, &payment_customers.CreatedAt)
+	if err != nil {
+		return (*PaymentCustomers)(nil), obj.makeErr(err)
+	}
+	return payment_customers, nil
+
+}
+
+func (obj *pgxImpl) Get_PaymentMethods_By_Id(ctx context.Context,
+	payment_methods_id PaymentMethods_Id_Field) (
+	payment_methods *PaymentMethods, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_methods.id, payment_methods.user_id, payment_methods.provider, payment_methods.provider_method_id, payment_methods.brand, payment_methods.last4, payment_methods.exp_month, payment_methods.exp_year, payment_methods.is_default, payment_methods.created_at FROM payment_methods WHERE payment_methods.id = ?")
+
+	var __values []any
+	__values = append(__values, payment_methods_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_methods = &PaymentMethods{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_methods.Id, &payment_methods.UserId, &payment_methods.Provider, &payment_methods.ProviderMethodId, &payment_methods.Brand, &payment_methods.Last4, &payment_methods.ExpMonth, &payment_methods.ExpYear, &payment_methods.IsDefault, &payment_methods.CreatedAt)
+	if err != nil {
+		return (*PaymentMethods)(nil), obj.makeErr(err)
+	}
+	return payment_methods, nil
+
+}
+
+func (obj *pgxImpl) Get_PaymentMethods_By_Provider_And_ProviderMethodId(ctx context.Context,
+	payment_methods_provider PaymentMethods_Provider_Field,
+	payment_methods_provider_method_id PaymentMethods_ProviderMethodId_Field) (
+	payment_methods *PaymentMethods, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_methods.id, payment_methods.user_id, payment_methods.provider, payment_methods.provider_method_id, payment_methods.brand, payment_methods.last4, payment_methods.exp_month, payment_methods.exp_year, payment_methods.is_default, payment_methods.created_at FROM payment_methods WHERE payment_methods.provider = ? AND payment_methods.provider_method_id = ?")
+
+	var __values []any
+	__values = append(__values, payment_methods_provider.value(), payment_methods_provider_method_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_methods = &PaymentMethods{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_methods.Id, &payment_methods.UserId, &payment_methods.Provider, &payment_methods.ProviderMethodId, &payment_methods.Brand, &payment_methods.Last4, &payment_methods.ExpMonth, &payment_methods.ExpYear, &payment_methods.IsDefault, &payment_methods.CreatedAt)
+	if err != nil {
+		return (*PaymentMethods)(nil), obj.makeErr(err)
+	}
+	return payment_methods, nil
+
+}
+
+func (obj *pgxImpl) All_PaymentMethods_By_UserId_And_Provider(ctx context.Context,
+	payment_methods_user_id PaymentMethods_UserId_Field,
+	payment_methods_provider PaymentMethods_Provider_Field) (
+	rows []*PaymentMethods, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_methods.id, payment_methods.user_id, payment_methods.provider, payment_methods.provider_method_id, payment_methods.brand, payment_methods.last4, payment_methods.exp_month, payment_methods.exp_year, payment_methods.is_default, payment_methods.created_at FROM payment_methods WHERE payment_methods.user_id = ? AND payment_methods.provider = ?")
+
+	var __values []any
+	__values = append(__values, payment_methods_user_id.value(), payment_methods_provider.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*PaymentMethods, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				payment_methods := &PaymentMethods{}
+				err = __rows.Scan(&payment_methods.Id, &payment_methods.UserId, &payment_methods.Provider, &payment_methods.ProviderMethodId, &payment_methods.Brand, &payment_methods.Last4, &payment_methods.ExpMonth, &payment_methods.ExpYear, &payment_methods.IsDefault, &payment_methods.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, payment_methods)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) Get_PaymentMethods_By_UserId_And_Provider_And_IsDefault(ctx context.Context,
+	payment_methods_user_id PaymentMethods_UserId_Field,
+	payment_methods_provider PaymentMethods_Provider_Field,
+	payment_methods_is_default PaymentMethods_IsDefault_Field) (
+	payment_methods *PaymentMethods, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_methods.id, payment_methods.user_id, payment_methods.provider, payment_methods.provider_method_id, payment_methods.brand, payment_methods.last4, payment_methods.exp_month, payment_methods.exp_year, payment_methods.is_default, payment_methods.created_at FROM payment_methods WHERE payment_methods.user_id = ? AND payment_methods.provider = ? AND payment_methods.is_default = ? LIMIT 2")
+
+	var __values []any
+	__values = append(__values, payment_methods_user_id.value(), payment_methods_provider.value(), payment_methods_is_default.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		payment_methods, err = func() (payment_methods *PaymentMethods, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			if !__rows.Next() {
+				return nil, sql.ErrNoRows
+			}
+
+			payment_methods = &PaymentMethods{}
+			err = __rows.Scan(&payment_methods.Id, &payment_methods.UserId, &payment_methods.Provider, &payment_methods.ProviderMethodId, &payment_methods.Brand, &payment_methods.Last4, &payment_methods.ExpMonth, &payment_methods.ExpYear, &payment_methods.IsDefault, &payment_methods.CreatedAt)
+			if err != nil {
+				return nil, err
+			}
+
+			if __rows.Next() {
+				return nil, errTooManyRows
+			}
+
+			return payment_methods, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			if errors.Is(err, errTooManyRows) {
+				return nil, tooManyRows("PaymentMethods_By_UserId_And_Provider_And_IsDefault")
+			}
+			return nil, obj.makeErr(err)
+		}
+		return payment_methods, nil
+	}
+
+}
+
+func (obj *pgxImpl) Get_PaymentAttempts_By_Id(ctx context.Context,
+	payment_attempts_id PaymentAttempts_Id_Field) (
+	payment_attempts *PaymentAttempts, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_attempts.id, payment_attempts.user_id, payment_attempts.plan_id, payment_attempts.provider, payment_attempts.provider_ref, payment_attempts.amount_minor, payment_attempts.currency, payment_attempts.status, payment_attempts.coupon_code, payment_attempts.metadata, payment_attempts.created_at, payment_attempts.updated_at FROM payment_attempts WHERE payment_attempts.id = ?")
+
+	var __values []any
+	__values = append(__values, payment_attempts_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_attempts = &PaymentAttempts{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_attempts.Id, &payment_attempts.UserId, &payment_attempts.PlanId, &payment_attempts.Provider, &payment_attempts.ProviderRef, &payment_attempts.AmountMinor, &payment_attempts.Currency, &payment_attempts.Status, &payment_attempts.CouponCode, &payment_attempts.Metadata, &payment_attempts.CreatedAt, &payment_attempts.UpdatedAt)
+	if err != nil {
+		return (*PaymentAttempts)(nil), obj.makeErr(err)
+	}
+	return payment_attempts, nil
+
+}
+
+func (obj *pgxImpl) Get_PaymentAttempts_By_Provider_And_ProviderRef(ctx context.Context,
+	payment_attempts_provider PaymentAttempts_Provider_Field,
+	payment_attempts_provider_ref PaymentAttempts_ProviderRef_Field) (
+	payment_attempts *PaymentAttempts, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_attempts.id, payment_attempts.user_id, payment_attempts.plan_id, payment_attempts.provider, payment_attempts.provider_ref, payment_attempts.amount_minor, payment_attempts.currency, payment_attempts.status, payment_attempts.coupon_code, payment_attempts.metadata, payment_attempts.created_at, payment_attempts.updated_at FROM payment_attempts WHERE payment_attempts.provider = ? AND payment_attempts.provider_ref = ?")
+
+	var __values []any
+	__values = append(__values, payment_attempts_provider.value(), payment_attempts_provider_ref.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_attempts = &PaymentAttempts{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_attempts.Id, &payment_attempts.UserId, &payment_attempts.PlanId, &payment_attempts.Provider, &payment_attempts.ProviderRef, &payment_attempts.AmountMinor, &payment_attempts.Currency, &payment_attempts.Status, &payment_attempts.CouponCode, &payment_attempts.Metadata, &payment_attempts.CreatedAt, &payment_attempts.UpdatedAt)
+	if err != nil {
+		return (*PaymentAttempts)(nil), obj.makeErr(err)
+	}
+	return payment_attempts, nil
+
+}
+
+func (obj *pgxImpl) Get_PaymentSubscriptions_By_Id(ctx context.Context,
+	payment_subscriptions_id PaymentSubscriptions_Id_Field) (
+	payment_subscriptions *PaymentSubscriptions, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_subscriptions.id, payment_subscriptions.user_id, payment_subscriptions.plan_id, payment_subscriptions.provider, payment_subscriptions.provider_sub_id, payment_subscriptions.provider_plan_id, payment_subscriptions.status, payment_subscriptions.current_period_end, payment_subscriptions.cancel_at_period_end, payment_subscriptions.default_method_id, payment_subscriptions.coupon_code, payment_subscriptions.created_at, payment_subscriptions.updated_at FROM payment_subscriptions WHERE payment_subscriptions.id = ?")
+
+	var __values []any
+	__values = append(__values, payment_subscriptions_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_subscriptions = &PaymentSubscriptions{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_subscriptions.Id, &payment_subscriptions.UserId, &payment_subscriptions.PlanId, &payment_subscriptions.Provider, &payment_subscriptions.ProviderSubId, &payment_subscriptions.ProviderPlanId, &payment_subscriptions.Status, &payment_subscriptions.CurrentPeriodEnd, &payment_subscriptions.CancelAtPeriodEnd, &payment_subscriptions.DefaultMethodId, &payment_subscriptions.CouponCode, &payment_subscriptions.CreatedAt, &payment_subscriptions.UpdatedAt)
+	if err != nil {
+		return (*PaymentSubscriptions)(nil), obj.makeErr(err)
+	}
+	return payment_subscriptions, nil
+
+}
+
+func (obj *pgxImpl) Get_PaymentSubscriptions_By_Provider_And_ProviderSubId(ctx context.Context,
+	payment_subscriptions_provider PaymentSubscriptions_Provider_Field,
+	payment_subscriptions_provider_sub_id PaymentSubscriptions_ProviderSubId_Field) (
+	payment_subscriptions *PaymentSubscriptions, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_subscriptions.id, payment_subscriptions.user_id, payment_subscriptions.plan_id, payment_subscriptions.provider, payment_subscriptions.provider_sub_id, payment_subscriptions.provider_plan_id, payment_subscriptions.status, payment_subscriptions.current_period_end, payment_subscriptions.cancel_at_period_end, payment_subscriptions.default_method_id, payment_subscriptions.coupon_code, payment_subscriptions.created_at, payment_subscriptions.updated_at FROM payment_subscriptions WHERE payment_subscriptions.provider = ? AND payment_subscriptions.provider_sub_id = ?")
+
+	var __values []any
+	__values = append(__values, payment_subscriptions_provider.value(), payment_subscriptions_provider_sub_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_subscriptions = &PaymentSubscriptions{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_subscriptions.Id, &payment_subscriptions.UserId, &payment_subscriptions.PlanId, &payment_subscriptions.Provider, &payment_subscriptions.ProviderSubId, &payment_subscriptions.ProviderPlanId, &payment_subscriptions.Status, &payment_subscriptions.CurrentPeriodEnd, &payment_subscriptions.CancelAtPeriodEnd, &payment_subscriptions.DefaultMethodId, &payment_subscriptions.CouponCode, &payment_subscriptions.CreatedAt, &payment_subscriptions.UpdatedAt)
+	if err != nil {
+		return (*PaymentSubscriptions)(nil), obj.makeErr(err)
+	}
+	return payment_subscriptions, nil
+
+}
+
+func (obj *pgxImpl) All_PaymentSubscriptions_By_UserId_And_Provider(ctx context.Context,
+	payment_subscriptions_user_id PaymentSubscriptions_UserId_Field,
+	payment_subscriptions_provider PaymentSubscriptions_Provider_Field) (
+	rows []*PaymentSubscriptions, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_subscriptions.id, payment_subscriptions.user_id, payment_subscriptions.plan_id, payment_subscriptions.provider, payment_subscriptions.provider_sub_id, payment_subscriptions.provider_plan_id, payment_subscriptions.status, payment_subscriptions.current_period_end, payment_subscriptions.cancel_at_period_end, payment_subscriptions.default_method_id, payment_subscriptions.coupon_code, payment_subscriptions.created_at, payment_subscriptions.updated_at FROM payment_subscriptions WHERE payment_subscriptions.user_id = ? AND payment_subscriptions.provider = ?")
+
+	var __values []any
+	__values = append(__values, payment_subscriptions_user_id.value(), payment_subscriptions_provider.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*PaymentSubscriptions, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				payment_subscriptions := &PaymentSubscriptions{}
+				err = __rows.Scan(&payment_subscriptions.Id, &payment_subscriptions.UserId, &payment_subscriptions.PlanId, &payment_subscriptions.Provider, &payment_subscriptions.ProviderSubId, &payment_subscriptions.ProviderPlanId, &payment_subscriptions.Status, &payment_subscriptions.CurrentPeriodEnd, &payment_subscriptions.CancelAtPeriodEnd, &payment_subscriptions.DefaultMethodId, &payment_subscriptions.CouponCode, &payment_subscriptions.CreatedAt, &payment_subscriptions.UpdatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, payment_subscriptions)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) Get_PaymentEvents_Id_By_Provider_And_ProviderEventId(ctx context.Context,
+	payment_events_provider PaymentEvents_Provider_Field,
+	payment_events_provider_event_id PaymentEvents_ProviderEventId_Field) (
+	row *Id_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_events.id FROM payment_events WHERE payment_events.provider = ? AND payment_events.provider_event_id = ?")
+
+	var __values []any
+	__values = append(__values, payment_events_provider.value(), payment_events_provider_event_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &Id_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.Id)
+	if err != nil {
+		return (*Id_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
 
 }
 
@@ -37031,7 +38979,7 @@ func (obj *pgxImpl) Update_PaymentPlans_By_Id(ctx context.Context,
 
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE payment_plans SET "), __sets, __sqlbundle_Literal(" WHERE payment_plans.id = ? RETURNING payment_plans.id, payment_plans.name, payment_plans.storage, payment_plans.price, payment_plans.benefit, payment_plans.bandwidth, payment_plans.validity, payment_plans.validity_unit, payment_plans.group")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE payment_plans SET "), __sets, __sqlbundle_Literal(" WHERE payment_plans.id = ? RETURNING payment_plans.id, payment_plans.name, payment_plans.storage, payment_plans.price, payment_plans.benefit, payment_plans.bandwidth, payment_plans.validity, payment_plans.validity_unit, payment_plans.group, payment_plans.provider_plan_ids")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []any
@@ -37077,6 +39025,11 @@ func (obj *pgxImpl) Update_PaymentPlans_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("group = ?"))
 	}
 
+	if update.ProviderPlanIds._set {
+		__values = append(__values, update.ProviderPlanIds.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("provider_plan_ids = ?"))
+	}
+
 	if len(__sets_sql.SQLs) == 0 {
 		return nil, emptyUpdate()
 	}
@@ -37090,7 +39043,7 @@ func (obj *pgxImpl) Update_PaymentPlans_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	payment_plans = &PaymentPlans{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_plans.Id, &payment_plans.Name, &payment_plans.Storage, &payment_plans.Price, &payment_plans.Benefit, &payment_plans.Bandwidth, &payment_plans.Validity, &payment_plans.ValidityUnit, &payment_plans.Group)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_plans.Id, &payment_plans.Name, &payment_plans.Storage, &payment_plans.Price, &payment_plans.Benefit, &payment_plans.Bandwidth, &payment_plans.Validity, &payment_plans.ValidityUnit, &payment_plans.Group, &payment_plans.ProviderPlanIds)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -39328,6 +41281,168 @@ func (obj *pgxImpl) Update_BackupCredentials_By_Id(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return backup_credentials, nil
+}
+
+func (obj *pgxImpl) Update_PaymentMethods_By_Id(ctx context.Context,
+	payment_methods_id PaymentMethods_Id_Field,
+	update PaymentMethods_Update_Fields) (
+	payment_methods *PaymentMethods, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE payment_methods SET "), __sets, __sqlbundle_Literal(" WHERE payment_methods.id = ? RETURNING payment_methods.id, payment_methods.user_id, payment_methods.provider, payment_methods.provider_method_id, payment_methods.brand, payment_methods.last4, payment_methods.exp_month, payment_methods.exp_year, payment_methods.is_default, payment_methods.created_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.IsDefault._set {
+		__values = append(__values, update.IsDefault.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("is_default = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, payment_methods_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_methods = &PaymentMethods{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_methods.Id, &payment_methods.UserId, &payment_methods.Provider, &payment_methods.ProviderMethodId, &payment_methods.Brand, &payment_methods.Last4, &payment_methods.ExpMonth, &payment_methods.ExpYear, &payment_methods.IsDefault, &payment_methods.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return payment_methods, nil
+}
+
+func (obj *pgxImpl) Update_PaymentAttempts_By_Id(ctx context.Context,
+	payment_attempts_id PaymentAttempts_Id_Field,
+	update PaymentAttempts_Update_Fields) (
+	payment_attempts *PaymentAttempts, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE payment_attempts SET "), __sets, __sqlbundle_Literal(" WHERE payment_attempts.id = ? RETURNING payment_attempts.id, payment_attempts.user_id, payment_attempts.plan_id, payment_attempts.provider, payment_attempts.provider_ref, payment_attempts.amount_minor, payment_attempts.currency, payment_attempts.status, payment_attempts.coupon_code, payment_attempts.metadata, payment_attempts.created_at, payment_attempts.updated_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.ProviderRef._set {
+		__values = append(__values, update.ProviderRef.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("provider_ref = ?"))
+	}
+
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+
+	if update.Metadata._set {
+		__values = append(__values, update.Metadata.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("metadata = ?"))
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+
+	__args = append(__args, payment_attempts_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_attempts = &PaymentAttempts{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_attempts.Id, &payment_attempts.UserId, &payment_attempts.PlanId, &payment_attempts.Provider, &payment_attempts.ProviderRef, &payment_attempts.AmountMinor, &payment_attempts.Currency, &payment_attempts.Status, &payment_attempts.CouponCode, &payment_attempts.Metadata, &payment_attempts.CreatedAt, &payment_attempts.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return payment_attempts, nil
+}
+
+func (obj *pgxImpl) Update_PaymentSubscriptions_By_Id(ctx context.Context,
+	payment_subscriptions_id PaymentSubscriptions_Id_Field,
+	update PaymentSubscriptions_Update_Fields) (
+	payment_subscriptions *PaymentSubscriptions, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE payment_subscriptions SET "), __sets, __sqlbundle_Literal(" WHERE payment_subscriptions.id = ? RETURNING payment_subscriptions.id, payment_subscriptions.user_id, payment_subscriptions.plan_id, payment_subscriptions.provider, payment_subscriptions.provider_sub_id, payment_subscriptions.provider_plan_id, payment_subscriptions.status, payment_subscriptions.current_period_end, payment_subscriptions.cancel_at_period_end, payment_subscriptions.default_method_id, payment_subscriptions.coupon_code, payment_subscriptions.created_at, payment_subscriptions.updated_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+
+	if update.CurrentPeriodEnd._set {
+		__values = append(__values, update.CurrentPeriodEnd.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("current_period_end = ?"))
+	}
+
+	if update.CancelAtPeriodEnd._set {
+		__values = append(__values, update.CancelAtPeriodEnd.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("cancel_at_period_end = ?"))
+	}
+
+	if update.DefaultMethodId._set {
+		__values = append(__values, update.DefaultMethodId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_method_id = ?"))
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+
+	__args = append(__args, payment_subscriptions_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_subscriptions = &PaymentSubscriptions{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_subscriptions.Id, &payment_subscriptions.UserId, &payment_subscriptions.PlanId, &payment_subscriptions.Provider, &payment_subscriptions.ProviderSubId, &payment_subscriptions.ProviderPlanId, &payment_subscriptions.Status, &payment_subscriptions.CurrentPeriodEnd, &payment_subscriptions.CancelAtPeriodEnd, &payment_subscriptions.DefaultMethodId, &payment_subscriptions.CouponCode, &payment_subscriptions.CreatedAt, &payment_subscriptions.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return payment_subscriptions, nil
 }
 
 func (obj *pgxImpl) Update_Project_By_Id(ctx context.Context,
@@ -42422,6 +44537,67 @@ func (obj *pgxImpl) Delete_OauthClient_By_Id(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) Delete_PaymentCustomers_By_UserId_And_Provider(ctx context.Context,
+	payment_customers_user_id PaymentCustomers_UserId_Field,
+	payment_customers_provider PaymentCustomers_Provider_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM payment_customers WHERE payment_customers.user_id = ? AND payment_customers.provider = ?")
+
+	var __values []any
+	__values = append(__values, payment_customers_user_id.value(), payment_customers_provider.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *pgxImpl) Delete_PaymentMethods_By_Id(ctx context.Context,
+	payment_methods_id PaymentMethods_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM payment_methods WHERE payment_methods.id = ?")
+
+	var __values []any
+	__values = append(__values, payment_methods_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *pgxImpl) Delete_Project_By_Id(ctx context.Context,
 	project_id Project_Id_Field) (
 	deleted bool, err error) {
@@ -43981,7 +46157,57 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM payment_subscriptions;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM payment_plans;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM payment_methods;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM payment_events;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM payment_customers;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM payment_attempts;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -44647,7 +46873,8 @@ func (obj *pgxcockroachImpl) Create_PaymentPlans(ctx context.Context,
 	payment_plans_bandwidth PaymentPlans_Bandwidth_Field,
 	payment_plans_validity PaymentPlans_Validity_Field,
 	payment_plans_validity_unit PaymentPlans_ValidityUnit_Field,
-	payment_plans_group PaymentPlans_Group_Field) (
+	payment_plans_group PaymentPlans_Group_Field,
+	optional PaymentPlans_Create_Fields) (
 	payment_plans *PaymentPlans, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !obj.txn && txutil.IsInsideTx(ctx) {
@@ -44661,17 +46888,18 @@ func (obj *pgxcockroachImpl) Create_PaymentPlans(ctx context.Context,
 	__validity_val := payment_plans_validity.value()
 	__validity_unit_val := payment_plans_validity_unit.value()
 	__group_val := payment_plans_group.value()
+	__provider_plan_ids_val := optional.ProviderPlanIds.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO payment_plans ( name, storage, price, benefit, bandwidth, validity, validity_unit, group ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING payment_plans.id, payment_plans.name, payment_plans.storage, payment_plans.price, payment_plans.benefit, payment_plans.bandwidth, payment_plans.validity, payment_plans.validity_unit, payment_plans.group")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO payment_plans ( name, storage, price, benefit, bandwidth, validity, validity_unit, group, provider_plan_ids ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING payment_plans.id, payment_plans.name, payment_plans.storage, payment_plans.price, payment_plans.benefit, payment_plans.bandwidth, payment_plans.validity, payment_plans.validity_unit, payment_plans.group, payment_plans.provider_plan_ids")
 
 	var __values []any
-	__values = append(__values, __name_val, __storage_val, __price_val, __benefit_val, __bandwidth_val, __validity_val, __validity_unit_val, __group_val)
+	__values = append(__values, __name_val, __storage_val, __price_val, __benefit_val, __bandwidth_val, __validity_val, __validity_unit_val, __group_val, __provider_plan_ids_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	payment_plans = &PaymentPlans{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_plans.Id, &payment_plans.Name, &payment_plans.Storage, &payment_plans.Price, &payment_plans.Benefit, &payment_plans.Bandwidth, &payment_plans.Validity, &payment_plans.ValidityUnit, &payment_plans.Group)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_plans.Id, &payment_plans.Name, &payment_plans.Storage, &payment_plans.Price, &payment_plans.Benefit, &payment_plans.Bandwidth, &payment_plans.Validity, &payment_plans.ValidityUnit, &payment_plans.Group, &payment_plans.ProviderPlanIds)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -46221,6 +48449,219 @@ func (obj *pgxcockroachImpl) Create_BackupCredentials(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return backup_credentials, nil
+
+}
+
+func (obj *pgxcockroachImpl) Create_PaymentCustomers(ctx context.Context,
+	payment_customers_user_id PaymentCustomers_UserId_Field,
+	payment_customers_provider PaymentCustomers_Provider_Field,
+	payment_customers_provider_customer_id PaymentCustomers_ProviderCustomerId_Field) (
+	payment_customers *PaymentCustomers, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__user_id_val := payment_customers_user_id.value()
+	__provider_val := payment_customers_provider.value()
+	__provider_customer_id_val := payment_customers_provider_customer_id.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO payment_customers ( user_id, provider, provider_customer_id, created_at ) VALUES ( ?, ?, ?, ? ) RETURNING payment_customers.user_id, payment_customers.provider, payment_customers.provider_customer_id, payment_customers.created_at")
+
+	var __values []any
+	__values = append(__values, __user_id_val, __provider_val, __provider_customer_id_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_customers = &PaymentCustomers{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_customers.UserId, &payment_customers.Provider, &payment_customers.ProviderCustomerId, &payment_customers.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return payment_customers, nil
+
+}
+
+func (obj *pgxcockroachImpl) Create_PaymentMethods(ctx context.Context,
+	payment_methods_id PaymentMethods_Id_Field,
+	payment_methods_user_id PaymentMethods_UserId_Field,
+	payment_methods_provider PaymentMethods_Provider_Field,
+	payment_methods_provider_method_id PaymentMethods_ProviderMethodId_Field,
+	payment_methods_brand PaymentMethods_Brand_Field,
+	payment_methods_last4 PaymentMethods_Last4_Field,
+	payment_methods_exp_month PaymentMethods_ExpMonth_Field,
+	payment_methods_exp_year PaymentMethods_ExpYear_Field,
+	payment_methods_is_default PaymentMethods_IsDefault_Field) (
+	payment_methods *PaymentMethods, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := payment_methods_id.value()
+	__user_id_val := payment_methods_user_id.value()
+	__provider_val := payment_methods_provider.value()
+	__provider_method_id_val := payment_methods_provider_method_id.value()
+	__brand_val := payment_methods_brand.value()
+	__last4_val := payment_methods_last4.value()
+	__exp_month_val := payment_methods_exp_month.value()
+	__exp_year_val := payment_methods_exp_year.value()
+	__is_default_val := payment_methods_is_default.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO payment_methods ( id, user_id, provider, provider_method_id, brand, last4, exp_month, exp_year, is_default, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING payment_methods.id, payment_methods.user_id, payment_methods.provider, payment_methods.provider_method_id, payment_methods.brand, payment_methods.last4, payment_methods.exp_month, payment_methods.exp_year, payment_methods.is_default, payment_methods.created_at")
+
+	var __values []any
+	__values = append(__values, __id_val, __user_id_val, __provider_val, __provider_method_id_val, __brand_val, __last4_val, __exp_month_val, __exp_year_val, __is_default_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_methods = &PaymentMethods{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_methods.Id, &payment_methods.UserId, &payment_methods.Provider, &payment_methods.ProviderMethodId, &payment_methods.Brand, &payment_methods.Last4, &payment_methods.ExpMonth, &payment_methods.ExpYear, &payment_methods.IsDefault, &payment_methods.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return payment_methods, nil
+
+}
+
+func (obj *pgxcockroachImpl) Create_PaymentAttempts(ctx context.Context,
+	payment_attempts_id PaymentAttempts_Id_Field,
+	payment_attempts_user_id PaymentAttempts_UserId_Field,
+	payment_attempts_plan_id PaymentAttempts_PlanId_Field,
+	payment_attempts_provider PaymentAttempts_Provider_Field,
+	payment_attempts_provider_ref PaymentAttempts_ProviderRef_Field,
+	payment_attempts_amount_minor PaymentAttempts_AmountMinor_Field,
+	payment_attempts_currency PaymentAttempts_Currency_Field,
+	payment_attempts_status PaymentAttempts_Status_Field,
+	optional PaymentAttempts_Create_Fields) (
+	payment_attempts *PaymentAttempts, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := payment_attempts_id.value()
+	__user_id_val := payment_attempts_user_id.value()
+	__plan_id_val := payment_attempts_plan_id.value()
+	__provider_val := payment_attempts_provider.value()
+	__provider_ref_val := payment_attempts_provider_ref.value()
+	__amount_minor_val := payment_attempts_amount_minor.value()
+	__currency_val := payment_attempts_currency.value()
+	__status_val := payment_attempts_status.value()
+	__coupon_code_val := optional.CouponCode.value()
+	__metadata_val := optional.Metadata.value()
+	__created_at_val := __now
+	__updated_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO payment_attempts ( id, user_id, plan_id, provider, provider_ref, amount_minor, currency, status, coupon_code, metadata, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING payment_attempts.id, payment_attempts.user_id, payment_attempts.plan_id, payment_attempts.provider, payment_attempts.provider_ref, payment_attempts.amount_minor, payment_attempts.currency, payment_attempts.status, payment_attempts.coupon_code, payment_attempts.metadata, payment_attempts.created_at, payment_attempts.updated_at")
+
+	var __values []any
+	__values = append(__values, __id_val, __user_id_val, __plan_id_val, __provider_val, __provider_ref_val, __amount_minor_val, __currency_val, __status_val, __coupon_code_val, __metadata_val, __created_at_val, __updated_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_attempts = &PaymentAttempts{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_attempts.Id, &payment_attempts.UserId, &payment_attempts.PlanId, &payment_attempts.Provider, &payment_attempts.ProviderRef, &payment_attempts.AmountMinor, &payment_attempts.Currency, &payment_attempts.Status, &payment_attempts.CouponCode, &payment_attempts.Metadata, &payment_attempts.CreatedAt, &payment_attempts.UpdatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return payment_attempts, nil
+
+}
+
+func (obj *pgxcockroachImpl) Create_PaymentSubscriptions(ctx context.Context,
+	payment_subscriptions_id PaymentSubscriptions_Id_Field,
+	payment_subscriptions_user_id PaymentSubscriptions_UserId_Field,
+	payment_subscriptions_plan_id PaymentSubscriptions_PlanId_Field,
+	payment_subscriptions_provider PaymentSubscriptions_Provider_Field,
+	payment_subscriptions_provider_sub_id PaymentSubscriptions_ProviderSubId_Field,
+	payment_subscriptions_provider_plan_id PaymentSubscriptions_ProviderPlanId_Field,
+	payment_subscriptions_status PaymentSubscriptions_Status_Field,
+	payment_subscriptions_cancel_at_period_end PaymentSubscriptions_CancelAtPeriodEnd_Field,
+	optional PaymentSubscriptions_Create_Fields) (
+	payment_subscriptions *PaymentSubscriptions, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := payment_subscriptions_id.value()
+	__user_id_val := payment_subscriptions_user_id.value()
+	__plan_id_val := payment_subscriptions_plan_id.value()
+	__provider_val := payment_subscriptions_provider.value()
+	__provider_sub_id_val := payment_subscriptions_provider_sub_id.value()
+	__provider_plan_id_val := payment_subscriptions_provider_plan_id.value()
+	__status_val := payment_subscriptions_status.value()
+	__current_period_end_val := optional.CurrentPeriodEnd.value()
+	__cancel_at_period_end_val := payment_subscriptions_cancel_at_period_end.value()
+	__default_method_id_val := optional.DefaultMethodId.value()
+	__coupon_code_val := optional.CouponCode.value()
+	__created_at_val := __now
+	__updated_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO payment_subscriptions ( id, user_id, plan_id, provider, provider_sub_id, provider_plan_id, status, current_period_end, cancel_at_period_end, default_method_id, coupon_code, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING payment_subscriptions.id, payment_subscriptions.user_id, payment_subscriptions.plan_id, payment_subscriptions.provider, payment_subscriptions.provider_sub_id, payment_subscriptions.provider_plan_id, payment_subscriptions.status, payment_subscriptions.current_period_end, payment_subscriptions.cancel_at_period_end, payment_subscriptions.default_method_id, payment_subscriptions.coupon_code, payment_subscriptions.created_at, payment_subscriptions.updated_at")
+
+	var __values []any
+	__values = append(__values, __id_val, __user_id_val, __plan_id_val, __provider_val, __provider_sub_id_val, __provider_plan_id_val, __status_val, __current_period_end_val, __cancel_at_period_end_val, __default_method_id_val, __coupon_code_val, __created_at_val, __updated_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_subscriptions = &PaymentSubscriptions{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_subscriptions.Id, &payment_subscriptions.UserId, &payment_subscriptions.PlanId, &payment_subscriptions.Provider, &payment_subscriptions.ProviderSubId, &payment_subscriptions.ProviderPlanId, &payment_subscriptions.Status, &payment_subscriptions.CurrentPeriodEnd, &payment_subscriptions.CancelAtPeriodEnd, &payment_subscriptions.DefaultMethodId, &payment_subscriptions.CouponCode, &payment_subscriptions.CreatedAt, &payment_subscriptions.UpdatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return payment_subscriptions, nil
+
+}
+
+func (obj *pgxcockroachImpl) Create_PaymentEvents(ctx context.Context,
+	payment_events_id PaymentEvents_Id_Field,
+	payment_events_provider PaymentEvents_Provider_Field,
+	payment_events_provider_event_id PaymentEvents_ProviderEventId_Field,
+	payment_events_event_type PaymentEvents_EventType_Field,
+	payment_events_payload PaymentEvents_Payload_Field,
+	optional PaymentEvents_Create_Fields) (
+	payment_events *PaymentEvents, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := payment_events_id.value()
+	__provider_val := payment_events_provider.value()
+	__provider_event_id_val := payment_events_provider_event_id.value()
+	__event_type_val := payment_events_event_type.value()
+	__payload_val := payment_events_payload.value()
+	__attempt_id_val := optional.AttemptId.value()
+	__subscription_id_val := optional.SubscriptionId.value()
+	__received_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO payment_events ( id, provider, provider_event_id, event_type, payload, attempt_id, subscription_id, received_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING payment_events.id, payment_events.provider, payment_events.provider_event_id, payment_events.event_type, payment_events.payload, payment_events.attempt_id, payment_events.subscription_id, payment_events.received_at")
+
+	var __values []any
+	__values = append(__values, __id_val, __provider_val, __provider_event_id_val, __event_type_val, __payload_val, __attempt_id_val, __subscription_id_val, __received_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_events = &PaymentEvents{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_events.Id, &payment_events.Provider, &payment_events.ProviderEventId, &payment_events.EventType, &payment_events.Payload, &payment_events.AttemptId, &payment_events.SubscriptionId, &payment_events.ReceivedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return payment_events, nil
 
 }
 
@@ -48901,7 +51342,7 @@ func (obj *pgxcockroachImpl) Get_PaymentPlans_By_Id(ctx context.Context,
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT payment_plans.id, payment_plans.name, payment_plans.storage, payment_plans.price, payment_plans.benefit, payment_plans.bandwidth, payment_plans.validity, payment_plans.validity_unit, payment_plans.group FROM payment_plans WHERE payment_plans.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_plans.id, payment_plans.name, payment_plans.storage, payment_plans.price, payment_plans.benefit, payment_plans.bandwidth, payment_plans.validity, payment_plans.validity_unit, payment_plans.group, payment_plans.provider_plan_ids FROM payment_plans WHERE payment_plans.id = ?")
 
 	var __values []any
 	__values = append(__values, payment_plans_id.value())
@@ -48910,7 +51351,7 @@ func (obj *pgxcockroachImpl) Get_PaymentPlans_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	payment_plans = &PaymentPlans{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_plans.Id, &payment_plans.Name, &payment_plans.Storage, &payment_plans.Price, &payment_plans.Benefit, &payment_plans.Bandwidth, &payment_plans.Validity, &payment_plans.ValidityUnit, &payment_plans.Group)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_plans.Id, &payment_plans.Name, &payment_plans.Storage, &payment_plans.Price, &payment_plans.Benefit, &payment_plans.Bandwidth, &payment_plans.Validity, &payment_plans.ValidityUnit, &payment_plans.Group, &payment_plans.ProviderPlanIds)
 	if err != nil {
 		return (*PaymentPlans)(nil), obj.makeErr(err)
 	}
@@ -48925,7 +51366,7 @@ func (obj *pgxcockroachImpl) All_PaymentPlans(ctx context.Context) (
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT payment_plans.id, payment_plans.name, payment_plans.storage, payment_plans.price, payment_plans.benefit, payment_plans.bandwidth, payment_plans.validity, payment_plans.validity_unit, payment_plans.group FROM payment_plans")
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_plans.id, payment_plans.name, payment_plans.storage, payment_plans.price, payment_plans.benefit, payment_plans.bandwidth, payment_plans.validity, payment_plans.validity_unit, payment_plans.group, payment_plans.provider_plan_ids FROM payment_plans")
 
 	var __values []any
 
@@ -48942,7 +51383,7 @@ func (obj *pgxcockroachImpl) All_PaymentPlans(ctx context.Context) (
 
 			for __rows.Next() {
 				payment_plans := &PaymentPlans{}
-				err = __rows.Scan(&payment_plans.Id, &payment_plans.Name, &payment_plans.Storage, &payment_plans.Price, &payment_plans.Benefit, &payment_plans.Bandwidth, &payment_plans.Validity, &payment_plans.ValidityUnit, &payment_plans.Group)
+				err = __rows.Scan(&payment_plans.Id, &payment_plans.Name, &payment_plans.Storage, &payment_plans.Price, &payment_plans.Benefit, &payment_plans.Bandwidth, &payment_plans.Validity, &payment_plans.ValidityUnit, &payment_plans.Group, &payment_plans.ProviderPlanIds)
 				if err != nil {
 					return nil, err
 				}
@@ -48969,7 +51410,7 @@ func (obj *pgxcockroachImpl) All_PaymentPlans_By_Group(ctx context.Context,
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT payment_plans.id, payment_plans.name, payment_plans.storage, payment_plans.price, payment_plans.benefit, payment_plans.bandwidth, payment_plans.validity, payment_plans.validity_unit, payment_plans.group FROM payment_plans WHERE payment_plans.group = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_plans.id, payment_plans.name, payment_plans.storage, payment_plans.price, payment_plans.benefit, payment_plans.bandwidth, payment_plans.validity, payment_plans.validity_unit, payment_plans.group, payment_plans.provider_plan_ids FROM payment_plans WHERE payment_plans.group = ?")
 
 	var __values []any
 	__values = append(__values, payment_plans_group.value())
@@ -48987,7 +51428,7 @@ func (obj *pgxcockroachImpl) All_PaymentPlans_By_Group(ctx context.Context,
 
 			for __rows.Next() {
 				payment_plans := &PaymentPlans{}
-				err = __rows.Scan(&payment_plans.Id, &payment_plans.Name, &payment_plans.Storage, &payment_plans.Price, &payment_plans.Benefit, &payment_plans.Bandwidth, &payment_plans.Validity, &payment_plans.ValidityUnit, &payment_plans.Group)
+				err = __rows.Scan(&payment_plans.Id, &payment_plans.Name, &payment_plans.Storage, &payment_plans.Price, &payment_plans.Benefit, &payment_plans.Bandwidth, &payment_plans.Validity, &payment_plans.ValidityUnit, &payment_plans.Group, &payment_plans.ProviderPlanIds)
 				if err != nil {
 					return nil, err
 				}
@@ -52238,6 +54679,385 @@ func (obj *pgxcockroachImpl) All_BackupCredentials_By_UserId_And_Provider(ctx co
 		}
 		return rows, nil
 	}
+
+}
+
+func (obj *pgxcockroachImpl) Get_PaymentCustomers_By_UserId_And_Provider(ctx context.Context,
+	payment_customers_user_id PaymentCustomers_UserId_Field,
+	payment_customers_provider PaymentCustomers_Provider_Field) (
+	payment_customers *PaymentCustomers, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_customers.user_id, payment_customers.provider, payment_customers.provider_customer_id, payment_customers.created_at FROM payment_customers WHERE payment_customers.user_id = ? AND payment_customers.provider = ?")
+
+	var __values []any
+	__values = append(__values, payment_customers_user_id.value(), payment_customers_provider.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_customers = &PaymentCustomers{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_customers.UserId, &payment_customers.Provider, &payment_customers.ProviderCustomerId, &payment_customers.CreatedAt)
+	if err != nil {
+		return (*PaymentCustomers)(nil), obj.makeErr(err)
+	}
+	return payment_customers, nil
+
+}
+
+func (obj *pgxcockroachImpl) Get_PaymentCustomers_By_Provider_And_ProviderCustomerId(ctx context.Context,
+	payment_customers_provider PaymentCustomers_Provider_Field,
+	payment_customers_provider_customer_id PaymentCustomers_ProviderCustomerId_Field) (
+	payment_customers *PaymentCustomers, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_customers.user_id, payment_customers.provider, payment_customers.provider_customer_id, payment_customers.created_at FROM payment_customers WHERE payment_customers.provider = ? AND payment_customers.provider_customer_id = ?")
+
+	var __values []any
+	__values = append(__values, payment_customers_provider.value(), payment_customers_provider_customer_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_customers = &PaymentCustomers{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_customers.UserId, &payment_customers.Provider, &payment_customers.ProviderCustomerId, &payment_customers.CreatedAt)
+	if err != nil {
+		return (*PaymentCustomers)(nil), obj.makeErr(err)
+	}
+	return payment_customers, nil
+
+}
+
+func (obj *pgxcockroachImpl) Get_PaymentMethods_By_Id(ctx context.Context,
+	payment_methods_id PaymentMethods_Id_Field) (
+	payment_methods *PaymentMethods, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_methods.id, payment_methods.user_id, payment_methods.provider, payment_methods.provider_method_id, payment_methods.brand, payment_methods.last4, payment_methods.exp_month, payment_methods.exp_year, payment_methods.is_default, payment_methods.created_at FROM payment_methods WHERE payment_methods.id = ?")
+
+	var __values []any
+	__values = append(__values, payment_methods_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_methods = &PaymentMethods{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_methods.Id, &payment_methods.UserId, &payment_methods.Provider, &payment_methods.ProviderMethodId, &payment_methods.Brand, &payment_methods.Last4, &payment_methods.ExpMonth, &payment_methods.ExpYear, &payment_methods.IsDefault, &payment_methods.CreatedAt)
+	if err != nil {
+		return (*PaymentMethods)(nil), obj.makeErr(err)
+	}
+	return payment_methods, nil
+
+}
+
+func (obj *pgxcockroachImpl) Get_PaymentMethods_By_Provider_And_ProviderMethodId(ctx context.Context,
+	payment_methods_provider PaymentMethods_Provider_Field,
+	payment_methods_provider_method_id PaymentMethods_ProviderMethodId_Field) (
+	payment_methods *PaymentMethods, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_methods.id, payment_methods.user_id, payment_methods.provider, payment_methods.provider_method_id, payment_methods.brand, payment_methods.last4, payment_methods.exp_month, payment_methods.exp_year, payment_methods.is_default, payment_methods.created_at FROM payment_methods WHERE payment_methods.provider = ? AND payment_methods.provider_method_id = ?")
+
+	var __values []any
+	__values = append(__values, payment_methods_provider.value(), payment_methods_provider_method_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_methods = &PaymentMethods{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_methods.Id, &payment_methods.UserId, &payment_methods.Provider, &payment_methods.ProviderMethodId, &payment_methods.Brand, &payment_methods.Last4, &payment_methods.ExpMonth, &payment_methods.ExpYear, &payment_methods.IsDefault, &payment_methods.CreatedAt)
+	if err != nil {
+		return (*PaymentMethods)(nil), obj.makeErr(err)
+	}
+	return payment_methods, nil
+
+}
+
+func (obj *pgxcockroachImpl) All_PaymentMethods_By_UserId_And_Provider(ctx context.Context,
+	payment_methods_user_id PaymentMethods_UserId_Field,
+	payment_methods_provider PaymentMethods_Provider_Field) (
+	rows []*PaymentMethods, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_methods.id, payment_methods.user_id, payment_methods.provider, payment_methods.provider_method_id, payment_methods.brand, payment_methods.last4, payment_methods.exp_month, payment_methods.exp_year, payment_methods.is_default, payment_methods.created_at FROM payment_methods WHERE payment_methods.user_id = ? AND payment_methods.provider = ?")
+
+	var __values []any
+	__values = append(__values, payment_methods_user_id.value(), payment_methods_provider.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*PaymentMethods, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				payment_methods := &PaymentMethods{}
+				err = __rows.Scan(&payment_methods.Id, &payment_methods.UserId, &payment_methods.Provider, &payment_methods.ProviderMethodId, &payment_methods.Brand, &payment_methods.Last4, &payment_methods.ExpMonth, &payment_methods.ExpYear, &payment_methods.IsDefault, &payment_methods.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, payment_methods)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) Get_PaymentMethods_By_UserId_And_Provider_And_IsDefault(ctx context.Context,
+	payment_methods_user_id PaymentMethods_UserId_Field,
+	payment_methods_provider PaymentMethods_Provider_Field,
+	payment_methods_is_default PaymentMethods_IsDefault_Field) (
+	payment_methods *PaymentMethods, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_methods.id, payment_methods.user_id, payment_methods.provider, payment_methods.provider_method_id, payment_methods.brand, payment_methods.last4, payment_methods.exp_month, payment_methods.exp_year, payment_methods.is_default, payment_methods.created_at FROM payment_methods WHERE payment_methods.user_id = ? AND payment_methods.provider = ? AND payment_methods.is_default = ? LIMIT 2")
+
+	var __values []any
+	__values = append(__values, payment_methods_user_id.value(), payment_methods_provider.value(), payment_methods_is_default.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		payment_methods, err = func() (payment_methods *PaymentMethods, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			if !__rows.Next() {
+				return nil, sql.ErrNoRows
+			}
+
+			payment_methods = &PaymentMethods{}
+			err = __rows.Scan(&payment_methods.Id, &payment_methods.UserId, &payment_methods.Provider, &payment_methods.ProviderMethodId, &payment_methods.Brand, &payment_methods.Last4, &payment_methods.ExpMonth, &payment_methods.ExpYear, &payment_methods.IsDefault, &payment_methods.CreatedAt)
+			if err != nil {
+				return nil, err
+			}
+
+			if __rows.Next() {
+				return nil, errTooManyRows
+			}
+
+			return payment_methods, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			if errors.Is(err, errTooManyRows) {
+				return nil, tooManyRows("PaymentMethods_By_UserId_And_Provider_And_IsDefault")
+			}
+			return nil, obj.makeErr(err)
+		}
+		return payment_methods, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) Get_PaymentAttempts_By_Id(ctx context.Context,
+	payment_attempts_id PaymentAttempts_Id_Field) (
+	payment_attempts *PaymentAttempts, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_attempts.id, payment_attempts.user_id, payment_attempts.plan_id, payment_attempts.provider, payment_attempts.provider_ref, payment_attempts.amount_minor, payment_attempts.currency, payment_attempts.status, payment_attempts.coupon_code, payment_attempts.metadata, payment_attempts.created_at, payment_attempts.updated_at FROM payment_attempts WHERE payment_attempts.id = ?")
+
+	var __values []any
+	__values = append(__values, payment_attempts_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_attempts = &PaymentAttempts{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_attempts.Id, &payment_attempts.UserId, &payment_attempts.PlanId, &payment_attempts.Provider, &payment_attempts.ProviderRef, &payment_attempts.AmountMinor, &payment_attempts.Currency, &payment_attempts.Status, &payment_attempts.CouponCode, &payment_attempts.Metadata, &payment_attempts.CreatedAt, &payment_attempts.UpdatedAt)
+	if err != nil {
+		return (*PaymentAttempts)(nil), obj.makeErr(err)
+	}
+	return payment_attempts, nil
+
+}
+
+func (obj *pgxcockroachImpl) Get_PaymentAttempts_By_Provider_And_ProviderRef(ctx context.Context,
+	payment_attempts_provider PaymentAttempts_Provider_Field,
+	payment_attempts_provider_ref PaymentAttempts_ProviderRef_Field) (
+	payment_attempts *PaymentAttempts, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_attempts.id, payment_attempts.user_id, payment_attempts.plan_id, payment_attempts.provider, payment_attempts.provider_ref, payment_attempts.amount_minor, payment_attempts.currency, payment_attempts.status, payment_attempts.coupon_code, payment_attempts.metadata, payment_attempts.created_at, payment_attempts.updated_at FROM payment_attempts WHERE payment_attempts.provider = ? AND payment_attempts.provider_ref = ?")
+
+	var __values []any
+	__values = append(__values, payment_attempts_provider.value(), payment_attempts_provider_ref.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_attempts = &PaymentAttempts{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_attempts.Id, &payment_attempts.UserId, &payment_attempts.PlanId, &payment_attempts.Provider, &payment_attempts.ProviderRef, &payment_attempts.AmountMinor, &payment_attempts.Currency, &payment_attempts.Status, &payment_attempts.CouponCode, &payment_attempts.Metadata, &payment_attempts.CreatedAt, &payment_attempts.UpdatedAt)
+	if err != nil {
+		return (*PaymentAttempts)(nil), obj.makeErr(err)
+	}
+	return payment_attempts, nil
+
+}
+
+func (obj *pgxcockroachImpl) Get_PaymentSubscriptions_By_Id(ctx context.Context,
+	payment_subscriptions_id PaymentSubscriptions_Id_Field) (
+	payment_subscriptions *PaymentSubscriptions, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_subscriptions.id, payment_subscriptions.user_id, payment_subscriptions.plan_id, payment_subscriptions.provider, payment_subscriptions.provider_sub_id, payment_subscriptions.provider_plan_id, payment_subscriptions.status, payment_subscriptions.current_period_end, payment_subscriptions.cancel_at_period_end, payment_subscriptions.default_method_id, payment_subscriptions.coupon_code, payment_subscriptions.created_at, payment_subscriptions.updated_at FROM payment_subscriptions WHERE payment_subscriptions.id = ?")
+
+	var __values []any
+	__values = append(__values, payment_subscriptions_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_subscriptions = &PaymentSubscriptions{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_subscriptions.Id, &payment_subscriptions.UserId, &payment_subscriptions.PlanId, &payment_subscriptions.Provider, &payment_subscriptions.ProviderSubId, &payment_subscriptions.ProviderPlanId, &payment_subscriptions.Status, &payment_subscriptions.CurrentPeriodEnd, &payment_subscriptions.CancelAtPeriodEnd, &payment_subscriptions.DefaultMethodId, &payment_subscriptions.CouponCode, &payment_subscriptions.CreatedAt, &payment_subscriptions.UpdatedAt)
+	if err != nil {
+		return (*PaymentSubscriptions)(nil), obj.makeErr(err)
+	}
+	return payment_subscriptions, nil
+
+}
+
+func (obj *pgxcockroachImpl) Get_PaymentSubscriptions_By_Provider_And_ProviderSubId(ctx context.Context,
+	payment_subscriptions_provider PaymentSubscriptions_Provider_Field,
+	payment_subscriptions_provider_sub_id PaymentSubscriptions_ProviderSubId_Field) (
+	payment_subscriptions *PaymentSubscriptions, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_subscriptions.id, payment_subscriptions.user_id, payment_subscriptions.plan_id, payment_subscriptions.provider, payment_subscriptions.provider_sub_id, payment_subscriptions.provider_plan_id, payment_subscriptions.status, payment_subscriptions.current_period_end, payment_subscriptions.cancel_at_period_end, payment_subscriptions.default_method_id, payment_subscriptions.coupon_code, payment_subscriptions.created_at, payment_subscriptions.updated_at FROM payment_subscriptions WHERE payment_subscriptions.provider = ? AND payment_subscriptions.provider_sub_id = ?")
+
+	var __values []any
+	__values = append(__values, payment_subscriptions_provider.value(), payment_subscriptions_provider_sub_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_subscriptions = &PaymentSubscriptions{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_subscriptions.Id, &payment_subscriptions.UserId, &payment_subscriptions.PlanId, &payment_subscriptions.Provider, &payment_subscriptions.ProviderSubId, &payment_subscriptions.ProviderPlanId, &payment_subscriptions.Status, &payment_subscriptions.CurrentPeriodEnd, &payment_subscriptions.CancelAtPeriodEnd, &payment_subscriptions.DefaultMethodId, &payment_subscriptions.CouponCode, &payment_subscriptions.CreatedAt, &payment_subscriptions.UpdatedAt)
+	if err != nil {
+		return (*PaymentSubscriptions)(nil), obj.makeErr(err)
+	}
+	return payment_subscriptions, nil
+
+}
+
+func (obj *pgxcockroachImpl) All_PaymentSubscriptions_By_UserId_And_Provider(ctx context.Context,
+	payment_subscriptions_user_id PaymentSubscriptions_UserId_Field,
+	payment_subscriptions_provider PaymentSubscriptions_Provider_Field) (
+	rows []*PaymentSubscriptions, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_subscriptions.id, payment_subscriptions.user_id, payment_subscriptions.plan_id, payment_subscriptions.provider, payment_subscriptions.provider_sub_id, payment_subscriptions.provider_plan_id, payment_subscriptions.status, payment_subscriptions.current_period_end, payment_subscriptions.cancel_at_period_end, payment_subscriptions.default_method_id, payment_subscriptions.coupon_code, payment_subscriptions.created_at, payment_subscriptions.updated_at FROM payment_subscriptions WHERE payment_subscriptions.user_id = ? AND payment_subscriptions.provider = ?")
+
+	var __values []any
+	__values = append(__values, payment_subscriptions_user_id.value(), payment_subscriptions_provider.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*PaymentSubscriptions, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				payment_subscriptions := &PaymentSubscriptions{}
+				err = __rows.Scan(&payment_subscriptions.Id, &payment_subscriptions.UserId, &payment_subscriptions.PlanId, &payment_subscriptions.Provider, &payment_subscriptions.ProviderSubId, &payment_subscriptions.ProviderPlanId, &payment_subscriptions.Status, &payment_subscriptions.CurrentPeriodEnd, &payment_subscriptions.CancelAtPeriodEnd, &payment_subscriptions.DefaultMethodId, &payment_subscriptions.CouponCode, &payment_subscriptions.CreatedAt, &payment_subscriptions.UpdatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, payment_subscriptions)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) Get_PaymentEvents_Id_By_Provider_And_ProviderEventId(ctx context.Context,
+	payment_events_provider PaymentEvents_Provider_Field,
+	payment_events_provider_event_id PaymentEvents_ProviderEventId_Field) (
+	row *Id_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_events.id FROM payment_events WHERE payment_events.provider = ? AND payment_events.provider_event_id = ?")
+
+	var __values []any
+	__values = append(__values, payment_events_provider.value(), payment_events_provider_event_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &Id_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.Id)
+	if err != nil {
+		return (*Id_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
 
 }
 
@@ -56625,7 +59445,7 @@ func (obj *pgxcockroachImpl) Update_PaymentPlans_By_Id(ctx context.Context,
 
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE payment_plans SET "), __sets, __sqlbundle_Literal(" WHERE payment_plans.id = ? RETURNING payment_plans.id, payment_plans.name, payment_plans.storage, payment_plans.price, payment_plans.benefit, payment_plans.bandwidth, payment_plans.validity, payment_plans.validity_unit, payment_plans.group")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE payment_plans SET "), __sets, __sqlbundle_Literal(" WHERE payment_plans.id = ? RETURNING payment_plans.id, payment_plans.name, payment_plans.storage, payment_plans.price, payment_plans.benefit, payment_plans.bandwidth, payment_plans.validity, payment_plans.validity_unit, payment_plans.group, payment_plans.provider_plan_ids")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []any
@@ -56671,6 +59491,11 @@ func (obj *pgxcockroachImpl) Update_PaymentPlans_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("group = ?"))
 	}
 
+	if update.ProviderPlanIds._set {
+		__values = append(__values, update.ProviderPlanIds.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("provider_plan_ids = ?"))
+	}
+
 	if len(__sets_sql.SQLs) == 0 {
 		return nil, emptyUpdate()
 	}
@@ -56684,7 +59509,7 @@ func (obj *pgxcockroachImpl) Update_PaymentPlans_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	payment_plans = &PaymentPlans{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_plans.Id, &payment_plans.Name, &payment_plans.Storage, &payment_plans.Price, &payment_plans.Benefit, &payment_plans.Bandwidth, &payment_plans.Validity, &payment_plans.ValidityUnit, &payment_plans.Group)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_plans.Id, &payment_plans.Name, &payment_plans.Storage, &payment_plans.Price, &payment_plans.Benefit, &payment_plans.Bandwidth, &payment_plans.Validity, &payment_plans.ValidityUnit, &payment_plans.Group, &payment_plans.ProviderPlanIds)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -58922,6 +61747,168 @@ func (obj *pgxcockroachImpl) Update_BackupCredentials_By_Id(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return backup_credentials, nil
+}
+
+func (obj *pgxcockroachImpl) Update_PaymentMethods_By_Id(ctx context.Context,
+	payment_methods_id PaymentMethods_Id_Field,
+	update PaymentMethods_Update_Fields) (
+	payment_methods *PaymentMethods, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE payment_methods SET "), __sets, __sqlbundle_Literal(" WHERE payment_methods.id = ? RETURNING payment_methods.id, payment_methods.user_id, payment_methods.provider, payment_methods.provider_method_id, payment_methods.brand, payment_methods.last4, payment_methods.exp_month, payment_methods.exp_year, payment_methods.is_default, payment_methods.created_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.IsDefault._set {
+		__values = append(__values, update.IsDefault.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("is_default = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, payment_methods_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_methods = &PaymentMethods{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_methods.Id, &payment_methods.UserId, &payment_methods.Provider, &payment_methods.ProviderMethodId, &payment_methods.Brand, &payment_methods.Last4, &payment_methods.ExpMonth, &payment_methods.ExpYear, &payment_methods.IsDefault, &payment_methods.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return payment_methods, nil
+}
+
+func (obj *pgxcockroachImpl) Update_PaymentAttempts_By_Id(ctx context.Context,
+	payment_attempts_id PaymentAttempts_Id_Field,
+	update PaymentAttempts_Update_Fields) (
+	payment_attempts *PaymentAttempts, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE payment_attempts SET "), __sets, __sqlbundle_Literal(" WHERE payment_attempts.id = ? RETURNING payment_attempts.id, payment_attempts.user_id, payment_attempts.plan_id, payment_attempts.provider, payment_attempts.provider_ref, payment_attempts.amount_minor, payment_attempts.currency, payment_attempts.status, payment_attempts.coupon_code, payment_attempts.metadata, payment_attempts.created_at, payment_attempts.updated_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.ProviderRef._set {
+		__values = append(__values, update.ProviderRef.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("provider_ref = ?"))
+	}
+
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+
+	if update.Metadata._set {
+		__values = append(__values, update.Metadata.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("metadata = ?"))
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+
+	__args = append(__args, payment_attempts_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_attempts = &PaymentAttempts{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_attempts.Id, &payment_attempts.UserId, &payment_attempts.PlanId, &payment_attempts.Provider, &payment_attempts.ProviderRef, &payment_attempts.AmountMinor, &payment_attempts.Currency, &payment_attempts.Status, &payment_attempts.CouponCode, &payment_attempts.Metadata, &payment_attempts.CreatedAt, &payment_attempts.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return payment_attempts, nil
+}
+
+func (obj *pgxcockroachImpl) Update_PaymentSubscriptions_By_Id(ctx context.Context,
+	payment_subscriptions_id PaymentSubscriptions_Id_Field,
+	update PaymentSubscriptions_Update_Fields) (
+	payment_subscriptions *PaymentSubscriptions, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE payment_subscriptions SET "), __sets, __sqlbundle_Literal(" WHERE payment_subscriptions.id = ? RETURNING payment_subscriptions.id, payment_subscriptions.user_id, payment_subscriptions.plan_id, payment_subscriptions.provider, payment_subscriptions.provider_sub_id, payment_subscriptions.provider_plan_id, payment_subscriptions.status, payment_subscriptions.current_period_end, payment_subscriptions.cancel_at_period_end, payment_subscriptions.default_method_id, payment_subscriptions.coupon_code, payment_subscriptions.created_at, payment_subscriptions.updated_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+
+	if update.CurrentPeriodEnd._set {
+		__values = append(__values, update.CurrentPeriodEnd.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("current_period_end = ?"))
+	}
+
+	if update.CancelAtPeriodEnd._set {
+		__values = append(__values, update.CancelAtPeriodEnd.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("cancel_at_period_end = ?"))
+	}
+
+	if update.DefaultMethodId._set {
+		__values = append(__values, update.DefaultMethodId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_method_id = ?"))
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+
+	__args = append(__args, payment_subscriptions_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_subscriptions = &PaymentSubscriptions{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_subscriptions.Id, &payment_subscriptions.UserId, &payment_subscriptions.PlanId, &payment_subscriptions.Provider, &payment_subscriptions.ProviderSubId, &payment_subscriptions.ProviderPlanId, &payment_subscriptions.Status, &payment_subscriptions.CurrentPeriodEnd, &payment_subscriptions.CancelAtPeriodEnd, &payment_subscriptions.DefaultMethodId, &payment_subscriptions.CouponCode, &payment_subscriptions.CreatedAt, &payment_subscriptions.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return payment_subscriptions, nil
 }
 
 func (obj *pgxcockroachImpl) Update_Project_By_Id(ctx context.Context,
@@ -62016,6 +65003,67 @@ func (obj *pgxcockroachImpl) Delete_OauthClient_By_Id(ctx context.Context,
 
 }
 
+func (obj *pgxcockroachImpl) Delete_PaymentCustomers_By_UserId_And_Provider(ctx context.Context,
+	payment_customers_user_id PaymentCustomers_UserId_Field,
+	payment_customers_provider PaymentCustomers_Provider_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM payment_customers WHERE payment_customers.user_id = ? AND payment_customers.provider = ?")
+
+	var __values []any
+	__values = append(__values, payment_customers_user_id.value(), payment_customers_provider.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *pgxcockroachImpl) Delete_PaymentMethods_By_Id(ctx context.Context,
+	payment_methods_id PaymentMethods_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM payment_methods WHERE payment_methods.id = ?")
+
+	var __values []any
+	__values = append(__values, payment_methods_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *pgxcockroachImpl) Delete_Project_By_Id(ctx context.Context,
 	project_id Project_Id_Field) (
 	deleted bool, err error) {
@@ -63575,7 +66623,57 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM payment_subscriptions;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM payment_plans;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM payment_methods;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM payment_events;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM payment_customers;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM payment_attempts;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -64280,7 +67378,8 @@ func (obj *spannerImpl) Create_PaymentPlans(ctx context.Context,
 	payment_plans_bandwidth PaymentPlans_Bandwidth_Field,
 	payment_plans_validity PaymentPlans_Validity_Field,
 	payment_plans_validity_unit PaymentPlans_ValidityUnit_Field,
-	payment_plans_group PaymentPlans_Group_Field) (
+	payment_plans_group PaymentPlans_Group_Field,
+	optional PaymentPlans_Create_Fields) (
 	payment_plans *PaymentPlans, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !obj.txn && txutil.IsInsideTx(ctx) {
@@ -64294,11 +67393,12 @@ func (obj *spannerImpl) Create_PaymentPlans(ctx context.Context,
 	__validity_val := payment_plans_validity.value()
 	__validity_unit_val := payment_plans_validity_unit.value()
 	__group_val := payment_plans_group.value()
+	__provider_plan_ids_val := spannerConvertJSON(optional.ProviderPlanIds.value())
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO payment_plans ( name, storage, price, benefit, bandwidth, validity, validity_unit, group ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? ) THEN RETURN payment_plans.id, payment_plans.name, payment_plans.storage, payment_plans.price, payment_plans.benefit, payment_plans.bandwidth, payment_plans.validity, payment_plans.validity_unit, payment_plans.group")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO payment_plans ( name, storage, price, benefit, bandwidth, validity, validity_unit, group, provider_plan_ids ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? ) THEN RETURN payment_plans.id, payment_plans.name, payment_plans.storage, payment_plans.price, payment_plans.benefit, payment_plans.bandwidth, payment_plans.validity, payment_plans.validity_unit, payment_plans.group, payment_plans.provider_plan_ids")
 
 	var __values []any
-	__values = append(__values, __name_val, __storage_val, __price_val, __benefit_val, __bandwidth_val, __validity_val, __validity_unit_val, __group_val)
+	__values = append(__values, __name_val, __storage_val, __price_val, __benefit_val, __bandwidth_val, __validity_val, __validity_unit_val, __group_val, __provider_plan_ids_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -64306,10 +67406,10 @@ func (obj *spannerImpl) Create_PaymentPlans(ctx context.Context,
 	payment_plans = &PaymentPlans{}
 	if !obj.txn {
 		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
-			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&payment_plans.Id, &payment_plans.Name, &payment_plans.Storage, &payment_plans.Price, spannerConvertJSON(&payment_plans.Benefit), &payment_plans.Bandwidth, &payment_plans.Validity, &payment_plans.ValidityUnit, &payment_plans.Group)
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&payment_plans.Id, &payment_plans.Name, &payment_plans.Storage, &payment_plans.Price, spannerConvertJSON(&payment_plans.Benefit), &payment_plans.Bandwidth, &payment_plans.Validity, &payment_plans.ValidityUnit, &payment_plans.Group, spannerConvertJSON(&payment_plans.ProviderPlanIds))
 		})
 	} else {
-		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&payment_plans.Id, &payment_plans.Name, &payment_plans.Storage, &payment_plans.Price, spannerConvertJSON(&payment_plans.Benefit), &payment_plans.Bandwidth, &payment_plans.Validity, &payment_plans.ValidityUnit, &payment_plans.Group)
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&payment_plans.Id, &payment_plans.Name, &payment_plans.Storage, &payment_plans.Price, spannerConvertJSON(&payment_plans.Benefit), &payment_plans.Bandwidth, &payment_plans.Validity, &payment_plans.ValidityUnit, &payment_plans.Group, spannerConvertJSON(&payment_plans.ProviderPlanIds))
 	}
 	if err != nil {
 		return nil, obj.makeErr(err)
@@ -66045,6 +69145,249 @@ func (obj *spannerImpl) Create_BackupCredentials(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return backup_credentials, nil
+
+}
+
+func (obj *spannerImpl) Create_PaymentCustomers(ctx context.Context,
+	payment_customers_user_id PaymentCustomers_UserId_Field,
+	payment_customers_provider PaymentCustomers_Provider_Field,
+	payment_customers_provider_customer_id PaymentCustomers_ProviderCustomerId_Field) (
+	payment_customers *PaymentCustomers, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__user_id_val := payment_customers_user_id.value()
+	__provider_val := payment_customers_provider.value()
+	__provider_customer_id_val := payment_customers_provider_customer_id.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO payment_customers ( user_id, provider, provider_customer_id, created_at ) VALUES ( ?, ?, ?, ? ) THEN RETURN payment_customers.user_id, payment_customers.provider, payment_customers.provider_customer_id, payment_customers.created_at")
+
+	var __values []any
+	__values = append(__values, __user_id_val, __provider_val, __provider_customer_id_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_customers = &PaymentCustomers{}
+	if !obj.txn {
+		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&payment_customers.UserId, &payment_customers.Provider, &payment_customers.ProviderCustomerId, &payment_customers.CreatedAt)
+		})
+	} else {
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&payment_customers.UserId, &payment_customers.Provider, &payment_customers.ProviderCustomerId, &payment_customers.CreatedAt)
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return payment_customers, nil
+
+}
+
+func (obj *spannerImpl) Create_PaymentMethods(ctx context.Context,
+	payment_methods_id PaymentMethods_Id_Field,
+	payment_methods_user_id PaymentMethods_UserId_Field,
+	payment_methods_provider PaymentMethods_Provider_Field,
+	payment_methods_provider_method_id PaymentMethods_ProviderMethodId_Field,
+	payment_methods_brand PaymentMethods_Brand_Field,
+	payment_methods_last4 PaymentMethods_Last4_Field,
+	payment_methods_exp_month PaymentMethods_ExpMonth_Field,
+	payment_methods_exp_year PaymentMethods_ExpYear_Field,
+	payment_methods_is_default PaymentMethods_IsDefault_Field) (
+	payment_methods *PaymentMethods, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := payment_methods_id.value()
+	__user_id_val := payment_methods_user_id.value()
+	__provider_val := payment_methods_provider.value()
+	__provider_method_id_val := payment_methods_provider_method_id.value()
+	__brand_val := payment_methods_brand.value()
+	__last4_val := payment_methods_last4.value()
+	__exp_month_val := payment_methods_exp_month.value()
+	__exp_year_val := payment_methods_exp_year.value()
+	__is_default_val := payment_methods_is_default.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO payment_methods ( id, user_id, provider, provider_method_id, brand, last4, exp_month, exp_year, is_default, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) THEN RETURN payment_methods.id, payment_methods.user_id, payment_methods.provider, payment_methods.provider_method_id, payment_methods.brand, payment_methods.last4, payment_methods.exp_month, payment_methods.exp_year, payment_methods.is_default, payment_methods.created_at")
+
+	var __values []any
+	__values = append(__values, __id_val, __user_id_val, __provider_val, __provider_method_id_val, __brand_val, __last4_val, __exp_month_val, __exp_year_val, __is_default_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_methods = &PaymentMethods{}
+	if !obj.txn {
+		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&payment_methods.Id, &payment_methods.UserId, &payment_methods.Provider, &payment_methods.ProviderMethodId, &payment_methods.Brand, &payment_methods.Last4, &payment_methods.ExpMonth, &payment_methods.ExpYear, &payment_methods.IsDefault, &payment_methods.CreatedAt)
+		})
+	} else {
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&payment_methods.Id, &payment_methods.UserId, &payment_methods.Provider, &payment_methods.ProviderMethodId, &payment_methods.Brand, &payment_methods.Last4, &payment_methods.ExpMonth, &payment_methods.ExpYear, &payment_methods.IsDefault, &payment_methods.CreatedAt)
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return payment_methods, nil
+
+}
+
+func (obj *spannerImpl) Create_PaymentAttempts(ctx context.Context,
+	payment_attempts_id PaymentAttempts_Id_Field,
+	payment_attempts_user_id PaymentAttempts_UserId_Field,
+	payment_attempts_plan_id PaymentAttempts_PlanId_Field,
+	payment_attempts_provider PaymentAttempts_Provider_Field,
+	payment_attempts_provider_ref PaymentAttempts_ProviderRef_Field,
+	payment_attempts_amount_minor PaymentAttempts_AmountMinor_Field,
+	payment_attempts_currency PaymentAttempts_Currency_Field,
+	payment_attempts_status PaymentAttempts_Status_Field,
+	optional PaymentAttempts_Create_Fields) (
+	payment_attempts *PaymentAttempts, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := payment_attempts_id.value()
+	__user_id_val := payment_attempts_user_id.value()
+	__plan_id_val := payment_attempts_plan_id.value()
+	__provider_val := payment_attempts_provider.value()
+	__provider_ref_val := payment_attempts_provider_ref.value()
+	__amount_minor_val := payment_attempts_amount_minor.value()
+	__currency_val := payment_attempts_currency.value()
+	__status_val := payment_attempts_status.value()
+	__coupon_code_val := optional.CouponCode.value()
+	__metadata_val := spannerConvertJSON(optional.Metadata.value())
+	__created_at_val := __now
+	__updated_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO payment_attempts ( id, user_id, plan_id, provider, provider_ref, amount_minor, currency, status, coupon_code, metadata, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) THEN RETURN payment_attempts.id, payment_attempts.user_id, payment_attempts.plan_id, payment_attempts.provider, payment_attempts.provider_ref, payment_attempts.amount_minor, payment_attempts.currency, payment_attempts.status, payment_attempts.coupon_code, payment_attempts.metadata, payment_attempts.created_at, payment_attempts.updated_at")
+
+	var __values []any
+	__values = append(__values, __id_val, __user_id_val, __plan_id_val, __provider_val, __provider_ref_val, __amount_minor_val, __currency_val, __status_val, __coupon_code_val, __metadata_val, __created_at_val, __updated_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_attempts = &PaymentAttempts{}
+	if !obj.txn {
+		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&payment_attempts.Id, &payment_attempts.UserId, &payment_attempts.PlanId, &payment_attempts.Provider, &payment_attempts.ProviderRef, &payment_attempts.AmountMinor, &payment_attempts.Currency, &payment_attempts.Status, &payment_attempts.CouponCode, spannerConvertJSON(&payment_attempts.Metadata), &payment_attempts.CreatedAt, &payment_attempts.UpdatedAt)
+		})
+	} else {
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&payment_attempts.Id, &payment_attempts.UserId, &payment_attempts.PlanId, &payment_attempts.Provider, &payment_attempts.ProviderRef, &payment_attempts.AmountMinor, &payment_attempts.Currency, &payment_attempts.Status, &payment_attempts.CouponCode, spannerConvertJSON(&payment_attempts.Metadata), &payment_attempts.CreatedAt, &payment_attempts.UpdatedAt)
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return payment_attempts, nil
+
+}
+
+func (obj *spannerImpl) Create_PaymentSubscriptions(ctx context.Context,
+	payment_subscriptions_id PaymentSubscriptions_Id_Field,
+	payment_subscriptions_user_id PaymentSubscriptions_UserId_Field,
+	payment_subscriptions_plan_id PaymentSubscriptions_PlanId_Field,
+	payment_subscriptions_provider PaymentSubscriptions_Provider_Field,
+	payment_subscriptions_provider_sub_id PaymentSubscriptions_ProviderSubId_Field,
+	payment_subscriptions_provider_plan_id PaymentSubscriptions_ProviderPlanId_Field,
+	payment_subscriptions_status PaymentSubscriptions_Status_Field,
+	payment_subscriptions_cancel_at_period_end PaymentSubscriptions_CancelAtPeriodEnd_Field,
+	optional PaymentSubscriptions_Create_Fields) (
+	payment_subscriptions *PaymentSubscriptions, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := payment_subscriptions_id.value()
+	__user_id_val := payment_subscriptions_user_id.value()
+	__plan_id_val := payment_subscriptions_plan_id.value()
+	__provider_val := payment_subscriptions_provider.value()
+	__provider_sub_id_val := payment_subscriptions_provider_sub_id.value()
+	__provider_plan_id_val := payment_subscriptions_provider_plan_id.value()
+	__status_val := payment_subscriptions_status.value()
+	__current_period_end_val := optional.CurrentPeriodEnd.value()
+	__cancel_at_period_end_val := payment_subscriptions_cancel_at_period_end.value()
+	__default_method_id_val := optional.DefaultMethodId.value()
+	__coupon_code_val := optional.CouponCode.value()
+	__created_at_val := __now
+	__updated_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO payment_subscriptions ( id, user_id, plan_id, provider, provider_sub_id, provider_plan_id, status, current_period_end, cancel_at_period_end, default_method_id, coupon_code, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) THEN RETURN payment_subscriptions.id, payment_subscriptions.user_id, payment_subscriptions.plan_id, payment_subscriptions.provider, payment_subscriptions.provider_sub_id, payment_subscriptions.provider_plan_id, payment_subscriptions.status, payment_subscriptions.current_period_end, payment_subscriptions.cancel_at_period_end, payment_subscriptions.default_method_id, payment_subscriptions.coupon_code, payment_subscriptions.created_at, payment_subscriptions.updated_at")
+
+	var __values []any
+	__values = append(__values, __id_val, __user_id_val, __plan_id_val, __provider_val, __provider_sub_id_val, __provider_plan_id_val, __status_val, __current_period_end_val, __cancel_at_period_end_val, __default_method_id_val, __coupon_code_val, __created_at_val, __updated_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_subscriptions = &PaymentSubscriptions{}
+	if !obj.txn {
+		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&payment_subscriptions.Id, &payment_subscriptions.UserId, &payment_subscriptions.PlanId, &payment_subscriptions.Provider, &payment_subscriptions.ProviderSubId, &payment_subscriptions.ProviderPlanId, &payment_subscriptions.Status, &payment_subscriptions.CurrentPeriodEnd, &payment_subscriptions.CancelAtPeriodEnd, &payment_subscriptions.DefaultMethodId, &payment_subscriptions.CouponCode, &payment_subscriptions.CreatedAt, &payment_subscriptions.UpdatedAt)
+		})
+	} else {
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&payment_subscriptions.Id, &payment_subscriptions.UserId, &payment_subscriptions.PlanId, &payment_subscriptions.Provider, &payment_subscriptions.ProviderSubId, &payment_subscriptions.ProviderPlanId, &payment_subscriptions.Status, &payment_subscriptions.CurrentPeriodEnd, &payment_subscriptions.CancelAtPeriodEnd, &payment_subscriptions.DefaultMethodId, &payment_subscriptions.CouponCode, &payment_subscriptions.CreatedAt, &payment_subscriptions.UpdatedAt)
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return payment_subscriptions, nil
+
+}
+
+func (obj *spannerImpl) Create_PaymentEvents(ctx context.Context,
+	payment_events_id PaymentEvents_Id_Field,
+	payment_events_provider PaymentEvents_Provider_Field,
+	payment_events_provider_event_id PaymentEvents_ProviderEventId_Field,
+	payment_events_event_type PaymentEvents_EventType_Field,
+	payment_events_payload PaymentEvents_Payload_Field,
+	optional PaymentEvents_Create_Fields) (
+	payment_events *PaymentEvents, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := payment_events_id.value()
+	__provider_val := payment_events_provider.value()
+	__provider_event_id_val := payment_events_provider_event_id.value()
+	__event_type_val := payment_events_event_type.value()
+	__payload_val := spannerConvertJSON(payment_events_payload.value())
+	__attempt_id_val := optional.AttemptId.value()
+	__subscription_id_val := optional.SubscriptionId.value()
+	__received_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO payment_events ( id, provider, provider_event_id, event_type, payload, attempt_id, subscription_id, received_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? ) THEN RETURN payment_events.id, payment_events.provider, payment_events.provider_event_id, payment_events.event_type, payment_events.payload, payment_events.attempt_id, payment_events.subscription_id, payment_events.received_at")
+
+	var __values []any
+	__values = append(__values, __id_val, __provider_val, __provider_event_id_val, __event_type_val, __payload_val, __attempt_id_val, __subscription_id_val, __received_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_events = &PaymentEvents{}
+	if !obj.txn {
+		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&payment_events.Id, &payment_events.Provider, &payment_events.ProviderEventId, &payment_events.EventType, spannerConvertJSON(&payment_events.Payload), &payment_events.AttemptId, &payment_events.SubscriptionId, &payment_events.ReceivedAt)
+		})
+	} else {
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&payment_events.Id, &payment_events.Provider, &payment_events.ProviderEventId, &payment_events.EventType, spannerConvertJSON(&payment_events.Payload), &payment_events.AttemptId, &payment_events.SubscriptionId, &payment_events.ReceivedAt)
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return payment_events, nil
 
 }
 
@@ -69007,7 +72350,7 @@ func (obj *spannerImpl) Get_PaymentPlans_By_Id(ctx context.Context,
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT payment_plans.id, payment_plans.name, payment_plans.storage, payment_plans.price, payment_plans.benefit, payment_plans.bandwidth, payment_plans.validity, payment_plans.validity_unit, payment_plans.group FROM payment_plans WHERE payment_plans.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_plans.id, payment_plans.name, payment_plans.storage, payment_plans.price, payment_plans.benefit, payment_plans.bandwidth, payment_plans.validity, payment_plans.validity_unit, payment_plans.group, payment_plans.provider_plan_ids FROM payment_plans WHERE payment_plans.id = ?")
 
 	var __values []any
 	__values = append(__values, payment_plans_id.value())
@@ -69016,7 +72359,7 @@ func (obj *spannerImpl) Get_PaymentPlans_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	payment_plans = &PaymentPlans{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_plans.Id, &payment_plans.Name, &payment_plans.Storage, &payment_plans.Price, spannerConvertJSON(&payment_plans.Benefit), &payment_plans.Bandwidth, &payment_plans.Validity, &payment_plans.ValidityUnit, &payment_plans.Group)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_plans.Id, &payment_plans.Name, &payment_plans.Storage, &payment_plans.Price, spannerConvertJSON(&payment_plans.Benefit), &payment_plans.Bandwidth, &payment_plans.Validity, &payment_plans.ValidityUnit, &payment_plans.Group, spannerConvertJSON(&payment_plans.ProviderPlanIds))
 	if err != nil {
 		return (*PaymentPlans)(nil), obj.makeErr(err)
 	}
@@ -69031,7 +72374,7 @@ func (obj *spannerImpl) All_PaymentPlans(ctx context.Context) (
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT payment_plans.id, payment_plans.name, payment_plans.storage, payment_plans.price, payment_plans.benefit, payment_plans.bandwidth, payment_plans.validity, payment_plans.validity_unit, payment_plans.group FROM payment_plans")
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_plans.id, payment_plans.name, payment_plans.storage, payment_plans.price, payment_plans.benefit, payment_plans.bandwidth, payment_plans.validity, payment_plans.validity_unit, payment_plans.group, payment_plans.provider_plan_ids FROM payment_plans")
 
 	var __values []any
 
@@ -69048,7 +72391,7 @@ func (obj *spannerImpl) All_PaymentPlans(ctx context.Context) (
 
 			for __rows.Next() {
 				payment_plans := &PaymentPlans{}
-				err = __rows.Scan(&payment_plans.Id, &payment_plans.Name, &payment_plans.Storage, &payment_plans.Price, spannerConvertJSON(&payment_plans.Benefit), &payment_plans.Bandwidth, &payment_plans.Validity, &payment_plans.ValidityUnit, &payment_plans.Group)
+				err = __rows.Scan(&payment_plans.Id, &payment_plans.Name, &payment_plans.Storage, &payment_plans.Price, spannerConvertJSON(&payment_plans.Benefit), &payment_plans.Bandwidth, &payment_plans.Validity, &payment_plans.ValidityUnit, &payment_plans.Group, spannerConvertJSON(&payment_plans.ProviderPlanIds))
 				if err != nil {
 					return nil, err
 				}
@@ -69075,7 +72418,7 @@ func (obj *spannerImpl) All_PaymentPlans_By_Group(ctx context.Context,
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT payment_plans.id, payment_plans.name, payment_plans.storage, payment_plans.price, payment_plans.benefit, payment_plans.bandwidth, payment_plans.validity, payment_plans.validity_unit, payment_plans.group FROM payment_plans WHERE payment_plans.group = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_plans.id, payment_plans.name, payment_plans.storage, payment_plans.price, payment_plans.benefit, payment_plans.bandwidth, payment_plans.validity, payment_plans.validity_unit, payment_plans.group, payment_plans.provider_plan_ids FROM payment_plans WHERE payment_plans.group = ?")
 
 	var __values []any
 	__values = append(__values, payment_plans_group.value())
@@ -69093,7 +72436,7 @@ func (obj *spannerImpl) All_PaymentPlans_By_Group(ctx context.Context,
 
 			for __rows.Next() {
 				payment_plans := &PaymentPlans{}
-				err = __rows.Scan(&payment_plans.Id, &payment_plans.Name, &payment_plans.Storage, &payment_plans.Price, spannerConvertJSON(&payment_plans.Benefit), &payment_plans.Bandwidth, &payment_plans.Validity, &payment_plans.ValidityUnit, &payment_plans.Group)
+				err = __rows.Scan(&payment_plans.Id, &payment_plans.Name, &payment_plans.Storage, &payment_plans.Price, spannerConvertJSON(&payment_plans.Benefit), &payment_plans.Bandwidth, &payment_plans.Validity, &payment_plans.ValidityUnit, &payment_plans.Group, spannerConvertJSON(&payment_plans.ProviderPlanIds))
 				if err != nil {
 					return nil, err
 				}
@@ -72350,6 +75693,385 @@ func (obj *spannerImpl) All_BackupCredentials_By_UserId_And_Provider(ctx context
 		}
 		return rows, nil
 	}
+
+}
+
+func (obj *spannerImpl) Get_PaymentCustomers_By_UserId_And_Provider(ctx context.Context,
+	payment_customers_user_id PaymentCustomers_UserId_Field,
+	payment_customers_provider PaymentCustomers_Provider_Field) (
+	payment_customers *PaymentCustomers, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_customers.user_id, payment_customers.provider, payment_customers.provider_customer_id, payment_customers.created_at FROM payment_customers WHERE payment_customers.user_id = ? AND payment_customers.provider = ?")
+
+	var __values []any
+	__values = append(__values, payment_customers_user_id.value(), payment_customers_provider.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_customers = &PaymentCustomers{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_customers.UserId, &payment_customers.Provider, &payment_customers.ProviderCustomerId, &payment_customers.CreatedAt)
+	if err != nil {
+		return (*PaymentCustomers)(nil), obj.makeErr(err)
+	}
+	return payment_customers, nil
+
+}
+
+func (obj *spannerImpl) Get_PaymentCustomers_By_Provider_And_ProviderCustomerId(ctx context.Context,
+	payment_customers_provider PaymentCustomers_Provider_Field,
+	payment_customers_provider_customer_id PaymentCustomers_ProviderCustomerId_Field) (
+	payment_customers *PaymentCustomers, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_customers.user_id, payment_customers.provider, payment_customers.provider_customer_id, payment_customers.created_at FROM payment_customers WHERE payment_customers.provider = ? AND payment_customers.provider_customer_id = ?")
+
+	var __values []any
+	__values = append(__values, payment_customers_provider.value(), payment_customers_provider_customer_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_customers = &PaymentCustomers{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_customers.UserId, &payment_customers.Provider, &payment_customers.ProviderCustomerId, &payment_customers.CreatedAt)
+	if err != nil {
+		return (*PaymentCustomers)(nil), obj.makeErr(err)
+	}
+	return payment_customers, nil
+
+}
+
+func (obj *spannerImpl) Get_PaymentMethods_By_Id(ctx context.Context,
+	payment_methods_id PaymentMethods_Id_Field) (
+	payment_methods *PaymentMethods, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_methods.id, payment_methods.user_id, payment_methods.provider, payment_methods.provider_method_id, payment_methods.brand, payment_methods.last4, payment_methods.exp_month, payment_methods.exp_year, payment_methods.is_default, payment_methods.created_at FROM payment_methods WHERE payment_methods.id = ?")
+
+	var __values []any
+	__values = append(__values, payment_methods_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_methods = &PaymentMethods{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_methods.Id, &payment_methods.UserId, &payment_methods.Provider, &payment_methods.ProviderMethodId, &payment_methods.Brand, &payment_methods.Last4, &payment_methods.ExpMonth, &payment_methods.ExpYear, &payment_methods.IsDefault, &payment_methods.CreatedAt)
+	if err != nil {
+		return (*PaymentMethods)(nil), obj.makeErr(err)
+	}
+	return payment_methods, nil
+
+}
+
+func (obj *spannerImpl) Get_PaymentMethods_By_Provider_And_ProviderMethodId(ctx context.Context,
+	payment_methods_provider PaymentMethods_Provider_Field,
+	payment_methods_provider_method_id PaymentMethods_ProviderMethodId_Field) (
+	payment_methods *PaymentMethods, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_methods.id, payment_methods.user_id, payment_methods.provider, payment_methods.provider_method_id, payment_methods.brand, payment_methods.last4, payment_methods.exp_month, payment_methods.exp_year, payment_methods.is_default, payment_methods.created_at FROM payment_methods WHERE payment_methods.provider = ? AND payment_methods.provider_method_id = ?")
+
+	var __values []any
+	__values = append(__values, payment_methods_provider.value(), payment_methods_provider_method_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_methods = &PaymentMethods{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_methods.Id, &payment_methods.UserId, &payment_methods.Provider, &payment_methods.ProviderMethodId, &payment_methods.Brand, &payment_methods.Last4, &payment_methods.ExpMonth, &payment_methods.ExpYear, &payment_methods.IsDefault, &payment_methods.CreatedAt)
+	if err != nil {
+		return (*PaymentMethods)(nil), obj.makeErr(err)
+	}
+	return payment_methods, nil
+
+}
+
+func (obj *spannerImpl) All_PaymentMethods_By_UserId_And_Provider(ctx context.Context,
+	payment_methods_user_id PaymentMethods_UserId_Field,
+	payment_methods_provider PaymentMethods_Provider_Field) (
+	rows []*PaymentMethods, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_methods.id, payment_methods.user_id, payment_methods.provider, payment_methods.provider_method_id, payment_methods.brand, payment_methods.last4, payment_methods.exp_month, payment_methods.exp_year, payment_methods.is_default, payment_methods.created_at FROM payment_methods WHERE payment_methods.user_id = ? AND payment_methods.provider = ?")
+
+	var __values []any
+	__values = append(__values, payment_methods_user_id.value(), payment_methods_provider.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*PaymentMethods, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				payment_methods := &PaymentMethods{}
+				err = __rows.Scan(&payment_methods.Id, &payment_methods.UserId, &payment_methods.Provider, &payment_methods.ProviderMethodId, &payment_methods.Brand, &payment_methods.Last4, &payment_methods.ExpMonth, &payment_methods.ExpYear, &payment_methods.IsDefault, &payment_methods.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, payment_methods)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) Get_PaymentMethods_By_UserId_And_Provider_And_IsDefault(ctx context.Context,
+	payment_methods_user_id PaymentMethods_UserId_Field,
+	payment_methods_provider PaymentMethods_Provider_Field,
+	payment_methods_is_default PaymentMethods_IsDefault_Field) (
+	payment_methods *PaymentMethods, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_methods.id, payment_methods.user_id, payment_methods.provider, payment_methods.provider_method_id, payment_methods.brand, payment_methods.last4, payment_methods.exp_month, payment_methods.exp_year, payment_methods.is_default, payment_methods.created_at FROM payment_methods WHERE payment_methods.user_id = ? AND payment_methods.provider = ? AND payment_methods.is_default = ? LIMIT 2")
+
+	var __values []any
+	__values = append(__values, payment_methods_user_id.value(), payment_methods_provider.value(), payment_methods_is_default.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		payment_methods, err = func() (payment_methods *PaymentMethods, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			if !__rows.Next() {
+				return nil, sql.ErrNoRows
+			}
+
+			payment_methods = &PaymentMethods{}
+			err = __rows.Scan(&payment_methods.Id, &payment_methods.UserId, &payment_methods.Provider, &payment_methods.ProviderMethodId, &payment_methods.Brand, &payment_methods.Last4, &payment_methods.ExpMonth, &payment_methods.ExpYear, &payment_methods.IsDefault, &payment_methods.CreatedAt)
+			if err != nil {
+				return nil, err
+			}
+
+			if __rows.Next() {
+				return nil, errTooManyRows
+			}
+
+			return payment_methods, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			if errors.Is(err, errTooManyRows) {
+				return nil, tooManyRows("PaymentMethods_By_UserId_And_Provider_And_IsDefault")
+			}
+			return nil, obj.makeErr(err)
+		}
+		return payment_methods, nil
+	}
+
+}
+
+func (obj *spannerImpl) Get_PaymentAttempts_By_Id(ctx context.Context,
+	payment_attempts_id PaymentAttempts_Id_Field) (
+	payment_attempts *PaymentAttempts, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_attempts.id, payment_attempts.user_id, payment_attempts.plan_id, payment_attempts.provider, payment_attempts.provider_ref, payment_attempts.amount_minor, payment_attempts.currency, payment_attempts.status, payment_attempts.coupon_code, payment_attempts.metadata, payment_attempts.created_at, payment_attempts.updated_at FROM payment_attempts WHERE payment_attempts.id = ?")
+
+	var __values []any
+	__values = append(__values, payment_attempts_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_attempts = &PaymentAttempts{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_attempts.Id, &payment_attempts.UserId, &payment_attempts.PlanId, &payment_attempts.Provider, &payment_attempts.ProviderRef, &payment_attempts.AmountMinor, &payment_attempts.Currency, &payment_attempts.Status, &payment_attempts.CouponCode, spannerConvertJSON(&payment_attempts.Metadata), &payment_attempts.CreatedAt, &payment_attempts.UpdatedAt)
+	if err != nil {
+		return (*PaymentAttempts)(nil), obj.makeErr(err)
+	}
+	return payment_attempts, nil
+
+}
+
+func (obj *spannerImpl) Get_PaymentAttempts_By_Provider_And_ProviderRef(ctx context.Context,
+	payment_attempts_provider PaymentAttempts_Provider_Field,
+	payment_attempts_provider_ref PaymentAttempts_ProviderRef_Field) (
+	payment_attempts *PaymentAttempts, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_attempts.id, payment_attempts.user_id, payment_attempts.plan_id, payment_attempts.provider, payment_attempts.provider_ref, payment_attempts.amount_minor, payment_attempts.currency, payment_attempts.status, payment_attempts.coupon_code, payment_attempts.metadata, payment_attempts.created_at, payment_attempts.updated_at FROM payment_attempts WHERE payment_attempts.provider = ? AND payment_attempts.provider_ref = ?")
+
+	var __values []any
+	__values = append(__values, payment_attempts_provider.value(), payment_attempts_provider_ref.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_attempts = &PaymentAttempts{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_attempts.Id, &payment_attempts.UserId, &payment_attempts.PlanId, &payment_attempts.Provider, &payment_attempts.ProviderRef, &payment_attempts.AmountMinor, &payment_attempts.Currency, &payment_attempts.Status, &payment_attempts.CouponCode, spannerConvertJSON(&payment_attempts.Metadata), &payment_attempts.CreatedAt, &payment_attempts.UpdatedAt)
+	if err != nil {
+		return (*PaymentAttempts)(nil), obj.makeErr(err)
+	}
+	return payment_attempts, nil
+
+}
+
+func (obj *spannerImpl) Get_PaymentSubscriptions_By_Id(ctx context.Context,
+	payment_subscriptions_id PaymentSubscriptions_Id_Field) (
+	payment_subscriptions *PaymentSubscriptions, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_subscriptions.id, payment_subscriptions.user_id, payment_subscriptions.plan_id, payment_subscriptions.provider, payment_subscriptions.provider_sub_id, payment_subscriptions.provider_plan_id, payment_subscriptions.status, payment_subscriptions.current_period_end, payment_subscriptions.cancel_at_period_end, payment_subscriptions.default_method_id, payment_subscriptions.coupon_code, payment_subscriptions.created_at, payment_subscriptions.updated_at FROM payment_subscriptions WHERE payment_subscriptions.id = ?")
+
+	var __values []any
+	__values = append(__values, payment_subscriptions_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_subscriptions = &PaymentSubscriptions{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_subscriptions.Id, &payment_subscriptions.UserId, &payment_subscriptions.PlanId, &payment_subscriptions.Provider, &payment_subscriptions.ProviderSubId, &payment_subscriptions.ProviderPlanId, &payment_subscriptions.Status, &payment_subscriptions.CurrentPeriodEnd, &payment_subscriptions.CancelAtPeriodEnd, &payment_subscriptions.DefaultMethodId, &payment_subscriptions.CouponCode, &payment_subscriptions.CreatedAt, &payment_subscriptions.UpdatedAt)
+	if err != nil {
+		return (*PaymentSubscriptions)(nil), obj.makeErr(err)
+	}
+	return payment_subscriptions, nil
+
+}
+
+func (obj *spannerImpl) Get_PaymentSubscriptions_By_Provider_And_ProviderSubId(ctx context.Context,
+	payment_subscriptions_provider PaymentSubscriptions_Provider_Field,
+	payment_subscriptions_provider_sub_id PaymentSubscriptions_ProviderSubId_Field) (
+	payment_subscriptions *PaymentSubscriptions, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_subscriptions.id, payment_subscriptions.user_id, payment_subscriptions.plan_id, payment_subscriptions.provider, payment_subscriptions.provider_sub_id, payment_subscriptions.provider_plan_id, payment_subscriptions.status, payment_subscriptions.current_period_end, payment_subscriptions.cancel_at_period_end, payment_subscriptions.default_method_id, payment_subscriptions.coupon_code, payment_subscriptions.created_at, payment_subscriptions.updated_at FROM payment_subscriptions WHERE payment_subscriptions.provider = ? AND payment_subscriptions.provider_sub_id = ?")
+
+	var __values []any
+	__values = append(__values, payment_subscriptions_provider.value(), payment_subscriptions_provider_sub_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_subscriptions = &PaymentSubscriptions{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&payment_subscriptions.Id, &payment_subscriptions.UserId, &payment_subscriptions.PlanId, &payment_subscriptions.Provider, &payment_subscriptions.ProviderSubId, &payment_subscriptions.ProviderPlanId, &payment_subscriptions.Status, &payment_subscriptions.CurrentPeriodEnd, &payment_subscriptions.CancelAtPeriodEnd, &payment_subscriptions.DefaultMethodId, &payment_subscriptions.CouponCode, &payment_subscriptions.CreatedAt, &payment_subscriptions.UpdatedAt)
+	if err != nil {
+		return (*PaymentSubscriptions)(nil), obj.makeErr(err)
+	}
+	return payment_subscriptions, nil
+
+}
+
+func (obj *spannerImpl) All_PaymentSubscriptions_By_UserId_And_Provider(ctx context.Context,
+	payment_subscriptions_user_id PaymentSubscriptions_UserId_Field,
+	payment_subscriptions_provider PaymentSubscriptions_Provider_Field) (
+	rows []*PaymentSubscriptions, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_subscriptions.id, payment_subscriptions.user_id, payment_subscriptions.plan_id, payment_subscriptions.provider, payment_subscriptions.provider_sub_id, payment_subscriptions.provider_plan_id, payment_subscriptions.status, payment_subscriptions.current_period_end, payment_subscriptions.cancel_at_period_end, payment_subscriptions.default_method_id, payment_subscriptions.coupon_code, payment_subscriptions.created_at, payment_subscriptions.updated_at FROM payment_subscriptions WHERE payment_subscriptions.user_id = ? AND payment_subscriptions.provider = ?")
+
+	var __values []any
+	__values = append(__values, payment_subscriptions_user_id.value(), payment_subscriptions_provider.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*PaymentSubscriptions, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				payment_subscriptions := &PaymentSubscriptions{}
+				err = __rows.Scan(&payment_subscriptions.Id, &payment_subscriptions.UserId, &payment_subscriptions.PlanId, &payment_subscriptions.Provider, &payment_subscriptions.ProviderSubId, &payment_subscriptions.ProviderPlanId, &payment_subscriptions.Status, &payment_subscriptions.CurrentPeriodEnd, &payment_subscriptions.CancelAtPeriodEnd, &payment_subscriptions.DefaultMethodId, &payment_subscriptions.CouponCode, &payment_subscriptions.CreatedAt, &payment_subscriptions.UpdatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, payment_subscriptions)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) Get_PaymentEvents_Id_By_Provider_And_ProviderEventId(ctx context.Context,
+	payment_events_provider PaymentEvents_Provider_Field,
+	payment_events_provider_event_id PaymentEvents_ProviderEventId_Field) (
+	row *Id_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT payment_events.id FROM payment_events WHERE payment_events.provider = ? AND payment_events.provider_event_id = ?")
+
+	var __values []any
+	__values = append(__values, payment_events_provider.value(), payment_events_provider_event_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &Id_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.Id)
+	if err != nil {
+		return (*Id_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
 
 }
 
@@ -76740,7 +80462,7 @@ func (obj *spannerImpl) Update_PaymentPlans_By_Id(ctx context.Context,
 
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE payment_plans SET "), __sets, __sqlbundle_Literal(" WHERE payment_plans.id = ? THEN RETURN payment_plans.id, payment_plans.name, payment_plans.storage, payment_plans.price, payment_plans.benefit, payment_plans.bandwidth, payment_plans.validity, payment_plans.validity_unit, payment_plans.group")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE payment_plans SET "), __sets, __sqlbundle_Literal(" WHERE payment_plans.id = ? THEN RETURN payment_plans.id, payment_plans.name, payment_plans.storage, payment_plans.price, payment_plans.benefit, payment_plans.bandwidth, payment_plans.validity, payment_plans.validity_unit, payment_plans.group, payment_plans.provider_plan_ids")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []any
@@ -76778,6 +80500,10 @@ func (obj *spannerImpl) Update_PaymentPlans_By_Id(ctx context.Context,
 		__values = append(__values, update.Group.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("group = ?"))
 	}
+	if update.ProviderPlanIds._set {
+		__values = append(__values, spannerConvertJSON(update.ProviderPlanIds.value()))
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("provider_plan_ids = ?"))
+	}
 
 	if len(__sets_sql.SQLs) == 0 {
 		return nil, emptyUpdate()
@@ -76792,7 +80518,7 @@ func (obj *spannerImpl) Update_PaymentPlans_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	payment_plans = &PaymentPlans{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&payment_plans.Id, &payment_plans.Name, &payment_plans.Storage, &payment_plans.Price, spannerConvertJSON(&payment_plans.Benefit), &payment_plans.Bandwidth, &payment_plans.Validity, &payment_plans.ValidityUnit, &payment_plans.Group)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&payment_plans.Id, &payment_plans.Name, &payment_plans.Storage, &payment_plans.Price, spannerConvertJSON(&payment_plans.Benefit), &payment_plans.Bandwidth, &payment_plans.Validity, &payment_plans.ValidityUnit, &payment_plans.Group, spannerConvertJSON(&payment_plans.ProviderPlanIds))
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -78805,6 +82531,163 @@ func (obj *spannerImpl) Update_BackupCredentials_By_Id(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return backup_credentials, nil
+}
+
+func (obj *spannerImpl) Update_PaymentMethods_By_Id(ctx context.Context,
+	payment_methods_id PaymentMethods_Id_Field,
+	update PaymentMethods_Update_Fields) (
+	payment_methods *PaymentMethods, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE payment_methods SET "), __sets, __sqlbundle_Literal(" WHERE payment_methods.id = ? THEN RETURN payment_methods.id, payment_methods.user_id, payment_methods.provider, payment_methods.provider_method_id, payment_methods.brand, payment_methods.last4, payment_methods.exp_month, payment_methods.exp_year, payment_methods.is_default, payment_methods.created_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.IsDefault._set {
+		__values = append(__values, update.IsDefault.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("is_default = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, payment_methods_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_methods = &PaymentMethods{}
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&payment_methods.Id, &payment_methods.UserId, &payment_methods.Provider, &payment_methods.ProviderMethodId, &payment_methods.Brand, &payment_methods.Last4, &payment_methods.ExpMonth, &payment_methods.ExpYear, &payment_methods.IsDefault, &payment_methods.CreatedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return payment_methods, nil
+}
+
+func (obj *spannerImpl) Update_PaymentAttempts_By_Id(ctx context.Context,
+	payment_attempts_id PaymentAttempts_Id_Field,
+	update PaymentAttempts_Update_Fields) (
+	payment_attempts *PaymentAttempts, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE payment_attempts SET "), __sets, __sqlbundle_Literal(" WHERE payment_attempts.id = ? THEN RETURN payment_attempts.id, payment_attempts.user_id, payment_attempts.plan_id, payment_attempts.provider, payment_attempts.provider_ref, payment_attempts.amount_minor, payment_attempts.currency, payment_attempts.status, payment_attempts.coupon_code, payment_attempts.metadata, payment_attempts.created_at, payment_attempts.updated_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.ProviderRef._set {
+		__values = append(__values, update.ProviderRef.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("provider_ref = ?"))
+	}
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+	if update.Metadata._set {
+		__values = append(__values, spannerConvertJSON(update.Metadata.value()))
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("metadata = ?"))
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+
+	__args = append(__args, payment_attempts_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_attempts = &PaymentAttempts{}
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&payment_attempts.Id, &payment_attempts.UserId, &payment_attempts.PlanId, &payment_attempts.Provider, &payment_attempts.ProviderRef, &payment_attempts.AmountMinor, &payment_attempts.Currency, &payment_attempts.Status, &payment_attempts.CouponCode, spannerConvertJSON(&payment_attempts.Metadata), &payment_attempts.CreatedAt, &payment_attempts.UpdatedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return payment_attempts, nil
+}
+
+func (obj *spannerImpl) Update_PaymentSubscriptions_By_Id(ctx context.Context,
+	payment_subscriptions_id PaymentSubscriptions_Id_Field,
+	update PaymentSubscriptions_Update_Fields) (
+	payment_subscriptions *PaymentSubscriptions, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE payment_subscriptions SET "), __sets, __sqlbundle_Literal(" WHERE payment_subscriptions.id = ? THEN RETURN payment_subscriptions.id, payment_subscriptions.user_id, payment_subscriptions.plan_id, payment_subscriptions.provider, payment_subscriptions.provider_sub_id, payment_subscriptions.provider_plan_id, payment_subscriptions.status, payment_subscriptions.current_period_end, payment_subscriptions.cancel_at_period_end, payment_subscriptions.default_method_id, payment_subscriptions.coupon_code, payment_subscriptions.created_at, payment_subscriptions.updated_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+	if update.CurrentPeriodEnd._set {
+		__values = append(__values, update.CurrentPeriodEnd.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("current_period_end = ?"))
+	}
+	if update.CancelAtPeriodEnd._set {
+		__values = append(__values, update.CancelAtPeriodEnd.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("cancel_at_period_end = ?"))
+	}
+	if update.DefaultMethodId._set {
+		__values = append(__values, update.DefaultMethodId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_method_id = ?"))
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+
+	__args = append(__args, payment_subscriptions_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	payment_subscriptions = &PaymentSubscriptions{}
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&payment_subscriptions.Id, &payment_subscriptions.UserId, &payment_subscriptions.PlanId, &payment_subscriptions.Provider, &payment_subscriptions.ProviderSubId, &payment_subscriptions.ProviderPlanId, &payment_subscriptions.Status, &payment_subscriptions.CurrentPeriodEnd, &payment_subscriptions.CancelAtPeriodEnd, &payment_subscriptions.DefaultMethodId, &payment_subscriptions.CouponCode, &payment_subscriptions.CreatedAt, &payment_subscriptions.UpdatedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return payment_subscriptions, nil
 }
 
 func (obj *spannerImpl) Update_Project_By_Id(ctx context.Context,
@@ -81688,6 +85571,67 @@ func (obj *spannerImpl) Delete_OauthClient_By_Id(ctx context.Context,
 
 }
 
+func (obj *spannerImpl) Delete_PaymentCustomers_By_UserId_And_Provider(ctx context.Context,
+	payment_customers_user_id PaymentCustomers_UserId_Field,
+	payment_customers_provider PaymentCustomers_Provider_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM payment_customers WHERE payment_customers.user_id = ? AND payment_customers.provider = ?")
+
+	var __values []any
+	__values = append(__values, payment_customers_user_id.value(), payment_customers_provider.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *spannerImpl) Delete_PaymentMethods_By_Id(ctx context.Context,
+	payment_methods_id PaymentMethods_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM payment_methods WHERE payment_methods.id = ?")
+
+	var __values []any
+	__values = append(__values, payment_methods_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *spannerImpl) Delete_Project_By_Id(ctx context.Context,
 	project_id Project_Id_Field) (
 	deleted bool, err error) {
@@ -83243,7 +87187,57 @@ func (obj *spannerImpl) deleteAll(ctx context.Context) (count int64, err error) 
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM payment_subscriptions;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM payment_plans;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM payment_methods;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM payment_events;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM payment_customers;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM payment_attempts;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -83753,12 +87747,22 @@ type Methods interface {
 	All_Node_Id_Node_PieceCount_By_Disqualified_Is_Null_And_ExitInitiatedAt_Is_Null_And_ExitFinishedAt_Is_Null(ctx context.Context) (
 		rows []*Id_PieceCount_Row, err error)
 
+	All_PaymentMethods_By_UserId_And_Provider(ctx context.Context,
+		payment_methods_user_id PaymentMethods_UserId_Field,
+		payment_methods_provider PaymentMethods_Provider_Field) (
+		rows []*PaymentMethods, err error)
+
 	All_PaymentPlans(ctx context.Context) (
 		rows []*PaymentPlans, err error)
 
 	All_PaymentPlans_By_Group(ctx context.Context,
 		payment_plans_group PaymentPlans_Group_Field) (
 		rows []*PaymentPlans, err error)
+
+	All_PaymentSubscriptions_By_UserId_And_Provider(ctx context.Context,
+		payment_subscriptions_user_id PaymentSubscriptions_UserId_Field,
+		payment_subscriptions_provider PaymentSubscriptions_Provider_Field) (
+		rows []*PaymentSubscriptions, err error)
 
 	All_Project(ctx context.Context) (
 		rows []*Project, err error)
@@ -84248,6 +88252,45 @@ type Methods interface {
 		oauth2_request_rejected_scopes Oauth2Request_RejectedScopes_Field) (
 		oauth2_request *Oauth2Request, err error)
 
+	Create_PaymentAttempts(ctx context.Context,
+		payment_attempts_id PaymentAttempts_Id_Field,
+		payment_attempts_user_id PaymentAttempts_UserId_Field,
+		payment_attempts_plan_id PaymentAttempts_PlanId_Field,
+		payment_attempts_provider PaymentAttempts_Provider_Field,
+		payment_attempts_provider_ref PaymentAttempts_ProviderRef_Field,
+		payment_attempts_amount_minor PaymentAttempts_AmountMinor_Field,
+		payment_attempts_currency PaymentAttempts_Currency_Field,
+		payment_attempts_status PaymentAttempts_Status_Field,
+		optional PaymentAttempts_Create_Fields) (
+		payment_attempts *PaymentAttempts, err error)
+
+	Create_PaymentCustomers(ctx context.Context,
+		payment_customers_user_id PaymentCustomers_UserId_Field,
+		payment_customers_provider PaymentCustomers_Provider_Field,
+		payment_customers_provider_customer_id PaymentCustomers_ProviderCustomerId_Field) (
+		payment_customers *PaymentCustomers, err error)
+
+	Create_PaymentEvents(ctx context.Context,
+		payment_events_id PaymentEvents_Id_Field,
+		payment_events_provider PaymentEvents_Provider_Field,
+		payment_events_provider_event_id PaymentEvents_ProviderEventId_Field,
+		payment_events_event_type PaymentEvents_EventType_Field,
+		payment_events_payload PaymentEvents_Payload_Field,
+		optional PaymentEvents_Create_Fields) (
+		payment_events *PaymentEvents, err error)
+
+	Create_PaymentMethods(ctx context.Context,
+		payment_methods_id PaymentMethods_Id_Field,
+		payment_methods_user_id PaymentMethods_UserId_Field,
+		payment_methods_provider PaymentMethods_Provider_Field,
+		payment_methods_provider_method_id PaymentMethods_ProviderMethodId_Field,
+		payment_methods_brand PaymentMethods_Brand_Field,
+		payment_methods_last4 PaymentMethods_Last4_Field,
+		payment_methods_exp_month PaymentMethods_ExpMonth_Field,
+		payment_methods_exp_year PaymentMethods_ExpYear_Field,
+		payment_methods_is_default PaymentMethods_IsDefault_Field) (
+		payment_methods *PaymentMethods, err error)
+
 	Create_PaymentPlans(ctx context.Context,
 		payment_plans_name PaymentPlans_Name_Field,
 		payment_plans_storage PaymentPlans_Storage_Field,
@@ -84256,8 +88299,21 @@ type Methods interface {
 		payment_plans_bandwidth PaymentPlans_Bandwidth_Field,
 		payment_plans_validity PaymentPlans_Validity_Field,
 		payment_plans_validity_unit PaymentPlans_ValidityUnit_Field,
-		payment_plans_group PaymentPlans_Group_Field) (
+		payment_plans_group PaymentPlans_Group_Field,
+		optional PaymentPlans_Create_Fields) (
 		payment_plans *PaymentPlans, err error)
+
+	Create_PaymentSubscriptions(ctx context.Context,
+		payment_subscriptions_id PaymentSubscriptions_Id_Field,
+		payment_subscriptions_user_id PaymentSubscriptions_UserId_Field,
+		payment_subscriptions_plan_id PaymentSubscriptions_PlanId_Field,
+		payment_subscriptions_provider PaymentSubscriptions_Provider_Field,
+		payment_subscriptions_provider_sub_id PaymentSubscriptions_ProviderSubId_Field,
+		payment_subscriptions_provider_plan_id PaymentSubscriptions_ProviderPlanId_Field,
+		payment_subscriptions_status PaymentSubscriptions_Status_Field,
+		payment_subscriptions_cancel_at_period_end PaymentSubscriptions_CancelAtPeriodEnd_Field,
+		optional PaymentSubscriptions_Create_Fields) (
+		payment_subscriptions *PaymentSubscriptions, err error)
 
 	Create_Project(ctx context.Context,
 		project_id Project_Id_Field,
@@ -84581,6 +88637,15 @@ type Methods interface {
 
 	Delete_OauthClient_By_Id(ctx context.Context,
 		oauth_client_id OauthClient_Id_Field) (
+		deleted bool, err error)
+
+	Delete_PaymentCustomers_By_UserId_And_Provider(ctx context.Context,
+		payment_customers_user_id PaymentCustomers_UserId_Field,
+		payment_customers_provider PaymentCustomers_Provider_Field) (
+		deleted bool, err error)
+
+	Delete_PaymentMethods_By_Id(ctx context.Context,
+		payment_methods_id PaymentMethods_Id_Field) (
 		deleted bool, err error)
 
 	Delete_ProjectInvitation_By_ProjectId_And_Email(ctx context.Context,
@@ -84941,9 +89006,57 @@ type Methods interface {
 		oauth_token_token OauthToken_Token_Field) (
 		oauth_token *OauthToken, err error)
 
+	Get_PaymentAttempts_By_Id(ctx context.Context,
+		payment_attempts_id PaymentAttempts_Id_Field) (
+		payment_attempts *PaymentAttempts, err error)
+
+	Get_PaymentAttempts_By_Provider_And_ProviderRef(ctx context.Context,
+		payment_attempts_provider PaymentAttempts_Provider_Field,
+		payment_attempts_provider_ref PaymentAttempts_ProviderRef_Field) (
+		payment_attempts *PaymentAttempts, err error)
+
+	Get_PaymentCustomers_By_Provider_And_ProviderCustomerId(ctx context.Context,
+		payment_customers_provider PaymentCustomers_Provider_Field,
+		payment_customers_provider_customer_id PaymentCustomers_ProviderCustomerId_Field) (
+		payment_customers *PaymentCustomers, err error)
+
+	Get_PaymentCustomers_By_UserId_And_Provider(ctx context.Context,
+		payment_customers_user_id PaymentCustomers_UserId_Field,
+		payment_customers_provider PaymentCustomers_Provider_Field) (
+		payment_customers *PaymentCustomers, err error)
+
+	Get_PaymentEvents_Id_By_Provider_And_ProviderEventId(ctx context.Context,
+		payment_events_provider PaymentEvents_Provider_Field,
+		payment_events_provider_event_id PaymentEvents_ProviderEventId_Field) (
+		row *Id_Row, err error)
+
+	Get_PaymentMethods_By_Id(ctx context.Context,
+		payment_methods_id PaymentMethods_Id_Field) (
+		payment_methods *PaymentMethods, err error)
+
+	Get_PaymentMethods_By_Provider_And_ProviderMethodId(ctx context.Context,
+		payment_methods_provider PaymentMethods_Provider_Field,
+		payment_methods_provider_method_id PaymentMethods_ProviderMethodId_Field) (
+		payment_methods *PaymentMethods, err error)
+
+	Get_PaymentMethods_By_UserId_And_Provider_And_IsDefault(ctx context.Context,
+		payment_methods_user_id PaymentMethods_UserId_Field,
+		payment_methods_provider PaymentMethods_Provider_Field,
+		payment_methods_is_default PaymentMethods_IsDefault_Field) (
+		payment_methods *PaymentMethods, err error)
+
 	Get_PaymentPlans_By_Id(ctx context.Context,
 		payment_plans_id PaymentPlans_Id_Field) (
 		payment_plans *PaymentPlans, err error)
+
+	Get_PaymentSubscriptions_By_Id(ctx context.Context,
+		payment_subscriptions_id PaymentSubscriptions_Id_Field) (
+		payment_subscriptions *PaymentSubscriptions, err error)
+
+	Get_PaymentSubscriptions_By_Provider_And_ProviderSubId(ctx context.Context,
+		payment_subscriptions_provider PaymentSubscriptions_Provider_Field,
+		payment_subscriptions_provider_sub_id PaymentSubscriptions_ProviderSubId_Field) (
+		payment_subscriptions *PaymentSubscriptions, err error)
 
 	Get_PeerIdentity_By_NodeId(ctx context.Context,
 		peer_identity_node_id PeerIdentity_NodeId_Field) (
@@ -85633,10 +89746,25 @@ type Methods interface {
 		update Oauth2Request_Update_Fields) (
 		oauth2_request *Oauth2Request, err error)
 
+	Update_PaymentAttempts_By_Id(ctx context.Context,
+		payment_attempts_id PaymentAttempts_Id_Field,
+		update PaymentAttempts_Update_Fields) (
+		payment_attempts *PaymentAttempts, err error)
+
+	Update_PaymentMethods_By_Id(ctx context.Context,
+		payment_methods_id PaymentMethods_Id_Field,
+		update PaymentMethods_Update_Fields) (
+		payment_methods *PaymentMethods, err error)
+
 	Update_PaymentPlans_By_Id(ctx context.Context,
 		payment_plans_id PaymentPlans_Id_Field,
 		update PaymentPlans_Update_Fields) (
 		payment_plans *PaymentPlans, err error)
+
+	Update_PaymentSubscriptions_By_Id(ctx context.Context,
+		payment_subscriptions_id PaymentSubscriptions_Id_Field,
+		update PaymentSubscriptions_Update_Fields) (
+		payment_subscriptions *PaymentSubscriptions, err error)
 
 	Update_ProjectInvitation_By_ProjectId_And_Email(ctx context.Context,
 		project_invitation_project_id ProjectInvitation_ProjectId_Field,

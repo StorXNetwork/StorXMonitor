@@ -414,6 +414,56 @@ CREATE TABLE oauth_tokens (
 	expires_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( token )
 ) ;
+CREATE TABLE payment_attempts (
+	id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	plan_id bigint NOT NULL,
+	provider text NOT NULL,
+	provider_ref text NOT NULL,
+	amount_minor bigint NOT NULL,
+	currency text NOT NULL,
+	status text NOT NULL,
+	coupon_code text,
+	metadata jsonb,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( provider, provider_ref )
+) ;
+CREATE TABLE payment_customers (
+	user_id bytea NOT NULL,
+	provider text NOT NULL,
+	provider_customer_id text NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( user_id, provider ),
+	UNIQUE ( provider, provider_customer_id )
+) ;
+CREATE TABLE payment_events (
+	id bytea NOT NULL,
+	provider text NOT NULL,
+	provider_event_id text NOT NULL,
+	event_type text NOT NULL,
+	payload jsonb NOT NULL,
+	attempt_id bytea,
+	subscription_id bytea,
+	received_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( provider, provider_event_id )
+) ;
+CREATE TABLE payment_methods (
+	id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	provider text NOT NULL,
+	provider_method_id text NOT NULL,
+	brand text NOT NULL,
+	last4 text NOT NULL,
+	exp_month integer NOT NULL,
+	exp_year integer NOT NULL,
+	is_default boolean NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( provider, provider_method_id )
+) ;
 CREATE TABLE payment_plans (
 	id bigserial NOT NULL,
 	name text NOT NULL,
@@ -424,7 +474,25 @@ CREATE TABLE payment_plans (
 	validity bigint NOT NULL,
 	validity_unit text NOT NULL,
 	group text NOT NULL,
+	provider_plan_ids jsonb,
 	PRIMARY KEY ( id )
+) ;
+CREATE TABLE payment_subscriptions (
+	id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	plan_id bigint NOT NULL,
+	provider text NOT NULL,
+	provider_sub_id text NOT NULL,
+	provider_plan_id text NOT NULL,
+	status text NOT NULL,
+	current_period_end timestamp with time zone,
+	cancel_at_period_end boolean NOT NULL,
+	default_method_id bytea,
+	coupon_code text,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( provider, provider_sub_id )
 ) ;
 CREATE TABLE peer_identities (
 	node_id bytea NOT NULL,
@@ -1100,6 +1168,9 @@ CREATE INDEX oauth_codes_user_id_index ON oauth_codes ( user_id ) ;
 CREATE INDEX oauth_codes_client_id_index ON oauth_codes ( client_id ) ;
 CREATE INDEX oauth_tokens_user_id_index ON oauth_tokens ( user_id ) ;
 CREATE INDEX oauth_tokens_client_id_index ON oauth_tokens ( client_id ) ;
+CREATE INDEX payment_attempts_user_id_index ON payment_attempts ( user_id ) ;
+CREATE INDEX payment_methods_user_id_provider_index ON payment_methods ( user_id, provider ) ;
+CREATE INDEX payment_subscriptions_user_id_provider_index ON payment_subscriptions ( user_id, provider ) ;
 CREATE INDEX projects_public_id_index ON projects ( public_id ) ;
 CREATE INDEX projects_owner_id_index ON projects ( owner_id ) ;
 CREATE INDEX projects_status_status_updated_at_index ON projects ( status, status_updated_at ) WHERE projects.status_updated_at is not NULL ;

@@ -50,6 +50,8 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/satellite/orders"
 	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/gateway"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/razorpay"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/storjscan"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
 	"github.com/StorXNetwork/common/debug"
@@ -124,9 +126,10 @@ type ConsoleAPI struct {
 		StorjscanService *storjscan.Service
 		StorjscanClient  *storjscan.Client
 
-		StripeService *stripe.Service
-		StripeClient  stripe.Client
-		EmailWebhook  *consoleapi.EmailWebhook
+		StripeService  *stripe.Service
+		StripeClient   stripe.Client
+		GatewayService *gateway.Service
+		EmailWebhook   *consoleapi.EmailWebhook
 	}
 
 	Console struct {
@@ -509,6 +512,24 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			pc.BonusRate)
 
 		peer.Payments.DepositWallets = peer.Payments.StorjscanService
+
+		var providers []gateway.Provider
+		if pc.Razorpay.Enabled {
+			providers = append(providers, razorpay.NewProvider(pc.Razorpay))
+		}
+		peer.Payments.GatewayService = gateway.NewService(
+			log.Named("payment-gateway"),
+			pc.Gateway,
+			gateway.ServiceDependencies{
+				DB:       peer.DB.PaymentGateway(),
+				Billing:  peer.DB.Billing(),
+				Users:    peer.DB.Console().Users(),
+				Projects: peer.DB.Console().Projects(),
+				Mail:     peer.Mail.Service,
+			},
+			pc.Razorpay.Currency,
+			providers...,
+		)
 	}
 
 	{ // setup console
@@ -709,6 +730,7 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			pushNotificationService,
 			config.Payments.PackagePlans,
 			peer.Payments.StripeService,
+			peer.Payments.GatewayService,
 			developerService,
 			config.Payments.MinimumCharge,
 			prices,

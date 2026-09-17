@@ -382,6 +382,52 @@ CREATE TABLE oauth_tokens (
 	created_at TIMESTAMP NOT NULL,
 	expires_at TIMESTAMP NOT NULL
 ) PRIMARY KEY ( token ) ;
+CREATE TABLE payment_attempts (
+	id BYTES(MAX) NOT NULL,
+	user_id BYTES(MAX) NOT NULL,
+	plan_id INT64 NOT NULL,
+	provider STRING(MAX) NOT NULL,
+	provider_ref STRING(MAX) NOT NULL,
+	amount_minor INT64 NOT NULL,
+	currency STRING(MAX) NOT NULL,
+	status STRING(MAX) NOT NULL,
+	coupon_code STRING(MAX),
+	metadata JSON,
+	created_at TIMESTAMP NOT NULL,
+	updated_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( id ) ;
+CREATE UNIQUE INDEX index_payment_attempts_provider_provider_ref ON payment_attempts ( provider, provider_ref ) ;
+CREATE TABLE payment_customers (
+	user_id BYTES(MAX) NOT NULL,
+	provider STRING(MAX) NOT NULL,
+	provider_customer_id STRING(MAX) NOT NULL,
+	created_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( user_id, provider ) ;
+CREATE UNIQUE INDEX index_payment_customers_provider_provider_customer_id ON payment_customers ( provider, provider_customer_id ) ;
+CREATE TABLE payment_events (
+	id BYTES(MAX) NOT NULL,
+	provider STRING(MAX) NOT NULL,
+	provider_event_id STRING(MAX) NOT NULL,
+	event_type STRING(MAX) NOT NULL,
+	payload JSON NOT NULL,
+	attempt_id BYTES(MAX),
+	subscription_id BYTES(MAX),
+	received_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( id ) ;
+CREATE UNIQUE INDEX index_payment_events_provider_provider_event_id ON payment_events ( provider, provider_event_id ) ;
+CREATE TABLE payment_methods (
+	id BYTES(MAX) NOT NULL,
+	user_id BYTES(MAX) NOT NULL,
+	provider STRING(MAX) NOT NULL,
+	provider_method_id STRING(MAX) NOT NULL,
+	brand STRING(MAX) NOT NULL,
+	last4 STRING(MAX) NOT NULL,
+	exp_month INT64 NOT NULL,
+	exp_year INT64 NOT NULL,
+	is_default BOOL NOT NULL,
+	created_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( id ) ;
+CREATE UNIQUE INDEX index_payment_methods_provider_provider_method_id ON payment_methods ( provider, provider_method_id ) ;
 CREATE SEQUENCE payment_plans_id OPTIONS (sequence_kind='bit_reversed_positive') ;
 CREATE TABLE payment_plans (
 	id INT64 NOT NULL DEFAULT (GET_NEXT_SEQUENCE_VALUE(SEQUENCE payment_plans_id)),
@@ -392,8 +438,25 @@ CREATE TABLE payment_plans (
 	bandwidth INT64 NOT NULL,
 	validity INT64 NOT NULL,
 	validity_unit STRING(MAX) NOT NULL,
-	group STRING(MAX) NOT NULL
+	group STRING(MAX) NOT NULL,
+	provider_plan_ids JSON
 ) PRIMARY KEY ( id ) ;
+CREATE TABLE payment_subscriptions (
+	id BYTES(MAX) NOT NULL,
+	user_id BYTES(MAX) NOT NULL,
+	plan_id INT64 NOT NULL,
+	provider STRING(MAX) NOT NULL,
+	provider_sub_id STRING(MAX) NOT NULL,
+	provider_plan_id STRING(MAX) NOT NULL,
+	status STRING(MAX) NOT NULL,
+	current_period_end TIMESTAMP,
+	cancel_at_period_end BOOL NOT NULL,
+	default_method_id BYTES(MAX),
+	coupon_code STRING(MAX),
+	created_at TIMESTAMP NOT NULL,
+	updated_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( id ) ;
+CREATE UNIQUE INDEX index_payment_subscriptions_provider_provider_sub_id ON payment_subscriptions ( provider, provider_sub_id ) ;
 CREATE TABLE peer_identities (
 	node_id BYTES(MAX) NOT NULL,
 	leaf_serial_number BYTES(MAX) NOT NULL,
@@ -1034,6 +1097,9 @@ CREATE INDEX oauth_codes_user_id_index ON oauth_codes ( user_id ) ;
 CREATE INDEX oauth_codes_client_id_index ON oauth_codes ( client_id ) ;
 CREATE INDEX oauth_tokens_user_id_index ON oauth_tokens ( user_id ) ;
 CREATE INDEX oauth_tokens_client_id_index ON oauth_tokens ( client_id ) ;
+CREATE INDEX payment_attempts_user_id_index ON payment_attempts ( user_id ) ;
+CREATE INDEX payment_methods_user_id_provider_index ON payment_methods ( user_id, provider ) ;
+CREATE INDEX payment_subscriptions_user_id_provider_index ON payment_subscriptions ( user_id, provider ) ;
 CREATE INDEX projects_public_id_index ON projects ( public_id ) ;
 CREATE INDEX projects_owner_id_index ON projects ( owner_id ) ;
 CREATE INDEX projects_status_status_updated_at_index ON projects ( status, status_updated_at ) ;

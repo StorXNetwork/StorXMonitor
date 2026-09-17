@@ -168,6 +168,9 @@ model payment_plans (
 
 	// group is the group of the plan.
 	field group text ( updatable )
+
+	// provider_plan_ids maps provider name to remote plan id, e.g. {"razorpay":"plan_xxx"}.
+	field provider_plan_ids json ( nullable, updatable )
 )
 
 

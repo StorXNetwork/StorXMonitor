@@ -61,6 +61,8 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/paymentsconfig"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/gateway"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/razorpay"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/storjscan"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
 	"github.com/StorXNetwork/StorXMonitor/satellite/reputation"
@@ -163,9 +165,10 @@ type API struct {
 		StorjscanService *storjscan.Service
 		StorjscanClient  *storjscan.Client
 
-		StripeService *stripe.Service
-		StripeClient  stripe.Client
-		EmailWebhook  *consoleapi.EmailWebhook
+		StripeService  *stripe.Service
+		StripeClient   stripe.Client
+		GatewayService *gateway.Service
+		EmailWebhook   *consoleapi.EmailWebhook
 	}
 
 	Console struct {
@@ -730,6 +733,24 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			pc.BonusRate)
 
 		peer.Payments.DepositWallets = peer.Payments.StorjscanService
+
+		var providers []gateway.Provider
+		if pc.Razorpay.Enabled {
+			providers = append(providers, razorpay.NewProvider(pc.Razorpay))
+		}
+		peer.Payments.GatewayService = gateway.NewService(
+			log.Named("payment-gateway"),
+			pc.Gateway,
+			gateway.ServiceDependencies{
+				DB:       peer.DB.PaymentGateway(),
+				Billing:  peer.DB.Billing(),
+				Users:    peer.DB.Console().Users(),
+				Projects: peer.DB.Console().Projects(),
+				Mail:     peer.Mail.Service,
+			},
+			pc.Razorpay.Currency,
+			providers...,
+		)
 	}
 
 	{ // setup account management api keys
@@ -931,6 +952,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.PushNotification.Service,
 			config.Payments.PackagePlans,
 			peer.Payments.StripeService,
+			peer.Payments.GatewayService,
 			developerService,
 			config.Payments.MinimumCharge,
 			prices,
@@ -1136,6 +1158,24 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				pc.BonusRate)
 
 			peer.Payments.DepositWallets = peer.Payments.StorjscanService
+
+			var providers []gateway.Provider
+			if pc.Razorpay.Enabled {
+				providers = append(providers, razorpay.NewProvider(pc.Razorpay))
+			}
+			peer.Payments.GatewayService = gateway.NewService(
+				log.Named("payment-gateway"),
+				pc.Gateway,
+				gateway.ServiceDependencies{
+					DB:       peer.DB.PaymentGateway(),
+					Billing:  peer.DB.Billing(),
+					Users:    peer.DB.Console().Users(),
+					Projects: peer.DB.Console().Projects(),
+					Mail:     peer.Mail.Service,
+				},
+				pc.Razorpay.Currency,
+				providers...,
+			)
 		}
 
 		{ // setup console
@@ -1353,6 +1393,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				pushNotificationService,
 				config.Payments.PackagePlans,
 				peer.Payments.StripeService,
+				peer.Payments.GatewayService,
 				developerService,
 				config.Payments.MinimumCharge,
 				prices,
