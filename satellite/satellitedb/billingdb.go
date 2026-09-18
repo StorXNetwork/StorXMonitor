@@ -146,28 +146,40 @@ func (db billingDB) tryInserts(ctx context.Context, primaryTx billing.Transactio
 func (db billingDB) GetPaymentPlans(ctx context.Context) (plans []billing.PaymentPlans, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	dbxPlans, err := db.db.All_PaymentPlans(ctx)
+	// Quote "group" — reserved keyword in PostgreSQL; DBX emits unquoted SQL.
+	rows, err := db.db.QueryContext(ctx, `
+		SELECT id, name, storage, price, benefit, bandwidth, validity, validity_unit, "group", provider_plan_ids
+		FROM payment_plans
+		ORDER BY id`)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
+	defer func() { _ = rows.Close() }()
 
-	plans, err = convertSlice(dbxPlans, fromDBXPaymentPlans)
-	return plans, Error.Wrap(err)
+	for rows.Next() {
+		plan, scanErr := scanPaymentPlan(rows)
+		if scanErr != nil {
+			return nil, Error.Wrap(scanErr)
+		}
+		plans = append(plans, plan)
+	}
+	return plans, Error.Wrap(rows.Err())
 }
 
 func (db billingDB) GetPaymentPlansByID(ctx context.Context, id int64) (plans *billing.PaymentPlans, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	dbxPlan, err := db.db.Get_PaymentPlans_By_Id(ctx, dbx.PaymentPlans_Id(id))
+	row := db.db.QueryRowContext(ctx, `
+		SELECT id, name, storage, price, benefit, bandwidth, validity, validity_unit, "group", provider_plan_ids
+		FROM payment_plans
+		WHERE id = $1`, id)
+	plan, err := scanPaymentPlan(row)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, Error.Wrap(err)
+		}
 		return nil, Error.Wrap(err)
 	}
-
-	plan, err := fromDBXPaymentPlans(dbxPlan)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
 	return &plan, nil
 }
 
@@ -181,32 +193,24 @@ func (db billingDB) CreatePaymentPlan(ctx context.Context, plan billing.PaymentP
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-
-	optional := dbx.PaymentPlans_Create_Fields{}
+	var providerJSON []byte
 	if len(plan.ProviderPlanIDs) > 0 {
-		providerJSON, marshalErr := json.Marshal(plan.ProviderPlanIDs)
-		if marshalErr != nil {
-			return nil, Error.Wrap(marshalErr)
+		providerJSON, err = json.Marshal(plan.ProviderPlanIDs)
+		if err != nil {
+			return nil, Error.Wrap(err)
 		}
-		optional.ProviderPlanIds = dbx.PaymentPlans_ProviderPlanIds(providerJSON)
+	}
+	if plan.Group == "" {
+		plan.Group = "Individual"
 	}
 
-	dbxPlan, err := db.db.Create_PaymentPlans(ctx,
-		dbx.PaymentPlans_Name(plan.Name),
-		dbx.PaymentPlans_Storage(plan.Storage),
-		dbx.PaymentPlans_Price(plan.Price),
-		dbx.PaymentPlans_Benefit(benefitJSON),
-		dbx.PaymentPlans_Bandwidth(plan.Bandwidth),
-		dbx.PaymentPlans_Validity(plan.Validity),
-		dbx.PaymentPlans_ValidityUnit(plan.ValidityUnit),
-		dbx.PaymentPlans_Group(plan.Group),
-		optional,
+	row := db.db.QueryRowContext(ctx, `
+		INSERT INTO payment_plans (name, storage, price, benefit, bandwidth, validity, validity_unit, "group", provider_plan_ids)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		RETURNING id, name, storage, price, benefit, bandwidth, validity, validity_unit, "group", provider_plan_ids`,
+		plan.Name, plan.Storage, plan.Price, benefitJSON, plan.Bandwidth, plan.Validity, plan.ValidityUnit, plan.Group, nullableJSON(providerJSON),
 	)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	out, err := fromDBXPaymentPlans(dbxPlan)
+	out, err := scanPaymentPlan(row)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -223,35 +227,79 @@ func (db billingDB) UpdatePaymentPlan(ctx context.Context, id int64, plan billin
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-
-	fields := dbx.PaymentPlans_Update_Fields{
-		Name:         dbx.PaymentPlans_Name(plan.Name),
-		Storage:      dbx.PaymentPlans_Storage(plan.Storage),
-		Price:        dbx.PaymentPlans_Price(plan.Price),
-		Benefit:      dbx.PaymentPlans_Benefit(benefitJSON),
-		Bandwidth:    dbx.PaymentPlans_Bandwidth(plan.Bandwidth),
-		Validity:     dbx.PaymentPlans_Validity(plan.Validity),
-		ValidityUnit: dbx.PaymentPlans_ValidityUnit(plan.ValidityUnit),
-		Group:        dbx.PaymentPlans_Group(plan.Group),
+	if plan.Group == "" {
+		plan.Group = "Individual"
 	}
+
+	var providerJSON []byte
 	if plan.ProviderPlanIDs != nil {
-		providerJSON, marshalErr := json.Marshal(plan.ProviderPlanIDs)
-		if marshalErr != nil {
-			return nil, Error.Wrap(marshalErr)
+		providerJSON, err = json.Marshal(plan.ProviderPlanIDs)
+		if err != nil {
+			return nil, Error.Wrap(err)
 		}
-		fields.ProviderPlanIds = dbx.PaymentPlans_ProviderPlanIds(providerJSON)
 	}
 
-	dbxPlan, err := db.db.Update_PaymentPlans_By_Id(ctx, dbx.PaymentPlans_Id(id), fields)
-	if err != nil {
-		return nil, Error.Wrap(err)
+	var row *sql.Row
+	if plan.ProviderPlanIDs != nil {
+		row = db.db.QueryRowContext(ctx, `
+			UPDATE payment_plans SET
+				name = $1, storage = $2, price = $3, benefit = $4, bandwidth = $5,
+				validity = $6, validity_unit = $7, "group" = $8, provider_plan_ids = $9
+			WHERE id = $10
+			RETURNING id, name, storage, price, benefit, bandwidth, validity, validity_unit, "group", provider_plan_ids`,
+			plan.Name, plan.Storage, plan.Price, benefitJSON, plan.Bandwidth, plan.Validity, plan.ValidityUnit, plan.Group, providerJSON, id,
+		)
+	} else {
+		row = db.db.QueryRowContext(ctx, `
+			UPDATE payment_plans SET
+				name = $1, storage = $2, price = $3, benefit = $4, bandwidth = $5,
+				validity = $6, validity_unit = $7, "group" = $8
+			WHERE id = $9
+			RETURNING id, name, storage, price, benefit, bandwidth, validity, validity_unit, "group", provider_plan_ids`,
+			plan.Name, plan.Storage, plan.Price, benefitJSON, plan.Bandwidth, plan.Validity, plan.ValidityUnit, plan.Group, id,
+		)
 	}
-
-	out, err := fromDBXPaymentPlans(dbxPlan)
+	out, err := scanPaymentPlan(row)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 	return &out, nil
+}
+
+type paymentPlanScanner interface {
+	Scan(dest ...any) error
+}
+
+func scanPaymentPlan(row paymentPlanScanner) (billing.PaymentPlans, error) {
+	var (
+		plan         billing.PaymentPlans
+		benefitJSON  []byte
+		providerJSON []byte
+	)
+	err := row.Scan(
+		&plan.ID, &plan.Name, &plan.Storage, &plan.Price, &benefitJSON,
+		&plan.Bandwidth, &plan.Validity, &plan.ValidityUnit, &plan.Group, &providerJSON,
+	)
+	if err != nil {
+		return billing.PaymentPlans{}, err
+	}
+	plan.Benefit = []string{}
+	if len(benefitJSON) > 0 {
+		if err = json.Unmarshal(benefitJSON, &plan.Benefit); err != nil {
+			return billing.PaymentPlans{}, err
+		}
+	}
+	if len(providerJSON) > 0 {
+		_ = json.Unmarshal(providerJSON, &plan.ProviderPlanIDs)
+	}
+	return plan, nil
+}
+
+func nullableJSON(b []byte) any {
+	if len(b) == 0 {
+		return nil
+	}
+	return b
 }
 
 func (db billingDB) GetCoupons(ctx context.Context) (coupons []billing.Coupons, err error) {

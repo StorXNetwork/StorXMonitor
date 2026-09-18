@@ -95,6 +95,7 @@ type Service struct {
 	auditLogger        *zap.Logger
 	store              DB
 	usersDB            console.Users
+	projectsDB         console.Projects
 	billing            billing.TransactionsDB
 	analytics          *analytics.Service
 	tokens             *consoleauth.Service
@@ -146,6 +147,11 @@ func NewService(
 // SetUsersDB wires console users DB for tenant listing and plan limit application.
 func (s *Service) SetUsersDB(usersDB console.Users) {
 	s.usersDB = usersDB
+}
+
+// SetProjectsDB wires console projects DB so plan assignment updates existing project quotas.
+func (s *Service) SetProjectsDB(projectsDB console.Projects) {
+	s.projectsDB = projectsDB
 }
 
 // SetBillingDB wires billing transactions DB for payment_plans sync.

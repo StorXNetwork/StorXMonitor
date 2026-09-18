@@ -115,24 +115,9 @@ func (s *Service) HandleCancel(ctx context.Context, sub *LocalSubscription) (err
 }
 
 func (s *Service) applyLimits(ctx context.Context, userID uuid.UUID, storage, bandwidth int64) error {
-	newLimits := console.UsageLimits{Storage: storage, Bandwidth: bandwidth}
-	if err := s.deps.Users.UpdateUserProjectLimits(ctx, userID, newLimits); err != nil {
+	// Shared with seller plan assignment. Billing insert + upgrade email stay in callers above.
+	if err := console.ApplyPaidUsageLimits(ctx, s.deps.Users, s.deps.Projects, userID, storage, bandwidth, 0); err != nil {
 		return Error.Wrap(err)
-	}
-	if err := s.deps.Users.UpdatePaidTiers(ctx, userID, true); err != nil {
-		return Error.Wrap(err)
-	}
-	projects, err := s.deps.Projects.GetOwn(ctx, userID)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-	for _, project := range projects {
-		if err := s.deps.Projects.UpdateUsageLimits(ctx, project.ID, console.UsageLimits{
-			Storage:   storage,
-			Bandwidth: bandwidth,
-		}); err != nil {
-			s.log.Error("failed to update project limits", zap.Error(err), zap.String("project_id", project.ID.String()))
-		}
 	}
 	return nil
 }

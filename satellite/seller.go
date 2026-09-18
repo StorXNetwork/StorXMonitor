@@ -133,6 +133,7 @@ func NewSeller(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *
 			return nil, errs.Combine(err, peer.Close())
 		}
 		sellerService.SetUsersDB(peer.DB.Console().Users())
+		sellerService.SetProjectsDB(peer.DB.Console().Projects())
 		sellerService.SetBillingDB(peer.DB.Billing())
 		peer.Seller.Service = sellerService
 

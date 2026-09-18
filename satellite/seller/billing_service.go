@@ -214,9 +214,6 @@ func (s *Service) assignPlan(ctx context.Context, resellerID, userID uuid.UUID, 
 	if s.usersDB == nil {
 		return nil, nil, Error.New("users db not configured")
 	}
-	if req.DurationMonths <= 0 {
-		req.DurationMonths = 1
-	}
 
 	user, err := s.usersDB.Get(ctx, userID)
 	if err != nil {
@@ -244,8 +241,11 @@ func (s *Service) assignPlan(ctx context.Context, resellerID, userID uuid.UUID, 
 		}
 	}
 
+	// One billing period per assignment: monthly plan = 1 month, annual = 12 months.
+	// Payment is collected once at assign time; no multi-month duration picker.
+	duration := assignmentDurationMonths(plan.BillingPeriod)
 	now := s.nowFn().UTC()
-	endsAt := now.AddDate(0, req.DurationMonths, 0)
+	endsAt := now.AddDate(0, duration, 0)
 
 	// End previous active + cancel previous scheduled.
 	if prev, perr := s.store.UserPlanAssignments().GetByUserAndStatus(ctx, userID, AssignmentStatusActive); perr == nil {
@@ -263,7 +263,6 @@ func (s *Service) assignPlan(ctx context.Context, resellerID, userID uuid.UUID, 
 		}
 	}
 
-	duration := req.DurationMonths
 	active = &UserPlanAssignment{
 		ResellerID:         resellerID,
 		UserID:             userID,
@@ -325,17 +324,26 @@ func (s *Service) assignPlan(ctx context.Context, resellerID, userID uuid.UUID, 
 	return active, scheduled, nil
 }
 
+func assignmentDurationMonths(billingPeriod string) int {
+	if billingPeriod == BillingPeriodYear {
+		return 12
+	}
+	return 1
+}
+
 func (s *Service) applyPlanLimits(ctx context.Context, userID uuid.UUID, plan *SellerPlan) error {
-	err := s.usersDB.UpdateUserProjectLimits(ctx, userID, console.UsageLimits{
-		Storage:   plan.StorageBytes,
-		Bandwidth: plan.BandwidthBytes,
-		Segment:   100000000, // generous default segment limit
-	})
-	if err != nil {
+	// Same helper as real payment upgrade (gateway CompletePayment / ApplyRenewal).
+	if err := console.ApplyPaidUsageLimits(
+		ctx,
+		s.usersDB,
+		s.projectsDB,
+		userID,
+		plan.StorageBytes,
+		plan.BandwidthBytes,
+		100000000,
+	); err != nil {
 		return Error.Wrap(err)
 	}
-	// Mark as paid/tenant user when assigning a paid plan.
-	_ = s.usersDB.UpdatePaidTiers(ctx, userID, true)
 	return nil
 }
 
@@ -740,10 +748,7 @@ func (s *Service) ApplyDuePlanSwitches(ctx context.Context) (applied int, err er
 			continue
 		}
 
-		duration := 1
-		if plan.BillingPeriod == BillingPeriodYear {
-			duration = 12
-		}
+		duration := assignmentDurationMonths(plan.BillingPeriod)
 		ends := now.AddDate(0, duration, 0)
 		sched.Status = AssignmentStatusActive
 		sched.PlanStartsAt = now

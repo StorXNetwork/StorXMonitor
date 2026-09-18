@@ -346,22 +346,22 @@ type billingTestDB struct {
 	resellers     *memResellers
 }
 
-func (d *billingTestDB) Resellers() seller.Resellers                               { return d.resellers }
-func (d *billingTestDB) ResellerConfigs() seller.ResellerConfigs                   { return nil }
-func (d *billingTestDB) ResellerDomains() seller.ResellerDomains                   { return nil }
-func (d *billingTestDB) ThemePresets() seller.ThemePresets                         { return nil }
-func (d *billingTestDB) ResellerThemes() seller.ResellerThemes                     { return nil }
-func (d *billingTestDB) WebappSessionResellers() seller.WebappSessionResellers     { return nil }
-func (d *billingTestDB) ResetPasswordTokens() seller.ResellerResetPasswordTokens   { return nil }
-func (d *billingTestDB) ResellerDeleteRequests() seller.ResellerDeleteRequests     { return nil }
-func (d *billingTestDB) SellerPlans() seller.SellerPlans                           { return d.plans }
-func (d *billingTestDB) UserPlanAssignments() seller.UserPlanAssignments           { return d.assignments }
-func (d *billingTestDB) SellerInvoices() seller.SellerInvoices                     { return d.invoices }
-func (d *billingTestDB) BillingNotifications() seller.BillingNotifications         { return d.notifications }
+func (d *billingTestDB) Resellers() seller.Resellers                             { return d.resellers }
+func (d *billingTestDB) ResellerConfigs() seller.ResellerConfigs                 { return nil }
+func (d *billingTestDB) ResellerDomains() seller.ResellerDomains                 { return nil }
+func (d *billingTestDB) ThemePresets() seller.ThemePresets                       { return nil }
+func (d *billingTestDB) ResellerThemes() seller.ResellerThemes                   { return nil }
+func (d *billingTestDB) WebappSessionResellers() seller.WebappSessionResellers   { return nil }
+func (d *billingTestDB) ResetPasswordTokens() seller.ResellerResetPasswordTokens { return nil }
+func (d *billingTestDB) ResellerDeleteRequests() seller.ResellerDeleteRequests   { return nil }
+func (d *billingTestDB) SellerPlans() seller.SellerPlans                         { return d.plans }
+func (d *billingTestDB) UserPlanAssignments() seller.UserPlanAssignments         { return d.assignments }
+func (d *billingTestDB) SellerInvoices() seller.SellerInvoices                   { return d.invoices }
+func (d *billingTestDB) BillingNotifications() seller.BillingNotifications       { return d.notifications }
 
 type memUsers struct {
-	byID      map[uuid.UUID]*console.User
-	limits    map[uuid.UUID]console.UsageLimits
+	byID     map[uuid.UUID]*console.User
+	limits   map[uuid.UUID]console.UsageLimits
 	paidTier map[uuid.UUID]bool
 }
 
@@ -415,7 +415,30 @@ func newBillingService(t *testing.T, store *billingTestDB, users *memUsers) *sel
 	)
 	require.NoError(t, err)
 	svc.SetUsersDB(&billingUsers{mem: users})
+	svc.SetProjectsDB(&memProjects{})
 	return svc
+}
+
+// memProjects is a minimal console.Projects stub for plan-limit tests.
+type memProjects struct {
+	console.Projects
+	byOwner map[uuid.UUID][]console.Project
+	limits  map[uuid.UUID]console.UsageLimits
+}
+
+func (m *memProjects) GetOwn(ctx context.Context, userID uuid.UUID) ([]console.Project, error) {
+	if m.byOwner == nil {
+		return nil, nil
+	}
+	return m.byOwner[userID], nil
+}
+
+func (m *memProjects) UpdateUsageLimits(ctx context.Context, id uuid.UUID, limits console.UsageLimits) error {
+	if m.limits == nil {
+		m.limits = map[uuid.UUID]console.UsageLimits{}
+	}
+	m.limits[id] = limits
+	return nil
 }
 
 // billingUsers implements only the Users methods billing needs; others return zero values.
@@ -456,7 +479,7 @@ func TestCreatePlanAndAssignAppliesLimits(t *testing.T) {
 		byID: map[uuid.UUID]*console.User{
 			userID: {ID: userID, Email: "u@test.com", FullName: "User", TenantID: &tenant, Status: console.Active},
 		},
-		limits:    map[uuid.UUID]console.UsageLimits{},
+		limits:   map[uuid.UUID]console.UsageLimits{},
 		paidTier: map[uuid.UUID]bool{},
 	}
 	svc := newBillingService(t, store, users)
@@ -476,7 +499,7 @@ func TestCreatePlanAndAssignAppliesLimits(t *testing.T) {
 	require.NoError(t, err)
 
 	active, scheduled, err := svc.AssignPlan(ctx, userID, seller.AssignPlanRequest{
-		PlanID: plan.ID, DurationMonths: 3, FuturePlanID: &future.ID,
+		PlanID: plan.ID, FuturePlanID: &future.ID,
 		AutoSwitchOnEnd: true, NotifyBeforeEnd: true, UserPaid: true,
 	})
 	require.NoError(t, err)
@@ -484,6 +507,8 @@ func TestCreatePlanAndAssignAppliesLimits(t *testing.T) {
 	require.Equal(t, seller.AssignmentStatusActive, active.Status)
 	require.Equal(t, int64(1000), active.RetailAmount)
 	require.Equal(t, int64(800), active.WholesaleAmount)
+	require.NotNil(t, active.DurationMonths)
+	require.Equal(t, 1, *active.DurationMonths)
 	require.NotNil(t, scheduled)
 	require.Equal(t, seller.AssignmentStatusScheduled, scheduled.Status)
 	require.Equal(t, future.ID, scheduled.PlanID)
@@ -513,7 +538,7 @@ func TestApplyDuePlanSwitchesAndInvoice(t *testing.T) {
 		byID: map[uuid.UUID]*console.User{
 			userID: {ID: userID, Email: "u@test.com", TenantID: &tenant, Status: console.Active},
 		},
-		limits:    map[uuid.UUID]console.UsageLimits{},
+		limits:   map[uuid.UUID]console.UsageLimits{},
 		paidTier: map[uuid.UUID]bool{},
 	}
 	svc := newBillingService(t, store, users)
@@ -534,7 +559,7 @@ func TestApplyDuePlanSwitchesAndInvoice(t *testing.T) {
 
 	ctx = seller.WithReseller(ctx, &seller.Reseller{ID: resellerID})
 	_, _, err = svc.AssignPlan(ctx, userID, seller.AssignPlanRequest{
-		PlanID: planA.ID, DurationMonths: 1, FuturePlanID: &planB.ID, AutoSwitchOnEnd: true, NotifyBeforeEnd: true,
+		PlanID: planA.ID, FuturePlanID: &planB.ID, AutoSwitchOnEnd: true, NotifyBeforeEnd: true,
 	})
 	require.NoError(t, err)
 
@@ -558,7 +583,7 @@ func TestApplyDuePlanSwitchesAndInvoice(t *testing.T) {
 	user2, err := uuid.New()
 	require.NoError(t, err)
 	users.byID[user2] = &console.User{ID: user2, Email: "u2@test.com", TenantID: &tenant, Status: console.Active}
-	_, _, err = svc.AssignPlan(ctx, user2, seller.AssignPlanRequest{PlanID: planA.ID, DurationMonths: 1})
+	_, _, err = svc.AssignPlan(ctx, user2, seller.AssignPlanRequest{PlanID: planA.ID})
 	require.NoError(t, err)
 
 	inv, err := svc.GenerateInvoice(ctx, resellerID, seller.GenerateInvoiceRequest{

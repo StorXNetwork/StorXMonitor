@@ -124,9 +124,11 @@ type UserPlanAssignment struct {
 }
 
 // AssignPlanRequest is the seller assign-plan payload.
+// Assignment length comes from the plan billing period (month=1, year=12), not a separate duration picker.
 type AssignPlanRequest struct {
-	PlanID           uuid.UUID  `json:"planId"`
-	DurationMonths   int        `json:"durationMonths"`
+	PlanID uuid.UUID `json:"planId"`
+	// DurationMonths is ignored; kept for older clients. End date is derived from plan.BillingPeriod.
+	DurationMonths   int        `json:"durationMonths,omitempty"`
 	FuturePlanID     *uuid.UUID `json:"futurePlanId,omitempty"`
 	AutoSwitchOnEnd  bool       `json:"autoSwitchOnEnd"`
 	NotifyBeforeEnd  bool       `json:"notifyBeforeEnd"`
