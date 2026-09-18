@@ -10702,6 +10702,10 @@ func (s *Service) GetDashboardStats(ctx context.Context, userID uuid.UUID, token
 	if user.ID != userID {
 		return nil, ErrUnauthorized.New("user mismatch")
 	}
+	// Refresh from DB so paid-tier / kind changes from seller assign or payment apply immediately.
+	if fresh, getErr := s.store.Users().Get(ctx, userID); getErr == nil && fresh != nil {
+		user = fresh
+	}
 
 	var (
 		response       DashboardCardsResponse
@@ -10900,7 +10904,8 @@ func (s *Service) enrichBillingCard(ctx context.Context, card *BaseCard, user *U
 
 	payment, err := s.billing.GetLatestCompletedDebitTransaction(ctx, user.ID)
 	if err != nil || payment == nil || payment.PlanID == nil {
-		card.Value1 = "Free"
+		// Paid via seller/admin limits without a catalog debit yet.
+		card.Value1 = "Paid"
 		card.Value2 = nil
 		card.Value2Label = ""
 		return
@@ -10908,7 +10913,7 @@ func (s *Service) enrichBillingCard(ctx context.Context, card *BaseCard, user *U
 
 	plan, err := s.GetPaymentPlansByID(ctx, *payment.PlanID)
 	if err != nil || plan == nil {
-		card.Value1 = "Free"
+		card.Value1 = "Paid"
 		card.Value2 = nil
 		card.Value2Label = ""
 		return
@@ -10920,16 +10925,16 @@ func (s *Service) enrichBillingCard(ctx context.Context, card *BaseCard, user *U
 	if !expiry.After(now) {
 		expiredStatus := s.getStatus("expired")
 		card.Status = &expiredStatus
-		card.Value1 = plan.Price
-		// Calculate days past expiration as positive number
+		card.Value1 = plan.Name
 		daysPastExpiration := int(now.Sub(expiry).Hours() / 24)
 		card.Value2 = daysPastExpiration
 		card.Value2Label = "Days Past Expiration"
 		return
 	}
 
-	card.Value1 = plan.Price
+	card.Value1 = plan.Name
 	card.Value2 = daysLeft
+	card.Value2Label = "Days Left"
 }
 
 func (s *Service) calculateExpiry(start time.Time, plan *billing.PaymentPlans) time.Time {

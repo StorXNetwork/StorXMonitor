@@ -5,10 +5,13 @@ package seller
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
 	"unicode"
+
+	"go.uber.org/zap"
 
 	"github.com/StorXNetwork/StorXMonitor/satellite/console"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/billing"
@@ -343,6 +346,35 @@ func (s *Service) applyPlanLimits(ctx context.Context, userID uuid.UUID, plan *S
 		100000000,
 	); err != nil {
 		return Error.Wrap(err)
+	}
+
+	// Record a completed debit so dashboard Plan State resolves like real payment upgrades.
+	if s.billing != nil && plan.PaymentPlanID != nil {
+		meta, _ := json.Marshal(map[string]string{
+			"source":   "seller_assign",
+			"plan_id":  plan.ID.String(),
+			"plan_name": plan.Name,
+		})
+		planID := *plan.PaymentPlanID
+		now := s.nowFn().UTC()
+		if err := s.billing.Inserts(ctx, billing.Transactions{
+			UserID:      userID,
+			Amount:      float64(plan.RetailAmount),
+			Description: "Seller plan assignment: " + plan.Name,
+			Source:      "seller",
+			Status:      billing.TransactionStatusCompleted,
+			Type:        billing.TransactionTypeDebit,
+			Metadata:    meta,
+			Timestamp:   now,
+			CreatedAt:   now,
+			PlanID:      &planID,
+		}); err != nil {
+			s.log.Error("failed to record seller plan billing transaction",
+				zap.Error(err),
+				zap.String("user_id", userID.String()),
+				zap.String("plan_id", plan.ID.String()),
+			)
+		}
 	}
 	return nil
 }
