@@ -225,6 +225,10 @@ type DB interface {
 	WebappSessionResellers() WebappSessionResellers
 	ResetPasswordTokens() ResellerResetPasswordTokens
 	ResellerDeleteRequests() ResellerDeleteRequests
+	SellerPlans() SellerPlans
+	UserPlanAssignments() UserPlanAssignments
+	SellerInvoices() SellerInvoices
+	BillingNotifications() BillingNotifications
 }
 
 // Resellers exposes methods to manage resellers table in database.
@@ -237,6 +241,7 @@ type Resellers interface {
 	GetByEmailWithUnverified(ctx context.Context, email string) (verified *Reseller, unverified []Reseller, err error)
 	Insert(ctx context.Context, reseller *Reseller) (*Reseller, error)
 	Update(ctx context.Context, id uuid.UUID, update UpdateResellerRequest) (*Reseller, error)
+	List(ctx context.Context) ([]Reseller, error)
 }
 
 // ResellerConfigs exposes methods to manage reseller_configs table in database.

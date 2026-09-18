@@ -42,6 +42,7 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/billing"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
+	"github.com/StorXNetwork/StorXMonitor/satellite/seller"
 	"github.com/StorXNetwork/common/errs2"
 )
 
@@ -96,6 +97,8 @@ type DB interface {
 	LiveAccounting() accounting.Cache
 	// Billing returns database for billing and payment transactions
 	Billing() billing.TransactionsDB
+	// Seller returns database for reseller/seller billing
+	Seller() seller.DB
 }
 
 // Server provides endpoints for administrative tasks.
@@ -115,6 +118,7 @@ type Server struct {
 	developerserviceService developer.Service
 	consoleService          *console.Service // Optional: for sending push notifications
 	mailService             *mailservice.Service
+	sellerService           *seller.Service
 
 	nowFn func() time.Time
 
@@ -142,6 +146,7 @@ func NewServer(
 	developerserviceService *developer.Service,
 	consoleService *console.Service, // Optional: for sending push notifications
 	mailService *mailservice.Service,
+	sellerService *seller.Service,
 ) (*Server, error) {
 	server := &Server{
 		log: log,
@@ -158,6 +163,7 @@ func NewServer(
 		developerserviceService: *developerserviceService,
 		consoleService:          consoleService,
 		mailService:             mailService,
+		sellerService:           sellerService,
 		nowFn:                   time.Now,
 
 		console:   console,
@@ -256,6 +262,23 @@ func NewServer(
 	couponsRouter.HandleFunc("/{code}", server.getCoupon).Methods("GET")
 	couponsRouter.HandleFunc("/{code}", server.updateCoupon).Methods("PUT")
 	couponsRouter.HandleFunc("/{code}", server.deleteCoupon).Methods("DELETE")
+
+	plansRouter := fullAccessAPI.PathPrefix("/plans").Subrouter()
+	plansRouter.HandleFunc("", server.listSellerPlans).Methods("GET")
+	plansRouter.HandleFunc("", server.createSellerPlan).Methods("POST")
+	plansRouter.HandleFunc("/{planId}", server.updateSellerPlan).Methods("PUT")
+	plansRouter.HandleFunc("/{planId}", server.deactivateSellerPlan).Methods("DELETE")
+
+	resellersRouter := fullAccessAPI.PathPrefix("/resellers").Subrouter()
+	resellersRouter.HandleFunc("", server.listResellers).Methods("GET")
+	resellersRouter.HandleFunc("/{id}", server.getReseller).Methods("GET")
+	resellersRouter.HandleFunc("/{id}/users", server.listResellerUsers).Methods("GET")
+	resellersRouter.HandleFunc("/{id}/assignments", server.listResellerAssignments).Methods("GET")
+	resellersRouter.HandleFunc("/{id}/invoices", server.listResellerInvoices).Methods("GET")
+	resellersRouter.HandleFunc("/{id}/invoices", server.generateResellerInvoice).Methods("POST")
+
+	fullAccessAPI.HandleFunc("/invoices/{id}", server.getSellerInvoice).Methods("GET")
+	fullAccessAPI.HandleFunc("/invoices/{id}/status", server.updateSellerInvoiceStatus).Methods("PATCH")
 
 	// Template management endpoints (Admin-only CRUD)
 	notificationTemplatesRouter := fullAccessAPI.PathPrefix("/notification-templates").Subrouter()

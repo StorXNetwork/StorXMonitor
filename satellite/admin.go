@@ -30,6 +30,7 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
+	"github.com/StorXNetwork/StorXMonitor/satellite/seller"
 	"github.com/StorXNetwork/common/debug"
 	"github.com/StorXNetwork/common/identity"
 	"github.com/StorXNetwork/common/storxnetwork"
@@ -330,6 +331,21 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 
 		restKeysSvc := restkeys.NewService(peer.DB.OIDC().OAuthTokens(), config.Console.RestAPIKeys.DefaultExpiration)
 
+		sellerService, err := seller.NewService(
+			log.Named("sellerservice"),
+			peer.DB.Seller(),
+			peer.Analytics.Service,
+			authTokens,
+			config.Seller.Auth,
+			config.Console.SellerExternalAddress,
+			false,
+		)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+		sellerService.SetUsersDB(peer.DB.Console().Users())
+		sellerService.SetBillingDB(peer.DB.Billing())
+
 		adminServer, err := admin.NewServer(
 			log.Named("admin"),
 			peer.Admin.Listener,
@@ -346,6 +362,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			developerService,
 			nil, // consoleService - not available in admin peer, will use helper function instead
 			mailService,
+			sellerService,
 		)
 		if err != nil {
 			return nil, err

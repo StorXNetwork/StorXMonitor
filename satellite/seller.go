@@ -47,6 +47,8 @@ type Seller struct {
 	Seller struct {
 		Listener net.Listener
 		Server   *seller.Server
+		Service  *seller.Service
+		Chore    *seller.PlanScheduleChore
 	}
 
 	FreezeAccounts struct {
@@ -130,6 +132,22 @@ func NewSeller(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+		sellerService.SetUsersDB(peer.DB.Console().Users())
+		sellerService.SetBillingDB(peer.DB.Billing())
+		peer.Seller.Service = sellerService
+
+		if config.Seller.PlanSchedule.Enabled {
+			peer.Seller.Chore = seller.NewPlanScheduleChore(
+				log.Named("seller:plan-schedule"),
+				sellerService,
+				config.Seller.PlanSchedule,
+			)
+			peer.Services.Add(lifecycle.Item{
+				Name:  "seller:plan-schedule",
+				Run:   peer.Seller.Chore.Run,
+				Close: peer.Seller.Chore.Close,
+			})
+		}
 
 		mailService, err := setupMailService(log, config.Mail, config.Console)
 		if err != nil {
@@ -153,12 +171,12 @@ func NewSeller(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *
 		}
 
 		sellerService.ExtendService(mailService, seller.SellerServerRuntimeConfig{
-			SatelliteName:       serverConfig.SatelliteName,
-			ExternalAddress:     serverConfig.ExternalAddress,
-			LetUsKnowURL:        serverConfig.LetUsKnowURL,
+			SatelliteName:         serverConfig.SatelliteName,
+			ExternalAddress:       serverConfig.ExternalAddress,
+			LetUsKnowURL:          serverConfig.LetUsKnowURL,
 			TermsAndConditionsURL: serverConfig.TermsAndConditionsURL,
-			ContactInfoURL:      serverConfig.ContactInfoURL,
-			GeneralRequestURL:   serverConfig.GeneralRequestURL,
+			ContactInfoURL:        serverConfig.ContactInfoURL,
+			GeneralRequestURL:     serverConfig.GeneralRequestURL,
 		})
 
 		sellerConfig := config.Seller

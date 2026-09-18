@@ -131,6 +131,13 @@ func (s stubResellerTenantResellers) Update(ctx context.Context, id uuid.UUID, u
 	return nil, nil
 }
 
+func (s stubResellerTenantResellers) List(ctx context.Context) ([]seller.Reseller, error) {
+	if s.reseller == nil {
+		return nil, nil
+	}
+	return []seller.Reseller{*s.reseller}, nil
+}
+
 func TestResellerTenantResolverBranding(t *testing.T) {
 	resellerID, err := uuid.FromString("33333333-3333-3333-3333-333333333333")
 	require.NoError(t, err)

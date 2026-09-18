@@ -82,6 +82,12 @@ type TransactionsDB interface {
 
 	GetPaymentPlansByID(ctx context.Context, id int64) (*PaymentPlans, error)
 
+	// CreatePaymentPlan inserts a new payment plan into the catalog.
+	CreatePaymentPlan(ctx context.Context, plan PaymentPlans) (*PaymentPlans, error)
+
+	// UpdatePaymentPlan updates an existing payment plan by id.
+	UpdatePaymentPlan(ctx context.Context, id int64, plan PaymentPlans) (*PaymentPlans, error)
+
 	GetActiveCoupons(ctx context.Context) ([]Coupons, error)
 
 	GetCouponByCode(ctx context.Context, code string) (*Coupons, error)

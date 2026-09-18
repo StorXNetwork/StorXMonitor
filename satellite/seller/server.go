@@ -45,6 +45,7 @@ type Config struct {
 	CSRFProtectionEnabled bool   `help:"whether CSRF protection is enabled for seller endpoints" default:"false" testDefault:"false"`
 	RateLimit             web.RateLimiterConfig
 	Auth                  AuthConfig
+	PlanSchedule          PlanScheduleConfig
 }
 
 // Server provides endpoints for seller console.
@@ -143,6 +144,7 @@ func NewServer(
 
 	brandingController := NewSellerBranding(log, service, brandingAssets)
 	domainController := NewSellerDomain(log, service)
+	billingController := NewSellerBilling(log, service)
 
 	root := mux.NewRouter()
 	root.Use(server.withCORS)
@@ -169,6 +171,15 @@ func NewServer(
 	sellerAPIRouter.Handle("/domain", server.withAuthSeller(http.HandlerFunc(domainController.GetDomain))).Methods(http.MethodGet, http.MethodOptions)
 	sellerAPIRouter.Handle("/domain/connect", server.withCSRFProtection(server.withAuthSeller(http.HandlerFunc(domainController.ConnectDomain)))).Methods(http.MethodPost, http.MethodOptions)
 	sellerAPIRouter.Handle("/domain/update", server.withCSRFProtection(server.withAuthSeller(http.HandlerFunc(domainController.UpdateDomain)))).Methods(http.MethodPut, http.MethodOptions)
+
+	sellerAPIRouter.Handle("/users", server.withAuthSeller(http.HandlerFunc(billingController.ListUsers))).Methods(http.MethodGet, http.MethodOptions)
+	sellerAPIRouter.Handle("/plans", server.withAuthSeller(http.HandlerFunc(billingController.ListPlans))).Methods(http.MethodGet, http.MethodOptions)
+	sellerAPIRouter.Handle("/users/{userId}/assign-plan", server.withCSRFProtection(server.withAuthSeller(http.HandlerFunc(billingController.AssignPlan)))).Methods(http.MethodPost, http.MethodOptions)
+	sellerAPIRouter.Handle("/users/{userId}/future-plan", server.withCSRFProtection(server.withAuthSeller(http.HandlerFunc(billingController.UpdateFuturePlan)))).Methods(http.MethodPatch, http.MethodOptions)
+	sellerAPIRouter.Handle("/assignments", server.withAuthSeller(http.HandlerFunc(billingController.ListAssignments))).Methods(http.MethodGet, http.MethodOptions)
+	sellerAPIRouter.Handle("/invoices", server.withAuthSeller(http.HandlerFunc(billingController.ListInvoices))).Methods(http.MethodGet, http.MethodOptions)
+	sellerAPIRouter.Handle("/invoices/{id}", server.withAuthSeller(http.HandlerFunc(billingController.GetInvoice))).Methods(http.MethodGet, http.MethodOptions)
+	sellerAPIRouter.Handle("/billing-notifications", server.withAuthSeller(http.HandlerFunc(billingController.ListNotifications))).Methods(http.MethodGet, http.MethodOptions)
 
 	sellerAuthRouter := sellerAPIRouter.PathPrefix("/auth").Subrouter()
 	sellerAuthRouter.Use(server.withCORS)

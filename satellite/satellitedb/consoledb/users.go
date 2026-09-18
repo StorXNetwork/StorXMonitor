@@ -288,6 +288,82 @@ func (users *users) GetByStatus(ctx context.Context, status console.UserStatus, 
 	return page, nil
 }
 
+// GetPagedByTenantID returns a page of users belonging to the given tenant ID.
+func (users *users) GetPagedByTenantID(ctx context.Context, tenantID string, cursor console.UserCursor) (page *console.UsersPage, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if tenantID == "" {
+		return nil, Error.New("tenant id is required")
+	}
+	if cursor.Limit == 0 {
+		return nil, Error.New("limit cannot be 0")
+	}
+	if cursor.Page == 0 {
+		return nil, Error.New("page cannot be 0")
+	}
+
+	page = &console.UsersPage{
+		Limit:  cursor.Limit,
+		Offset: uint64((cursor.Page - 1) * cursor.Limit),
+	}
+
+	countRow := users.db.QueryRowContext(ctx, `
+		SELECT COUNT(*)
+		FROM users
+		WHERE tenant_id = $1
+		  AND status != $2
+	`, tenantID, int(console.Deleted))
+	var total int64
+	if err = countRow.Scan(&total); err != nil {
+		return nil, Error.Wrap(err)
+	}
+	page.TotalCount = uint64(total)
+
+	if page.TotalCount == 0 {
+		return page, nil
+	}
+	if page.Offset > page.TotalCount-1 {
+		return nil, Error.New("page is out of range")
+	}
+
+	rows, err := users.db.QueryContext(ctx, `
+		SELECT id, full_name, email, status, kind, created_at, tenant_id
+		FROM users
+		WHERE tenant_id = $1
+		  AND status != $2
+		ORDER BY created_at DESC
+		LIMIT $3 OFFSET $4
+	`, tenantID, int(console.Deleted), page.Limit, page.Offset)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	for rows.Next() {
+		var usr console.User
+		var idBytes []byte
+		if err = rows.Scan(&idBytes, &usr.FullName, &usr.Email, &usr.Status, &usr.Kind, &usr.CreatedAt, &usr.TenantID); err != nil {
+			return nil, Error.Wrap(err)
+		}
+		usr.ID, err = uuid.FromBytes(idBytes)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		page.Users = append(page.Users, usr)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	page.PageCount = uint(page.TotalCount / uint64(cursor.Limit))
+	if page.TotalCount%uint64(cursor.Limit) != 0 {
+		page.PageCount++
+	}
+	page.CurrentPage = cursor.Page
+
+	return page, nil
+}
+
 func (users *users) GetByEmailWithUnverified_google(ctx context.Context, email string) (verified *console.User, unverified []console.User, err error) {
 	defer mon.Task()(&ctx)(&err)
 	usersDbx, err := users.db.All_User_By_NormalizedEmail(ctx, dbx.User_NormalizedEmail(normalizeEmail(email)))

@@ -171,6 +171,89 @@ func (db billingDB) GetPaymentPlansByID(ctx context.Context, id int64) (plans *b
 	return &plan, nil
 }
 
+func (db billingDB) CreatePaymentPlan(ctx context.Context, plan billing.PaymentPlans) (created *billing.PaymentPlans, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if plan.Benefit == nil {
+		plan.Benefit = []string{}
+	}
+	benefitJSON, err := json.Marshal(plan.Benefit)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	optional := dbx.PaymentPlans_Create_Fields{}
+	if len(plan.ProviderPlanIDs) > 0 {
+		providerJSON, marshalErr := json.Marshal(plan.ProviderPlanIDs)
+		if marshalErr != nil {
+			return nil, Error.Wrap(marshalErr)
+		}
+		optional.ProviderPlanIds = dbx.PaymentPlans_ProviderPlanIds(providerJSON)
+	}
+
+	dbxPlan, err := db.db.Create_PaymentPlans(ctx,
+		dbx.PaymentPlans_Name(plan.Name),
+		dbx.PaymentPlans_Storage(plan.Storage),
+		dbx.PaymentPlans_Price(plan.Price),
+		dbx.PaymentPlans_Benefit(benefitJSON),
+		dbx.PaymentPlans_Bandwidth(plan.Bandwidth),
+		dbx.PaymentPlans_Validity(plan.Validity),
+		dbx.PaymentPlans_ValidityUnit(plan.ValidityUnit),
+		dbx.PaymentPlans_Group(plan.Group),
+		optional,
+	)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	out, err := fromDBXPaymentPlans(dbxPlan)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	return &out, nil
+}
+
+func (db billingDB) UpdatePaymentPlan(ctx context.Context, id int64, plan billing.PaymentPlans) (updated *billing.PaymentPlans, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if plan.Benefit == nil {
+		plan.Benefit = []string{}
+	}
+	benefitJSON, err := json.Marshal(plan.Benefit)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	fields := dbx.PaymentPlans_Update_Fields{
+		Name:         dbx.PaymentPlans_Name(plan.Name),
+		Storage:      dbx.PaymentPlans_Storage(plan.Storage),
+		Price:        dbx.PaymentPlans_Price(plan.Price),
+		Benefit:      dbx.PaymentPlans_Benefit(benefitJSON),
+		Bandwidth:    dbx.PaymentPlans_Bandwidth(plan.Bandwidth),
+		Validity:     dbx.PaymentPlans_Validity(plan.Validity),
+		ValidityUnit: dbx.PaymentPlans_ValidityUnit(plan.ValidityUnit),
+		Group:        dbx.PaymentPlans_Group(plan.Group),
+	}
+	if plan.ProviderPlanIDs != nil {
+		providerJSON, marshalErr := json.Marshal(plan.ProviderPlanIDs)
+		if marshalErr != nil {
+			return nil, Error.Wrap(marshalErr)
+		}
+		fields.ProviderPlanIds = dbx.PaymentPlans_ProviderPlanIds(providerJSON)
+	}
+
+	dbxPlan, err := db.db.Update_PaymentPlans_By_Id(ctx, dbx.PaymentPlans_Id(id), fields)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	out, err := fromDBXPaymentPlans(dbxPlan)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	return &out, nil
+}
+
 func (db billingDB) GetCoupons(ctx context.Context) (coupons []billing.Coupons, err error) {
 	defer mon.Task()(&ctx)(&err)
 

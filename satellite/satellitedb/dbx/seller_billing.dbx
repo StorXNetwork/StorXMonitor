@@ -1,0 +1,272 @@
+//--- seller billing: shared plan catalog ---//
+
+// seller_plan is the admin-created shared catalog of user plans (no reseller_id).
+model seller_plan (
+    key id
+
+    index (
+        name seller_plans_active_name_index
+        fields active name
+    )
+
+    field id                blob
+    // name is the display name (e.g. Basic Monthly).
+    field name              text      ( updatable )
+    // tier_key is a stable key (e.g. basic/pro/enterprise).
+    field tier_key          text      ( updatable )
+    // billing_period is month or year.
+    field billing_period    text      ( updatable )
+    // storage_bytes is the storage limit applied to the user.
+    field storage_bytes     int64     ( updatable )
+    // bandwidth_bytes is the bandwidth limit applied to the user.
+    field bandwidth_bytes   int64     ( updatable )
+    // retail_amount is what the end user pays the seller (whole currency units).
+    field retail_amount     int64     ( updatable )
+    // wholesale_amount is what the seller owes admin (whole currency units).
+    field wholesale_amount  int64     ( updatable )
+    field currency          text      ( updatable, default "INR" )
+    // description is a short plan blurb shown in admin/seller UIs.
+    field description       text      ( updatable, default "" )
+    // features is a JSON string array of plan bullets (same pattern as payment_plans.benefit).
+    field features          json      ( updatable, default "[]" )
+    // recommended marks the plan as highlighted in the catalog UI (at most one should be true).
+    field recommended       bool      ( updatable, default false )
+    // payment_plan_id links to payment_plans.id so admin create/update keeps both catalogs in sync.
+    field payment_plan_id   int64     ( updatable, nullable )
+    field active            bool      ( updatable, default true )
+    field created_at        timestamp ( autoinsert )
+    field updated_at        timestamp ( updatable )
+)
+
+create seller_plan ( )
+update seller_plan ( where seller_plan.id = ? )
+delete seller_plan ( where seller_plan.id = ? )
+
+read all (
+    select seller_plan
+)
+
+read all (
+    select seller_plan
+    where seller_plan.active = ?
+)
+
+read one (
+    select seller_plan
+    where seller_plan.id = ?
+)
+
+read all (
+    select seller_plan
+    where seller_plan.active = ?
+    orderby ( asc seller_plan.name )
+)
+
+// seller_user_plan_assignment tracks plan assignments for a reseller's users.
+model seller_user_plan_assignment (
+    key id
+
+    index (
+        name seller_user_plan_assignments_reseller_id_index
+        fields reseller_id
+    )
+    index (
+        name seller_user_plan_assignments_user_id_status_index
+        fields user_id status
+    )
+    index (
+        name seller_user_plan_assignments_status_plan_starts_at_index
+        fields status plan_starts_at
+    )
+    index (
+        name seller_user_plan_assignments_status_plan_ends_at_index
+        fields status plan_ends_at
+    )
+
+    field id                    blob
+    field reseller_id           blob
+    field user_id               blob
+    field plan_id               blob
+    // status is active, scheduled, or ended.
+    field status                text      ( updatable )
+    // Snapshot of plan pricing/period at assign time.
+    field retail_amount         int64
+    field wholesale_amount      int64
+    field billing_period        text
+    field duration_months       int       ( updatable, nullable )
+    field plan_starts_at        timestamp ( updatable )
+    field plan_ends_at          timestamp ( updatable, nullable )
+    field future_plan_id        blob      ( updatable, nullable )
+    field auto_switch_on_end    bool      ( updatable, default false )
+    field notify_before_end     bool      ( updatable, default false )
+    field notified_ending_at    timestamp ( updatable, nullable )
+    field user_paid_at          timestamp ( updatable, nullable )
+    field notes                 text      ( updatable, nullable )
+    field assigned_at           timestamp ( autoinsert )
+    field ended_at              timestamp ( updatable, nullable )
+    field assigned_by_reseller  bool      ( default true )
+    field created_at            timestamp ( autoinsert )
+    field updated_at            timestamp ( updatable )
+)
+
+create seller_user_plan_assignment ( )
+update seller_user_plan_assignment ( where seller_user_plan_assignment.id = ? )
+
+read one (
+    select seller_user_plan_assignment
+    where seller_user_plan_assignment.id = ?
+)
+
+read one (
+    select seller_user_plan_assignment
+    where seller_user_plan_assignment.user_id = ?
+    where seller_user_plan_assignment.status = ?
+)
+
+read all (
+    select seller_user_plan_assignment
+    where seller_user_plan_assignment.reseller_id = ?
+)
+
+read all (
+    select seller_user_plan_assignment
+    where seller_user_plan_assignment.reseller_id = ?
+    where seller_user_plan_assignment.status = ?
+)
+
+read all (
+    select seller_user_plan_assignment
+    where seller_user_plan_assignment.user_id = ?
+)
+
+read all (
+    select seller_user_plan_assignment
+    where seller_user_plan_assignment.status = ?
+    where seller_user_plan_assignment.plan_starts_at <= ?
+)
+
+read all (
+    select seller_user_plan_assignment
+    where seller_user_plan_assignment.status = ?
+    where seller_user_plan_assignment.plan_ends_at <= ?
+    where seller_user_plan_assignment.auto_switch_on_end = ?
+)
+
+read all (
+    select seller_user_plan_assignment
+    where seller_user_plan_assignment.status = ?
+    where seller_user_plan_assignment.notify_before_end = ?
+    where seller_user_plan_assignment.plan_ends_at <= ?
+    where seller_user_plan_assignment.notified_ending_at = null
+)
+
+read count (
+    select seller_user_plan_assignment
+    where seller_user_plan_assignment.reseller_id = ?
+)
+
+// seller_invoice is a wholesale invoice from admin to a seller for a period.
+model seller_invoice (
+    key id
+
+    index (
+        name seller_invoices_reseller_id_index
+        fields reseller_id
+    )
+
+    field id            blob
+    field reseller_id   blob
+    field period_start  timestamp
+    field period_end    timestamp
+    field total_amount  int64     ( updatable )
+    field currency      text      ( updatable, default "INR" )
+    // status: draft, pending, payment_received, overdue, cancelled
+    field status        text      ( updatable )
+    field issued_at     timestamp ( updatable, nullable )
+    field paid_at       timestamp ( updatable, nullable )
+    field admin_note    text      ( updatable, nullable )
+    field created_at    timestamp ( autoinsert )
+    field updated_at    timestamp ( updatable )
+)
+
+create seller_invoice ( )
+update seller_invoice ( where seller_invoice.id = ? )
+delete seller_invoice ( where seller_invoice.id = ? )
+
+read one (
+    select seller_invoice
+    where seller_invoice.id = ?
+)
+
+read all (
+    select seller_invoice
+    where seller_invoice.reseller_id = ?
+)
+
+// seller_invoice_line is a wholesale line on a seller invoice.
+model seller_invoice_line (
+    key id
+
+    index (
+        name seller_invoice_lines_invoice_id_index
+        fields invoice_id
+    )
+
+    field id              blob
+    field invoice_id      blob
+    field assignment_id   blob
+    field user_id         blob
+    field plan_id         blob
+    field description     text
+    // amount is wholesale.
+    field amount          int64
+    field retail_amount   int64
+    field assigned_at     timestamp
+    field created_at      timestamp ( autoinsert )
+)
+
+create seller_invoice_line ( )
+delete seller_invoice_line ( where seller_invoice_line.invoice_id = ? )
+
+read all (
+    select seller_invoice_line
+    where seller_invoice_line.invoice_id = ?
+)
+
+read one (
+    select seller_invoice_line
+    where seller_invoice_line.id = ?
+)
+
+// seller_billing_notification stores plan ending/switched (and related) events for sellers.
+model seller_billing_notification (
+    key id
+
+    index (
+        name seller_billing_notifications_reseller_id_index
+        fields reseller_id
+    )
+
+    field id           blob
+    field reseller_id  blob
+    field user_id      blob      ( nullable )
+    // type: plan_ending, plan_switched, invoice, payment
+    field type         text
+    field title        text
+    field body         text
+    field read         bool      ( updatable, default false )
+    field created_at   timestamp ( autoinsert )
+)
+
+create seller_billing_notification ( )
+update seller_billing_notification ( where seller_billing_notification.id = ? )
+
+read all (
+    select seller_billing_notification
+    where seller_billing_notification.reseller_id = ?
+)
+
+read one (
+    select seller_billing_notification
+    where seller_billing_notification.id = ?
+)

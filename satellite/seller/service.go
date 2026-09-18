@@ -23,6 +23,7 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/satellite/console"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth"
 	"github.com/StorXNetwork/StorXMonitor/satellite/mailservice"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/billing"
 	"github.com/StorXNetwork/common/http/requestid"
 	"github.com/StorXNetwork/common/uuid"
 )
@@ -93,6 +94,8 @@ type Service struct {
 	log                *zap.Logger
 	auditLogger        *zap.Logger
 	store              DB
+	usersDB            console.Users
+	billing            billing.TransactionsDB
 	analytics          *analytics.Service
 	tokens             *consoleauth.Service
 	authConfig         AuthConfig
@@ -103,6 +106,7 @@ type Service struct {
 	loginCaptchaHandler        console.CaptchaHandler
 	registrationCaptchaHandler console.CaptchaHandler
 	runtimeConfig              SellerServerRuntimeConfig
+	nowFn                      func() time.Time
 }
 
 // NewService returns a new instance of Service.
@@ -133,9 +137,25 @@ func NewService(
 		authConfig:         authConfig,
 		externalAddress:    externalAddress,
 		badPasswordsLoaded: badPasswordsLoaded,
+		nowFn:              time.Now,
 	}
 	s.initCaptchaHandlers()
 	return s, nil
+}
+
+// SetUsersDB wires console users DB for tenant listing and plan limit application.
+func (s *Service) SetUsersDB(usersDB console.Users) {
+	s.usersDB = usersDB
+}
+
+// SetBillingDB wires billing transactions DB for payment_plans sync.
+func (s *Service) SetBillingDB(db billing.TransactionsDB) {
+	s.billing = db
+}
+
+// TestSetNow sets the clock for tests.
+func (s *Service) TestSetNow(fn func() time.Time) {
+	s.nowFn = fn
 }
 
 // ExtendService adds auth dependencies to Service.

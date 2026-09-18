@@ -734,6 +734,89 @@ CREATE TABLE segment_pending_audits (
 	reverify_count bigint NOT NULL,
 	PRIMARY KEY ( node_id )
 ) ;
+CREATE TABLE seller_billing_notifications (
+	id bytea NOT NULL,
+	reseller_id bytea NOT NULL,
+	user_id bytea,
+	type text NOT NULL,
+	title text NOT NULL,
+	body text NOT NULL,
+	read boolean NOT NULL DEFAULT false,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+) ;
+CREATE TABLE seller_invoices (
+	id bytea NOT NULL,
+	reseller_id bytea NOT NULL,
+	period_start timestamp with time zone NOT NULL,
+	period_end timestamp with time zone NOT NULL,
+	total_amount bigint NOT NULL,
+	currency text NOT NULL DEFAULT 'INR',
+	status text NOT NULL,
+	issued_at timestamp with time zone,
+	paid_at timestamp with time zone,
+	admin_note text,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+) ;
+CREATE TABLE seller_invoice_lines (
+	id bytea NOT NULL,
+	invoice_id bytea NOT NULL,
+	assignment_id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	plan_id bytea NOT NULL,
+	description text NOT NULL,
+	amount bigint NOT NULL,
+	retail_amount bigint NOT NULL,
+	assigned_at timestamp with time zone NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+) ;
+CREATE TABLE seller_plans (
+	id bytea NOT NULL,
+	name text NOT NULL,
+	tier_key text NOT NULL,
+	billing_period text NOT NULL,
+	storage_bytes bigint NOT NULL,
+	bandwidth_bytes bigint NOT NULL,
+	retail_amount bigint NOT NULL,
+	wholesale_amount bigint NOT NULL,
+	currency text NOT NULL DEFAULT 'INR',
+	description text NOT NULL DEFAULT '',
+	features jsonb NOT NULL DEFAULT '[]',
+	recommended boolean NOT NULL DEFAULT false,
+	payment_plan_id bigint,
+	active boolean NOT NULL DEFAULT true,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+) ;
+CREATE TABLE seller_user_plan_assignments (
+	id bytea NOT NULL,
+	reseller_id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	plan_id bytea NOT NULL,
+	status text NOT NULL,
+	retail_amount bigint NOT NULL,
+	wholesale_amount bigint NOT NULL,
+	billing_period text NOT NULL,
+	duration_months integer,
+	plan_starts_at timestamp with time zone NOT NULL,
+	plan_ends_at timestamp with time zone,
+	future_plan_id bytea,
+	auto_switch_on_end boolean NOT NULL DEFAULT false,
+	notify_before_end boolean NOT NULL DEFAULT false,
+	notified_ending_at timestamp with time zone,
+	user_paid_at timestamp with time zone,
+	notes text,
+	assigned_at timestamp with time zone NOT NULL,
+	ended_at timestamp with time zone,
+	assigned_by_reseller boolean NOT NULL DEFAULT true,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+) ;
 CREATE TABLE storagenode_bandwidth_rollups (
 	storagenode_id bytea NOT NULL,
 	interval_start timestamp with time zone NOT NULL,
@@ -1187,6 +1270,14 @@ CREATE INDEX reseller_domain_domain_index ON reseller_domains ( domain ) ;
 CREATE INDEX reseller_theme_reseller_id_index ON reseller_themes ( reseller_id ) ;
 CREATE INDEX retention_remainder_charges_project_id_deleted_at_billed_index ON retention_remainder_charges ( project_id, deleted_at, billed ) ;
 CREATE INDEX reverification_audits_inserted_at_index ON reverification_audits ( inserted_at ) ;
+CREATE INDEX seller_billing_notifications_reseller_id_index ON seller_billing_notifications ( reseller_id ) ;
+CREATE INDEX seller_invoices_reseller_id_index ON seller_invoices ( reseller_id ) ;
+CREATE INDEX seller_invoice_lines_invoice_id_index ON seller_invoice_lines ( invoice_id ) ;
+CREATE INDEX seller_plans_active_name_index ON seller_plans ( active, name ) ;
+CREATE INDEX seller_user_plan_assignments_reseller_id_index ON seller_user_plan_assignments ( reseller_id ) ;
+CREATE INDEX seller_user_plan_assignments_user_id_status_index ON seller_user_plan_assignments ( user_id, status ) ;
+CREATE INDEX seller_user_plan_assignments_status_plan_starts_at_index ON seller_user_plan_assignments ( status, plan_starts_at ) ;
+CREATE INDEX seller_user_plan_assignments_status_plan_ends_at_index ON seller_user_plan_assignments ( status, plan_ends_at ) ;
 CREATE INDEX storagenode_bandwidth_rollups_interval_start_index ON storagenode_bandwidth_rollups ( interval_start ) ;
 CREATE INDEX storagenode_bandwidth_rollup_archives_interval_start_index ON storagenode_bandwidth_rollup_archives ( interval_start ) ;
 CREATE INDEX storagenode_payments_node_id_period_index ON storagenode_payments ( node_id, period ) ;
