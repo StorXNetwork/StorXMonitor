@@ -251,12 +251,8 @@ func (s *Service) assignPlan(ctx context.Context, resellerID, userID uuid.UUID, 
 	duration := assignmentDurationMonths(plan.BillingPeriod)
 	endsAt := now.AddDate(0, duration, 0)
 
-	if prevSched, serr := s.store.UserPlanAssignments().GetByUserAndStatus(ctx, userID, AssignmentStatusScheduled); serr == nil {
-		prevSched.Status = AssignmentStatusEnded
-		prevSched.EndedAt = &now
-		if _, uerr := s.store.UserPlanAssignments().Update(ctx, prevSched.ID, prevSched); uerr != nil {
-			return nil, nil, Error.Wrap(uerr)
-		}
+	if err = s.endScheduledForUser(ctx, userID, now); err != nil {
+		return nil, nil, err
 	}
 
 	active = &UserPlanAssignment{
@@ -296,28 +292,9 @@ func (s *Service) assignPlan(ctx context.Context, resellerID, userID uuid.UUID, 
 
 	// Future plan selected → always create scheduled row (no separate auto-switch flag).
 	if req.FuturePlanID != nil {
-		futurePlan, ferr := s.store.SellerPlans().Get(ctx, *req.FuturePlanID)
-		if ferr != nil || futurePlan == nil {
-			return nil, nil, ErrNotFound.New("future plan not found")
-		}
-		scheduled = &UserPlanAssignment{
-			ResellerID:         resellerID,
-			UserID:             userID,
-			PlanID:             *req.FuturePlanID,
-			Status:             AssignmentStatusScheduled,
-			RetailAmount:       futurePlan.RetailAmount,
-			WholesaleAmount:    futurePlan.WholesaleAmount,
-			BillingPeriod:      futurePlan.BillingPeriod,
-			PlanStartsAt:       endsAt,
-			AutoSwitchOnEnd:    false,
-			NotifyBeforeEnd:    req.NotifyBeforeEnd,
-			AssignedByReseller: byReseller,
-			PlanName:           futurePlan.Name,
-			UserEmail:          user.Email,
-		}
-		scheduled, err = s.store.UserPlanAssignments().Insert(ctx, scheduled)
+		scheduled, err = s.insertScheduledFuturePlan(ctx, resellerID, userID, *req.FuturePlanID, endsAt, req.NotifyBeforeEnd, byReseller, user.Email)
 		if err != nil {
-			return nil, nil, Error.Wrap(err)
+			return nil, nil, err
 		}
 	}
 
@@ -350,12 +327,8 @@ func (s *Service) refreshActiveAssignment(
 	}
 
 	// Replace any existing scheduled row when future plan changes (or clear it).
-	if prevSched, serr := s.store.UserPlanAssignments().GetByUserAndStatus(ctx, prev.UserID, AssignmentStatusScheduled); serr == nil {
-		prevSched.Status = AssignmentStatusEnded
-		prevSched.EndedAt = &now
-		if _, uerr := s.store.UserPlanAssignments().Update(ctx, prevSched.ID, prevSched); uerr != nil {
-			return nil, nil, Error.Wrap(uerr)
-		}
+	if err = s.endScheduledForUser(ctx, prev.UserID, now); err != nil {
+		return nil, nil, err
 	}
 
 	prev.FuturePlanID = req.FuturePlanID
@@ -371,36 +344,64 @@ func (s *Service) refreshActiveAssignment(
 	}
 
 	if req.FuturePlanID != nil {
-		futurePlan, ferr := s.store.SellerPlans().Get(ctx, *req.FuturePlanID)
-		if ferr != nil || futurePlan == nil {
-			return nil, nil, ErrNotFound.New("future plan not found")
-		}
 		startsAt := now
 		if prev.PlanEndsAt != nil {
 			startsAt = *prev.PlanEndsAt
 		}
-		scheduled = &UserPlanAssignment{
-			ResellerID:         prev.ResellerID,
-			UserID:             prev.UserID,
-			PlanID:             *req.FuturePlanID,
-			Status:             AssignmentStatusScheduled,
-			RetailAmount:       futurePlan.RetailAmount,
-			WholesaleAmount:    futurePlan.WholesaleAmount,
-			BillingPeriod:      futurePlan.BillingPeriod,
-			PlanStartsAt:       startsAt,
-			AutoSwitchOnEnd:    false,
-			NotifyBeforeEnd:    req.NotifyBeforeEnd,
-			AssignedByReseller: byReseller,
-			PlanName:           futurePlan.Name,
-			UserEmail:          user.Email,
-		}
-		scheduled, err = s.store.UserPlanAssignments().Insert(ctx, scheduled)
+		scheduled, err = s.insertScheduledFuturePlan(ctx, prev.ResellerID, prev.UserID, *req.FuturePlanID, startsAt, req.NotifyBeforeEnd, byReseller, user.Email)
 		if err != nil {
-			return nil, nil, Error.Wrap(err)
+			return nil, nil, err
 		}
 	}
 
 	return active, scheduled, nil
+}
+
+// endScheduledForUser marks any current scheduled assignment as ended.
+func (s *Service) endScheduledForUser(ctx context.Context, userID uuid.UUID, now time.Time) error {
+	prevSched, err := s.store.UserPlanAssignments().GetByUserAndStatus(ctx, userID, AssignmentStatusScheduled)
+	if err != nil {
+		if ErrNotFound.Has(err) {
+			return nil
+		}
+		// mem/tests may return generic not-found; treat any get miss as "none scheduled"
+		return nil
+	}
+	prevSched.Status = AssignmentStatusEnded
+	prevSched.EndedAt = &now
+	_, uerr := s.store.UserPlanAssignments().Update(ctx, prevSched.ID, prevSched)
+	return Error.Wrap(uerr)
+}
+
+// insertScheduledFuturePlan creates the scheduled row that starts when the active plan ends.
+func (s *Service) insertScheduledFuturePlan(
+	ctx context.Context,
+	resellerID, userID, futurePlanID uuid.UUID,
+	startsAt time.Time,
+	notifyBeforeEnd bool,
+	byReseller bool,
+	userEmail string,
+) (*UserPlanAssignment, error) {
+	futurePlan, err := s.store.SellerPlans().Get(ctx, futurePlanID)
+	if err != nil || futurePlan == nil || !futurePlan.Active {
+		return nil, ErrNotFound.New("future plan not found")
+	}
+	scheduled := &UserPlanAssignment{
+		ResellerID:         resellerID,
+		UserID:             userID,
+		PlanID:             futurePlanID,
+		Status:             AssignmentStatusScheduled,
+		RetailAmount:       futurePlan.RetailAmount,
+		WholesaleAmount:    futurePlan.WholesaleAmount,
+		BillingPeriod:      futurePlan.BillingPeriod,
+		PlanStartsAt:       startsAt,
+		AutoSwitchOnEnd:    false,
+		NotifyBeforeEnd:    notifyBeforeEnd,
+		AssignedByReseller: byReseller,
+		PlanName:           futurePlan.Name,
+		UserEmail:          userEmail,
+	}
+	return s.store.UserPlanAssignments().Insert(ctx, scheduled)
 }
 
 func assignmentDurationMonths(billingPeriod string) int {
@@ -500,13 +501,8 @@ func (s *Service) UpdateFuturePlan(ctx context.Context, userID uuid.UUID, req Up
 
 	now := s.nowFn().UTC()
 
-	// Cancel existing scheduled.
-	if prev, serr := s.store.UserPlanAssignments().GetByUserAndStatus(ctx, userID, AssignmentStatusScheduled); serr == nil {
-		prev.Status = AssignmentStatusEnded
-		prev.EndedAt = &now
-		if _, uerr := s.store.UserPlanAssignments().Update(ctx, prev.ID, prev); uerr != nil {
-			return nil, Error.Wrap(uerr)
-		}
+	if err = s.endScheduledForUser(ctx, userID, now); err != nil {
+		return nil, err
 	}
 
 	if req.Cancel || req.FuturePlanID == nil {
@@ -550,21 +546,7 @@ func (s *Service) UpdateFuturePlan(ctx context.Context, userID uuid.UUID, req Up
 		email = user.Email
 	}
 
-	scheduled = &UserPlanAssignment{
-		ResellerID:         reseller.ID,
-		UserID:             userID,
-		PlanID:             fp.ID,
-		Status:             AssignmentStatusScheduled,
-		RetailAmount:       fp.RetailAmount,
-		WholesaleAmount:    fp.WholesaleAmount,
-		BillingPeriod:      fp.BillingPeriod,
-		PlanStartsAt:       startsAt,
-		NotifyBeforeEnd:    notify,
-		AssignedByReseller: true,
-		PlanName:           fp.Name,
-		UserEmail:          email,
-	}
-	return s.store.UserPlanAssignments().Insert(ctx, scheduled)
+	return s.insertScheduledFuturePlan(ctx, reseller.ID, userID, fp.ID, startsAt, notify, true, email)
 }
 
 // ListAssignments returns assignment history for the authenticated reseller.
@@ -895,7 +877,7 @@ func (s *Service) SetResellerInvoiceBilling(ctx context.Context, resellerID uuid
 
 // GenerateDueInvoicesForAllResellers creates missing invoices for every reseller
 // using each seller's saved billing day/time (catch-up of completed periods).
-func (s *Service) GenerateDueInvoicesForAllResellers(ctx context.Context, _ BillingClock) (createdCount int, err error) {
+func (s *Service) GenerateDueInvoicesForAllResellers(ctx context.Context) (createdCount int, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	resellers, err := s.store.Resellers().List(ctx)
@@ -1060,8 +1042,16 @@ func (s *Service) GenerateInvoice(ctx context.Context, resellerID uuid.UUID, req
 	if req.PeriodStart.After(now) {
 		return nil, ErrValidation.New("cannot generate invoice for a future period")
 	}
+	// Date-only "To" often means end-of-day UTC. If that is still later today, clamp to now
+	// so admin From–To works on the same calendar day. Future calendar days still reject.
 	if req.PeriodEnd.After(now) {
-		return nil, ErrValidation.New("invoice period must end in the past; pick an as-of date/time that has already passed")
+		end := req.PeriodEnd.UTC()
+		sameUTCDay := end.Year() == now.Year() && end.Month() == now.Month() && end.Day() == now.Day()
+		if sameUTCDay {
+			req.PeriodEnd = now
+		} else {
+			return nil, ErrValidation.New("invoice period must end in the past; To cannot be a future date (UTC)")
+		}
 	}
 
 	existing, err := s.store.SellerInvoices().ListByResellerID(ctx, resellerID)

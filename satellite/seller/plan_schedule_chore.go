@@ -49,19 +49,17 @@ type PlanScheduleChore struct {
 	log              *zap.Logger
 	service          *Service
 	generateInvoices bool
-	invoiceClock     BillingClock
 	Loop             *sync2.Cycle
 }
 
 // NewPlanScheduleChore creates the plan schedule chore.
+// InvoiceBillingDay/Hour/Min on config are fallback defaults when a seller has no saved cutover.
 func NewPlanScheduleChore(log *zap.Logger, service *Service, config PlanScheduleConfig) *PlanScheduleChore {
-	clock := config.InvoiceClock()
-	service.SetInvoiceBillingClock(clock)
+	service.SetInvoiceBillingClock(config.InvoiceClock())
 	return &PlanScheduleChore{
 		log:              log,
 		service:          service,
 		generateInvoices: config.GenerateInvoices,
-		invoiceClock:     clock,
 		Loop:             sync2.NewCycle(config.Interval),
 	}
 }
@@ -78,7 +76,7 @@ func (chore *PlanScheduleChore) Run(ctx context.Context) (err error) {
 		}
 
 		if chore.generateInvoices {
-			created, ierr := chore.service.GenerateDueInvoicesForAllResellers(ctx, chore.invoiceClock)
+			created, ierr := chore.service.GenerateDueInvoicesForAllResellers(ctx)
 			if ierr != nil {
 				chore.log.Error("seller invoice generation failed", zap.Error(ierr))
 			} else if created > 0 {
