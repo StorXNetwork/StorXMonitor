@@ -197,7 +197,53 @@ func (server *Server) getReseller(w http.ResponseWriter, r *http.Request) {
 		sendJSONError(w, "failed to get reseller", err.Error(), status)
 		return
 	}
-	data, _ := json.Marshal(reseller)
+	billing, _ := server.sellerService.GetResellerInvoiceBilling(ctx, id)
+	data, _ := json.Marshal(map[string]any{
+		"id":              reseller.ID,
+		"name":            reseller.Name,
+		"email":           reseller.Email,
+		"companyName":     reseller.CompanyName,
+		"status":          reseller.Status,
+		"createdAt":       reseller.CreatedAt,
+		"invoiceBilling":  billing,
+	})
+	sendJSONData(w, http.StatusOK, data)
+}
+
+func (server *Server) putResellerInvoiceBilling(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	if server.sellerService == nil {
+		sendJSONError(w, "seller service unavailable", "", http.StatusServiceUnavailable)
+		return
+	}
+	id, err := uuid.FromString(mux.Vars(r)["id"])
+	if err != nil {
+		sendJSONError(w, "invalid id", err.Error(), http.StatusBadRequest)
+		return
+	}
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		sendJSONError(w, "failed to read body", err.Error(), http.StatusBadRequest)
+		return
+	}
+	var req seller.InvoiceBillingSettings
+	if err = json.Unmarshal(body, &req); err != nil {
+		sendJSONError(w, "invalid request", err.Error(), http.StatusBadRequest)
+		return
+	}
+	saved, err := server.sellerService.SetResellerInvoiceBilling(ctx, id, req)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if seller.ErrValidation.Has(err) {
+			status = http.StatusBadRequest
+		}
+		sendJSONError(w, "failed to save invoice billing settings", err.Error(), status)
+		return
+	}
+	data, _ := json.Marshal(saved)
 	sendJSONData(w, http.StatusOK, data)
 }
 
@@ -324,7 +370,25 @@ func (server *Server) generateResellerInvoice(w http.ResponseWriter, r *http.Req
 
 	var inv *seller.SellerInvoice
 	var created []seller.SellerInvoice
-	// Manual default: last completed period only. Optional overrides for day/time or explicit bounds.
+	// Save day/time when provided so manual + auto both use admin selection.
+	if req.BillingDay != nil {
+		settings := seller.InvoiceBillingSettings{Day: *req.BillingDay}
+		if req.Hour != nil {
+			settings.Hour = *req.Hour
+		}
+		if req.Minute != nil {
+			settings.Minute = *req.Minute
+		}
+		if _, serr := server.sellerService.SetResellerInvoiceBilling(ctx, id, settings); serr != nil {
+			status := http.StatusInternalServerError
+			if seller.ErrValidation.Has(serr) {
+				status = http.StatusBadRequest
+			}
+			sendJSONError(w, "failed to save invoice billing settings", serr.Error(), status)
+			return
+		}
+	}
+
 	switch {
 	case req.PeriodStart != nil && req.PeriodEnd != nil:
 		inv, err = server.sellerService.GenerateInvoice(ctx, id, seller.GenerateInvoiceRequest{
@@ -335,22 +399,10 @@ func (server *Server) generateResellerInvoice(w http.ResponseWriter, r *http.Req
 		if err == nil && inv != nil {
 			created = []seller.SellerInvoice{*inv}
 		}
-	case req.BillingDay != nil:
-		clock := seller.BillingClock{Day: *req.BillingDay}
-		if req.Hour != nil {
-			clock.Hour = *req.Hour
-		}
-		if req.Minute != nil {
-			clock.Minute = *req.Minute
-		}
-		inv, err = server.sellerService.GenerateLastCompletedInvoice(ctx, id, clock, req.AdminNote)
-		if err == nil && inv != nil {
-			created = []seller.SellerInvoice{*inv}
-		}
 	case req.AsOf != nil:
 		created, err = server.sellerService.GenerateAllInvoicesUpToAsOf(ctx, id, req.AsOf.UTC(), req.AdminNote)
 	default:
-		// Manual button: current date → last completed period if not yet generated.
+		// Uses saved (or just-saved) per-seller billing day/time.
 		inv, err = server.sellerService.GenerateLastCompletedInvoice(ctx, id, seller.BillingClock{}, req.AdminNote)
 		if err == nil && inv != nil {
 			created = []seller.SellerInvoice{*inv}

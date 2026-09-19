@@ -297,6 +297,10 @@ func (s *Service) CreateBrandingForCurrentReseller(ctx context.Context, cfg Rese
 	if err != nil {
 		return Error.Wrap(err)
 	}
+	encoded, err = MergePreserveInvoiceBilling(dbCfg.Config, encoded)
+	if err != nil {
+		return Error.Wrap(err)
+	}
 
 	_, err = s.store.ResellerConfigs().Update(ctx, reseller.ID, UpdateResellerConfigRequest{
 		Config:    encoded,
@@ -394,6 +398,10 @@ func (s *Service) UpdateBrandingForCurrentReseller(ctx context.Context, cfg Rese
 	if err != nil {
 		return Error.Wrap(err)
 	}
+	encoded, err = MergePreserveInvoiceBilling(existingDB.Config, encoded)
+	if err != nil {
+		return Error.Wrap(err)
+	}
 
 	_, err = s.store.ResellerConfigs().Update(ctx, reseller.ID, UpdateResellerConfigRequest{
 		Config:    encoded,
@@ -466,6 +474,12 @@ func (s *Service) UpdateMailSettingsForCurrentReseller(ctx context.Context, req 
 	encoded, err := json.Marshal(cfg)
 	if err != nil {
 		return ResellerMailSettingsView{}, Error.Wrap(err)
+	}
+	if dbCfg != nil {
+		encoded, err = MergePreserveInvoiceBilling(dbCfg.Config, encoded)
+		if err != nil {
+			return ResellerMailSettingsView{}, Error.Wrap(err)
+		}
 	}
 
 	now := time.Now()

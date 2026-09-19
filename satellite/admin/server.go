@@ -272,6 +272,7 @@ func NewServer(
 	resellersRouter := fullAccessAPI.PathPrefix("/resellers").Subrouter()
 	resellersRouter.HandleFunc("", server.listResellers).Methods("GET")
 	resellersRouter.HandleFunc("/{id}", server.getReseller).Methods("GET")
+	resellersRouter.HandleFunc("/{id}/invoice-billing", server.putResellerInvoiceBilling).Methods("PUT")
 	resellersRouter.HandleFunc("/{id}/users", server.listResellerUsers).Methods("GET")
 	resellersRouter.HandleFunc("/{id}/assignments", server.listResellerAssignments).Methods("GET")
 	resellersRouter.HandleFunc("/{id}/invoices", server.listResellerInvoices).Methods("GET")

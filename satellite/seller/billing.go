@@ -159,6 +159,11 @@ type SellerInvoice struct {
 	CreatedAt   time.Time  `json:"createdAt"`
 	UpdatedAt   time.Time  `json:"updatedAt"`
 	Lines       []SellerInvoiceLine `json:"lines,omitempty"`
+
+	// Slip party fields (hydrated on read; not persisted as columns).
+	SellerName    string `json:"sellerName,omitempty"`
+	SellerEmail   string `json:"sellerEmail,omitempty"`
+	SellerCompany string `json:"sellerCompany,omitempty"`
 }
 
 // SellerInvoiceLine is a wholesale line on an invoice.

@@ -528,25 +528,24 @@ func (s *Service) GetInvoice(ctx context.Context, id uuid.UUID) (invoice *Seller
 	if err != nil {
 		return nil, err
 	}
-	inv, err := s.store.SellerInvoices().Get(ctx, id)
+	inv, err := s.loadInvoiceDetail(ctx, id)
 	if err != nil {
-		return nil, ErrNotFound.Wrap(err)
+		return nil, err
 	}
 	if inv.ResellerID != reseller.ID {
 		return nil, ErrNotFound.New("")
 	}
-	lines, err := s.store.SellerInvoices().ListLines(ctx, id)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-	inv.Lines = s.hydrateInvoiceLines(ctx, lines)
 	return inv, nil
 }
 
 // GetInvoiceAdmin returns invoice detail (admin, no reseller scoping).
 func (s *Service) GetInvoiceAdmin(ctx context.Context, id uuid.UUID) (invoice *SellerInvoice, err error) {
 	defer mon.Task()(&ctx)(&err)
+	return s.loadInvoiceDetail(ctx, id)
+}
 
+// loadInvoiceDetail loads invoice + lines + seller party fields (single path for admin/seller).
+func (s *Service) loadInvoiceDetail(ctx context.Context, id uuid.UUID) (*SellerInvoice, error) {
 	inv, err := s.store.SellerInvoices().Get(ctx, id)
 	if err != nil {
 		return nil, ErrNotFound.Wrap(err)
@@ -556,7 +555,23 @@ func (s *Service) GetInvoiceAdmin(ctx context.Context, id uuid.UUID) (invoice *S
 		return nil, Error.Wrap(err)
 	}
 	inv.Lines = s.hydrateInvoiceLines(ctx, lines)
+	s.attachSellerParty(ctx, inv)
 	return inv, nil
+}
+
+func (s *Service) attachSellerParty(ctx context.Context, inv *SellerInvoice) {
+	if inv == nil {
+		return
+	}
+	r, err := s.store.Resellers().Get(ctx, inv.ResellerID)
+	if err != nil {
+		return
+	}
+	inv.SellerName = r.Name
+	inv.SellerEmail = r.Email
+	if r.CompanyName != nil {
+		inv.SellerCompany = *r.CompanyName
+	}
 }
 
 func (s *Service) hydrateInvoiceLines(ctx context.Context, lines []SellerInvoiceLine) []SellerInvoiceLine {
@@ -689,12 +704,15 @@ func (s *Service) GenerateLastMonthInvoice(ctx context.Context, resellerID uuid.
 }
 
 // GenerateLastCompletedInvoice creates at most one invoice: the latest completed
-// billing period for the configured (or provided) clock, if it is missing and has assignments.
+// billing period for this reseller's saved billing day/time (or provided clock).
 func (s *Service) GenerateLastCompletedInvoice(ctx context.Context, resellerID uuid.UUID, clock BillingClock, adminNote string) (invoice *SellerInvoice, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if clock.Day == 0 {
-		clock = s.invoiceBillingClock
+		clock, err = s.InvoiceBillingClockForReseller(ctx, resellerID)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if err = validateBillingClock(clock); err != nil {
 		return nil, err
@@ -710,17 +728,89 @@ func (s *Service) GenerateLastCompletedInvoice(ctx context.Context, resellerID u
 	})
 }
 
-// GenerateDueInvoicesForAllResellers creates missing invoices for every reseller
-// using the invoice billing clock (catch-up walk of completed periods).
-func (s *Service) GenerateDueInvoicesForAllResellers(ctx context.Context, clock BillingClock) (createdCount int, err error) {
+// InvoiceBillingClockForReseller returns the admin-selected cutover for this seller (default day 1).
+func (s *Service) InvoiceBillingClockForReseller(ctx context.Context, resellerID uuid.UUID) (BillingClock, error) {
+	if s.store.ResellerConfigs() == nil {
+		return defaultInvoiceBillingSettings().Clock(), nil
+	}
+	dbCfg, err := s.store.ResellerConfigs().GetByResellerID(ctx, resellerID)
+	if err != nil {
+		if ErrNotFound.Has(err) {
+			return defaultInvoiceBillingSettings().Clock(), nil
+		}
+		return BillingClock{}, Error.Wrap(err)
+	}
+	return ExtractInvoiceBillingSettings(dbCfg.Config).Clock(), nil
+}
+
+// GetResellerInvoiceBilling returns saved invoice billing day/time for admin UI.
+func (s *Service) GetResellerInvoiceBilling(ctx context.Context, resellerID uuid.UUID) (settings InvoiceBillingSettings, err error) {
+	defer mon.Task()(&ctx)(&err)
+	clock, err := s.InvoiceBillingClockForReseller(ctx, resellerID)
+	if err != nil {
+		return InvoiceBillingSettings{}, err
+	}
+	return InvoiceBillingSettings{Day: clock.Day, Hour: clock.Hour, Minute: clock.Minute}, nil
+}
+
+// SetResellerInvoiceBilling saves admin-selected day/time used by manual + auto invoice generation.
+func (s *Service) SetResellerInvoiceBilling(ctx context.Context, resellerID uuid.UUID, settings InvoiceBillingSettings) (saved InvoiceBillingSettings, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if clock.Day == 0 {
-		clock = s.invoiceBillingClock
+	if s.store.ResellerConfigs() == nil {
+		return InvoiceBillingSettings{}, Error.New("reseller configs unavailable")
 	}
+
+	clock := settings.Clock()
 	if err = validateBillingClock(clock); err != nil {
-		return 0, err
+		return InvoiceBillingSettings{}, err
 	}
+	settings = InvoiceBillingSettings{Day: clock.Day, Hour: clock.Hour, Minute: clock.Minute}
+
+	dbCfg, err := s.store.ResellerConfigs().GetByResellerID(ctx, resellerID)
+	now := s.nowFn().UTC()
+	switch {
+	case err == nil:
+		merged, merr := MergeInvoiceBillingSettings(dbCfg.Config, settings)
+		if merr != nil {
+			return InvoiceBillingSettings{}, Error.Wrap(merr)
+		}
+		_, err = s.store.ResellerConfigs().Update(ctx, resellerID, UpdateResellerConfigRequest{
+			Config:    merged,
+			UpdatedAt: now,
+		})
+		if err != nil {
+			return InvoiceBillingSettings{}, Error.Wrap(err)
+		}
+	case ErrNotFound.Has(err):
+		merged, merr := MergeInvoiceBillingSettings(nil, settings)
+		if merr != nil {
+			return InvoiceBillingSettings{}, Error.Wrap(merr)
+		}
+		configID, idErr := uuid.New()
+		if idErr != nil {
+			return InvoiceBillingSettings{}, Error.Wrap(idErr)
+		}
+		_, err = s.store.ResellerConfigs().Insert(ctx, &ResellerConfig{
+			ID:         configID,
+			ResellerID: resellerID,
+			Config:     merged,
+			CreatedAt:  now,
+			UpdatedAt:  now,
+		})
+		if err != nil {
+			return InvoiceBillingSettings{}, Error.Wrap(err)
+		}
+	default:
+		return InvoiceBillingSettings{}, Error.Wrap(err)
+	}
+	return settings, nil
+}
+
+// GenerateDueInvoicesForAllResellers creates missing invoices for every reseller
+// using each seller's saved billing day/time (catch-up of completed periods).
+func (s *Service) GenerateDueInvoicesForAllResellers(ctx context.Context, _ BillingClock) (createdCount int, err error) {
+	defer mon.Task()(&ctx)(&err)
 
 	resellers, err := s.store.Resellers().List(ctx)
 	if err != nil {
@@ -728,6 +818,14 @@ func (s *Service) GenerateDueInvoicesForAllResellers(ctx context.Context, clock 
 	}
 
 	for _, r := range resellers {
+		clock, cerr := s.InvoiceBillingClockForReseller(ctx, r.ID)
+		if cerr != nil {
+			s.log.Error("load invoice billing clock failed",
+				zap.String("resellerId", r.ID.String()),
+				zap.Error(cerr),
+			)
+			continue
+		}
 		created, gerr := s.GenerateAllInvoicesForBillingClock(ctx, r.ID, clock, "auto")
 		if gerr != nil {
 			if ErrValidation.Has(gerr) {
@@ -990,7 +1088,11 @@ func (s *Service) UpdateInvoiceStatus(ctx context.Context, id uuid.UUID, req Upd
 	} else {
 		inv.PaidAt = nil
 	}
-	return s.store.SellerInvoices().Update(ctx, inv)
+	if _, err = s.store.SellerInvoices().Update(ctx, inv); err != nil {
+		return nil, Error.Wrap(err)
+	}
+	// Single read path: lines + seller party for slip/UI.
+	return s.loadInvoiceDetail(ctx, id)
 }
 
 // ListResellerSummaries returns all resellers with counts (admin).
