@@ -612,12 +612,11 @@ func validateBillingClock(c BillingClock) error {
 	return nil
 }
 
-// InvoicePeriodForBillingCutover builds the window for calendar month year/month ending at day+time.
-// periodStart = 1st of that month 00:00:00 UTC
-// periodEnd   = day of that month at hour:minute (the day admin selected — inclusive)
+// InvoicePeriodForBillingCutover builds the invoice window closed by a cutover in year/month.
+// Cutover on day D of month M bills from the 1st of month M−1 through the cutover instant.
 //
-// Example: August 2026, day=25, 00:00 → 1 Aug 00:00:00 … 25 Aug 00:00:00
-// Day 1 at 00:00 bills the previous full month ending on that instant.
+// Example: cutover 1 Oct 2026 20:29 → 1 Sept 00:00 … 1 Oct 20:29 (September invoice)
+// Example: cutover 25 Sept 2026 00:00 → 1 Aug 00:00 … 25 Sept 00:00 (August invoice)
 func InvoicePeriodForBillingCutover(year int, month time.Month, c BillingClock) (periodStart, periodEnd time.Time) {
 	asOf := time.Date(year, month, c.Day, c.Hour, c.Minute, 0, 0, time.UTC)
 	return InvoicePeriodFromAsOf(asOf)
@@ -638,21 +637,27 @@ func LatestCompletedBillingAsOf(now time.Time, c BillingClock) time.Time {
 	return asOf
 }
 
-// InvoicePeriodFromAsOf builds the calendar-month window ending at asOf (inclusive).
-// periodStart = 1st of asOf's month 00:00; periodEnd = asOf.
-// If asOf is the 1st at 00:00, period is the previous calendar month ending at asOf.
+// NextBillingAsOf returns the next cutover at or after now (if today's cutover already passed, next month).
+func NextBillingAsOf(now time.Time, c BillingClock) time.Time {
+	now = now.UTC()
+	asOf := time.Date(now.Year(), now.Month(), c.Day, c.Hour, c.Minute, 0, 0, time.UTC)
+	if !asOf.After(now) {
+		asOf = asOf.AddDate(0, 1, 0)
+	}
+	return asOf
+}
+
+// InvoicePeriodFromAsOf builds the window closed by cutover asOf:
+// periodStart = 1st of the previous calendar month 00:00 UTC
+// periodEnd   = asOf (selected day + time)
 func InvoicePeriodFromAsOf(asOf time.Time) (periodStart, periodEnd time.Time) {
 	asOf = asOf.UTC()
 	periodEnd = asOf
-	periodStart = time.Date(asOf.Year(), asOf.Month(), 1, 0, 0, 0, 0, time.UTC)
-	if !periodEnd.After(periodStart) {
-		periodStart = periodStart.AddDate(0, -1, 0)
-	}
+	periodStart = time.Date(asOf.Year(), asOf.Month()-1, 1, 0, 0, 0, 0, time.UTC)
 	return periodStart, periodEnd
 }
 
-// LastCompletedMonthPeriod returns the last completed calendar month ending at or before asOf
-// (billing day 1 at midnight).
+// LastCompletedMonthPeriod returns the invoice window for the last completed day-1 midnight cutover.
 func LastCompletedMonthPeriod(asOf time.Time) (periodStart, periodEnd time.Time) {
 	asOf = asOf.UTC()
 	anchor := LatestCompletedBillingAsOf(asOf, BillingClock{Day: 1})
