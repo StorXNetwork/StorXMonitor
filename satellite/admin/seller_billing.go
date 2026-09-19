@@ -324,7 +324,7 @@ func (server *Server) generateResellerInvoice(w http.ResponseWriter, r *http.Req
 
 	var inv *seller.SellerInvoice
 	var created []seller.SellerInvoice
-	// Explicit bounds, billingDay 1–28 (+ optional hour/minute), or legacy asOf.
+	// Manual default: last completed period only. Optional overrides for day/time or explicit bounds.
 	switch {
 	case req.PeriodStart != nil && req.PeriodEnd != nil:
 		inv, err = server.sellerService.GenerateInvoice(ctx, id, seller.GenerateInvoiceRequest{
@@ -343,12 +343,18 @@ func (server *Server) generateResellerInvoice(w http.ResponseWriter, r *http.Req
 		if req.Minute != nil {
 			clock.Minute = *req.Minute
 		}
-		created, err = server.sellerService.GenerateAllInvoicesForBillingClock(ctx, id, clock, req.AdminNote)
+		inv, err = server.sellerService.GenerateLastCompletedInvoice(ctx, id, clock, req.AdminNote)
+		if err == nil && inv != nil {
+			created = []seller.SellerInvoice{*inv}
+		}
 	case req.AsOf != nil:
 		created, err = server.sellerService.GenerateAllInvoicesUpToAsOf(ctx, id, req.AsOf.UTC(), req.AdminNote)
 	default:
-		sendJSONError(w, "invalid request", "billingDay (1–28) is required", http.StatusBadRequest)
-		return
+		// Manual button: current date → last completed period if not yet generated.
+		inv, err = server.sellerService.GenerateLastCompletedInvoice(ctx, id, seller.BillingClock{}, req.AdminNote)
+		if err == nil && inv != nil {
+			created = []seller.SellerInvoice{*inv}
+		}
 	}
 	if err != nil {
 		status := http.StatusInternalServerError

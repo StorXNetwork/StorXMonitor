@@ -113,6 +113,7 @@ type Service struct {
 	registrationCaptchaHandler console.CaptchaHandler
 	runtimeConfig              SellerServerRuntimeConfig
 	nowFn                      func() time.Time
+	invoiceBillingClock        BillingClock
 }
 
 // NewService returns a new instance of Service.
@@ -135,15 +136,16 @@ func NewService(
 	authConfig.applyDefaults()
 
 	s := &Service{
-		log:                log,
-		auditLogger:        log.Named("auditlog"),
-		store:              store,
-		analytics:          analytics,
-		tokens:             tokens,
-		authConfig:         authConfig,
-		externalAddress:    externalAddress,
-		badPasswordsLoaded: badPasswordsLoaded,
-		nowFn:              time.Now,
+		log:                 log,
+		auditLogger:         log.Named("auditlog"),
+		store:               store,
+		analytics:           analytics,
+		tokens:              tokens,
+		authConfig:          authConfig,
+		externalAddress:     externalAddress,
+		badPasswordsLoaded:  badPasswordsLoaded,
+		nowFn:               time.Now,
+		invoiceBillingClock: BillingClock{Day: 1},
 	}
 	s.initCaptchaHandlers()
 	return s, nil
@@ -184,6 +186,25 @@ func (s *Service) SetBillingDB(db billing.TransactionsDB) {
 // TestSetNow sets the clock for tests.
 func (s *Service) TestSetNow(fn func() time.Time) {
 	s.nowFn = fn
+}
+
+// SetInvoiceBillingClock sets the day/time used for manual last-month and automatic invoice generation.
+func (s *Service) SetInvoiceBillingClock(c BillingClock) {
+	if c.Day < InvoiceBillingDayMin || c.Day > InvoiceBillingDayMax {
+		c.Day = 1
+	}
+	if c.Hour < 0 || c.Hour > 23 {
+		c.Hour = 0
+	}
+	if c.Minute < 0 || c.Minute > 59 {
+		c.Minute = 0
+	}
+	s.invoiceBillingClock = c
+}
+
+// InvoiceBillingClock returns the configured invoice cutover clock.
+func (s *Service) InvoiceBillingClock() BillingClock {
+	return s.invoiceBillingClock
 }
 
 // ExtendService adds auth dependencies to Service.

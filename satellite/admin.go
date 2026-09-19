@@ -345,6 +345,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 		}
 		sellerService.SetUsersDB(peer.DB.Console().Users())
 		sellerService.SetBillingDB(peer.DB.Billing())
+		sellerService.SetInvoiceBillingClock(config.Seller.PlanSchedule.InvoiceClock())
 
 		adminServer, err := admin.NewServer(
 			log.Named("admin"),

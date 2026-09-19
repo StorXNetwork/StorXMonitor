@@ -141,6 +141,7 @@ func NewSeller(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *
 			config.Console.UsageLimits.Segment.Free,
 		)
 		peer.Seller.Service = sellerService
+		sellerService.SetInvoiceBillingClock(config.Seller.PlanSchedule.InvoiceClock())
 
 		if config.Seller.PlanSchedule.Enabled {
 			peer.Seller.Chore = seller.NewPlanScheduleChore(

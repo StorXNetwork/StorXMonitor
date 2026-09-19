@@ -688,6 +688,62 @@ func (s *Service) GenerateLastMonthInvoice(ctx context.Context, resellerID uuid.
 	})
 }
 
+// GenerateLastCompletedInvoice creates at most one invoice: the latest completed
+// billing period for the configured (or provided) clock, if it is missing and has assignments.
+func (s *Service) GenerateLastCompletedInvoice(ctx context.Context, resellerID uuid.UUID, clock BillingClock, adminNote string) (invoice *SellerInvoice, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if clock.Day == 0 {
+		clock = s.invoiceBillingClock
+	}
+	if err = validateBillingClock(clock); err != nil {
+		return nil, err
+	}
+
+	now := s.nowFn().UTC()
+	asOf := LatestCompletedBillingAsOf(now, clock)
+	start, end := InvoicePeriodFromAsOf(asOf)
+	return s.GenerateInvoice(ctx, resellerID, GenerateInvoiceRequest{
+		PeriodStart: start,
+		PeriodEnd:   end,
+		AdminNote:   adminNote,
+	})
+}
+
+// GenerateDueInvoicesForAllResellers creates missing invoices for every reseller
+// using the invoice billing clock (catch-up walk of completed periods).
+func (s *Service) GenerateDueInvoicesForAllResellers(ctx context.Context, clock BillingClock) (createdCount int, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if clock.Day == 0 {
+		clock = s.invoiceBillingClock
+	}
+	if err = validateBillingClock(clock); err != nil {
+		return 0, err
+	}
+
+	resellers, err := s.store.Resellers().List(ctx)
+	if err != nil {
+		return 0, Error.Wrap(err)
+	}
+
+	for _, r := range resellers {
+		created, gerr := s.GenerateAllInvoicesForBillingClock(ctx, r.ID, clock, "auto")
+		if gerr != nil {
+			if ErrValidation.Has(gerr) {
+				continue
+			}
+			s.log.Error("auto invoice generation failed for reseller",
+				zap.String("resellerId", r.ID.String()),
+				zap.Error(gerr),
+			)
+			continue
+		}
+		createdCount += len(created)
+	}
+	return createdCount, nil
+}
+
 // GenerateAllInvoicesForBillingDay creates every missing invoice for day-of-month (1–28) at midnight UTC.
 func (s *Service) GenerateAllInvoicesForBillingDay(ctx context.Context, resellerID uuid.UUID, billingDay int, adminNote string) (created []SellerInvoice, err error) {
 	return s.GenerateAllInvoicesForBillingClock(ctx, resellerID, BillingClock{Day: billingDay}, adminNote)
@@ -790,7 +846,7 @@ func (s *Service) generateAllInvoicesWalkingAsOf(ctx context.Context, resellerID
 	}
 
 	if len(created) == 0 {
-		return nil, ErrValidation.New("no new invoices to generate (periods already exist or have no billable assignments)")
+		return nil, ErrValidation.New("no new invoices to generate: completed periods already have invoices, or no plan assignments started in those periods yet (plans bill after the cutover day/time)")
 	}
 	return created, nil
 }
