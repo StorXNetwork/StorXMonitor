@@ -154,14 +154,30 @@ func (s *Service) listTenantUsersForReseller(ctx context.Context, resellerID uui
 			CreatedAt: u.CreatedAt,
 		}
 		if active, aerr := s.store.UserPlanAssignments().GetByUserAndStatus(ctx, u.ID, AssignmentStatusActive); aerr == nil {
-			item.ActivePlan = active
+			item.ActivePlan = s.hydrateAssignment(ctx, active)
 		}
 		if scheduled, serr := s.store.UserPlanAssignments().GetByUserAndStatus(ctx, u.ID, AssignmentStatusScheduled); serr == nil {
-			item.ScheduledPlan = scheduled
+			item.ScheduledPlan = s.hydrateAssignment(ctx, scheduled)
 		}
 		out = append(out, item)
 	}
 	return out, page, nil
+}
+
+// hydrateAssignment fills planName (and userEmail when missing) for API responses.
+func (s *Service) hydrateAssignment(ctx context.Context, a *UserPlanAssignment) *UserPlanAssignment {
+	if a == nil {
+		return nil
+	}
+	if plan, err := s.store.SellerPlans().Get(ctx, a.PlanID); err == nil {
+		a.PlanName = plan.Name
+	}
+	if a.UserEmail == "" && s.usersDB != nil {
+		if user, err := s.usersDB.Get(ctx, a.UserID); err == nil {
+			a.UserEmail = user.Email
+		}
+	}
+	return a
 }
 
 // AssignPlan assigns a plan to a user under the authenticated reseller.
@@ -488,14 +504,7 @@ func (s *Service) listAssignmentsHydrated(ctx context.Context, resellerID uuid.U
 		return nil, err
 	}
 	for i := range list {
-		if plan, perr := s.store.SellerPlans().Get(ctx, list[i].PlanID); perr == nil {
-			list[i].PlanName = plan.Name
-		}
-		if s.usersDB != nil {
-			if user, uerr := s.usersDB.Get(ctx, list[i].UserID); uerr == nil {
-				list[i].UserEmail = user.Email
-			}
-		}
+		s.hydrateAssignment(ctx, &list[i])
 	}
 	return list, nil
 }
@@ -570,30 +579,181 @@ func (s *Service) ListInvoicesForReseller(ctx context.Context, resellerID uuid.U
 	return s.store.SellerInvoices().ListByResellerID(ctx, resellerID)
 }
 
-// LastCompletedMonthPeriod returns the UTC calendar month fully before asOf.
-// Example: asOf in September → August 1 00:00:00 … August 31 23:59:59 UTC.
-func LastCompletedMonthPeriod(asOf time.Time) (periodStart, periodEnd time.Time) {
-	asOf = asOf.UTC()
-	thisMonth := time.Date(asOf.Year(), asOf.Month(), 1, 0, 0, 0, 0, time.UTC)
-	periodStart = thisMonth.AddDate(0, -1, 0)
-	periodEnd = thisMonth.Add(-time.Second)
+// InvoiceBillingDayMin/Max are the allowed admin day-of-month choices (safe in every month).
+const (
+	InvoiceBillingDayMin = 1
+	InvoiceBillingDayMax = 28
+)
+
+// InvoicePeriodForBillingDay builds the window ending on billingDay of the given year/month.
+// periodStart = billingDay of previous month 00:00:00
+// periodEnd   = billingDay of this month 00:00:00 − 1 second
+//
+// Example: year=2026, month=October, day=15 →
+//
+//	15 Sept 00:00:00 … 14 Oct 23:59:59
+func InvoicePeriodForBillingDay(year int, month time.Month, billingDay int) (periodStart, periodEnd time.Time) {
+	asOf := time.Date(year, month, billingDay, 0, 0, 0, 0, time.UTC)
+	periodEnd = asOf.Add(-time.Second)
+	periodStart = asOf.AddDate(0, -1, 0)
 	return periodStart, periodEnd
 }
 
-func sameInvoicePeriod(aStart, _, bStart, _ time.Time) bool {
-	a, b := aStart.UTC(), bStart.UTC()
-	return a.Year() == b.Year() && a.Month() == b.Month()
+// LatestCompletedBillingAsOf returns the most recent billingDay 00:00 UTC that is still <= now.
+func LatestCompletedBillingAsOf(now time.Time, billingDay int) time.Time {
+	now = now.UTC()
+	asOf := time.Date(now.Year(), now.Month(), billingDay, 0, 0, 0, 0, time.UTC)
+	if asOf.After(now) {
+		asOf = asOf.AddDate(0, -1, 0)
+	}
+	return asOf
 }
 
-// GenerateLastMonthInvoice builds the wholesale invoice for the last completed month relative to asOf.
+// InvoicePeriodFromAsOf builds the window for a billing as-of midnight (asOf.Day() is the billing day).
+func InvoicePeriodFromAsOf(asOf time.Time) (periodStart, periodEnd time.Time) {
+	asOf = asOf.UTC()
+	return InvoicePeriodForBillingDay(asOf.Year(), asOf.Month(), asOf.Day())
+}
+
+// LastCompletedMonthPeriod returns the last completed calendar month (billing day 1)
+// ending at or before asOf: 1st of previous month 00:00 → last second of that month.
+func LastCompletedMonthPeriod(asOf time.Time) (periodStart, periodEnd time.Time) {
+	asOf = asOf.UTC()
+	anchor := LatestCompletedBillingAsOf(asOf, 1)
+	return InvoicePeriodFromAsOf(anchor)
+}
+
+func sameInvoicePeriod(aStart, aEnd, bStart, bEnd time.Time) bool {
+	return aStart.UTC().Truncate(time.Second).Equal(bStart.UTC().Truncate(time.Second)) &&
+		aEnd.UTC().Truncate(time.Second).Equal(bEnd.UTC().Truncate(time.Second))
+}
+
+// invoicePeriodsOverlap is true when two closed periods share any time (avoids double-billing
+// when regenerating under a different billing-day scheme than existing invoices).
+func invoicePeriodsOverlap(aStart, aEnd, bStart, bEnd time.Time) bool {
+	aStart, aEnd = aStart.UTC(), aEnd.UTC()
+	bStart, bEnd = bStart.UTC(), bEnd.UTC()
+	return !aEnd.Before(bStart) && !bEnd.Before(aStart)
+}
+
+func validateBillingDay(day int) error {
+	if day < InvoiceBillingDayMin || day > InvoiceBillingDayMax {
+		return ErrValidation.New("billing day must be between %d and %d", InvoiceBillingDayMin, InvoiceBillingDayMax)
+	}
+	return nil
+}
+
+// GenerateLastMonthInvoice builds one invoice for the period ending at asOf (billing day midnight).
 func (s *Service) GenerateLastMonthInvoice(ctx context.Context, resellerID uuid.UUID, asOf time.Time, adminNote string) (invoice *SellerInvoice, err error) {
 	defer mon.Task()(&ctx)(&err)
-	start, end := LastCompletedMonthPeriod(asOf)
+	start, end := InvoicePeriodFromAsOf(asOf)
 	return s.GenerateInvoice(ctx, resellerID, GenerateInvoiceRequest{
 		PeriodStart: start,
 		PeriodEnd:   end,
 		AdminNote:   adminNote,
 	})
+}
+
+// GenerateAllInvoicesForBillingDay creates every missing invoice for the chosen day-of-month (1–28).
+// Walks back month by month from the latest completed period for that day until the first assignment.
+func (s *Service) GenerateAllInvoicesForBillingDay(ctx context.Context, resellerID uuid.UUID, billingDay int, adminNote string) (created []SellerInvoice, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err = validateBillingDay(billingDay); err != nil {
+		return nil, err
+	}
+
+	now := s.nowFn().UTC()
+	asOf := LatestCompletedBillingAsOf(now, billingDay)
+	return s.generateAllInvoicesWalkingAsOf(ctx, resellerID, asOf, adminNote)
+}
+
+// GenerateAllInvoicesUpToAsOf walks billing periods ending at asOf, asOf−1 month, … (asOf should be billing-day midnight).
+func (s *Service) GenerateAllInvoicesUpToAsOf(ctx context.Context, resellerID uuid.UUID, asOf time.Time, adminNote string) (created []SellerInvoice, err error) {
+	defer mon.Task()(&ctx)(&err)
+	asOf = asOf.UTC()
+	day := asOf.Day()
+	if day > InvoiceBillingDayMax {
+		day = InvoiceBillingDayMax
+	}
+	if err = validateBillingDay(day); err != nil {
+		return nil, err
+	}
+	asOf = time.Date(asOf.Year(), asOf.Month(), day, 0, 0, 0, 0, time.UTC)
+	now := s.nowFn().UTC()
+	if asOf.After(now) {
+		return nil, ErrValidation.New("as-of date/time must not be in the future")
+	}
+	return s.generateAllInvoicesWalkingAsOf(ctx, resellerID, asOf, adminNote)
+}
+
+func (s *Service) generateAllInvoicesWalkingAsOf(ctx context.Context, resellerID uuid.UUID, asOf time.Time, adminNote string) (created []SellerInvoice, err error) {
+	assignments, err := s.store.UserPlanAssignments().ListByResellerID(ctx, resellerID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	var earliest *time.Time
+	for _, a := range assignments {
+		if a.Status != AssignmentStatusActive && a.Status != AssignmentStatusEnded {
+			continue
+		}
+		start := a.PlanStartsAt.UTC()
+		if earliest == nil || start.Before(*earliest) {
+			t := start
+			earliest = &t
+		}
+	}
+	if earliest == nil {
+		return nil, ErrValidation.New("no billable assignments for this seller")
+	}
+
+	existing, err := s.store.SellerInvoices().ListByResellerID(ctx, resellerID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	cursor := asOf.UTC()
+	const maxPeriods = 240
+	for i := 0; i < maxPeriods; i++ {
+		start, end := InvoicePeriodFromAsOf(cursor)
+		if end.Before(*earliest) {
+			break
+		}
+
+		already := false
+		for _, inv := range existing {
+			if inv.Status == InvoiceStatusCancelled {
+				continue
+			}
+			if sameInvoicePeriod(inv.PeriodStart, inv.PeriodEnd, start, end) ||
+				invoicePeriodsOverlap(inv.PeriodStart, inv.PeriodEnd, start, end) {
+				already = true
+				break
+			}
+		}
+		if !already {
+			inv, gerr := s.GenerateInvoice(ctx, resellerID, GenerateInvoiceRequest{
+				PeriodStart: start,
+				PeriodEnd:   end,
+				AdminNote:   adminNote,
+			})
+			if gerr != nil {
+				if !ErrValidation.Has(gerr) {
+					return created, gerr
+				}
+			} else if inv != nil {
+				created = append(created, *inv)
+				existing = append(existing, *inv)
+			}
+		}
+
+		cursor = cursor.AddDate(0, -1, 0)
+	}
+
+	if len(created) == 0 {
+		return nil, ErrValidation.New("no new invoices to generate (periods already exist or have no billable assignments)")
+	}
+	return created, nil
 }
 
 // assignmentBillableInPeriod is true when the assignment cycle starts inside the invoice period.
@@ -622,7 +782,7 @@ func (s *Service) GenerateInvoice(ctx context.Context, resellerID uuid.UUID, req
 		return nil, ErrValidation.New("cannot generate invoice for a future period")
 	}
 	if req.PeriodEnd.After(now) {
-		return nil, ErrValidation.New("invoice period must end in the past; use last completed month")
+		return nil, ErrValidation.New("invoice period must end in the past; pick an as-of date/time that has already passed")
 	}
 
 	existing, err := s.store.SellerInvoices().ListByResellerID(ctx, resellerID)
@@ -635,6 +795,9 @@ func (s *Service) GenerateInvoice(ctx context.Context, resellerID uuid.UUID, req
 		}
 		if sameInvoicePeriod(inv.PeriodStart, inv.PeriodEnd, req.PeriodStart, req.PeriodEnd) {
 			return nil, ErrValidation.New("invoice already exists for this period")
+		}
+		if invoicePeriodsOverlap(inv.PeriodStart, inv.PeriodEnd, req.PeriodStart, req.PeriodEnd) {
+			return nil, ErrValidation.New("invoice period overlaps an existing invoice")
 		}
 	}
 

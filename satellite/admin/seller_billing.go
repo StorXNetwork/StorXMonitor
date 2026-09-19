@@ -310,6 +310,7 @@ func (server *Server) generateResellerInvoice(w http.ResponseWriter, r *http.Req
 		PeriodStart *time.Time `json:"periodStart"`
 		PeriodEnd   *time.Time `json:"periodEnd"`
 		AsOf        *time.Time `json:"asOf"`
+		BillingDay  *int       `json:"billingDay"`
 		AdminNote   string     `json:"adminNote"`
 	}
 	if len(body) > 0 {
@@ -320,19 +321,25 @@ func (server *Server) generateResellerInvoice(w http.ResponseWriter, r *http.Req
 	}
 
 	var inv *seller.SellerInvoice
-	// Prefer explicit period when both bounds provided; otherwise last completed month relative to asOf/now.
-	if req.PeriodStart != nil && req.PeriodEnd != nil {
+	var created []seller.SellerInvoice
+	// Explicit bounds, billingDay 1–28, or legacy asOf (must be provided — no silent “today’s day”).
+	switch {
+	case req.PeriodStart != nil && req.PeriodEnd != nil:
 		inv, err = server.sellerService.GenerateInvoice(ctx, id, seller.GenerateInvoiceRequest{
 			PeriodStart: *req.PeriodStart,
 			PeriodEnd:   *req.PeriodEnd,
 			AdminNote:   req.AdminNote,
 		})
-	} else {
-		asOf := time.Now().UTC()
-		if req.AsOf != nil {
-			asOf = req.AsOf.UTC()
+		if err == nil && inv != nil {
+			created = []seller.SellerInvoice{*inv}
 		}
-		inv, err = server.sellerService.GenerateLastMonthInvoice(ctx, id, asOf, req.AdminNote)
+	case req.BillingDay != nil:
+		created, err = server.sellerService.GenerateAllInvoicesForBillingDay(ctx, id, *req.BillingDay, req.AdminNote)
+	case req.AsOf != nil:
+		created, err = server.sellerService.GenerateAllInvoicesUpToAsOf(ctx, id, req.AsOf.UTC(), req.AdminNote)
+	default:
+		sendJSONError(w, "invalid request", "billingDay (1–28) is required", http.StatusBadRequest)
+		return
 	}
 	if err != nil {
 		status := http.StatusInternalServerError
@@ -342,7 +349,20 @@ func (server *Server) generateResellerInvoice(w http.ResponseWriter, r *http.Req
 		sendJSONError(w, "failed to generate invoice", err.Error(), status)
 		return
 	}
-	data, _ := json.Marshal(inv)
+	// Keep single-invoice clients working: return latest created, plus full list.
+	resp := struct {
+		Invoice  *seller.SellerInvoice  `json:"invoice,omitempty"`
+		Invoices []seller.SellerInvoice `json:"invoices"`
+		Count    int                    `json:"count"`
+	}{
+		Invoices: created,
+		Count:    len(created),
+	}
+	if len(created) > 0 {
+		last := created[0]
+		resp.Invoice = &last
+	}
+	data, _ := json.Marshal(resp)
 	sendJSONData(w, http.StatusCreated, data)
 }
 

@@ -575,7 +575,7 @@ func TestApplyDuePlanSwitchesAndInvoice(t *testing.T) {
 	_, _, err = svc.AssignPlan(ctx, userID, seller.AssignPlanRequest{PlanID: planB.ID})
 	require.True(t, seller.ErrValidation.Has(err))
 
-	// Jump past end so scheduled becomes due.
+	// Jump past plan end so scheduled becomes due.
 	later := now.AddDate(0, 1, 1) // 2 Oct
 	svc.TestSetNow(func() time.Time { return later })
 	applied, err := svc.ApplyDuePlanSwitches(ctx)
@@ -591,19 +591,26 @@ func TestApplyDuePlanSwitchesAndInvoice(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, notes)
 
-	// Last completed month relative to 2 Oct = September.
-	inv, err := svc.GenerateLastMonthInvoice(ctx, resellerID, later, "")
+	// Day-1 monthly windows: Sept 1 → Sept 30 covers both Sept 1 assigns (800×2).
+	created, err := svc.GenerateAllInvoicesForBillingDay(ctx, resellerID, 1, "")
 	require.NoError(t, err)
-	require.Equal(t, seller.InvoiceStatusPending, inv.Status)
-	require.Equal(t, int64(1600), inv.TotalAmount) // user1 A 800 + user2 A 800
+	require.NotEmpty(t, created)
+	var found bool
+	for _, inv := range created {
+		if inv.TotalAmount == 1600 {
+			found = true
+			require.Equal(t, seller.InvoiceStatusPending, inv.Status)
+			updated, uerr := svc.UpdateInvoiceStatus(ctx, inv.ID, seller.UpdateInvoiceStatusRequest{Status: seller.InvoiceStatusPaymentReceived})
+			require.NoError(t, uerr)
+			require.Equal(t, seller.InvoiceStatusPaymentReceived, updated.Status)
+			require.NotNil(t, updated.PaidAt)
+			break
+		}
+	}
+	require.True(t, found, "expected invoice totaling 1600 for Sept 1 assigns")
 
-	_, err = svc.GenerateLastMonthInvoice(ctx, resellerID, later, "")
-	require.True(t, seller.ErrValidation.Has(err), "duplicate period must be rejected")
-
-	updated, err := svc.UpdateInvoiceStatus(ctx, inv.ID, seller.UpdateInvoiceStatusRequest{Status: seller.InvoiceStatusPaymentReceived})
-	require.NoError(t, err)
-	require.Equal(t, seller.InvoiceStatusPaymentReceived, updated.Status)
-	require.NotNil(t, updated.PaidAt)
+	_, err = svc.GenerateAllInvoicesForBillingDay(ctx, resellerID, 1, "")
+	require.True(t, seller.ErrValidation.Has(err), "second run must find nothing new")
 }
 
 func TestPlanEndWithoutFutureDowngradesToFree(t *testing.T) {
