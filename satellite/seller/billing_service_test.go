@@ -672,3 +672,52 @@ func TestPlanEndWithoutFutureDowngradesToFree(t *testing.T) {
 	require.True(t, users.paidTier[userID])
 	require.Equal(t, int64(50e9), users.limits[userID].Storage)
 }
+
+func TestAssignPlanSamePlanDoesNotDuplicate(t *testing.T) {
+	ctx := context.Background()
+	resellerID, err := uuid.New()
+	require.NoError(t, err)
+	userID, err := uuid.New()
+	require.NoError(t, err)
+	tenant := resellerID.String()
+
+	store := &billingTestDB{
+		plans:         &memPlans{byID: map[uuid.UUID]*seller.SellerPlan{}},
+		assignments:   &memAssignments{},
+		invoices:      &memInvoices{},
+		notifications: &memNotifications{},
+		resellers:     &memResellers{byID: map[uuid.UUID]*seller.Reseller{resellerID: {ID: resellerID}}},
+	}
+	users := &memUsers{
+		byID: map[uuid.UUID]*console.User{
+			userID: {ID: userID, Email: "u@test.com", TenantID: &tenant, Status: console.Active},
+		},
+		limits:    map[uuid.UUID]console.UsageLimits{},
+		paidTier: map[uuid.UUID]bool{},
+	}
+	svc := newBillingService(t, store, users)
+	ctx = seller.WithReseller(ctx, &seller.Reseller{ID: resellerID})
+
+	plan, err := svc.CreatePlan(ctx, seller.CreateSellerPlanRequest{
+		Name: "Basic", TierKey: "basic", BillingPeriod: seller.BillingPeriodMonth,
+		StorageBytes: 10e9, BandwidthBytes: 10e9, RetailAmount: 499, WholesaleAmount: 299,
+	})
+	require.NoError(t, err)
+
+	first, _, err := svc.AssignPlan(ctx, userID, seller.AssignPlanRequest{PlanID: plan.ID})
+	require.NoError(t, err)
+	require.NotNil(t, first)
+
+	second, _, err := svc.AssignPlan(ctx, userID, seller.AssignPlanRequest{
+		PlanID: plan.ID, UserPaid: true, Notes: "paid now",
+	})
+	require.NoError(t, err)
+	require.NotNil(t, second)
+	require.Equal(t, first.ID, second.ID, "same plan must update in place")
+	require.NotNil(t, second.UserPaidAt)
+	require.NotNil(t, second.Notes)
+
+	all, err := store.assignments.ListByResellerID(ctx, resellerID)
+	require.NoError(t, err)
+	require.Len(t, all, 1, "must not create ended+active duplicate for same plan")
+}

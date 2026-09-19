@@ -233,6 +233,13 @@ func (s *Service) assignPlan(ctx context.Context, resellerID, userID uuid.UUID, 
 			}
 			return nil, nil, ErrValidation.New("current plan is marked paid; use future-plan to schedule the next plan after end")
 		}
+
+		// Same unpaid plan: update in place — do not end+recreate (avoids duplicate history
+		// rows and double wholesale billing for the same period).
+		if prev.PlanID == req.PlanID {
+			return s.refreshActiveAssignment(ctx, prev, user, plan, req, byReseller, now)
+		}
+
 		prev.Status = AssignmentStatusEnded
 		prev.EndedAt = &now
 		if _, uerr := s.store.UserPlanAssignments().Update(ctx, prev.ID, prev); uerr != nil {
@@ -302,6 +309,85 @@ func (s *Service) assignPlan(ctx context.Context, resellerID, userID uuid.UUID, 
 			WholesaleAmount:    futurePlan.WholesaleAmount,
 			BillingPeriod:      futurePlan.BillingPeriod,
 			PlanStartsAt:       endsAt,
+			AutoSwitchOnEnd:    false,
+			NotifyBeforeEnd:    req.NotifyBeforeEnd,
+			AssignedByReseller: byReseller,
+			PlanName:           futurePlan.Name,
+			UserEmail:          user.Email,
+		}
+		scheduled, err = s.store.UserPlanAssignments().Insert(ctx, scheduled)
+		if err != nil {
+			return nil, nil, Error.Wrap(err)
+		}
+	}
+
+	return active, scheduled, nil
+}
+
+// refreshActiveAssignment updates an unpaid active row for the same plan without ending it.
+func (s *Service) refreshActiveAssignment(
+	ctx context.Context,
+	prev *UserPlanAssignment,
+	user *console.User,
+	plan *SellerPlan,
+	req AssignPlanRequest,
+	byReseller bool,
+	now time.Time,
+) (active *UserPlanAssignment, scheduled *UserPlanAssignment, err error) {
+	prev.RetailAmount = plan.RetailAmount
+	prev.WholesaleAmount = plan.WholesaleAmount
+	prev.BillingPeriod = plan.BillingPeriod
+	prev.AssignedByReseller = byReseller
+	prev.NotifyBeforeEnd = req.NotifyBeforeEnd
+	prev.PlanName = plan.Name
+	prev.UserEmail = user.Email
+	if req.UserPaid && prev.UserPaidAt == nil {
+		prev.UserPaidAt = &now
+	}
+	if req.Notes != "" {
+		notes := req.Notes
+		prev.Notes = &notes
+	}
+
+	// Replace any existing scheduled row when future plan changes (or clear it).
+	if prevSched, serr := s.store.UserPlanAssignments().GetByUserAndStatus(ctx, prev.UserID, AssignmentStatusScheduled); serr == nil {
+		prevSched.Status = AssignmentStatusEnded
+		prevSched.EndedAt = &now
+		if _, uerr := s.store.UserPlanAssignments().Update(ctx, prevSched.ID, prevSched); uerr != nil {
+			return nil, nil, Error.Wrap(uerr)
+		}
+	}
+
+	prev.FuturePlanID = req.FuturePlanID
+	prev.AutoSwitchOnEnd = req.FuturePlanID != nil
+
+	active, err = s.store.UserPlanAssignments().Update(ctx, prev.ID, prev)
+	if err != nil {
+		return nil, nil, Error.Wrap(err)
+	}
+
+	if err = s.applyPlanLimits(ctx, prev.UserID, plan, prev.PlanEndsAt); err != nil {
+		return nil, nil, err
+	}
+
+	if req.FuturePlanID != nil {
+		futurePlan, ferr := s.store.SellerPlans().Get(ctx, *req.FuturePlanID)
+		if ferr != nil || futurePlan == nil {
+			return nil, nil, ErrNotFound.New("future plan not found")
+		}
+		startsAt := now
+		if prev.PlanEndsAt != nil {
+			startsAt = *prev.PlanEndsAt
+		}
+		scheduled = &UserPlanAssignment{
+			ResellerID:         prev.ResellerID,
+			UserID:             prev.UserID,
+			PlanID:             *req.FuturePlanID,
+			Status:             AssignmentStatusScheduled,
+			RetailAmount:       futurePlan.RetailAmount,
+			WholesaleAmount:    futurePlan.WholesaleAmount,
+			BillingPeriod:      futurePlan.BillingPeriod,
+			PlanStartsAt:       startsAt,
 			AutoSwitchOnEnd:    false,
 			NotifyBeforeEnd:    req.NotifyBeforeEnd,
 			AssignedByReseller: byReseller,
