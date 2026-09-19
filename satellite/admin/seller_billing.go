@@ -306,12 +306,34 @@ func (server *Server) generateResellerInvoice(w http.ResponseWriter, r *http.Req
 		sendJSONError(w, "failed to read body", err.Error(), http.StatusBadRequest)
 		return
 	}
-	var req seller.GenerateInvoiceRequest
-	if err = json.Unmarshal(body, &req); err != nil {
-		sendJSONError(w, "invalid request", err.Error(), http.StatusBadRequest)
-		return
+	var req struct {
+		PeriodStart *time.Time `json:"periodStart"`
+		PeriodEnd   *time.Time `json:"periodEnd"`
+		AsOf        *time.Time `json:"asOf"`
+		AdminNote   string     `json:"adminNote"`
 	}
-	inv, err := server.sellerService.GenerateInvoice(ctx, id, req)
+	if len(body) > 0 {
+		if err = json.Unmarshal(body, &req); err != nil {
+			sendJSONError(w, "invalid request", err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+
+	var inv *seller.SellerInvoice
+	// Prefer explicit period when both bounds provided; otherwise last completed month relative to asOf/now.
+	if req.PeriodStart != nil && req.PeriodEnd != nil {
+		inv, err = server.sellerService.GenerateInvoice(ctx, id, seller.GenerateInvoiceRequest{
+			PeriodStart: *req.PeriodStart,
+			PeriodEnd:   *req.PeriodEnd,
+			AdminNote:   req.AdminNote,
+		})
+	} else {
+		asOf := time.Now().UTC()
+		if req.AsOf != nil {
+			asOf = req.AsOf.UTC()
+		}
+		inv, err = server.sellerService.GenerateLastMonthInvoice(ctx, id, asOf, req.AdminNote)
+	}
 	if err != nil {
 		status := http.StatusInternalServerError
 		if seller.ErrValidation.Has(err) {

@@ -195,11 +195,12 @@ func (repo *sellerPlans) Deactivate(ctx context.Context, id uuid.UUID) (err erro
 func (repo *sellerPlans) ClearRecommendedExcept(ctx context.Context, exceptID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = repo.db.DB.ExecContext(ctx, `
+	query := repo.db.Rebind(`
 		UPDATE seller_plans
-		SET recommended = false, updated_at = $1
-		WHERE recommended = true AND id <> $2
-	`, time.Now().UTC(), exceptID[:])
+		SET recommended = false, updated_at = ?
+		WHERE recommended = true AND id <> ?
+	`)
+	_, err = repo.db.DB.ExecContext(ctx, query, time.Now().UTC(), exceptID[:])
 	return err
 }
 
@@ -391,7 +392,8 @@ func (repo *userPlanAssignments) ListDueScheduled(ctx context.Context, now time.
 func (repo *userPlanAssignments) ListDueAutoSwitch(ctx context.Context, now time.Time) (_ []seller.UserPlanAssignment, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	rows, err := repo.db.All_SellerUserPlanAssignment_By_Status_And_PlanEndsAt_LessOrEqual_And_AutoSwitchOnEnd(ctx,
+	// Returns all active assignments past plan_ends_at (auto_switch true or false).
+	withSwitch, err := repo.db.All_SellerUserPlanAssignment_By_Status_And_PlanEndsAt_LessOrEqual_And_AutoSwitchOnEnd(ctx,
 		dbx.SellerUserPlanAssignment_Status(seller.AssignmentStatusActive),
 		dbx.SellerUserPlanAssignment_PlanEndsAt(now),
 		dbx.SellerUserPlanAssignment_AutoSwitchOnEnd(true),
@@ -399,6 +401,15 @@ func (repo *userPlanAssignments) ListDueAutoSwitch(ctx context.Context, now time
 	if err != nil {
 		return nil, err
 	}
+	withoutSwitch, err := repo.db.All_SellerUserPlanAssignment_By_Status_And_PlanEndsAt_LessOrEqual_And_AutoSwitchOnEnd(ctx,
+		dbx.SellerUserPlanAssignment_Status(seller.AssignmentStatusActive),
+		dbx.SellerUserPlanAssignment_PlanEndsAt(now),
+		dbx.SellerUserPlanAssignment_AutoSwitchOnEnd(false),
+	)
+	if err != nil {
+		return nil, err
+	}
+	rows := append(withSwitch, withoutSwitch...)
 	return assignmentsFromDBX(rows)
 }
 

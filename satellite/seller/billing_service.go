@@ -82,29 +82,7 @@ func (s *Service) CreatePlan(ctx context.Context, req CreateSellerPlanRequest) (
 			return nil, Error.Wrap(clearErr)
 		}
 	}
-
-	if s.billing != nil {
-		paymentPlan, createErr := s.billing.CreatePaymentPlan(ctx, billing.PaymentPlans{
-			Name:         plan.Name,
-			Storage:      plan.StorageBytes,
-			Bandwidth:    plan.BandwidthBytes,
-			Price:        float64(plan.RetailAmount),
-			Benefit:      plan.Features,
-			Validity:     1,
-			ValidityUnit: plan.BillingPeriod,
-			Group:        "Individual",
-		})
-		if createErr != nil {
-			return nil, Error.Wrap(createErr)
-		}
-		plan, err = s.store.SellerPlans().Update(ctx, plan.ID, UpdateSellerPlanRequest{
-			PaymentPlanID: &paymentPlan.ID,
-			UpdatedAt:     s.nowFn().UTC(),
-		})
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-	}
+	// Note: payment_plans dual-write intentionally omitted — seller_plans is the catalog.
 	return plan, nil
 }
 
@@ -122,22 +100,6 @@ func (s *Service) UpdatePlan(ctx context.Context, id uuid.UUID, update UpdateSel
 	plan, err = s.store.SellerPlans().Update(ctx, id, update)
 	if err != nil {
 		return nil, err
-	}
-
-	if plan.PaymentPlanID != nil && s.billing != nil {
-		_, updateErr := s.billing.UpdatePaymentPlan(ctx, *plan.PaymentPlanID, billing.PaymentPlans{
-			Name:         plan.Name,
-			Storage:      plan.StorageBytes,
-			Bandwidth:    plan.BandwidthBytes,
-			Price:        float64(plan.RetailAmount),
-			Benefit:      plan.Features,
-			Validity:     1,
-			ValidityUnit: plan.BillingPeriod,
-			Group:        "Individual",
-		})
-		if updateErr != nil {
-			return nil, Error.Wrap(updateErr)
-		}
 	}
 	return plan, nil
 }
@@ -244,20 +206,28 @@ func (s *Service) assignPlan(ctx context.Context, resellerID, userID uuid.UUID, 
 		}
 	}
 
-	// One billing period per assignment: monthly plan = 1 month, annual = 12 months.
-	// Payment is collected once at assign time; no multi-month duration picker.
-	duration := assignmentDurationMonths(plan.BillingPeriod)
 	now := s.nowFn().UTC()
-	endsAt := now.AddDate(0, duration, 0)
 
-	// End previous active + cancel previous scheduled.
-	if prev, perr := s.store.UserPlanAssignments().GetByUserAndStatus(ctx, userID, AssignmentStatusActive); perr == nil {
+	prev, prevErr := s.store.UserPlanAssignments().GetByUserAndStatus(ctx, userID, AssignmentStatusActive)
+	if prevErr == nil {
+		// Paid active assignment is locked — seller cannot switch until it ends.
+		if prev.UserPaidAt != nil {
+			if prev.PlanID != req.PlanID {
+				return nil, nil, ErrValidation.New("current plan is marked paid; cannot change plan until it ends")
+			}
+			return nil, nil, ErrValidation.New("current plan is marked paid; use future-plan to schedule the next plan after end")
+		}
 		prev.Status = AssignmentStatusEnded
 		prev.EndedAt = &now
 		if _, uerr := s.store.UserPlanAssignments().Update(ctx, prev.ID, prev); uerr != nil {
 			return nil, nil, Error.Wrap(uerr)
 		}
 	}
+
+	// One billing period per assignment: monthly = 1 month, annual = 12 months.
+	duration := assignmentDurationMonths(plan.BillingPeriod)
+	endsAt := now.AddDate(0, duration, 0)
+
 	if prevSched, serr := s.store.UserPlanAssignments().GetByUserAndStatus(ctx, userID, AssignmentStatusScheduled); serr == nil {
 		prevSched.Status = AssignmentStatusEnded
 		prevSched.EndedAt = &now
@@ -297,12 +267,15 @@ func (s *Service) assignPlan(ctx context.Context, resellerID, userID uuid.UUID, 
 		return nil, nil, Error.Wrap(err)
 	}
 
-	if err = s.applyPlanLimits(ctx, userID, plan); err != nil {
+	if err = s.applyPlanLimits(ctx, userID, plan, &endsAt); err != nil {
 		return nil, nil, err
 	}
 
 	if req.FuturePlanID != nil && req.AutoSwitchOnEnd {
-		futurePlan, _ := s.store.SellerPlans().Get(ctx, *req.FuturePlanID)
+		futurePlan, ferr := s.store.SellerPlans().Get(ctx, *req.FuturePlanID)
+		if ferr != nil || futurePlan == nil {
+			return nil, nil, ErrNotFound.New("future plan not found")
+		}
 		scheduled = &UserPlanAssignment{
 			ResellerID:         resellerID,
 			UserID:             userID,
@@ -334,8 +307,7 @@ func assignmentDurationMonths(billingPeriod string) int {
 	return 1
 }
 
-func (s *Service) applyPlanLimits(ctx context.Context, userID uuid.UUID, plan *SellerPlan) error {
-	// Same helper as real payment upgrade (gateway CompletePayment / ApplyRenewal).
+func (s *Service) applyPlanLimits(ctx context.Context, userID uuid.UUID, plan *SellerPlan, planEndsAt *time.Time) error {
 	if err := console.ApplyPaidUsageLimits(
 		ctx,
 		s.usersDB,
@@ -348,16 +320,20 @@ func (s *Service) applyPlanLimits(ctx context.Context, userID uuid.UUID, plan *S
 		return Error.Wrap(err)
 	}
 
-	// Record a completed debit so dashboard Plan State resolves like real payment upgrades.
-	if s.billing != nil && plan.PaymentPlanID != nil {
-		meta, _ := json.Marshal(map[string]string{
-			"source":   "seller_assign",
-			"plan_id":  plan.ID.String(),
-			"plan_name": plan.Name,
-		})
-		planID := *plan.PaymentPlanID
+	// Debit row lets dashboard Plan State show plan name + days left (via metadata).
+	if s.billing != nil {
+		metaMap := map[string]string{
+			"source":         "seller_assign",
+			"plan_id":        plan.ID.String(),
+			"plan_name":      plan.Name,
+			"billing_period": plan.BillingPeriod,
+		}
+		if planEndsAt != nil {
+			metaMap["plan_ends_at"] = planEndsAt.UTC().Format(time.RFC3339)
+		}
+		meta, _ := json.Marshal(metaMap)
 		now := s.nowFn().UTC()
-		if err := s.billing.Inserts(ctx, billing.Transactions{
+		tx := billing.Transactions{
 			UserID:      userID,
 			Amount:      float64(plan.RetailAmount),
 			Description: "Seller plan assignment: " + plan.Name,
@@ -367,8 +343,12 @@ func (s *Service) applyPlanLimits(ctx context.Context, userID uuid.UUID, plan *S
 			Metadata:    meta,
 			Timestamp:   now,
 			CreatedAt:   now,
-			PlanID:      &planID,
-		}); err != nil {
+		}
+		if plan.PaymentPlanID != nil {
+			planID := *plan.PaymentPlanID
+			tx.PlanID = &planID
+		}
+		if err := s.billing.Inserts(ctx, tx); err != nil {
 			s.log.Error("failed to record seller plan billing transaction",
 				zap.Error(err),
 				zap.String("user_id", userID.String()),
@@ -577,12 +557,72 @@ func (s *Service) ListInvoicesForReseller(ctx context.Context, resellerID uuid.U
 	return s.store.SellerInvoices().ListByResellerID(ctx, resellerID)
 }
 
+// LastCompletedMonthPeriod returns the UTC calendar month fully before asOf.
+// Example: asOf in September → August 1 00:00:00 … August 31 23:59:59 UTC.
+func LastCompletedMonthPeriod(asOf time.Time) (periodStart, periodEnd time.Time) {
+	asOf = asOf.UTC()
+	thisMonth := time.Date(asOf.Year(), asOf.Month(), 1, 0, 0, 0, 0, time.UTC)
+	periodStart = thisMonth.AddDate(0, -1, 0)
+	periodEnd = thisMonth.Add(-time.Second)
+	return periodStart, periodEnd
+}
+
+func sameInvoicePeriod(aStart, _, bStart, _ time.Time) bool {
+	a, b := aStart.UTC(), bStart.UTC()
+	return a.Year() == b.Year() && a.Month() == b.Month()
+}
+
+// GenerateLastMonthInvoice builds the wholesale invoice for the last completed month relative to asOf.
+func (s *Service) GenerateLastMonthInvoice(ctx context.Context, resellerID uuid.UUID, asOf time.Time, adminNote string) (invoice *SellerInvoice, err error) {
+	defer mon.Task()(&ctx)(&err)
+	start, end := LastCompletedMonthPeriod(asOf)
+	return s.GenerateInvoice(ctx, resellerID, GenerateInvoiceRequest{
+		PeriodStart: start,
+		PeriodEnd:   end,
+		AdminNote:   adminNote,
+	})
+}
+
+// assignmentBillableInPeriod is true when the assignment cycle starts inside the invoice period.
+// Monthly and annual both bill once at start (not on every overlapping month).
+func assignmentBillableInPeriod(a UserPlanAssignment, periodStart, periodEnd time.Time) bool {
+	if a.Status != AssignmentStatusActive && a.Status != AssignmentStatusEnded {
+		return false
+	}
+	start := a.PlanStartsAt.UTC()
+	if start.Before(periodStart) || start.After(periodEnd) {
+		return false
+	}
+	return true
+}
+
 // GenerateInvoice creates a wholesale invoice for a reseller period (admin).
+// Rejects future periods, empty invoices, and duplicate non-cancelled invoices for the same calendar month.
 func (s *Service) GenerateInvoice(ctx context.Context, resellerID uuid.UUID, req GenerateInvoiceRequest) (invoice *SellerInvoice, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if req.PeriodEnd.Before(req.PeriodStart) {
 		return nil, ErrValidation.New("periodEnd must be after periodStart")
+	}
+	now := s.nowFn().UTC()
+	if req.PeriodStart.After(now) {
+		return nil, ErrValidation.New("cannot generate invoice for a future period")
+	}
+	if req.PeriodEnd.After(now) {
+		return nil, ErrValidation.New("invoice period must end in the past; use last completed month")
+	}
+
+	existing, err := s.store.SellerInvoices().ListByResellerID(ctx, resellerID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	for _, inv := range existing {
+		if inv.Status == InvoiceStatusCancelled {
+			continue
+		}
+		if sameInvoicePeriod(inv.PeriodStart, inv.PeriodEnd, req.PeriodStart, req.PeriodEnd) {
+			return nil, ErrValidation.New("invoice already exists for this period")
+		}
 	}
 
 	assignments, err := s.store.UserPlanAssignments().ListByResellerID(ctx, resellerID)
@@ -590,12 +630,11 @@ func (s *Service) GenerateInvoice(ctx context.Context, resellerID uuid.UUID, req
 		return nil, Error.Wrap(err)
 	}
 
-	now := s.nowFn().UTC()
 	issued := now
 	inv := &SellerInvoice{
 		ResellerID:  resellerID,
-		PeriodStart: req.PeriodStart,
-		PeriodEnd:   req.PeriodEnd,
+		PeriodStart: req.PeriodStart.UTC(),
+		PeriodEnd:   req.PeriodEnd.UTC(),
 		Currency:    "INR",
 		Status:      InvoiceStatusPending,
 		IssuedAt:    &issued,
@@ -605,43 +644,24 @@ func (s *Service) GenerateInvoice(ctx context.Context, resellerID uuid.UUID, req
 		inv.AdminNote = &note
 	}
 
-	inv, err = s.store.SellerInvoices().Insert(ctx, inv)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
+	var lines []SellerInvoiceLine
 	var total int64
-	for _, a := range assignments {
-		if a.Status != AssignmentStatusActive && a.Status != AssignmentStatusEnded {
-			continue
-		}
-		// Include if assignment overlapped the invoice period.
-		if a.PlanStartsAt.After(req.PeriodEnd) {
-			continue
-		}
-		if a.EndedAt != nil && a.EndedAt.Before(req.PeriodStart) {
-			continue
-		}
-		if a.PlanEndsAt != nil && a.PlanEndsAt.Before(req.PeriodStart) && a.Status == AssignmentStatusEnded {
-			continue
-		}
+	currency := "INR"
 
-		// Annual: bill once when year starts within period (or assign in period).
-		if a.BillingPeriod == BillingPeriodYear {
-			if a.PlanStartsAt.Before(req.PeriodStart) || a.PlanStartsAt.After(req.PeriodEnd) {
-				// Only include annual if the cycle started in this period.
-				continue
-			}
+	for _, a := range assignments {
+		if !assignmentBillableInPeriod(a, req.PeriodStart, req.PeriodEnd) {
+			continue
 		}
 
 		planName := a.PlanID.String()
 		if plan, perr := s.store.SellerPlans().Get(ctx, a.PlanID); perr == nil {
 			planName = plan.Name
-			inv.Currency = plan.Currency
+			if plan.Currency != "" {
+				currency = plan.Currency
+			}
 		}
 
-		line := &SellerInvoiceLine{
-			InvoiceID:    inv.ID,
+		lines = append(lines, SellerInvoiceLine{
 			AssignmentID: a.ID,
 			UserID:       a.UserID,
 			PlanID:       a.PlanID,
@@ -649,18 +669,28 @@ func (s *Service) GenerateInvoice(ctx context.Context, resellerID uuid.UUID, req
 			Amount:       a.WholesaleAmount,
 			RetailAmount: a.RetailAmount,
 			AssignedAt:   a.AssignedAt,
-		}
-		if _, lerr := s.store.SellerInvoices().InsertLine(ctx, line); lerr != nil {
-			return nil, Error.Wrap(lerr)
-		}
+		})
 		total += a.WholesaleAmount
 	}
 
+	if len(lines) == 0 {
+		return nil, ErrValidation.New("no billable assignments in this period")
+	}
+
+	inv.Currency = currency
 	inv.TotalAmount = total
-	inv, err = s.store.SellerInvoices().Update(ctx, inv)
+	inv, err = s.store.SellerInvoices().Insert(ctx, inv)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
+
+	for i := range lines {
+		lines[i].InvoiceID = inv.ID
+		if _, lerr := s.store.SellerInvoices().InsertLine(ctx, &lines[i]); lerr != nil {
+			return nil, Error.Wrap(lerr)
+		}
+	}
+
 	return s.GetInvoiceAdmin(ctx, inv.ID)
 }
 
@@ -686,6 +716,8 @@ func (s *Service) UpdateInvoiceStatus(ctx context.Context, id uuid.UUID, req Upd
 	if req.Status == InvoiceStatusPaymentReceived {
 		now := s.nowFn().UTC()
 		inv.PaidAt = &now
+	} else {
+		inv.PaidAt = nil
 	}
 	return s.store.SellerInvoices().Update(ctx, inv)
 }
@@ -767,16 +799,19 @@ func (s *Service) ApplyDuePlanSwitches(ctx context.Context) (applied int, err er
 		return 0, Error.Wrap(err)
 	}
 	for _, sched := range due {
-		// End current active if any.
 		if active, aerr := s.store.UserPlanAssignments().GetByUserAndStatus(ctx, sched.UserID, AssignmentStatusActive); aerr == nil {
 			active.Status = AssignmentStatusEnded
 			active.EndedAt = &now
-			_, _ = s.store.UserPlanAssignments().Update(ctx, active.ID, active)
+			if _, uerr := s.store.UserPlanAssignments().Update(ctx, active.ID, active); uerr != nil {
+				s.log.Error("failed to end active assignment before switch",
+					zap.Error(uerr), zap.String("assignment_id", active.ID.String()))
+				continue
+			}
 		}
 
 		plan, perr := s.store.SellerPlans().Get(ctx, sched.PlanID)
-		if perr != nil {
-			s.log.Error("scheduled plan missing")
+		if perr != nil || plan == nil {
+			s.log.Error("scheduled plan missing", zap.String("plan_id", sched.PlanID.String()), zap.Error(perr))
 			continue
 		}
 
@@ -787,33 +822,45 @@ func (s *Service) ApplyDuePlanSwitches(ctx context.Context) (applied int, err er
 		sched.PlanEndsAt = &ends
 		sched.DurationMonths = &duration
 		if _, uerr := s.store.UserPlanAssignments().Update(ctx, sched.ID, &sched); uerr != nil {
+			s.log.Error("failed to activate scheduled assignment",
+				zap.Error(uerr), zap.String("assignment_id", sched.ID.String()))
 			continue
 		}
 		if s.usersDB != nil {
-			_ = s.applyPlanLimits(ctx, sched.UserID, plan)
+			if lerr := s.applyPlanLimits(ctx, sched.UserID, plan, &ends); lerr != nil {
+				s.log.Error("failed to apply limits after plan switch",
+					zap.Error(lerr), zap.String("user_id", sched.UserID.String()))
+				continue
+			}
 		}
 		uid := sched.UserID
-		_, _ = s.store.BillingNotifications().Insert(ctx, &BillingNotification{
+		if _, nerr := s.store.BillingNotifications().Insert(ctx, &BillingNotification{
 			ResellerID: sched.ResellerID,
 			UserID:     &uid,
 			Type:       NotificationTypePlanSwitched,
 			Title:      "Plan switched",
 			Body:       fmt.Sprintf("Future plan %s is now active.", plan.Name),
-		})
+		}); nerr != nil {
+			s.log.Error("failed to insert plan-switched notification", zap.Error(nerr))
+		}
 		applied++
 	}
 
-	// Expire active plans that ended without auto-switch.
+	// Expire any active assignment whose plan_ends_at has passed (with or without auto-switch).
+	// Scheduled switches above already end the prior active; this catches no-future-plan cases.
 	expired, err := s.store.UserPlanAssignments().ListDueAutoSwitch(ctx, now)
 	if err != nil {
 		return applied, Error.Wrap(err)
 	}
 	for _, a := range expired {
-		// Already handled via scheduled row if AutoSwitchOnEnd created one.
-		if a.FuturePlanID == nil {
-			a.Status = AssignmentStatusEnded
-			a.EndedAt = &now
-			_, _ = s.store.UserPlanAssignments().Update(ctx, a.ID, &a)
+		if a.Status != AssignmentStatusActive {
+			continue
+		}
+		a.Status = AssignmentStatusEnded
+		a.EndedAt = &now
+		if _, uerr := s.store.UserPlanAssignments().Update(ctx, a.ID, &a); uerr != nil {
+			s.log.Error("failed to expire assignment",
+				zap.Error(uerr), zap.String("assignment_id", a.ID.String()))
 		}
 	}
 

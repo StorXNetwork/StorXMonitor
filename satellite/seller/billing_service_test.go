@@ -168,7 +168,7 @@ func (m *memAssignments) ListDueScheduled(ctx context.Context, now time.Time) ([
 func (m *memAssignments) ListDueAutoSwitch(ctx context.Context, now time.Time) ([]seller.UserPlanAssignment, error) {
 	out := make([]seller.UserPlanAssignment, 0)
 	for _, a := range m.items {
-		if a.Status == seller.AssignmentStatusActive && a.AutoSwitchOnEnd && a.PlanEndsAt != nil && !a.PlanEndsAt.After(now) {
+		if a.Status == seller.AssignmentStatusActive && a.PlanEndsAt != nil && !a.PlanEndsAt.After(now) {
 			out = append(out, *a)
 		}
 	}
@@ -559,12 +559,23 @@ func TestApplyDuePlanSwitchesAndInvoice(t *testing.T) {
 
 	ctx = seller.WithReseller(ctx, &seller.Reseller{ID: resellerID})
 	_, _, err = svc.AssignPlan(ctx, userID, seller.AssignPlanRequest{
-		PlanID: planA.ID, FuturePlanID: &planB.ID, AutoSwitchOnEnd: true, NotifyBeforeEnd: true,
+		PlanID: planA.ID, FuturePlanID: &planB.ID, AutoSwitchOnEnd: true, NotifyBeforeEnd: true, UserPaid: true,
 	})
 	require.NoError(t, err)
 
+	// Second user assigned in the same month (before switch).
+	user2, err := uuid.New()
+	require.NoError(t, err)
+	users.byID[user2] = &console.User{ID: user2, Email: "u2@test.com", TenantID: &tenant, Status: console.Active}
+	_, _, err = svc.AssignPlan(ctx, user2, seller.AssignPlanRequest{PlanID: planA.ID, UserPaid: true})
+	require.NoError(t, err)
+
+	// Cannot change paid plan.
+	_, _, err = svc.AssignPlan(ctx, userID, seller.AssignPlanRequest{PlanID: planB.ID})
+	require.True(t, seller.ErrValidation.Has(err))
+
 	// Jump past end so scheduled becomes due.
-	later := now.AddDate(0, 1, 1)
+	later := now.AddDate(0, 1, 1) // 2 Oct
 	svc.TestSetNow(func() time.Time { return later })
 	applied, err := svc.ApplyDuePlanSwitches(ctx)
 	require.NoError(t, err)
@@ -579,20 +590,14 @@ func TestApplyDuePlanSwitchesAndInvoice(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, notes)
 
-	// Second user assignment for invoice total 800+2000
-	user2, err := uuid.New()
-	require.NoError(t, err)
-	users.byID[user2] = &console.User{ID: user2, Email: "u2@test.com", TenantID: &tenant, Status: console.Active}
-	_, _, err = svc.AssignPlan(ctx, user2, seller.AssignPlanRequest{PlanID: planA.ID})
-	require.NoError(t, err)
-
-	inv, err := svc.GenerateInvoice(ctx, resellerID, seller.GenerateInvoiceRequest{
-		PeriodStart: later.AddDate(0, 0, -1),
-		PeriodEnd:   later.AddDate(0, 1, 0),
-	})
+	// Last completed month relative to 2 Oct = September.
+	inv, err := svc.GenerateLastMonthInvoice(ctx, resellerID, later, "")
 	require.NoError(t, err)
 	require.Equal(t, seller.InvoiceStatusPending, inv.Status)
-	require.Equal(t, int64(3600), inv.TotalAmount) // ended A 800 + active B 2000 + user2 A 800
+	require.Equal(t, int64(1600), inv.TotalAmount) // user1 A 800 + user2 A 800
+
+	_, err = svc.GenerateLastMonthInvoice(ctx, resellerID, later, "")
+	require.True(t, seller.ErrValidation.Has(err), "duplicate period must be rejected")
 
 	updated, err := svc.UpdateInvoiceStatus(ctx, inv.ID, seller.UpdateInvoiceStatusRequest{Status: seller.InvoiceStatusPaymentReceived})
 	require.NoError(t, err)
