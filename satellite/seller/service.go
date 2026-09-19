@@ -103,6 +103,11 @@ type Service struct {
 	externalAddress    string
 	badPasswordsLoaded bool
 
+	// Free-tier limits applied when a seller plan ends with no future plan.
+	freeStorageBytes   int64
+	freeBandwidthBytes int64
+	freeSegmentLimit   int64
+
 	mailService                *mailservice.Service
 	loginCaptchaHandler        console.CaptchaHandler
 	registrationCaptchaHandler console.CaptchaHandler
@@ -152,6 +157,23 @@ func (s *Service) SetUsersDB(usersDB console.Users) {
 // SetProjectsDB wires console projects DB so plan assignment updates existing project quotas.
 func (s *Service) SetProjectsDB(projectsDB console.Projects) {
 	s.projectsDB = projectsDB
+}
+
+// SetFreeUsageLimits sets free-tier quotas used when a plan ends with no future plan.
+// Defaults match console UsageLimits free tier (2GB / 2GB / 1M segments) when zeros are passed.
+func (s *Service) SetFreeUsageLimits(storage, bandwidth, segment int64) {
+	if storage <= 0 {
+		storage = 2 * 1e9 // 2.00GB
+	}
+	if bandwidth <= 0 {
+		bandwidth = 2 * 1e9
+	}
+	if segment <= 0 {
+		segment = 1000000
+	}
+	s.freeStorageBytes = storage
+	s.freeBandwidthBytes = bandwidth
+	s.freeSegmentLimit = segment
 }
 
 // SetBillingDB wires billing transactions DB for payment_plans sync.

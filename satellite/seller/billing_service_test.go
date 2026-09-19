@@ -416,6 +416,7 @@ func newBillingService(t *testing.T, store *billingTestDB, users *memUsers) *sel
 	require.NoError(t, err)
 	svc.SetUsersDB(&billingUsers{mem: users})
 	svc.SetProjectsDB(&memProjects{})
+	svc.SetFreeUsageLimits(2e9, 2e9, 1000000)
 	return svc
 }
 
@@ -603,4 +604,64 @@ func TestApplyDuePlanSwitchesAndInvoice(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, seller.InvoiceStatusPaymentReceived, updated.Status)
 	require.NotNil(t, updated.PaidAt)
+}
+
+func TestPlanEndWithoutFutureDowngradesToFree(t *testing.T) {
+	ctx := context.Background()
+	resellerID, err := uuid.New()
+	require.NoError(t, err)
+	userID, err := uuid.New()
+	require.NoError(t, err)
+	tenant := resellerID.String()
+
+	store := &billingTestDB{
+		plans:         &memPlans{byID: map[uuid.UUID]*seller.SellerPlan{}},
+		assignments:   &memAssignments{},
+		invoices:      &memInvoices{},
+		notifications: &memNotifications{},
+		resellers:     &memResellers{byID: map[uuid.UUID]*seller.Reseller{resellerID: {ID: resellerID}}},
+	}
+	users := &memUsers{
+		byID: map[uuid.UUID]*console.User{
+			userID: {ID: userID, Email: "u@test.com", TenantID: &tenant, Status: console.Active},
+		},
+		limits:    map[uuid.UUID]console.UsageLimits{},
+		paidTier: map[uuid.UUID]bool{},
+	}
+	svc := newBillingService(t, store, users)
+
+	now := time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC)
+	svc.TestSetNow(func() time.Time { return now })
+
+	plan, err := svc.CreatePlan(ctx, seller.CreateSellerPlanRequest{
+		Name: "Solo", TierKey: "solo", BillingPeriod: seller.BillingPeriodMonth,
+		StorageBytes: 50e9, BandwidthBytes: 50e9, RetailAmount: 499, WholesaleAmount: 299,
+	})
+	require.NoError(t, err)
+
+	ctx = seller.WithReseller(ctx, &seller.Reseller{ID: resellerID})
+	_, _, err = svc.AssignPlan(ctx, userID, seller.AssignPlanRequest{PlanID: plan.ID, UserPaid: true})
+	require.NoError(t, err)
+	require.True(t, users.paidTier[userID])
+	require.Equal(t, int64(50e9), users.limits[userID].Storage)
+
+	// Jump past plan end with no future scheduled.
+	later := now.AddDate(0, 1, 1)
+	svc.TestSetNow(func() time.Time { return later })
+	_, err = svc.ApplyDuePlanSwitches(ctx)
+	require.NoError(t, err)
+
+	active, aerr := store.assignments.GetByUserAndStatus(ctx, userID, seller.AssignmentStatusActive)
+	require.Error(t, aerr)
+	require.Nil(t, active)
+
+	require.False(t, users.paidTier[userID], "should be free tier")
+	require.Equal(t, int64(2e9), users.limits[userID].Storage)
+	require.Equal(t, int64(2e9), users.limits[userID].Bandwidth)
+
+	// Seller can assign a new plan after Free downgrade.
+	_, _, err = svc.AssignPlan(ctx, userID, seller.AssignPlanRequest{PlanID: plan.ID, UserPaid: true})
+	require.NoError(t, err)
+	require.True(t, users.paidTier[userID])
+	require.Equal(t, int64(50e9), users.limits[userID].Storage)
 }

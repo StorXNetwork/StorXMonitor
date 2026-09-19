@@ -248,7 +248,7 @@ func (s *Service) assignPlan(ctx context.Context, resellerID, userID uuid.UUID, 
 		PlanStartsAt:       now,
 		PlanEndsAt:         &endsAt,
 		FuturePlanID:       req.FuturePlanID,
-		AutoSwitchOnEnd:    req.AutoSwitchOnEnd && req.FuturePlanID != nil,
+		AutoSwitchOnEnd:    req.FuturePlanID != nil, // selecting a future plan always auto-switches
 		NotifyBeforeEnd:    req.NotifyBeforeEnd,
 		AssignedByReseller: byReseller,
 		PlanName:           plan.Name,
@@ -271,7 +271,8 @@ func (s *Service) assignPlan(ctx context.Context, resellerID, userID uuid.UUID, 
 		return nil, nil, err
 	}
 
-	if req.FuturePlanID != nil && req.AutoSwitchOnEnd {
+	// Future plan selected → always create scheduled row (no separate auto-switch flag).
+	if req.FuturePlanID != nil {
 		futurePlan, ferr := s.store.SellerPlans().Get(ctx, *req.FuturePlanID)
 		if ferr != nil || futurePlan == nil {
 			return nil, nil, ErrNotFound.New("future plan not found")
@@ -359,6 +360,25 @@ func (s *Service) applyPlanLimits(ctx context.Context, userID uuid.UUID, plan *S
 	return nil
 }
 
+func (s *Service) downgradeToFree(ctx context.Context, userID uuid.UUID) error {
+	if s.usersDB == nil || s.projectsDB == nil {
+		return nil
+	}
+	storage := s.freeStorageBytes
+	bandwidth := s.freeBandwidthBytes
+	segment := s.freeSegmentLimit
+	if storage <= 0 {
+		storage = 2 * 1e9
+	}
+	if bandwidth <= 0 {
+		bandwidth = 2 * 1e9
+	}
+	if segment <= 0 {
+		segment = 1000000
+	}
+	return console.ApplyFreeUsageLimits(ctx, s.usersDB, s.projectsDB, userID, storage, bandwidth, segment)
+}
+
 // UpdateFuturePlan sets, changes, or cancels the scheduled future plan for a user.
 func (s *Service) UpdateFuturePlan(ctx context.Context, userID uuid.UUID, req UpdateFuturePlanRequest) (scheduled *UserPlanAssignment, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -409,24 +429,17 @@ func (s *Service) UpdateFuturePlan(ctx context.Context, userID uuid.UUID, req Up
 		startsAt = *active.PlanEndsAt
 	}
 
-	autoSwitch := true
-	if req.AutoSwitchOnEnd != nil {
-		autoSwitch = *req.AutoSwitchOnEnd
-	}
 	notify := active.NotifyBeforeEnd
 	if req.NotifyBeforeEnd != nil {
 		notify = *req.NotifyBeforeEnd
 	}
 
+	// Future plan always means auto-switch; no separate flag.
 	active.FuturePlanID = req.FuturePlanID
-	active.AutoSwitchOnEnd = autoSwitch
+	active.AutoSwitchOnEnd = true
 	active.NotifyBeforeEnd = notify
 	if _, uerr := s.store.UserPlanAssignments().Update(ctx, active.ID, active); uerr != nil {
 		return nil, Error.Wrap(uerr)
-	}
-
-	if !autoSwitch {
-		return nil, nil
 	}
 
 	user, _ := s.usersDB.Get(ctx, userID)
@@ -763,13 +776,16 @@ func (s *Service) ListNotifications(ctx context.Context) (notes []BillingNotific
 	return s.store.BillingNotifications().ListByResellerID(ctx, reseller.ID)
 }
 
-// ApplyDuePlanSwitches activates due scheduled assignments and emits notifications.
+// ApplyDuePlanSwitches is the plan cron:
+//  1. notify sellers/users ~7 days before plan end (if notifyBeforeEnd)
+//  2. when a scheduled future plan's start time is due → end current, activate future,
+//     apply quotas, then re-schedule that same plan again for the next period
+//  3. expire actives past plan_ends_at with no future left
 func (s *Service) ApplyDuePlanSwitches(ctx context.Context) (applied int, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	now := s.nowFn().UTC()
 
-	// Notify before end (7 days window by default — anything ending before notifyBefore).
 	notifyBefore := now.Add(7 * 24 * time.Hour)
 	needing, err := s.store.UserPlanAssignments().ListNeedingEndNotification(ctx, notifyBefore)
 	if err != nil {
@@ -779,15 +795,13 @@ func (s *Service) ApplyDuePlanSwitches(ctx context.Context) (applied int, err er
 		if a.PlanEndsAt == nil || a.PlanEndsAt.After(notifyBefore) {
 			continue
 		}
-		title := "Plan ending soon"
-		body := fmt.Sprintf("User plan ends on %s.", a.PlanEndsAt.Format("2006-01-02"))
 		uid := a.UserID
 		_, _ = s.store.BillingNotifications().Insert(ctx, &BillingNotification{
 			ResellerID: a.ResellerID,
 			UserID:     &uid,
 			Type:       NotificationTypePlanEnding,
-			Title:      title,
-			Body:       body,
+			Title:      "Plan ending soon",
+			Body:       fmt.Sprintf("User plan ends on %s.", a.PlanEndsAt.Format("2006-01-02")),
 		})
 		notified := now
 		a.NotifiedEndingAt = &notified
@@ -798,73 +812,162 @@ func (s *Service) ApplyDuePlanSwitches(ctx context.Context) (applied int, err er
 	if err != nil {
 		return 0, Error.Wrap(err)
 	}
-	for _, sched := range due {
-		if active, aerr := s.store.UserPlanAssignments().GetByUserAndStatus(ctx, sched.UserID, AssignmentStatusActive); aerr == nil {
+	for i := range due {
+		if ok := s.activateFutureAssignment(ctx, &due[i], now); ok {
+			applied++
+		}
+	}
+
+	// Actives past end with FuturePlanID but missing/late scheduled row — still switch.
+	expired, err := s.store.UserPlanAssignments().ListDueAutoSwitch(ctx, now)
+	if err != nil {
+		return applied, Error.Wrap(err)
+	}
+	for i := range expired {
+		a := &expired[i]
+		if a.Status != AssignmentStatusActive {
+			continue
+		}
+		// Already switched above if a due scheduled existed.
+		if _, serr := s.store.UserPlanAssignments().GetByUserAndStatus(ctx, a.UserID, AssignmentStatusScheduled); serr == nil {
+			continue
+		}
+		if a.FuturePlanID != nil {
+			plan, perr := s.store.SellerPlans().Get(ctx, *a.FuturePlanID)
+			if perr != nil || plan == nil {
+				s.log.Error("future plan missing on expire",
+					zap.String("plan_id", a.FuturePlanID.String()), zap.Error(perr))
+			} else {
+				synth := &UserPlanAssignment{
+					ResellerID:         a.ResellerID,
+					UserID:             a.UserID,
+					PlanID:             *a.FuturePlanID,
+					Status:             AssignmentStatusScheduled,
+					RetailAmount:       plan.RetailAmount,
+					WholesaleAmount:    plan.WholesaleAmount,
+					BillingPeriod:      plan.BillingPeriod,
+					PlanStartsAt:       now,
+					NotifyBeforeEnd:    a.NotifyBeforeEnd,
+					AssignedByReseller: a.AssignedByReseller,
+					PlanName:           plan.Name,
+					UserEmail:          a.UserEmail,
+				}
+				inserted, ierr := s.store.UserPlanAssignments().Insert(ctx, synth)
+				if ierr != nil {
+					s.log.Error("failed to insert synthetic scheduled on expire", zap.Error(ierr))
+				} else if s.activateFutureAssignment(ctx, inserted, now) {
+					applied++
+					continue
+				}
+			}
+		}
+		a.Status = AssignmentStatusEnded
+		a.EndedAt = &now
+		if _, uerr := s.store.UserPlanAssignments().Update(ctx, a.ID, a); uerr != nil {
+			s.log.Error("failed to expire assignment",
+				zap.Error(uerr), zap.String("assignment_id", a.ID.String()))
+			continue
+		}
+		// No future plan → downgrade user to free tier.
+		if derr := s.downgradeToFree(ctx, a.UserID); derr != nil {
+			s.log.Error("failed to downgrade user to free after plan end",
+				zap.Error(derr), zap.String("user_id", a.UserID.String()))
+		} else {
+			uid := a.UserID
+			_, _ = s.store.BillingNotifications().Insert(ctx, &BillingNotification{
+				ResellerID: a.ResellerID,
+				UserID:     &uid,
+				Type:       NotificationTypePlanSwitched,
+				Title:      "Plan ended",
+				Body:       "Plan ended with no future plan; user downgraded to Free.",
+			})
+		}
+	}
+
+	return applied, nil
+}
+
+// activateFutureAssignment ends the current active plan and makes sched the new active period,
+// then re-schedules the same plan again for after the new period ends.
+func (s *Service) activateFutureAssignment(ctx context.Context, sched *UserPlanAssignment, now time.Time) bool {
+	if active, aerr := s.store.UserPlanAssignments().GetByUserAndStatus(ctx, sched.UserID, AssignmentStatusActive); aerr == nil {
+		if active.ID == sched.ID {
+			// Should not happen; scheduled and active are different rows.
+		} else {
 			active.Status = AssignmentStatusEnded
 			active.EndedAt = &now
 			if _, uerr := s.store.UserPlanAssignments().Update(ctx, active.ID, active); uerr != nil {
 				s.log.Error("failed to end active assignment before switch",
 					zap.Error(uerr), zap.String("assignment_id", active.ID.String()))
-				continue
+				return false
 			}
 		}
-
-		plan, perr := s.store.SellerPlans().Get(ctx, sched.PlanID)
-		if perr != nil || plan == nil {
-			s.log.Error("scheduled plan missing", zap.String("plan_id", sched.PlanID.String()), zap.Error(perr))
-			continue
-		}
-
-		duration := assignmentDurationMonths(plan.BillingPeriod)
-		ends := now.AddDate(0, duration, 0)
-		sched.Status = AssignmentStatusActive
-		sched.PlanStartsAt = now
-		sched.PlanEndsAt = &ends
-		sched.DurationMonths = &duration
-		if _, uerr := s.store.UserPlanAssignments().Update(ctx, sched.ID, &sched); uerr != nil {
-			s.log.Error("failed to activate scheduled assignment",
-				zap.Error(uerr), zap.String("assignment_id", sched.ID.String()))
-			continue
-		}
-		if s.usersDB != nil {
-			if lerr := s.applyPlanLimits(ctx, sched.UserID, plan, &ends); lerr != nil {
-				s.log.Error("failed to apply limits after plan switch",
-					zap.Error(lerr), zap.String("user_id", sched.UserID.String()))
-				continue
-			}
-		}
-		uid := sched.UserID
-		if _, nerr := s.store.BillingNotifications().Insert(ctx, &BillingNotification{
-			ResellerID: sched.ResellerID,
-			UserID:     &uid,
-			Type:       NotificationTypePlanSwitched,
-			Title:      "Plan switched",
-			Body:       fmt.Sprintf("Future plan %s is now active.", plan.Name),
-		}); nerr != nil {
-			s.log.Error("failed to insert plan-switched notification", zap.Error(nerr))
-		}
-		applied++
 	}
 
-	// Expire any active assignment whose plan_ends_at has passed (with or without auto-switch).
-	// Scheduled switches above already end the prior active; this catches no-future-plan cases.
-	expired, err := s.store.UserPlanAssignments().ListDueAutoSwitch(ctx, now)
-	if err != nil {
-		return applied, Error.Wrap(err)
+	plan, perr := s.store.SellerPlans().Get(ctx, sched.PlanID)
+	if perr != nil || plan == nil {
+		s.log.Error("scheduled plan missing", zap.String("plan_id", sched.PlanID.String()), zap.Error(perr))
+		return false
 	}
-	for _, a := range expired {
-		if a.Status != AssignmentStatusActive {
-			continue
-		}
-		a.Status = AssignmentStatusEnded
-		a.EndedAt = &now
-		if _, uerr := s.store.UserPlanAssignments().Update(ctx, a.ID, &a); uerr != nil {
-			s.log.Error("failed to expire assignment",
-				zap.Error(uerr), zap.String("assignment_id", a.ID.String()))
+
+	duration := assignmentDurationMonths(plan.BillingPeriod)
+	ends := now.AddDate(0, duration, 0)
+	nextPlanID := sched.PlanID
+
+	sched.Status = AssignmentStatusActive
+	sched.PlanStartsAt = now
+	sched.PlanEndsAt = &ends
+	sched.DurationMonths = &duration
+	sched.FuturePlanID = &nextPlanID
+	sched.AutoSwitchOnEnd = true
+	sched.EndedAt = nil
+	sched.NotifiedEndingAt = nil
+	if _, uerr := s.store.UserPlanAssignments().Update(ctx, sched.ID, sched); uerr != nil {
+		s.log.Error("failed to activate scheduled assignment",
+			zap.Error(uerr), zap.String("assignment_id", sched.ID.String()))
+		return false
+	}
+
+	if s.usersDB != nil {
+		if lerr := s.applyPlanLimits(ctx, sched.UserID, plan, &ends); lerr != nil {
+			s.log.Error("failed to apply limits after plan switch",
+				zap.Error(lerr), zap.String("user_id", sched.UserID.String()))
+			return false
 		}
 	}
 
-	return applied, nil
+	// Re-set future: same plan again for the following period (until seller cancels).
+	next := &UserPlanAssignment{
+		ResellerID:         sched.ResellerID,
+		UserID:             sched.UserID,
+		PlanID:             nextPlanID,
+		Status:             AssignmentStatusScheduled,
+		RetailAmount:       plan.RetailAmount,
+		WholesaleAmount:    plan.WholesaleAmount,
+		BillingPeriod:      plan.BillingPeriod,
+		PlanStartsAt:       ends,
+		NotifyBeforeEnd:    sched.NotifyBeforeEnd,
+		AssignedByReseller: sched.AssignedByReseller,
+		PlanName:           plan.Name,
+		UserEmail:          sched.UserEmail,
+	}
+	if _, ierr := s.store.UserPlanAssignments().Insert(ctx, next); ierr != nil {
+		s.log.Error("failed to re-schedule next period",
+			zap.Error(ierr), zap.String("user_id", sched.UserID.String()))
+		// Active switch still succeeded.
+	}
+
+	uid := sched.UserID
+	if _, nerr := s.store.BillingNotifications().Insert(ctx, &BillingNotification{
+		ResellerID: sched.ResellerID,
+		UserID:     &uid,
+		Type:       NotificationTypePlanSwitched,
+		Title:      "Plan switched",
+		Body:       fmt.Sprintf("Plan %s is now active and scheduled again for the next period.", plan.Name),
+	}); nerr != nil {
+		s.log.Error("failed to insert plan-switched notification", zap.Error(nerr))
+	}
+	return true
 }
 
 func slugifyPlanKey(name string) string {

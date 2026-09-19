@@ -14,7 +14,7 @@ import (
 
 // PlanScheduleConfig configures the plan switch chore.
 type PlanScheduleConfig struct {
-	Interval time.Duration `help:"how often to apply due future plans and notify" default:"15m" testDefault:"1s"`
+	Interval time.Duration `help:"how often to apply due future plans and notify" default:"1h" testDefault:"1s"`
 	Enabled  bool          `help:"whether the seller plan schedule chore is enabled" default:"true" testDefault:"true"`
 }
 

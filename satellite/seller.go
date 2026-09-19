@@ -135,6 +135,11 @@ func NewSeller(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *
 		sellerService.SetUsersDB(peer.DB.Console().Users())
 		sellerService.SetProjectsDB(peer.DB.Console().Projects())
 		sellerService.SetBillingDB(peer.DB.Billing())
+		sellerService.SetFreeUsageLimits(
+			config.Console.UsageLimits.Storage.Free.Int64(),
+			config.Console.UsageLimits.Bandwidth.Free.Int64(),
+			config.Console.UsageLimits.Segment.Free,
+		)
 		peer.Seller.Service = sellerService
 
 		if config.Seller.PlanSchedule.Enabled {

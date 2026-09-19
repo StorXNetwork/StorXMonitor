@@ -1307,15 +1307,19 @@ func (users *users) CancelDeleteRequest(ctx context.Context, userID uuid.UUID) (
 	return nil
 }
 
-// boris
+// UpdatePaidTiers sets whether the user is in the paid tier (Kind FreeUser / PaidUser).
 func (users *users) UpdatePaidTiers(ctx context.Context, id uuid.UUID, paidTier bool) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	kind := console.FreeUser
+	if paidTier {
+		kind = console.PaidUser
+	}
 	_, err = users.db.Update_User_By_Id(
 		ctx,
 		dbx.User_Id(id[:]),
 		dbx.User_Update_Fields{
-			Kind: dbx.User_Kind(int(console.PaidUser)),
+			Kind: dbx.User_Kind(int(kind)),
 		},
 	)
 
