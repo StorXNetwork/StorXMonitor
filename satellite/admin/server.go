@@ -276,7 +276,6 @@ func NewServer(
 	resellersRouter.HandleFunc("/{id}/users", server.listResellerUsers).Methods("GET")
 	resellersRouter.HandleFunc("/{id}/assignments", server.listResellerAssignments).Methods("GET")
 	resellersRouter.HandleFunc("/{id}/invoices", server.listResellerInvoices).Methods("GET")
-	resellersRouter.HandleFunc("/{id}/invoices", server.generateResellerInvoice).Methods("POST")
 
 	fullAccessAPI.HandleFunc("/invoices/{id}", server.getSellerInvoice).Methods("GET")
 	fullAccessAPI.HandleFunc("/invoices/{id}/status", server.updateSellerInvoiceStatus).Methods("PATCH")
