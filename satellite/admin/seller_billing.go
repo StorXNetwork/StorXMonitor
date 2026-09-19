@@ -87,18 +87,18 @@ func (server *Server) updateSellerPlan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var input struct {
-		Name            *string  `json:"name"`
-		TierKey         *string  `json:"tierKey"`
-		BillingPeriod   *string  `json:"billingPeriod"`
-		StorageBytes    *int64   `json:"storageBytes"`
-		BandwidthBytes  *int64   `json:"bandwidthBytes"`
-		RetailAmount    *int64   `json:"retailAmount"`
-		WholesaleAmount *int64   `json:"wholesaleAmount"`
-		Currency        *string  `json:"currency"`
-		Description     *string  `json:"description"`
+		Name            *string   `json:"name"`
+		TierKey         *string   `json:"tierKey"`
+		BillingPeriod   *string   `json:"billingPeriod"`
+		StorageBytes    *int64    `json:"storageBytes"`
+		BandwidthBytes  *int64    `json:"bandwidthBytes"`
+		RetailAmount    *int64    `json:"retailAmount"`
+		WholesaleAmount *int64    `json:"wholesaleAmount"`
+		Currency        *string   `json:"currency"`
+		Description     *string   `json:"description"`
 		Features        *[]string `json:"features"`
-		Recommended     *bool    `json:"recommended"`
-		Active          *bool    `json:"active"`
+		Recommended     *bool     `json:"recommended"`
+		Active          *bool     `json:"active"`
 	}
 	if err = json.Unmarshal(body, &input); err != nil {
 		sendJSONError(w, "invalid request", err.Error(), http.StatusBadRequest)
@@ -311,6 +311,8 @@ func (server *Server) generateResellerInvoice(w http.ResponseWriter, r *http.Req
 		PeriodEnd   *time.Time `json:"periodEnd"`
 		AsOf        *time.Time `json:"asOf"`
 		BillingDay  *int       `json:"billingDay"`
+		Hour        *int       `json:"hour"`
+		Minute      *int       `json:"minute"`
 		AdminNote   string     `json:"adminNote"`
 	}
 	if len(body) > 0 {
@@ -322,7 +324,7 @@ func (server *Server) generateResellerInvoice(w http.ResponseWriter, r *http.Req
 
 	var inv *seller.SellerInvoice
 	var created []seller.SellerInvoice
-	// Explicit bounds, billingDay 1–28, or legacy asOf (must be provided — no silent “today’s day”).
+	// Explicit bounds, billingDay 1–28 (+ optional hour/minute), or legacy asOf.
 	switch {
 	case req.PeriodStart != nil && req.PeriodEnd != nil:
 		inv, err = server.sellerService.GenerateInvoice(ctx, id, seller.GenerateInvoiceRequest{
@@ -334,7 +336,14 @@ func (server *Server) generateResellerInvoice(w http.ResponseWriter, r *http.Req
 			created = []seller.SellerInvoice{*inv}
 		}
 	case req.BillingDay != nil:
-		created, err = server.sellerService.GenerateAllInvoicesForBillingDay(ctx, id, *req.BillingDay, req.AdminNote)
+		clock := seller.BillingClock{Day: *req.BillingDay}
+		if req.Hour != nil {
+			clock.Hour = *req.Hour
+		}
+		if req.Minute != nil {
+			clock.Minute = *req.Minute
+		}
+		created, err = server.sellerService.GenerateAllInvoicesForBillingClock(ctx, id, clock, req.AdminNote)
 	case req.AsOf != nil:
 		created, err = server.sellerService.GenerateAllInvoicesUpToAsOf(ctx, id, req.AsOf.UTC(), req.AdminNote)
 	default:

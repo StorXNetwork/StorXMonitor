@@ -585,41 +585,77 @@ const (
 	InvoiceBillingDayMax = 28
 )
 
-// InvoicePeriodForBillingDay builds the window ending on billingDay of the given year/month.
-// periodStart = billingDay of previous month 00:00:00
-// periodEnd   = billingDay of this month 00:00:00 − 1 second
-//
-// Example: year=2026, month=October, day=15 →
-//
-//	15 Sept 00:00:00 … 14 Oct 23:59:59
-func InvoicePeriodForBillingDay(year int, month time.Month, billingDay int) (periodStart, periodEnd time.Time) {
-	asOf := time.Date(year, month, billingDay, 0, 0, 0, 0, time.UTC)
-	periodEnd = asOf.Add(-time.Second)
-	periodStart = asOf.AddDate(0, -1, 0)
-	return periodStart, periodEnd
+// BillingClock is the admin-chosen day-of-month (1–28) and clock time (UTC) for cutovers.
+type BillingClock struct {
+	Day    int // 1–28
+	Hour   int // 0–23
+	Minute int // 0–59
 }
 
-// LatestCompletedBillingAsOf returns the most recent billingDay 00:00 UTC that is still <= now.
-func LatestCompletedBillingAsOf(now time.Time, billingDay int) time.Time {
+func validateBillingDay(day int) error {
+	if day < InvoiceBillingDayMin || day > InvoiceBillingDayMax {
+		return ErrValidation.New("billing day must be between %d and %d", InvoiceBillingDayMin, InvoiceBillingDayMax)
+	}
+	return nil
+}
+
+func validateBillingClock(c BillingClock) error {
+	if err := validateBillingDay(c.Day); err != nil {
+		return err
+	}
+	if c.Hour < 0 || c.Hour > 23 {
+		return ErrValidation.New("billing hour must be between 0 and 23")
+	}
+	if c.Minute < 0 || c.Minute > 59 {
+		return ErrValidation.New("billing minute must be between 0 and 59")
+	}
+	return nil
+}
+
+// InvoicePeriodForBillingCutover builds the window for calendar month year/month ending at day+time.
+// periodStart = 1st of that month 00:00:00 UTC
+// periodEnd   = day of that month at hour:minute (the day admin selected — inclusive)
+//
+// Example: August 2026, day=25, 00:00 → 1 Aug 00:00:00 … 25 Aug 00:00:00
+// Day 1 at 00:00 bills the previous full month ending on that instant.
+func InvoicePeriodForBillingCutover(year int, month time.Month, c BillingClock) (periodStart, periodEnd time.Time) {
+	asOf := time.Date(year, month, c.Day, c.Hour, c.Minute, 0, 0, time.UTC)
+	return InvoicePeriodFromAsOf(asOf)
+}
+
+// InvoicePeriodForBillingDay is the midnight cutover helper (hour=0, minute=0).
+func InvoicePeriodForBillingDay(year int, month time.Month, billingDay int) (periodStart, periodEnd time.Time) {
+	return InvoicePeriodForBillingCutover(year, month, BillingClock{Day: billingDay})
+}
+
+// LatestCompletedBillingAsOf returns the most recent cutover (day + clock) that is still <= now.
+func LatestCompletedBillingAsOf(now time.Time, c BillingClock) time.Time {
 	now = now.UTC()
-	asOf := time.Date(now.Year(), now.Month(), billingDay, 0, 0, 0, 0, time.UTC)
+	asOf := time.Date(now.Year(), now.Month(), c.Day, c.Hour, c.Minute, 0, 0, time.UTC)
 	if asOf.After(now) {
 		asOf = asOf.AddDate(0, -1, 0)
 	}
 	return asOf
 }
 
-// InvoicePeriodFromAsOf builds the window for a billing as-of midnight (asOf.Day() is the billing day).
+// InvoicePeriodFromAsOf builds the calendar-month window ending at asOf (inclusive).
+// periodStart = 1st of asOf's month 00:00; periodEnd = asOf.
+// If asOf is the 1st at 00:00, period is the previous calendar month ending at asOf.
 func InvoicePeriodFromAsOf(asOf time.Time) (periodStart, periodEnd time.Time) {
 	asOf = asOf.UTC()
-	return InvoicePeriodForBillingDay(asOf.Year(), asOf.Month(), asOf.Day())
+	periodEnd = asOf
+	periodStart = time.Date(asOf.Year(), asOf.Month(), 1, 0, 0, 0, 0, time.UTC)
+	if !periodEnd.After(periodStart) {
+		periodStart = periodStart.AddDate(0, -1, 0)
+	}
+	return periodStart, periodEnd
 }
 
-// LastCompletedMonthPeriod returns the last completed calendar month (billing day 1)
-// ending at or before asOf: 1st of previous month 00:00 → last second of that month.
+// LastCompletedMonthPeriod returns the last completed calendar month ending at or before asOf
+// (billing day 1 at midnight).
 func LastCompletedMonthPeriod(asOf time.Time) (periodStart, periodEnd time.Time) {
 	asOf = asOf.UTC()
-	anchor := LatestCompletedBillingAsOf(asOf, 1)
+	anchor := LatestCompletedBillingAsOf(asOf, BillingClock{Day: 1})
 	return InvoicePeriodFromAsOf(anchor)
 }
 
@@ -636,14 +672,7 @@ func invoicePeriodsOverlap(aStart, aEnd, bStart, bEnd time.Time) bool {
 	return !aEnd.Before(bStart) && !bEnd.Before(aStart)
 }
 
-func validateBillingDay(day int) error {
-	if day < InvoiceBillingDayMin || day > InvoiceBillingDayMax {
-		return ErrValidation.New("billing day must be between %d and %d", InvoiceBillingDayMin, InvoiceBillingDayMax)
-	}
-	return nil
-}
-
-// GenerateLastMonthInvoice builds one invoice for the period ending at asOf (billing day midnight).
+// GenerateLastMonthInvoice builds one invoice for the period ending at asOf.
 func (s *Service) GenerateLastMonthInvoice(ctx context.Context, resellerID uuid.UUID, asOf time.Time, adminNote string) (invoice *SellerInvoice, err error) {
 	defer mon.Task()(&ctx)(&err)
 	start, end := InvoicePeriodFromAsOf(asOf)
@@ -654,21 +683,26 @@ func (s *Service) GenerateLastMonthInvoice(ctx context.Context, resellerID uuid.
 	})
 }
 
-// GenerateAllInvoicesForBillingDay creates every missing invoice for the chosen day-of-month (1–28).
-// Walks back month by month from the latest completed period for that day until the first assignment.
+// GenerateAllInvoicesForBillingDay creates every missing invoice for day-of-month (1–28) at midnight UTC.
 func (s *Service) GenerateAllInvoicesForBillingDay(ctx context.Context, resellerID uuid.UUID, billingDay int, adminNote string) (created []SellerInvoice, err error) {
+	return s.GenerateAllInvoicesForBillingClock(ctx, resellerID, BillingClock{Day: billingDay}, adminNote)
+}
+
+// GenerateAllInvoicesForBillingClock creates every missing invoice for the chosen day + clock time.
+// Each invoice is one calendar month: 1st 00:00 → cutover−1s. Walks back until the first assignment.
+func (s *Service) GenerateAllInvoicesForBillingClock(ctx context.Context, resellerID uuid.UUID, clock BillingClock, adminNote string) (created []SellerInvoice, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if err = validateBillingDay(billingDay); err != nil {
+	if err = validateBillingClock(clock); err != nil {
 		return nil, err
 	}
 
 	now := s.nowFn().UTC()
-	asOf := LatestCompletedBillingAsOf(now, billingDay)
+	asOf := LatestCompletedBillingAsOf(now, clock)
 	return s.generateAllInvoicesWalkingAsOf(ctx, resellerID, asOf, adminNote)
 }
 
-// GenerateAllInvoicesUpToAsOf walks billing periods ending at asOf, asOf−1 month, … (asOf should be billing-day midnight).
+// GenerateAllInvoicesUpToAsOf walks billing periods ending at asOf, asOf−1 month, …
 func (s *Service) GenerateAllInvoicesUpToAsOf(ctx context.Context, resellerID uuid.UUID, asOf time.Time, adminNote string) (created []SellerInvoice, err error) {
 	defer mon.Task()(&ctx)(&err)
 	asOf = asOf.UTC()
@@ -679,7 +713,7 @@ func (s *Service) GenerateAllInvoicesUpToAsOf(ctx context.Context, resellerID uu
 	if err = validateBillingDay(day); err != nil {
 		return nil, err
 	}
-	asOf = time.Date(asOf.Year(), asOf.Month(), day, 0, 0, 0, 0, time.UTC)
+	asOf = time.Date(asOf.Year(), asOf.Month(), day, asOf.Hour(), asOf.Minute(), 0, 0, time.UTC)
 	now := s.nowFn().UTC()
 	if asOf.After(now) {
 		return nil, ErrValidation.New("as-of date/time must not be in the future")
