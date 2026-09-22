@@ -4,7 +4,7 @@
 package consoleapi
 
 // ReservedBucketUsageItem is one vault row from GET /api/v0/buckets/usage-totals-for-reserved.
-// For Protected Services UI, filter by bucketName: gmail, google-drive, google-photos, google-contacts, google-calendar.
+// For Protected Services UI, filter by bucketName: cyberls-gmail, cyberls-drive, google-drive, google-photos, cyberls-contacts, google-contacts, cyberls-calendar, google-calendar.
 type ReservedBucketUsageItem struct {
 	ProjectID    string  `json:"projectID" example:"00000000-0000-0000-0000-000000000001"`
 	BucketName   string  `json:"bucketName" example:"gmail"`

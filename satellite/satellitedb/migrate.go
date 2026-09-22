@@ -1352,6 +1352,60 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 					`ALTER TABLE backup_credentials ADD COLUMN IF NOT EXISTS tenant_name STRING(MAX);`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add user_nodes table for own-nodes claims",
+				Version:     138,
+				Action: migrate.SQL{
+					`CREATE TABLE IF NOT EXISTS user_nodes (
+						user_id BYTES(MAX) NOT NULL,
+						node_id BYTES(MAX) NOT NULL,
+						created_at TIMESTAMP NOT NULL DEFAULT (current_timestamp),
+						CONSTRAINT user_nodes_user_id_fkey FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+					) PRIMARY KEY ( user_id, node_id )`,
+					`CREATE UNIQUE INDEX user_nodes_node_id_key ON user_nodes ( node_id )`,
+					`CREATE INDEX user_nodes_user_id_index ON user_nodes ( user_id )`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add user_storage_destinations for external S3 gateway credentials",
+				Version:     139,
+				Action: migrate.SQL{
+					`CREATE TABLE IF NOT EXISTS user_storage_destinations (
+						user_id BYTES(MAX) NOT NULL,
+						mode STRING(MAX) NOT NULL DEFAULT ('default'),
+						gateway_access_key_id STRING(MAX),
+						gateway_secret_key STRING(MAX),
+						gateway_endpoint STRING(MAX),
+						updated_at TIMESTAMP NOT NULL DEFAULT (current_timestamp),
+						CONSTRAINT user_storage_destinations_user_id_fkey FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+					) PRIMARY KEY ( user_id )`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add user_external_s3_backends for encrypted S3 app credentials",
+				Version:     140,
+				Action: migrate.SQL{
+					`CREATE TABLE IF NOT EXISTS user_external_s3_backends (
+						user_id BYTES(MAX) NOT NULL,
+						status STRING(MAX) NOT NULL DEFAULT ('active'),
+						endpoint STRING(MAX) NOT NULL,
+						region STRING(MAX),
+						access_key_id STRING(MAX) NOT NULL,
+						secret_enc BYTES(MAX) NOT NULL,
+						secret_key_id INT64 NOT NULL,
+						gateway_access_key_id STRING(MAX),
+						gateway_secret_enc BYTES(MAX),
+						gateway_secret_key_id INT64,
+						gateway_endpoint STRING(MAX),
+						created_at TIMESTAMP NOT NULL DEFAULT (current_timestamp),
+						updated_at TIMESTAMP NOT NULL DEFAULT (current_timestamp),
+						CONSTRAINT user_external_s3_backends_user_id_fkey FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+					) PRIMARY KEY ( user_id )`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
@@ -5456,6 +5510,60 @@ true, NOW(), NOW());`,
 				Action: migrate.SQL{
 					`ALTER TABLE project_invitations ADD COLUMN IF NOT EXISTS expires_at timestamp with time zone;`,
 					`ALTER TABLE member_bucket_grants ADD COLUMN IF NOT EXISTS expires_at timestamp with time zone;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add user_nodes table for own-nodes claims",
+				Version:     389,
+				Action: migrate.SQL{
+					`CREATE TABLE IF NOT EXISTS user_nodes (
+						user_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
+						node_id bytea NOT NULL,
+						created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+						PRIMARY KEY ( user_id, node_id )
+					);`,
+					`CREATE UNIQUE INDEX IF NOT EXISTS user_nodes_node_id_key ON user_nodes ( node_id );`,
+					`CREATE INDEX IF NOT EXISTS user_nodes_user_id_index ON user_nodes ( user_id );`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add user_storage_destinations for external S3 gateway credentials",
+				Version:     390,
+				Action: migrate.SQL{
+					`CREATE TABLE IF NOT EXISTS user_storage_destinations (
+						user_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
+						mode text NOT NULL DEFAULT 'default',
+						gateway_access_key_id text,
+						gateway_secret_key text,
+						gateway_endpoint text,
+						updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+						PRIMARY KEY ( user_id )
+					);`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add user_external_s3_backends for encrypted S3 app credentials",
+				Version:     391,
+				Action: migrate.SQL{
+					`CREATE TABLE IF NOT EXISTS user_external_s3_backends (
+						user_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
+						status text NOT NULL DEFAULT 'active',
+						endpoint text NOT NULL,
+						region text,
+						access_key_id text NOT NULL,
+						secret_enc bytea NOT NULL,
+						secret_key_id integer NOT NULL,
+						gateway_access_key_id text,
+						gateway_secret_enc bytea,
+						gateway_secret_key_id integer,
+						gateway_endpoint text,
+						created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+						updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+						PRIMARY KEY ( user_id )
+					);`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run

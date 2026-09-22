@@ -323,6 +323,9 @@ type Service struct {
 	backupToolsURL    string
 	backupToolsAPIKey string
 
+	externalS3AuthURL   string
+	externalS3AuthToken string
+
 	mailExportOrdersDB MailExportOrdersDB
 
 	loginURL   string
@@ -811,9 +814,6 @@ func (s *Service) RefreshStorxTokenForBackupTools(ctx context.Context, req Refre
 	}
 
 	project := member.project
-	if project.PassphraseEnc == nil {
-		return result, ErrValidation.New("project does not support server-side storx token refresh")
-	}
 
 	user, err := s.store.Users().Get(ctx, userID)
 	if err != nil {
@@ -824,7 +824,14 @@ func (s *Service) RefreshStorxTokenForBackupTools(ctx context.Context, req Refre
 	}
 	ctx = WithUser(ctx, user)
 
-	accessGrant, err := s.CreateAccessGrantForManagedProject(ctx, project.ID)
+	// External S3 gateway tokens do not require project passphrase encryption.
+	extBackend, extErr := s.store.ExternalS3Backends().GetByUserID(ctx, userID)
+	isExternal := extErr == nil && extBackend != nil && extBackend.Status == ExternalS3StatusActive
+	if !isExternal && project.PassphraseEnc == nil {
+		return result, ErrValidation.New("project does not support server-side storx token refresh")
+	}
+
+	accessGrant, err := s.ResolveBackupStorxToken(ctx, userID, project.ID)
 	if err != nil {
 		return result, Error.Wrap(err)
 	}
@@ -1154,7 +1161,7 @@ type Payments struct {
 }
 
 // NewService returns new instance of Service.
-func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKeys restapikeys.Service, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets buckets.DB, attributions attribution.DB, accounts payments.Accounts, depositWallets payments.DepositWallets, billingDB billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, hubspotMailService *hubspotmails.Service, accountFreezeService *AccountFreezeService, emission *emission.Service, kmsService *kms.Service, valdiService *valdi.Service, ssoService *sso.Service, satelliteAddress string, satelliteNodeAddress string, satelliteName string, maxProjectBuckets int, ssoEnabled bool, placements nodeselection.PlacementDefinitions, versioning VersioningConfig, config Config, skuEnabled bool, loginURL string, supportURL string, bucketEventing eventingconfig.Config, entitlementsService *entitlements.Service, entitlementsConfig entitlements.Config, placementProductMap map[int]int32, productConfigs map[int32]payments.ProductUsagePriceModel, minimumChargeAmount int64, minimumChargeDate *time.Time, packagePlans map[string]payments.PackagePlan, backupToolsURL string, backupToolsAPIKey string, socialShareHelper smartcontract.SocialShareHelper) (*Service, error) {
+func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKeys restapikeys.Service, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets buckets.DB, attributions attribution.DB, accounts payments.Accounts, depositWallets payments.DepositWallets, billingDB billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, hubspotMailService *hubspotmails.Service, accountFreezeService *AccountFreezeService, emission *emission.Service, kmsService *kms.Service, valdiService *valdi.Service, ssoService *sso.Service, satelliteAddress string, satelliteNodeAddress string, satelliteName string, maxProjectBuckets int, ssoEnabled bool, placements nodeselection.PlacementDefinitions, versioning VersioningConfig, config Config, skuEnabled bool, loginURL string, supportURL string, bucketEventing eventingconfig.Config, entitlementsService *entitlements.Service, entitlementsConfig entitlements.Config, placementProductMap map[int]int32, productConfigs map[int32]payments.ProductUsagePriceModel, minimumChargeAmount int64, minimumChargeDate *time.Time, packagePlans map[string]payments.PackagePlan, backupToolsURL string, backupToolsAPIKey string, externalS3AuthURL string, externalS3AuthToken string, socialShareHelper smartcontract.SocialShareHelper) (*Service, error) {
 	if store == nil {
 		return nil, errs.New("store can't be nil")
 	}
@@ -1261,6 +1268,8 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 		socialShareHelper:          socialShareHelper,
 		backupToolsURL:             backupToolsURL,
 		backupToolsAPIKey:          backupToolsAPIKey,
+		externalS3AuthURL:          externalS3AuthURL,
+		externalS3AuthToken:        externalS3AuthToken,
 	}, nil
 }
 
@@ -9475,7 +9484,7 @@ func (s *Service) InviteNewProjectMemberDetailed(ctx context.Context, projectID 
 }
 
 // ProjectMemberInviteRequest is one entry for bulk invite (same idea as single invite).
-// Vaults are bucket names (e.g. gmail, google-drive). Server builds List+Download on `{email}/`.
+// Vaults are bucket names (e.g. cyberls-gmail, cyberls-drive). Server builds List+Download on `{email}/`.
 // Vaults == nil → ACL-registry defaults; non-nil (including empty) uses those vault names only.
 type ProjectMemberInviteRequest struct {
 	Email  string

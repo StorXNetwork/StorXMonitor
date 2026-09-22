@@ -134,8 +134,13 @@ func Module(ball *mud.Ball) {
 		mud.View[DB, overlay.DB](ball, DB.OverlayCache)
 
 		// TODO: we must keep it here as it uses consoleweb.Config from overlay package.
-		mud.Provide[*overlay.Service](ball, func(log *zap.Logger, db overlay.DB, nodeEvents nodeevents.DB, placements nodeselection.PlacementDefinitions, consoleConfig consoleweb.Config, config overlay.Config) (*overlay.Service, error) {
-			return overlay.NewService(log, db, nodeEvents, placements, consoleConfig.ExternalAddress, consoleConfig.SatelliteName, config)
+		mud.Provide[*overlay.Service](ball, func(log *zap.Logger, db overlay.DB, nodeEvents nodeevents.DB, placements nodeselection.PlacementDefinitions, consoleConfig consoleweb.Config, config overlay.Config, consoleDB console.DB) (*overlay.Service, error) {
+			svc, err := overlay.NewService(log, db, nodeEvents, placements, consoleConfig.ExternalAddress, consoleConfig.SatelliteName, config)
+			if err != nil {
+				return nil, err
+			}
+			svc.SetDedicatedNodes(consoleDB.UserNodes())
+			return svc, nil
 		})
 	}
 
@@ -171,6 +176,7 @@ func Module(ball *mud.Ball) {
 	mud.View[DB, overlay.PeerIdentities](ball, DB.PeerIdentities)
 	mud.View[DB, srevocation.DB](ball, DB.Revocation)
 	mud.View[DB, console.DB](ball, DB.Console)
+	mud.View[console.DB, console.UserNodes](ball, console.DB.UserNodes)
 	mud.View[overlay.DB, bloomfilter.Overlay](ball, func(db overlay.DB) bloomfilter.Overlay {
 		return db
 	})
@@ -471,5 +477,6 @@ func CreateService(log *zap.Logger, store console.DB, restKeys restapikeys.DB, o
 		},
 		cfg, pc.StripeCoinPayments.SkuEnabled, loginURL, cw.SupportURL(), bucketEventing,
 		entitlementsService, entitlementsConfig, pc.PlacementPriceOverrides.ToMap(), productModels,
-		pc.MinimumCharge.Amount, minimumChargeDate, pc.PackagePlans.Packages, cw.BackupToolsURL, cw.BackupToolsAPIKey, nil)
+		pc.MinimumCharge.Amount, minimumChargeDate, pc.PackagePlans.Packages, cw.BackupToolsURL, cw.BackupToolsAPIKey,
+		cw.GatewayCredentialsRequestURL, cw.AuthServiceToken, nil)
 }

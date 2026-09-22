@@ -333,6 +333,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+		peer.Overlay.Service.SetDedicatedNodes(peer.DB.Console().UserNodes())
 		peer.Services.Add(lifecycle.Item{
 			Name:  "overlay",
 			Run:   peer.Overlay.Service.Run,
@@ -570,6 +571,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.Console().Projects(),
 			peer.DB.Console().ProjectMembers(),
 			peer.DB.Console().Users(),
+			peer.DB.Console().UserNodes(),
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.DB.Revocation(),
 			peer.SuccessTrackers,
@@ -836,6 +838,8 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			pc.PackagePlans.Packages,
 			consoleConfig.BackupToolsURL,
 			consoleConfig.BackupToolsAPIKey,
+			consoleConfig.GatewayCredentialsRequestURL,
+			consoleConfig.AuthServiceToken,
 			web3AuthSocialShareHelper,
 		)
 		if err != nil {
@@ -1271,6 +1275,8 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				config.Payments.PackagePlans.Packages,
 				consoleConfig.BackupToolsURL,
 				consoleConfig.BackupToolsAPIKey,
+				consoleConfig.GatewayCredentialsRequestURL,
+				consoleConfig.AuthServiceToken,
 				web3AuthSocialShareHelper,
 			)
 			if err != nil {

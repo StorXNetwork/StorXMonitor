@@ -197,7 +197,15 @@ func (s *Service) CreateGoogleBackupAutoSyncJobs(ctx context.Context, req Create
 		}
 	}
 	if project.PassphraseEnc != nil {
-		storxToken, tokenErr := s.CreateAccessGrantForManagedProject(ctx, project.ID)
+		storxToken, tokenErr := s.ResolveBackupStorxToken(ctx, user.ID, project.ID)
+		if tokenErr != nil {
+			return nil, 0, Error.Wrap(tokenErr)
+		}
+		payload["storx_token"] = storxToken
+	} else if backend, destErr := s.store.ExternalS3Backends().GetByUserID(ctx, user.ID); destErr == nil &&
+		backend != nil && backend.Status == ExternalS3StatusActive {
+		// External S3 can supply a gateway token without managed passphrase.
+		storxToken, tokenErr := s.ResolveBackupStorxToken(ctx, user.ID, project.ID)
 		if tokenErr != nil {
 			return nil, 0, Error.Wrap(tokenErr)
 		}

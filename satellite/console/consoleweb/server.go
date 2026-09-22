@@ -162,6 +162,7 @@ type Config struct {
 	GeneralRequestURL               string        `help:"url link to general request page" default:"https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291"`
 	ProjectLimitsIncreaseRequestURL string        `help:"url link to project limit increase request page" default:"https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212"`
 	GatewayCredentialsRequestURL    string        `help:"url link for gateway credentials requests" default:"https://auth.storjsatelliteshare.io" devDefault:"http://localhost:8000"`
+	AuthServiceToken                string        `help:"bearer token for authservice when satellite registers external S3 backends" default:"" devDefault:"my-test-auth-token"`
 	IsBetaSatellite                 bool          `help:"indicates if satellite is in beta" default:"false"`
 	BetaSatelliteFeedbackURL        string        "help:\"url link for beta satellite feedback\" default:\"\""
 	BetaSatelliteSupportURL         string        "help:\"url link for beta satellite support\" default:\"\""
@@ -679,6 +680,32 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	domainsRouter.Handle("/project/{projectID}", server.withCSRFProtection(http.HandlerFunc(domainsController.DeleteDomain))).Methods(http.MethodDelete, http.MethodOptions)
 	domainsRouter.Handle("/project/{projectID}/paged", http.HandlerFunc(domainsController.GetProjectDomains)).Methods(http.MethodGet, http.MethodOptions)
 	domainsRouter.Handle("/project/{projectID}/names", http.HandlerFunc(domainsController.GetProjectAllDomainNames)).Methods(http.MethodGet, http.MethodOptions)
+
+	userNodesController := consoleapi.NewUserNodes(logger, service)
+	userNodesRouter := router.PathPrefix("/api/v0/user-nodes").Subrouter()
+	userNodesRouter.Use(server.withCORS)
+	userNodesRouter.Use(server.withAuth)
+	userNodesRouter.Handle("", http.HandlerFunc(userNodesController.GetUserNodes)).Methods(http.MethodGet, http.MethodOptions)
+	userNodesRouter.Handle("", server.withCSRFProtection(http.HandlerFunc(userNodesController.ClaimUserNode))).Methods(http.MethodPost, http.MethodOptions)
+	userNodesRouter.Handle("/own-nodes-only", http.HandlerFunc(userNodesController.GetOwnNodesOnly)).Methods(http.MethodGet, http.MethodOptions)
+	userNodesRouter.Handle("/own-nodes-only", server.withCSRFProtection(http.HandlerFunc(userNodesController.SetOwnNodesOnly))).Methods(http.MethodPut, http.MethodOptions)
+	userNodesRouter.Handle("/{nodeId}", server.withCSRFProtection(http.HandlerFunc(userNodesController.UnclaimUserNode))).Methods(http.MethodDelete, http.MethodOptions)
+
+	storageDestinationController := consoleapi.NewStorageDestination(logger, service)
+	storageDestinationRouter := router.PathPrefix("/api/v0/storage-destination").Subrouter()
+	storageDestinationRouter.Use(server.withCORS)
+	storageDestinationRouter.Use(server.withAuth)
+	storageDestinationRouter.Handle("", http.HandlerFunc(storageDestinationController.GetStorageDestination)).Methods(http.MethodGet, http.MethodOptions)
+	storageDestinationRouter.Handle("", server.withCSRFProtection(http.HandlerFunc(storageDestinationController.SetStorageDestination))).Methods(http.MethodPut, http.MethodOptions)
+
+	externalS3Controller := consoleapi.NewExternalS3(logger, service)
+	externalS3Router := router.PathPrefix("/api/v0/external-s3").Subrouter()
+	externalS3Router.Use(server.withCORS)
+	externalS3Router.Use(server.withAuth)
+	externalS3Router.Handle("", http.HandlerFunc(externalS3Controller.Get)).Methods(http.MethodGet, http.MethodOptions)
+	externalS3Router.Handle("", server.withCSRFProtection(http.HandlerFunc(externalS3Controller.Put))).Methods(http.MethodPut, http.MethodOptions)
+	externalS3Router.Handle("", server.withCSRFProtection(http.HandlerFunc(externalS3Controller.Delete))).Methods(http.MethodDelete, http.MethodOptions)
+	externalS3Router.Handle("/ensure-gateway", server.withCSRFProtection(http.HandlerFunc(externalS3Controller.EnsureGateway))).Methods(http.MethodPost, http.MethodOptions)
 
 	// Developer endpoints moved to satellite/developer/server.go
 	// These endpoints are now handled by the separate developer server

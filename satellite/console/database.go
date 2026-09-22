@@ -90,6 +90,15 @@ type DB interface {
 	// ProjectMemberACLBuckets is a getter for the Member ACL bucket registry.
 	ProjectMemberACLBuckets() ProjectMemberACLBuckets
 
+	// UserNodes is a getter for user ↔ storage node claim mappings.
+	UserNodes() UserNodes
+
+	// StorageDestinations is a getter for per-user storage destination settings.
+	StorageDestinations() StorageDestinations
+
+	// ExternalS3Backends is a getter for per-user encrypted external S3 credentials.
+	ExternalS3Backends() ExternalS3Backends
+
 	// WithTx is a method for executing transactions with retrying as necessary.
 	WithTx(ctx context.Context, fn func(ctx context.Context, tx DBTx) error) error
 }

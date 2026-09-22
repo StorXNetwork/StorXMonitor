@@ -16,6 +16,7 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/satellite/console"
 	"github.com/StorXNetwork/StorXMonitor/satellite/internalpb"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
 	"github.com/StorXNetwork/StorXMonitor/satellite/orders"
 	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
 	"github.com/StorXNetwork/common/identity"
@@ -93,10 +94,17 @@ func (endpoint *Endpoint) beginSegment(ctx context.Context, req *pb.SegmentBegin
 
 	maxPieceSize := defaultRedundancy.PieceSize(req.MaxOrderLimit)
 
+	placementConstraint := storxnetwork.PlacementConstraint(streamID.Placement)
+	allowedIDs, err := endpoint.allowedIDsForOwnNodes(ctx, keyInfo.ProjectID, placementConstraint)
+	if err != nil {
+		return nil, err
+	}
+
 	nodes, err := endpoint.overlay.FindStorageNodesForUpload(ctx, overlay.FindStorageNodesRequest{
 		RequestedCount: int(defaultRedundancy.TotalShares),
-		Placement:      storxnetwork.PlacementConstraint(streamID.Placement),
+		Placement:      placementConstraint,
 		Requester:      peer.ID,
+		AllowedIDs:     allowedIDs,
 	})
 
 	for _, node := range nodes {
@@ -275,10 +283,17 @@ func (endpoint *Endpoint) RetryBeginSegmentPieces(ctx context.Context, req *pb.R
 		}
 	}
 
+	placementConstraint := storxnetwork.PlacementConstraint(segmentID.StreamId.Placement)
+	allowedIDs, err := endpoint.allowedIDsForOwnNodes(ctx, keyInfo.ProjectID, placementConstraint)
+	if err != nil {
+		return nil, err
+	}
+
 	nodes, err := endpoint.overlay.FindStorageNodesForUpload(ctx, overlay.FindStorageNodesRequest{
 		RequestedCount: len(req.RetryPieceNumbers),
-		Placement:      storxnetwork.PlacementConstraint(segmentID.StreamId.Placement),
+		Placement:      placementConstraint,
 		ExcludedIDs:    excludedIDs,
+		AllowedIDs:     allowedIDs,
 	})
 	if err != nil {
 		if overlay.ErrNotEnoughNodes.Has(err) {
@@ -932,4 +947,29 @@ func (endpoint *Endpoint) DeletePart(ctx context.Context, req *pb.PartDeleteRequ
 	defer mon.Task()(&ctx)(&err)
 
 	return &pb.PartDeleteResponse{}, nil
+}
+
+// allowedIDsForOwnNodes returns the project owner's claimed node IDs when the
+// placement is OwnNodesPlacement. An empty claim list is an error.
+func (endpoint *Endpoint) allowedIDsForOwnNodes(ctx context.Context, projectID uuid.UUID, placement storxnetwork.PlacementConstraint) ([]storxnetwork.NodeID, error) {
+	if placement != nodeselection.OwnNodesPlacement {
+		return nil, nil
+	}
+	if endpoint.userNodes == nil {
+		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, "own-nodes placement requires claimed nodes")
+	}
+
+	project, err := endpoint.projects.Get(ctx, projectID)
+	if err != nil {
+		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to load project for own-nodes selection")
+	}
+
+	ids, err := endpoint.userNodes.GetNodeIDsByUserID(ctx, project.OwnerID)
+	if err != nil {
+		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to load claimed nodes")
+	}
+	if len(ids) == 0 {
+		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, "own-nodes placement enabled but no storage nodes are claimed for this project owner")
+	}
+	return ids, nil
 }

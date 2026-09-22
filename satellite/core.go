@@ -302,6 +302,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+		peer.Overlay.Service.SetDedicatedNodes(peer.DB.Console().UserNodes())
 		peer.Services.Add(lifecycle.Item{
 			Name:  "overlay",
 			Run:   peer.Overlay.Service.Run,
