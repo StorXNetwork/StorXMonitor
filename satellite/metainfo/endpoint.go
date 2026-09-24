@@ -87,7 +87,7 @@ type Endpoint struct {
 	projects                       console.Projects
 	projectMembers                 console.ProjectMembers
 	users                          console.Users
-	userNodes                      console.UserNodes
+	orgNodes                       console.OrgNodes
 	apiKeys                        APIKeys
 	apiKeyTails                    console.APIKeyTails
 	satellite                      signing.Signer
@@ -124,7 +124,7 @@ type Endpoint struct {
 func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase.DB,
 	orders *orders.Service, cache *overlay.Service, attributions attribution.DB, peerIdentities overlay.PeerIdentities,
 	apiKeys APIKeys, apiKeyTails console.APIKeyTails, projectUsage *accounting.Service, projects console.Projects,
-	projectMembers console.ProjectMembers, users console.Users, userNodes console.UserNodes, satellite signing.Signer, revocations revocation.DB,
+	projectMembers console.ProjectMembers, users console.Users, orgNodes console.OrgNodes, satellite signing.Signer, revocations revocation.DB,
 	successTrackers *SuccessTrackers, failureTracker SuccessTracker, trustedUplinks *trust.TrustedPeersList, config Config,
 	migrationModeFlag *MigrationModeFlagExtension, placement nodeselection.PlacementDefinitions, consoleConfig consoleweb.Config,
 	ordersConfig orders.Config, nodeSelectionStats *NodeSelectionStats, bucketEventing eventingconfig.Config,
@@ -176,7 +176,7 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 		projects:            projects,
 		projectMembers:      projectMembers,
 		users:               users,
-		userNodes:           userNodes,
+		orgNodes:            orgNodes,
 		satellite:           satellite,
 		limiterCache: lrucache.NewOf[*rate.Limiter](lrucache.Options{
 			Capacity:   config.RateLimiter.CacheCapacity,

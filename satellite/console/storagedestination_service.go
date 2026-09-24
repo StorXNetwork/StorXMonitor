@@ -8,6 +8,8 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/StorXNetwork/StorXMonitor/satellite/nodeselection"
+	"github.com/StorXNetwork/common/storxnetwork"
 	"github.com/StorXNetwork/common/uuid"
 )
 
@@ -34,15 +36,25 @@ func (s *Service) GetStorageDestination(ctx context.Context) (resp *StorageDesti
 	dest, err := s.store.StorageDestinations().GetByUserID(ctx, user.ID)
 	if err != nil {
 		if ErrStorageDestinationNotFound.Has(err) {
-			return &StorageDestinationResponse{Mode: StorageDestinationDefault}, nil
+			resp := &StorageDestinationResponse{Mode: StorageDestinationDefault}
+			if status, stErr := s.ownNodesCapacityForUser(ctx, user.ID); stErr == nil {
+				resp.OwnNodes = status
+			}
+			return resp, nil
 		}
 		return nil, Error.Wrap(err)
 	}
-	return storageDestinationToResponse(dest), nil
+	resp = storageDestinationToResponse(dest)
+	if status, stErr := s.ownNodesCapacityForUser(ctx, user.ID); stErr == nil {
+		resp.OwnNodes = status
+	}
+	return resp, nil
 }
 
 // SetStorageDestination upserts the current user's storage destination mode (own_nodes/default).
 // External S3 credentials must use UpsertExternalS3.
+// When mode is own_nodes, links the user's active projects to their node group and
+// sets OwnNodesPlacement so uploads select claimed org nodes.
 func (s *Service) SetStorageDestination(ctx context.Context, req UpsertStorageDestinationRequest) (resp *StorageDestinationResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -59,6 +71,10 @@ func (s *Service) SetStorageDestination(ctx context.Context, req UpsertStorageDe
 		return nil, ErrValidation.New("use PUT /external-s3 to save S3 credentials")
 	}
 
+	if err = s.applyStorageDestinationPlacement(ctx, user.ID, mode); err != nil {
+		return nil, err
+	}
+
 	dest := &StorageDestination{
 		UserID: user.ID,
 		Mode:   mode,
@@ -66,7 +82,69 @@ func (s *Service) SetStorageDestination(ctx context.Context, req UpsertStorageDe
 	if err = s.store.StorageDestinations().Upsert(ctx, dest); err != nil {
 		return nil, Error.Wrap(err)
 	}
-	return storageDestinationToResponse(dest), nil
+	resp = storageDestinationToResponse(dest)
+	if status, stErr := s.ownNodesCapacityForUser(ctx, user.ID); stErr == nil {
+		resp.OwnNodes = status
+	}
+	return resp, nil
+}
+
+// applyStorageDestinationPlacement updates user + project placement for own_nodes / default.
+func (s *Service) applyStorageDestinationPlacement(ctx context.Context, userID uuid.UUID, mode string) error {
+	projects, err := s.store.Projects().GetOwnActive(ctx, userID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	switch mode {
+	case StorageDestinationOwnNodes:
+		orgID, err := s.resolveOwnNodesOrgIDForUser(ctx, userID)
+		if err != nil {
+			return err
+		}
+		if err = s.store.Users().UpdateDefaultPlacement(ctx, userID, nodeselection.OwnNodesPlacement); err != nil {
+			return Error.Wrap(err)
+		}
+		for _, p := range projects {
+			if err = s.store.Projects().UpdateDefaultPlacement(ctx, p.ID, nodeselection.OwnNodesPlacement); err != nil {
+				return Error.Wrap(err)
+			}
+			if err = s.store.Projects().UpdateOwnNodesOrgID(ctx, p.ID, &orgID); err != nil {
+				return Error.Wrap(err)
+			}
+		}
+	case StorageDestinationDefault:
+		if err = s.store.Users().UpdateDefaultPlacement(ctx, userID, storxnetwork.DefaultPlacement); err != nil {
+			return Error.Wrap(err)
+		}
+		for _, p := range projects {
+			if err = s.store.Projects().UpdateDefaultPlacement(ctx, p.ID, storxnetwork.DefaultPlacement); err != nil {
+				return Error.Wrap(err)
+			}
+			if err = s.store.Projects().UpdateOwnNodesOrgID(ctx, p.ID, nil); err != nil {
+				return Error.Wrap(err)
+			}
+		}
+	}
+	return nil
+}
+
+// resolveOwnNodesOrgIDForUser picks the user's node group (prefer one they created).
+func (s *Service) resolveOwnNodesOrgIDForUser(ctx context.Context, userID uuid.UUID) (uuid.UUID, error) {
+	orgs, err := s.store.Organizations().ListByUserID(ctx, userID)
+	if err != nil {
+		return uuid.UUID{}, Error.Wrap(err)
+	}
+	if len(orgs) == 0 {
+		return uuid.UUID{}, ErrValidation.New("create a node group before selecting own nodes storage")
+	}
+	orgID := orgs[0].ID
+	for _, o := range orgs {
+		if o.CreatedBy == userID {
+			return o.ID, nil
+		}
+	}
+	return orgID, nil
 }
 
 // ResolveBackupStorxToken returns either a gateway_s3 JSON token (external S3)

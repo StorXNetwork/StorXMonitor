@@ -1406,6 +1406,54 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 					) PRIMARY KEY ( user_id )`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add organizations and org_members tables",
+				Version:     141,
+				Action: migrate.SQL{
+					`CREATE TABLE IF NOT EXISTS organizations (
+						id BYTES(MAX) NOT NULL,
+						name STRING(MAX) NOT NULL,
+						created_by BYTES(MAX) NOT NULL,
+						created_at TIMESTAMP NOT NULL DEFAULT (current_timestamp),
+						CONSTRAINT organizations_created_by_fkey FOREIGN KEY (created_by) REFERENCES users (id)
+					) PRIMARY KEY ( id )`,
+					`CREATE TABLE IF NOT EXISTS org_members (
+						org_id BYTES(MAX) NOT NULL,
+						user_id BYTES(MAX) NOT NULL,
+						role STRING(MAX) NOT NULL,
+						created_at TIMESTAMP NOT NULL DEFAULT (current_timestamp),
+						CONSTRAINT org_members_org_id_fkey FOREIGN KEY (org_id) REFERENCES organizations (id) ON DELETE CASCADE,
+						CONSTRAINT org_members_user_id_fkey FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+					) PRIMARY KEY ( org_id, user_id )`,
+					`CREATE INDEX org_members_user_id_index ON org_members ( user_id )`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add org_nodes table for organization own-nodes claims",
+				Version:     142,
+				Action: migrate.SQL{
+					`CREATE TABLE IF NOT EXISTS org_nodes (
+						org_id BYTES(MAX) NOT NULL,
+						node_id BYTES(MAX) NOT NULL,
+						claimed_by BYTES(MAX) NOT NULL,
+						created_at TIMESTAMP NOT NULL DEFAULT (current_timestamp),
+						CONSTRAINT org_nodes_org_id_fkey FOREIGN KEY (org_id) REFERENCES organizations (id) ON DELETE CASCADE,
+						CONSTRAINT org_nodes_claimed_by_fkey FOREIGN KEY (claimed_by) REFERENCES users (id)
+					) PRIMARY KEY ( org_id, node_id )`,
+					`CREATE UNIQUE INDEX org_nodes_node_id_key ON org_nodes ( node_id )`,
+					`CREATE INDEX org_nodes_org_id_index ON org_nodes ( org_id )`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add own_nodes_org_id to projects",
+				Version:     143,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ADD COLUMN IF NOT EXISTS own_nodes_org_id BYTES(MAX)`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
@@ -5564,6 +5612,52 @@ true, NOW(), NOW());`,
 						updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
 						PRIMARY KEY ( user_id )
 					);`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add organizations and org_members tables",
+				Version:     392,
+				Action: migrate.SQL{
+					`CREATE TABLE IF NOT EXISTS organizations (
+						id bytea NOT NULL,
+						name text NOT NULL,
+						created_by bytea NOT NULL REFERENCES users( id ),
+						created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+						PRIMARY KEY ( id )
+					);`,
+					`CREATE TABLE IF NOT EXISTS org_members (
+						org_id bytea NOT NULL REFERENCES organizations( id ) ON DELETE CASCADE,
+						user_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
+						role text NOT NULL,
+						created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+						PRIMARY KEY ( org_id, user_id )
+					);`,
+					`CREATE INDEX IF NOT EXISTS org_members_user_id_index ON org_members ( user_id );`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add org_nodes table for organization own-nodes claims",
+				Version:     393,
+				Action: migrate.SQL{
+					`CREATE TABLE IF NOT EXISTS org_nodes (
+						org_id bytea NOT NULL REFERENCES organizations( id ) ON DELETE CASCADE,
+						node_id bytea NOT NULL,
+						claimed_by bytea NOT NULL REFERENCES users( id ),
+						created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+						PRIMARY KEY ( org_id, node_id )
+					);`,
+					`CREATE UNIQUE INDEX IF NOT EXISTS org_nodes_node_id_key ON org_nodes ( node_id );`,
+					`CREATE INDEX IF NOT EXISTS org_nodes_org_id_index ON org_nodes ( org_id );`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add own_nodes_org_id to projects",
+				Version:     394,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ADD COLUMN IF NOT EXISTS own_nodes_org_id bytea;`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run

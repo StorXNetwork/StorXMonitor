@@ -80,9 +80,12 @@ func (s State) selectAllowed(ctx context.Context, requester storxnetwork.NodeID,
 		}
 	}
 
-	selectorInit := placement.Selector
-	if selectorInit == nil {
-		selectorInit = RandomSelector()
+	// Dedicated fleets (own-nodes) are often co-located on one LAN / localhost.
+	// AttributeGroupSelector(last_net) would return at most one node per subnet,
+	// so allowlist selection always uses RandomSelector.
+	selectorInit := RandomSelector()
+	if p != OwnNodesPlacement && placement.Selector != nil {
+		selectorInit = placement.Selector
 	}
 
 	var filter NodeFilters

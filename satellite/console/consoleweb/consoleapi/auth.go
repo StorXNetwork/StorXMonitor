@@ -4965,7 +4965,8 @@ func (a *Auth) getStatusCode(err error) int {
 		return http.StatusConflict
 	case console.ErrEmailNotFound.Has(err):
 		return http.StatusNotFound
-	case console.ErrCredentialsInvalid.Has(err), console.ErrReauthRequired.Has(err):
+	case console.ErrCredentialsInvalid.Has(err), console.ErrReauthRequired.Has(err),
+		console.ErrOwnNodesInsufficient.Has(err):
 		return http.StatusUnprocessableEntity
 	default:
 		return http.StatusInternalServerError
@@ -5002,6 +5003,12 @@ func (a *Auth) getUserErrorMessage(err error) string {
 		return err.Error()
 	case console.ErrLoginRestricted.Has(err):
 		return "You can't be authenticated. Please contact support"
+	case console.ErrOwnNodesInsufficient.Has(err):
+		msg := err.Error()
+		if i := strings.Index(msg, ": "); i >= 0 {
+			return strings.TrimSpace(msg[i+2:])
+		}
+		return "Connect at least 10 storage nodes to your node group before starting backups."
 	case console.ErrValidation.Has(err), console.ErrChangePassword.Has(err), console.ErrInvalidProjectLimit.Has(err),
 		console.ErrNotPaidTier.Has(err), console.ErrTooManyAttempts.Has(err), console.ErrMFAEnabled.Has(err),
 		console.ErrForbidden.Has(err), console.ErrConflict.Has(err), console.ErrProjectInviteInvalid.Has(err):

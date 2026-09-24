@@ -29,6 +29,11 @@ if [ -n "${WALLET:-}" ]; then
   SNO_RUN_PARAMS="${SNO_RUN_PARAMS} --operator.wallet=${WALLET}"
 fi
 
+# CyberLS own-nodes bind (separate from contact EMAIL). Org is resolved on satellite from USER_ID.
+if [ -n "${USER_ID:-}" ]; then
+  SNO_RUN_PARAMS="${SNO_RUN_PARAMS} --operator.user-id=${USER_ID}"
+fi
+
 if [ -n "${LOG_LEVEL:-}" ]; then
   SNO_RUN_PARAMS="${SNO_RUN_PARAMS} --log.level=${LOG_LEVEL}"
 fi

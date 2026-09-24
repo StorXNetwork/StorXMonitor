@@ -230,6 +230,16 @@ func (s *Service) CreateGoogleBackupAutoSyncJobs(ctx context.Context, req Create
 		payload["org_unit_schedules"] = req.OrgUnitSchedules
 	}
 
+	// own_nodes mode: allow job create, but keep inactive until >= MinOwnNodesRequired.
+	ownNodesStatus, capacityErr := s.ownNodesCapacityForUser(ctx, user.ID)
+	jobsCreatedInactive := false
+	if capacityErr != nil {
+		s.log.Warn("own-nodes capacity check failed during job create", zap.Error(capacityErr))
+	} else if ownNodesStatus != nil && ownNodesStatus.Required && !ownNodesStatus.Ready {
+		payload["active"] = false
+		jobsCreatedInactive = true
+	}
+
 	btPayload, err := json.Marshal(payload)
 	if err != nil {
 		return nil, 0, Error.Wrap(err)
@@ -242,6 +252,13 @@ func (s *Service) CreateGoogleBackupAutoSyncJobs(ctx context.Context, req Create
 	}
 	if status == http.StatusOK {
 		s.maybeCompleteGoogleBackupOnboarding(ctx, body)
+		if ownNodesStatus != nil {
+			if jobsCreatedInactive {
+				s.enforceOwnNodesInactiveJobs(ctx, tokenKey, ownNodesStatus)
+				body = mergeOwnNodesCreateFlags(body, true)
+			}
+			body = mergeOwnNodesIntoJSONObject(body, "own_nodes", ownNodesStatus)
+		}
 	}
 	return body, status, nil
 }
@@ -320,6 +337,15 @@ func (s *Service) UpdateGoogleBackupAutoSyncJobsByProject(ctx context.Context, t
 	}
 	if err := req.Validate(); err != nil {
 		return nil, 0, err
+	}
+	if req.Active != nil && *req.Active {
+		user, userErr := GetUser(ctx)
+		if userErr != nil {
+			return nil, 0, Error.Wrap(userErr)
+		}
+		if gateErr := s.requireOwnNodesReadyForActivation(ctx, user.ID); gateErr != nil {
+			return nil, 0, gateErr
+		}
 	}
 	if err := s.applyGoogleBackupProjectUpdateTokens(ctx, &req, redirectURI); err != nil {
 		return nil, 0, err
@@ -451,6 +477,16 @@ func (s *Service) UpdateGoogleBackupAutoSyncJob(ctx context.Context, tokenKey, j
 	}
 	if err := req.Validate(); err != nil {
 		return nil, 0, err
+	}
+
+	if req.Active != nil && *req.Active {
+		user, userErr := GetUser(ctx)
+		if userErr != nil {
+			return nil, 0, Error.Wrap(userErr)
+		}
+		if gateErr := s.requireOwnNodesReadyForActivation(ctx, user.ID); gateErr != nil {
+			return nil, 0, gateErr
+		}
 	}
 
 	btPayload, err := req.backupToolsPayload()

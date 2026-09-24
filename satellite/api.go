@@ -333,7 +333,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
-		peer.Overlay.Service.SetDedicatedNodes(peer.DB.Console().UserNodes())
+		peer.Overlay.Service.SetDedicatedNodes(peer.DB.Console().OrgNodes())
 		peer.Services.Add(lifecycle.Item{
 			Name:  "overlay",
 			Run:   peer.Overlay.Service.Run,
@@ -571,7 +571,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.Console().Projects(),
 			peer.DB.Console().ProjectMembers(),
 			peer.DB.Console().Users(),
-			peer.DB.Console().UserNodes(),
+			peer.DB.Console().OrgNodes(),
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.DB.Revocation(),
 			peer.SuccessTrackers,
@@ -847,6 +847,9 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 		peer.Console.Service.SetResellerTenantLookup(consoleweb.NewResellerTenantResolver(peer.DB.Seller(), consoleConfig.SellerExternalAddress))
 		peer.Console.Service.SetMailExportOrdersDB(peer.Orders.DB)
+		if peer.Contact.Endpoint != nil {
+			peer.Contact.Endpoint.SetOwnNodesMapper(peer.Console.Service)
+		}
 		if peer.Mail.Service != nil {
 			peer.Mail.Service.SetBrandingResolver(peer.Console.Service.ResellerMailBranding)
 			peer.Mail.Service.SetSenderResolver(peer.Console.Service.ResellerMailSender)
@@ -1284,6 +1287,9 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			}
 			peer.Console.Service.SetResellerTenantLookup(consoleweb.NewResellerTenantResolver(peer.DB.Seller(), consoleConfig.SellerExternalAddress))
 			peer.Console.Service.SetMailExportOrdersDB(peer.Orders.DB)
+			if peer.Contact.Endpoint != nil {
+				peer.Contact.Endpoint.SetOwnNodesMapper(peer.Console.Service)
+			}
 			if peer.Mail.Service != nil {
 				peer.Mail.Service.SetBrandingResolver(peer.Console.Service.ResellerMailBranding)
 				peer.Mail.Service.SetSenderResolver(peer.Console.Service.ResellerMailSender)

@@ -97,9 +97,25 @@ func (s *Service) GetGoogleBackupUsersGroupsMailboxCredentials(ctx context.Conte
 	return s.getGoogleBackupUsersGroups(ctx, tokenKey, "/users-groups/mailbox/credentials", query)
 }
 
-// GetGoogleBackupDashboardAlerts proxies Backup-Tools GET /autosync/dashboard-alerts.
+// GetGoogleBackupDashboardAlerts proxies Backup-Tools GET /autosync/dashboard-alerts
+// and attaches own_nodes readiness for sidebar / onboarding warnings.
+// When own_nodes is under MinOwnNodesRequired, forces Backup-Tools jobs inactive
+// so cron cannot keep "push to queue".
 func (s *Service) GetGoogleBackupDashboardAlerts(ctx context.Context, tokenKey string) (body []byte, status int, err error) {
-	return s.getGoogleBackupUsersGroups(ctx, tokenKey, "/autosync/dashboard-alerts", "")
+	body, status, err = s.getGoogleBackupUsersGroups(ctx, tokenKey, "/autosync/dashboard-alerts", "")
+	if err != nil || status != http.StatusOK {
+		return body, status, err
+	}
+	user, userErr := GetUser(ctx)
+	if userErr != nil {
+		return body, status, nil
+	}
+	ownStatus, stErr := s.ownNodesCapacityForUser(ctx, user.ID)
+	if stErr != nil || ownStatus == nil {
+		return body, status, nil
+	}
+	s.enforceOwnNodesInactiveJobs(ctx, tokenKey, ownStatus)
+	return mergeOwnNodesIntoJSONObject(body, "own_nodes", ownStatus), status, nil
 }
 
 // UpdateGoogleBackupUsersGroupsJobsActive proxies Backup-Tools PUT /users-groups/jobs/active.
@@ -111,6 +127,15 @@ func (s *Service) UpdateGoogleBackupUsersGroupsJobsActive(ctx context.Context, t
 	}
 	if err := (&req).Validate(); err != nil {
 		return nil, 0, err
+	}
+	if req.Active {
+		user, userErr := GetUser(ctx)
+		if userErr != nil {
+			return nil, 0, Error.Wrap(userErr)
+		}
+		if gateErr := s.requireOwnNodesReadyForActivation(ctx, user.ID); gateErr != nil {
+			return nil, 0, gateErr
+		}
 	}
 
 	payload, err := (&req).backupToolsPayload()

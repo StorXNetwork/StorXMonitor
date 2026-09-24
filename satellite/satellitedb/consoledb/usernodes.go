@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/StorXNetwork/common/storxnetwork"
-	"github.com/StorXNetwork/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console"
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/common/storxnetwork"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 var _ console.UserNodes = (*userNodes)(nil)

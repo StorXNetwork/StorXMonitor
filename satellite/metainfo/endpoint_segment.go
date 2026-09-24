@@ -949,14 +949,13 @@ func (endpoint *Endpoint) DeletePart(ctx context.Context, req *pb.PartDeleteRequ
 	return &pb.PartDeleteResponse{}, nil
 }
 
-// allowedIDsForOwnNodes returns the project owner's claimed node IDs when the
-// placement is OwnNodesPlacement. An empty claim list is an error.
+// allowedIDsForOwnNodes returns claimed org node IDs for OwnNodesPlacement.
 func (endpoint *Endpoint) allowedIDsForOwnNodes(ctx context.Context, projectID uuid.UUID, placement storxnetwork.PlacementConstraint) ([]storxnetwork.NodeID, error) {
 	if placement != nodeselection.OwnNodesPlacement {
 		return nil, nil
 	}
-	if endpoint.userNodes == nil {
-		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, "own-nodes placement requires claimed nodes")
+	if endpoint.orgNodes == nil {
+		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, "own-nodes placement requires claimed org nodes")
 	}
 
 	project, err := endpoint.projects.Get(ctx, projectID)
@@ -964,12 +963,19 @@ func (endpoint *Endpoint) allowedIDsForOwnNodes(ctx context.Context, projectID u
 		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to load project for own-nodes selection")
 	}
 
-	ids, err := endpoint.userNodes.GetNodeIDsByUserID(ctx, project.OwnerID)
+	orgID, err := endpoint.projects.GetOwnNodesOrgID(ctx, project.ID)
 	if err != nil {
-		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to load claimed nodes")
+		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to load own-nodes org for project")
+	}
+	if orgID == nil || orgID.IsZero() {
+		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, "own-nodes placement enabled but no organization is linked to this project")
+	}
+	ids, err := endpoint.orgNodes.GetNodeIDsByOrgID(ctx, *orgID)
+	if err != nil {
+		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to load claimed org nodes")
 	}
 	if len(ids) == 0 {
-		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, "own-nodes placement enabled but no storage nodes are claimed for this project owner")
+		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, "own-nodes placement enabled but no storage nodes are claimed for this organization")
 	}
 	return ids, nil
 }

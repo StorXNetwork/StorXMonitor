@@ -52,16 +52,9 @@ type UserNodes interface {
 
 // UserNode is a user ↔ storage node claim.
 type UserNode struct {
-	UserID    uuid.UUID            `json:"userId"`
-	NodeID    storxnetwork.NodeID  `json:"nodeId"`
-	CreatedAt time.Time            `json:"createdAt"`
-}
-
-// OwnNodesOnlyStatus is the response for GET own-nodes-only.
-type OwnNodesOnlyStatus struct {
-	Enabled   bool       `json:"enabled"`
-	ProjectID uuid.UUID  `json:"projectId"`
-	Placement int        `json:"placement"`
+	UserID    uuid.UUID           `json:"userId"`
+	NodeID    storxnetwork.NodeID `json:"nodeId"`
+	CreatedAt time.Time           `json:"createdAt"`
 }
 
 // ParseNodeID parses a base58 or hex-encoded storage node ID.

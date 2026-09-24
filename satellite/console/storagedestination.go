@@ -56,10 +56,11 @@ type StorageDestination struct {
 
 // StorageDestinationResponse is the API response (secrets included for the owner session).
 type StorageDestinationResponse struct {
-	Mode         string `json:"mode"`
-	AccessKeyID  string `json:"access_key_id,omitempty"`
-	SecretKey    string `json:"secret_key,omitempty"`
-	Endpoint     string `json:"endpoint,omitempty"`
+	Mode         string                  `json:"mode"`
+	AccessKeyID  string                  `json:"access_key_id,omitempty"`
+	SecretKey    string                  `json:"secret_key,omitempty"`
+	Endpoint     string                  `json:"endpoint,omitempty"`
+	OwnNodes     *OwnNodesCapacityStatus `json:"own_nodes,omitempty"`
 }
 
 // UpsertStorageDestinationRequest is the body for PUT /storage-destination.

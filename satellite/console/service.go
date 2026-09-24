@@ -5782,6 +5782,24 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 	}
 	s.SendNotificationAsync(user.ID, user.Email, "project_created", "account", variables)
 
+	// If user selected own_nodes storage, link this project to their node group.
+	if dest, destErr := s.store.StorageDestinations().GetByUserID(ctx, user.ID); destErr == nil &&
+		dest != nil && dest.Mode == StorageDestinationOwnNodes {
+		if orgID, orgErr := s.resolveOwnNodesOrgIDForUser(ctx, user.ID); orgErr == nil {
+			_ = s.store.Projects().UpdateDefaultPlacement(ctx, projectID, nodeselection.OwnNodesPlacement)
+			_ = s.store.Projects().UpdateOwnNodesOrgID(ctx, projectID, &orgID)
+			if p != nil {
+				p.DefaultPlacement = nodeselection.OwnNodesPlacement
+				p.OwnNodesOrgID = &orgID
+			}
+		} else {
+			s.log.Warn("own-nodes org link skipped for new project",
+				zap.String("project_id", projectID.String()),
+				zap.Error(orgErr),
+			)
+		}
+	}
+
 	return p, nil
 }
 

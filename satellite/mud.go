@@ -139,7 +139,7 @@ func Module(ball *mud.Ball) {
 			if err != nil {
 				return nil, err
 			}
-			svc.SetDedicatedNodes(consoleDB.UserNodes())
+			svc.SetDedicatedNodes(consoleDB.OrgNodes())
 			return svc, nil
 		})
 	}
@@ -176,7 +176,7 @@ func Module(ball *mud.Ball) {
 	mud.View[DB, overlay.PeerIdentities](ball, DB.PeerIdentities)
 	mud.View[DB, srevocation.DB](ball, DB.Revocation)
 	mud.View[DB, console.DB](ball, DB.Console)
-	mud.View[console.DB, console.UserNodes](ball, console.DB.UserNodes)
+	mud.View[console.DB, console.OrgNodes](ball, console.DB.OrgNodes)
 	mud.View[overlay.DB, bloomfilter.Overlay](ball, func(db overlay.DB) bloomfilter.Overlay {
 		return db
 	})

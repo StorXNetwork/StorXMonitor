@@ -507,7 +507,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			ID:      peer.ID(),
 			Address: c.ExternalAddress,
 			Operator: pb.NodeOperator{
-				Email:          config.Operator.Email,
+				Email:          config.Operator.CheckInEmail(),
 				Wallet:         config.Operator.Wallet,
 				WalletFeatures: config.Operator.WalletFeatures,
 			},

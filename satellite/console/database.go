@@ -93,6 +93,13 @@ type DB interface {
 	// UserNodes is a getter for user ↔ storage node claim mappings.
 	UserNodes() UserNodes
 
+	// Organizations is a getter for organizations.
+	Organizations() Organizations
+	// OrgMembers is a getter for organization membership.
+	OrgMembers() OrgMembers
+	// OrgNodes is a getter for organization ↔ storage node claim mappings.
+	OrgNodes() OrgNodes
+
 	// StorageDestinations is a getter for per-user storage destination settings.
 	StorageDestinations() StorageDestinations
 

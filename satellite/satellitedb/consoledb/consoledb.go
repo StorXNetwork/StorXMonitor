@@ -141,6 +141,21 @@ func (db *ConsoleDB) UserNodes() console.UserNodes {
 	return &userNodes{db: db.DB}
 }
 
+// Organizations is a getter for organizations.
+func (db *ConsoleDB) Organizations() console.Organizations {
+	return &organizations{db: db.DB}
+}
+
+// OrgMembers is a getter for organization membership.
+func (db *ConsoleDB) OrgMembers() console.OrgMembers {
+	return &orgMembers{db: db.DB}
+}
+
+// OrgNodes is a getter for organization ↔ storage node claim mappings.
+func (db *ConsoleDB) OrgNodes() console.OrgNodes {
+	return &orgNodes{db: db.DB}
+}
+
 // StorageDestinations is a getter for per-user storage destination settings.
 func (db *ConsoleDB) StorageDestinations() console.StorageDestinations {
 	return &storageDestinations{db: db.DB}
