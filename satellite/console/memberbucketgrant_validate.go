@@ -181,6 +181,62 @@ func FilterActiveMemberGrants(grants []MemberBucketGrant, now time.Time) []Membe
 	return out
 }
 
+// InviteAccessSelection is what the inviter chooses when sending an invitation.
+// Read is list. Restore is the product restore action. Download stays on when read is on.
+// A nil selection means both (the previous default).
+type InviteAccessSelection struct {
+	Read    bool `json:"read"`
+	Restore bool `json:"restore"`
+}
+
+// DefaultInviteAccess is read + restore, the previous always-on invite access.
+func DefaultInviteAccess() InviteAccessSelection {
+	return InviteAccessSelection{Read: true, Restore: true}
+}
+
+// ResolveInviteAccess returns the selection, or the default when omitted.
+// Both false is rejected.
+func ResolveInviteAccess(sel *InviteAccessSelection) (InviteAccessSelection, error) {
+	if sel == nil {
+		return DefaultInviteAccess(), nil
+	}
+	if !sel.Read && !sel.Restore {
+		return InviteAccessSelection{}, ErrValidation.New("select at least one permission: read or restore")
+	}
+	return *sel, nil
+}
+
+// InvitePermissionLabel is the API permission name for the chosen access.
+func InvitePermissionLabel(sel InviteAccessSelection) string {
+	switch {
+	case sel.Read && sel.Restore:
+		return "read_restore"
+	case sel.Read:
+		return "read"
+	case sel.Restore:
+		return "restore"
+	default:
+		return ""
+	}
+}
+
+// ApplyInviteAccess sets list and download from read. Restore does not remove
+// download. Upload and delete stay false. Restore is enforced in the product UI.
+func ApplyInviteAccess(grants []MemberBucketGrantInput, sel InviteAccessSelection) []MemberBucketGrantInput {
+	if grants == nil {
+		return nil
+	}
+	out := make([]MemberBucketGrantInput, len(grants))
+	copy(out, grants)
+	for i := range out {
+		out[i].AllowList = sel.Read
+		out[i].AllowDownload = sel.Read || sel.Restore
+		out[i].AllowUpload = false
+		out[i].AllowDelete = false
+	}
+	return out
+}
+
 // DefaultInviteGrants builds List+Download grants for inviteEmail under each registered bucket.
 func DefaultInviteGrants(inviteEmail string, registeredBuckets []string) []MemberBucketGrantInput {
 	return GrantsFromVaults(inviteEmail, registeredBuckets)

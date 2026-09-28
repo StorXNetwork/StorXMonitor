@@ -9235,7 +9235,7 @@ func (s *Service) ReinviteProjectMembersDetailed(ctx context.Context, projectID 
 	if strings.TrimSpace(linkOpt) == "" {
 		linkOpt = DefaultInviteLinkExpiration
 	}
-	return s.inviteProjectMembers(ctx, user, projectID, params.Emails, ProjectInvitationResend, nil, linkOpt, nil)
+	return s.inviteProjectMembers(ctx, user, projectID, params.Emails, ProjectInvitationResend, nil, linkOpt, nil, nil)
 }
 
 // UpdatePendingInviteParams updates link expiry and/or pending vault grants for an existing invite.
@@ -9361,7 +9361,7 @@ func (s *Service) UpdatePendingInviteAccess(ctx context.Context, projectID uuid.
 		if strings.TrimSpace(linkOpt) == "" {
 			linkOpt = "keep"
 		}
-		_, err = s.inviteProjectMembers(ctx, user, projectID, []string{email}, ProjectInvitationResend, nil, linkOpt, nil)
+		_, err = s.inviteProjectMembers(ctx, user, projectID, []string{email}, ProjectInvitationResend, nil, linkOpt, nil, nil)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
@@ -9415,6 +9415,8 @@ type InviteProjectMemberParams struct {
 	LinkExpiration string
 	// VaultExpiration is 24h|3d|7d|30d (empty = vault access does not expire).
 	VaultExpiration string
+	// Permissions is optional. Nil keeps read + restore. Set to choose which the invitee gets.
+	Permissions *InviteAccessSelection
 }
 
 // InviteProjectMemberResult is returned to the Grant Access / invite API.
@@ -9425,8 +9427,10 @@ type InviteProjectMemberResult struct {
 	LinkExpiresAt  time.Time          `json:"link_expires_at"`
 	VaultExpiresAt *time.Time         `json:"vault_expires_at,omitempty"`
 	Vaults         []string           `json:"vaults"`
-	// Permission is always read_only for now (list + download). Write/delete scopes come later.
+	// Permission is read, restore, or read_restore.
 	Permission string `json:"permission"`
+	Read       bool   `json:"read"`
+	Restore    bool   `json:"restore"`
 }
 
 // InviteNewProjectMemberDetailed invites a member and returns link + expiry metadata for the UI.
@@ -9454,7 +9458,12 @@ func (s *Service) InviteNewProjectMemberDetailed(ctx context.Context, projectID 
 		return nil, err
 	}
 
-	invites, err := s.inviteProjectMembers(ctx, user, projectID, []string{email}, ProjectInvitationCreate, params.Grants, linkOpt, vaultDur)
+	access, err := ResolveInviteAccess(params.Permissions)
+	if err != nil {
+		return nil, err
+	}
+
+	invites, err := s.inviteProjectMembers(ctx, user, projectID, []string{email}, ProjectInvitationCreate, params.Grants, linkOpt, vaultDur, &access)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -9497,16 +9506,20 @@ func (s *Service) InviteNewProjectMemberDetailed(ctx context.Context, projectID 
 		LinkExpiresAt:  linkExpiresAt,
 		VaultExpiresAt: vaultExpiresAt,
 		Vaults:         vaults,
-		Permission:     "read_only",
+		Permission:     InvitePermissionLabel(access),
+		Read:           access.Read,
+		Restore:        access.Restore,
 	}, nil
 }
 
 // ProjectMemberInviteRequest is one entry for bulk invite (same idea as single invite).
 // Vaults are bucket names (e.g. cyberls-gmail, cyberls-drive). Server builds List+Download on `{email}/`.
 // Vaults == nil → ACL-registry defaults; non-nil (including empty) uses those vault names only.
+// Permissions nil → read + restore.
 type ProjectMemberInviteRequest struct {
-	Email  string
-	Vaults *[]string
+	Email       string
+	Vaults      *[]string
+	Permissions *InviteAccessSelection
 }
 
 // ProjectMemberInviteResult is the per-email outcome of a bulk invite.
@@ -9561,7 +9574,7 @@ func (s *Service) InviteNewProjectMembers(ctx context.Context, projectID uuid.UU
 		}
 		// Vaults == nil → pass nil grants → DefaultInviteGrants from ACL registry
 
-		_, inviteErr := s.inviteProjectMembers(ctx, user, projectID, []string{email}, ProjectInvitationCreate, grants, DefaultInviteLinkExpiration, nil)
+		_, inviteErr := s.inviteProjectMembers(ctx, user, projectID, []string{email}, ProjectInvitationCreate, grants, DefaultInviteLinkExpiration, nil, req.Permissions)
 		if inviteErr != nil {
 			result.Error = inviteErr.Error()
 			results = append(results, result)
@@ -9577,7 +9590,7 @@ func (s *Service) InviteNewProjectMembers(ctx context.Context, projectID uuid.UU
 // which may be its public or internal ID.
 // pendingGrants is only used for ProjectInvitationCreate with a single email (nil = defaults).
 // linkExpiration is 24h|3d|7d|30d; vaultDuration nil means vault grants do not expire.
-func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projectID uuid.UUID, emails []string, opt ProjectInvitationOption, pendingGrants []MemberBucketGrantInput, linkExpiration string, vaultDuration *time.Duration) (invites []ProjectInvitation, err error) {
+func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projectID uuid.UUID, emails []string, opt ProjectInvitationOption, pendingGrants []MemberBucketGrantInput, linkExpiration string, vaultDuration *time.Duration, access *InviteAccessSelection) (invites []ProjectInvitation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	isMember, err := s.isProjectMember(ctx, sender.ID, projectID)
@@ -9656,8 +9669,15 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 		}
 	}
 
+	// Resolve selected invite permissions (nil = read + restore).
+	accessSel, err := ResolveInviteAccess(access)
+	if err != nil {
+		return nil, err
+	}
+
 	// Validate grant buckets exist before opening a console DB transaction.
 	// HasBucket must not run inside WithTx (panics: using DB when inside of a transaction).
+	resolvedGrants := map[string][]MemberBucketGrantInput{}
 	if opt == ProjectInvitationCreate && s.config.MemberBucketGrantsEnabled {
 		for _, email := range emails {
 			var grantsForEmail []MemberBucketGrantInput
@@ -9671,7 +9691,9 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 				}
 				grantsForEmail = DefaultInviteGrants(email, names)
 			}
-			// Copy so ValidateGrantSet normalization does not mutate caller input.
+			grantsForEmail = ApplyInviteAccess(grantsForEmail, accessSel)
+			resolvedGrants[strings.ToLower(strings.TrimSpace(email))] = grantsForEmail
+			// Copy so ValidateGrantSet normalization does not mutate stored grants.
 			grantsCopy := append([]MemberBucketGrantInput(nil), grantsForEmail...)
 			if vErr := ValidateGrantSet(grantsCopy); vErr != nil {
 				return nil, ErrValidation.Wrap(vErr)
@@ -9712,10 +9734,7 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 			}
 
 			if opt == ProjectInvitationCreate {
-				var grantsForEmail []MemberBucketGrantInput
-				if len(emails) == 1 {
-					grantsForEmail = pendingGrants
-				}
+				grantsForEmail := resolvedGrants[strings.ToLower(strings.TrimSpace(email))]
 				if err = s.createPendingMemberGrants(ctx, tx, projectID, email, grantsForEmail, vaultExpiresAt); err != nil {
 					return err
 				}
@@ -10760,11 +10779,12 @@ func (s *Service) GetDashboardStats(ctx context.Context, userID uuid.UUID, token
 		if projErr != nil {
 			return projErr
 		}
-		if len(projects) == 0 {
+		projectID := ownedDashboardProjectID(user.ID, projects)
+		if projectID.IsZero() {
 			return nil
 		}
 
-		limits, limitsErr := s.getDashboardUsageLimits(gctx, user.ID, projects[0].ID)
+		limits, limitsErr := s.getDashboardUsageLimits(gctx, user.ID, projectID)
 		if limitsErr != nil {
 			return limitsErr
 		}
@@ -10806,6 +10826,21 @@ func (s *Service) GetDashboardStats(ctx context.Context, userID uuid.UUID, token
 	}
 
 	return result, nil
+}
+
+// ownedDashboardProjectID prefers the project this user owns.
+// GetByUserID also returns projects they were invited to; the first row is often
+// the inviter's project and would show that owner's storage on the invitee's dashboard.
+func ownedDashboardProjectID(userID uuid.UUID, projects []Project) uuid.UUID {
+	for _, p := range projects {
+		if p.OwnerID == userID {
+			return p.ID
+		}
+	}
+	if len(projects) == 0 {
+		return uuid.UUID{}
+	}
+	return projects[0].ID
 }
 
 // getDashboardUsageLimits returns quota fields for dashboard cards without object/segment or bucket counts.
@@ -11479,6 +11514,9 @@ func (s *Service) backupToolsRequest(ctx context.Context, method, path, tokenKey
 		req.Header.Set("Authorization", "Bearer "+accessToken)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	if ownerID := restoreOwnerFromContext(ctx); ownerID != "" {
+		req.Header.Set("X-Restore-As-User", ownerID)
+	}
 
 	resp, err := (&http.Client{Timeout: 60 * time.Second}).Do(req)
 	if err != nil {

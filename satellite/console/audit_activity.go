@@ -11,6 +11,7 @@ import (
 
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/auditlog"
 	"github.com/StorXNetwork/StorXMonitor/satellite/tenancy"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // AuditLog returns the audit log service for read/export APIs.
@@ -189,4 +190,77 @@ func (s *Service) recordUserAuditEvent(ctx context.Context, user *User, action, 
 	go func() {
 		auditSvc.RecordAsync(context.Background(), event)
 	}()
+}
+
+// InviteeOwnerAuditMessage is the text stored on the inviter's audit log.
+func InviteeOwnerAuditMessage(base, inviteeEmail string) string {
+	base = strings.TrimSpace(base)
+	inviteeEmail = strings.TrimSpace(inviteeEmail)
+	if base == "" {
+		base = "Invited user operation"
+	}
+	if inviteeEmail == "" {
+		return base
+	}
+	return base + " by invited user " + inviteeEmail
+}
+
+// RecordInviteeAuditForOwner copies a restore or download result onto the project
+// owner audit log when the session user is an invited member, not the owner.
+// An empty projectID copies the event to every project owner this user was invited into.
+func (s *Service) RecordInviteeAuditForOwner(ctx context.Context, projectID, action, resource, successMessage string, httpStatus int, body []byte, callErr error) {
+	if s == nil || s.auditLogService == nil || action == "" {
+		return
+	}
+	user, err := GetUser(ctx)
+	if err != nil || user == nil {
+		return
+	}
+	msg, status := userAuditHTTPOutcome(successMessage, httpStatus, body, callErr)
+	ownerMsg := InviteeOwnerAuditMessage(msg, user.Email)
+
+	ownerIDs := s.inviteAuditOwnerIDs(ctx, user.ID, projectID)
+	seen := map[uuid.UUID]struct{}{}
+	for _, ownerID := range ownerIDs {
+		if ownerID == user.ID {
+			continue
+		}
+		if _, ok := seen[ownerID]; ok {
+			continue
+		}
+		seen[ownerID] = struct{}{}
+		owner, getErr := s.store.Users().Get(ctx, ownerID)
+		if getErr != nil || owner == nil {
+			continue
+		}
+		s.recordUserAuditEvent(ctx, owner, action, resource, ownerMsg, status)
+	}
+}
+
+func (s *Service) inviteAuditOwnerIDs(ctx context.Context, userID uuid.UUID, projectID string) []uuid.UUID {
+	if idText := strings.TrimSpace(projectID); idText != "" {
+		projectUUID, parseErr := uuid.FromString(idText)
+		if parseErr != nil {
+			return nil
+		}
+		member, memberErr := s.isProjectMember(ctx, userID, projectUUID)
+		if memberErr != nil || member.project == nil || member.project.OwnerID == userID {
+			return nil
+		}
+		return []uuid.UUID{member.project.OwnerID}
+	}
+
+	memberships, err := s.store.ProjectMembers().GetByMemberID(ctx, userID)
+	if err != nil {
+		return nil
+	}
+	var owners []uuid.UUID
+	for _, membership := range memberships {
+		project, getErr := s.store.Projects().Get(ctx, membership.ProjectID)
+		if getErr != nil || project == nil || project.OwnerID == userID {
+			continue
+		}
+		owners = append(owners, project.OwnerID)
+	}
+	return owners
 }
