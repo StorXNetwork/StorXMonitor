@@ -250,6 +250,10 @@
 sudo su -c "bash &lt;(wget -qO- https://raw.githubusercontent.com/StorXNetwork/Storage-Node/main/clone_repo.sh)" root
 cd Storage-Node
 
+# Staging image (not storxnetwork/storxnode-2:latest)
+sudo sed -i "s|storxnetwork/storxnode-2:latest|dhaval1204/storxnode-2:staging|g" start-node.sh upgrade-steps.sh
+sudo docker pull dhaval1204/storxnode-2:staging
+
 # Bootstrap (installs Docker, .env, identity)
 sudo bash bootstrap.sh
 
@@ -353,7 +357,7 @@ docker --version</code></pre>
                 <div class="step">
                     <div class="step-detail">
                         <h4>4. Start the node</h4>
-                        <p>Starts the Docker container <code>storage_node_container</code> with ports <code>28967</code> and <code>14002</code>. If a container with that name already exists, stop/remove it first (or use upgrade).</p>
+                        <p>Starts the Docker container <code>storage_node_container</code> from <code>dhaval1204/storxnode-2:staging</code> with ports <code>28967</code> and <code>14002</code>. If a container with that name already exists, stop/remove it first (or use upgrade). <code>USER_ID</code> in <code>.env</code> binds the node to the CyberLS account.</p>
                     </div>
                     <div class="step-cmds">
                         <div class="code-block">
@@ -413,7 +417,7 @@ sudo ufw status</code></pre>
                 <div class="step">
                     <div class="step-detail">
                         <h4>8. Upgrade the node</h4>
-                        <p>Pulls latest scripts and upgrades the node image/config without a full re-bootstrap.</p>
+                        <p>Pulls latest scripts and upgrades using <code>dhaval1204/storxnode-2:staging</code> without a full re-bootstrap.</p>
                     </div>
                     <div class="step-cmds">
                         <div class="code-block">
@@ -440,6 +444,8 @@ sudo bash ./upgrade.sh</code></pre>
 <pre><code># Example bind line (values come from CyberLs UI — copy from there)
 cp -n .env.sample .env
 sed -i 's|^USER_ID=.*|USER_ID=&lt;FROM_UI&gt;|' .env
+sudo sed -i "s|storxnetwork/storxnode-2:latest|dhaval1204/storxnode-2:staging|g" start-node.sh upgrade-steps.sh
+sudo docker pull dhaval1204/storxnode-2:staging
 sudo bash bootstrap.sh
 sudo bash start-node.sh</code></pre>
                             <button type="button" class="copy-btn" aria-label="Copy command">Copy</button>

@@ -221,37 +221,34 @@ func (s *Service) GetNodeSetup(ctx context.Context, orgID uuid.UUID) (info *Node
 
 func buildOwnNodesShellCommands(bindEmail, contactEmail, wallet, satelliteAddr string) []string {
 	_ = satelliteAddr
-	_ = wallet
 	// bindEmail is ownnodes:<userUUID>; extract user id for USER_ID=.
 	userID := strings.TrimPrefix(bindEmail, "ownnodes:")
 	if i := strings.IndexByte(userID, ':'); i >= 0 {
 		userID = userID[:i]
 	}
-	// Escape single quotes for embedding in sed inside single-quoted bash -c.
-	safeEmail := strings.ReplaceAll(contactEmail, "'", "'\\''")
-	emailLine := ""
-	if safeEmail != "" {
-		emailLine = " && (grep -q \"^EMAIL=\" .env || echo \"EMAIL=\" >> .env)" +
-			" && sed -i \"s/^EMAIL=.*/EMAIL=" + safeEmail + "/\" .env"
+	envBind := " && cp -n .env.sample .env" +
+		" && (grep -q \"^USER_ID=\" .env || echo \"USER_ID=\" >> .env)" +
+		" && sed -i \"s|^USER_ID=.*|USER_ID=" + userID + "|\" .env"
+	if mail := strings.TrimSpace(contactEmail); mail != "" && !strings.ContainsAny(mail, "'\"\\$`") {
+		envBind += " && (grep -q \"^EMAIL=\" .env || echo \"EMAIL=\" >> .env)" +
+			" && sed -i \"s|^EMAIL=.*|EMAIL=" + mail + "|\" .env"
+	}
+	if xdc := strings.TrimSpace(wallet); xdc != "" && !strings.ContainsAny(xdc, "'\"\\$`") {
+		envBind += " && sed -i \"s|^WALLET=.*|WALLET=" + xdc + "|\" .env"
 	}
 	cloneBind := "sudo su -c 'bash <(wget -qO- https://raw.githubusercontent.com/StorXNetwork/Storage-Node/main/clone_repo.sh)" +
-		" && cd Storage-Node && cp -n .env.sample .env" +
-		" && (grep -q \"^USER_ID=\" .env || echo \"USER_ID=\" >> .env)" +
-		" && sed -i \"s/^USER_ID=.*/USER_ID=" + userID + "/\" .env" +
-		emailLine +
+		" && cd Storage-Node && git fetch origin cyberls/node-feature-update && git checkout cyberls/node-feature-update" +
+		envBind +
 		"' root"
 	return []string{
-		"# 1) Clone & bind (USER_ID for mapping; EMAIL stays your contact address)",
+		"# 1) Clone, branch cyberls/node-feature-update, bind account",
 		cloneBind,
 		"",
-		"# 2) Identity",
-		"sudo bash bootstrap.sh",
+		"# 2) Setup 10 nodes",
+		"sudo NODE_COUNT=10 bash bootstrap-multi.sh",
 		"",
-		"# 3) Start node",
-		"sudo bash start-node.sh",
-		"",
-		"# 4) Check logs",
-		"sudo bash check-logs.sh",
+		"# 3) Start 10 nodes",
+		"sudo NODE_COUNT=10 LOCAL_SATELLITE=0 bash start-multi.sh",
 	}
 }
 
