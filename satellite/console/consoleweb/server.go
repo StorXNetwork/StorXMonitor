@@ -1247,26 +1247,11 @@ const defaultTrustSource = "12w2YPMMyNGdeiMuQN2uBi5hkDpmdMBqd2kyZ7SbmBwtei7XTa4@
 // trustSourceLine prefers the running satellite identity and contact.external-address.
 // A listen address with no public host (":10000") keeps the hardcoded default.
 func trustSourceLine(nodeURL storxnetwork.NodeURL) string {
-	if nodeURL.ID.IsZero() {
-		return defaultTrustSource
-	}
-
-	if nodeURL.Address != "" {
+	if !nodeURL.ID.IsZero() {
 		return nodeURL.String()
 	}
 
 	return defaultTrustSource
-}
-
-func publicTrustHost(address string) bool {
-	host, _, err := net.SplitHostPort(address)
-	if err != nil || host == "" {
-		return false
-	}
-	if ip := net.ParseIP(host); ip != nil && (ip.IsUnspecified() || ip.IsLoopback()) {
-		return false
-	}
-	return true
 }
 
 // oauth2IntegrationHandler handles the oauth2 integration.
