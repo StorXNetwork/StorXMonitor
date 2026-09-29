@@ -1242,16 +1242,20 @@ func (server *Server) googleVerificationHandler(googleHTML string) http.HandlerF
 }
 
 // defaultTrustSource is used when the satellite has no public contact address.
-const defaultTrustSource = "12w2YPMMyNGdeiMuQN2uBi5hkDpmdMBqd2kyZ7SbmBwtei7XTa4@217.147.93.13:10000"
+//const defaultTrustSource = "12w2YPMMyNGdeiMuQN2uBi5hkDpmdMBqd2kyZ7SbmBwtei7XTa4@217.147.93.13:10000"
 
 // trustSourceLine prefers the running satellite identity and contact.external-address.
 // A listen address with no public host (":10000") keeps the hardcoded default.
-func trustSourceLine(nodeURL storxnetwork.NodeURL) string {
-	if !nodeURL.ID.IsZero() {
-		return nodeURL.String()
-	}
+// func trustSourceLine(nodeURL storxnetwork.NodeURL) string {
+// 	if !nodeURL.ID.IsZero() {
+// 		return nodeURL.String()
+// 	}
 
-	return defaultTrustSource
+// 	return defaultTrustSource
+// }
+
+func trustSourceLine(nodeURL storxnetwork.NodeURL) string {
+	return nodeURL.String()
 }
 
 // oauth2IntegrationHandler handles the oauth2 integration.
