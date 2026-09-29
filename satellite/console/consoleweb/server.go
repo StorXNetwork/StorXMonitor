@@ -1241,10 +1241,33 @@ func (server *Server) googleVerificationHandler(googleHTML string) http.HandlerF
 	})
 }
 
+// defaultTrustSource is used when the satellite has no public contact address.
+const defaultTrustSource = "12w2YPMMyNGdeiMuQN2uBi5hkDpmdMBqd2kyZ7SbmBwtei7XTa4@217.147.93.13:10000"
+
+// trustSourceLine prefers the running satellite identity and contact.external-address.
+// A listen address with no public host (":10000") keeps the hardcoded default.
+func trustSourceLine(nodeURL storxnetwork.NodeURL) string {
+	if nodeURL.ID.IsZero() || !publicTrustHost(nodeURL.Address) {
+		return defaultTrustSource
+	}
+	return nodeURL.String()
+}
+
+func publicTrustHost(address string) bool {
+	host, _, err := net.SplitHostPort(address)
+	if err != nil || host == "" {
+		return false
+	}
+	if ip := net.ParseIP(host); ip != nil && (ip.IsUnspecified() || ip.IsLoopback()) {
+		return false
+	}
+	return true
+}
+
 // oauth2IntegrationHandler handles the oauth2 integration.
 func (server *Server) trustSourceHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
-	w.Write([]byte(`12w2YPMMyNGdeiMuQN2uBi5hkDpmdMBqd2kyZ7SbmBwtei7XTa4@217.147.93.13:10000`))
+	_, _ = w.Write([]byte(trustSourceLine(server.nodeURL)))
 }
 
 // varBlockerMiddleWare is a middleware that blocks requests from VAR partners.
