@@ -126,6 +126,7 @@ type SegmentRepairer struct {
 	placements                       nodeselection.PlacementDefinitions
 	// onlineWindow to consider if storage nodes are online according to their last successful contact.
 	onlineWindow time.Duration
+	ownNodes     OwnNodeLookup
 }
 
 // NewSegmentRepairer creates a new instance of SegmentRepairer.
@@ -441,11 +442,16 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 	}
 	stats.repairerRequiredDownloads.Inc(int64(requestCount))
 
-	// Request Overlay for n-h new storage nodes
+	// Request Overlay for n-h new storage nodes. Placement 250 stays on that org's nodes.
+	allowedIDs, err := repairer.OwnNodeAllowedIDs(ctx, segment.Pieces, segment.Placement)
+	if err != nil {
+		return false, overlayQueryError.Wrap(err)
+	}
 	request := overlay.FindStorageNodesRequest{
 		RequestedCount:  requestCount,
 		AlreadySelected: alreadySelected,
 		Placement:       segment.Placement,
+		AllowedIDs:      allowedIDs,
 	}
 
 	newNodes, err := repairer.overlay.FindStorageNodesForUpload(ctx, request)

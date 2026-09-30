@@ -8029,7 +8029,7 @@ func (s *Service) getProjectUsageLimits(ctx context.Context, projectID uuid.UUID
 		bucketsLimit = &s.maxProjectBuckets
 	}
 
-	return &ProjectUsageLimits{
+	limitsOut := &ProjectUsageLimits{
 		StorageLimit:          *limits.Usage,
 		UserSetStorageLimit:   limits.UserSetUsage,
 		BandwidthLimit:        *limits.Bandwidth,
@@ -8040,7 +8040,9 @@ func (s *Service) getProjectUsageLimits(ctx context.Context, projectID uuid.UUID
 		SegmentUsed:           segmentUsed,
 		BucketsUsed:           int64(bucketsUsed),
 		BucketsLimit:          int64(*bucketsLimit),
-	}, nil
+	}
+	s.applyOwnNodesQuota(ctx, projectID, limitsOut)
+	return limitsOut, nil
 }
 
 // TokenAuth returns an authenticated context by session token.
@@ -10867,7 +10869,7 @@ func (s *Service) getDashboardUsageLimits(ctx context.Context, userID, projectID
 		return nil, err
 	}
 
-	return &ProjectUsageLimits{
+	out := &ProjectUsageLimits{
 		StorageLimit:          *limits.Usage,
 		UserSetStorageLimit:   limits.UserSetUsage,
 		BandwidthLimit:        *limits.Bandwidth,
@@ -10876,7 +10878,9 @@ func (s *Service) getDashboardUsageLimits(ctx context.Context, userID, projectID
 		BandwidthUsed:         bandwidthUsed,
 		SegmentLimit:          *limits.Segments,
 		SegmentUsed:           segmentUsed,
-	}, nil
+	}
+	s.applyOwnNodesQuota(ctx, projectID, out)
+	return out, nil
 }
 
 func (s *Service) loadDashboardCardConfig(ctx context.Context) DashboardCardsResponse {

@@ -66,8 +66,17 @@ func generateInvoicesCSV(ctx context.Context, period compensation.Period, out io
 		return err
 	}
 
+	claimed, err := overlay.NewClaimedNodeSet(db.Console().OrgNodes(), time.Minute).Snapshot(ctx)
+	if err != nil {
+		zap.L().Error("own-nodes lookup failed; invoices include every node", zap.Error(err))
+		claimed = nil
+	}
+
 	invoices := make([]compensation.Invoice, 0, len(allNodes))
 	for _, node := range allNodes {
+		if _, ok := claimed[node.Id]; ok {
+			continue
+		}
 		totalAmounts, err := db.Compensation().QueryTotalAmounts(ctx, node.Id)
 		if err != nil {
 			return err

@@ -11,16 +11,17 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"github.com/StorXNetwork/common/errs2"
-	"github.com/StorXNetwork/common/process"
-	"github.com/StorXNetwork/common/process/eventkitbq"
-	"github.com/StorXNetwork/common/version"
 	"github.com/StorXNetwork/StorXMonitor/private/revocation"
 	"github.com/StorXNetwork/StorXMonitor/satellite"
 	"github.com/StorXNetwork/StorXMonitor/satellite/audit"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb"
 	"github.com/StorXNetwork/StorXMonitor/satellite/smartcontract"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/process"
+	"github.com/StorXNetwork/common/process/eventkitbq"
+	"github.com/StorXNetwork/common/version"
 )
 
 func cmdAuditorRun(cmd *cobra.Command, args []string) (err error) {
@@ -96,6 +97,7 @@ func cmdAuditorRun(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return err
 	}
+	peer.UseClaimedNodes(overlay.NewClaimedNodeSet(db.Console().OrgNodes(), 0))
 
 	_, err = peer.Version.Service.CheckVersion(ctx)
 	if err != nil {

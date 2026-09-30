@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strconv"
 	"strings"
 	"time"
 
@@ -328,6 +329,72 @@ func (n *orgNodes) CountByOrgID(ctx context.Context, orgID uuid.UUID) (count int
 		SELECT COUNT(*) FROM org_nodes WHERE org_id = ?
 	`), orgID[:]).Scan(&count)
 	return count, Error.Wrap(err)
+}
+
+// SumFreeDiskByOrgID returns the sum of positive free-disk bytes for the org's nodes.
+func (n *orgNodes) SumFreeDiskByOrgID(ctx context.Context, orgID uuid.UUID) (sum int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	err = n.db.QueryRowContext(ctx, n.db.Rebind(`
+		SELECT COALESCE(SUM(CASE WHEN nodes.free_disk > 0 THEN nodes.free_disk ELSE 0 END), 0)
+		FROM org_nodes
+		JOIN nodes ON nodes.id = org_nodes.node_id
+		WHERE org_nodes.org_id = ?
+	`), orgID[:]).Scan(&sum)
+	return sum, Error.Wrap(err)
+}
+
+// DiskTotalsByOrgID sums allocated and used disk tags for the org's nodes.
+// Tags are the latest check-in values. A node that has not sent them yet adds nothing.
+func (n *orgNodes) DiskTotalsByOrgID(ctx context.Context, orgID uuid.UUID) (allocated, used int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	rows, err := n.db.QueryContext(ctx, n.db.Rebind(`
+		SELECT node_tags.node_id, node_tags.name, node_tags.value
+		FROM org_nodes
+		JOIN node_tags ON node_tags.node_id = org_nodes.node_id
+		WHERE org_nodes.org_id = ?
+		  AND node_tags.name IN (?, ?)
+	`), orgID[:], console.DiskTagAllocated, console.DiskTagUsed)
+	if err != nil {
+		return 0, 0, Error.Wrap(err)
+	}
+	defer func() { err = errsCombine(err, rows.Close()) }()
+
+	type pair struct {
+		allocated int64
+		used      int64
+	}
+	perNode := map[string]pair{}
+	for rows.Next() {
+		var nodeID []byte
+		var name string
+		var value []byte
+		if err := rows.Scan(&nodeID, &name, &value); err != nil {
+			return 0, 0, Error.Wrap(err)
+		}
+		parsed, convErr := strconv.ParseInt(string(value), 10, 64)
+		if convErr != nil || parsed < 0 {
+			continue
+		}
+		key := string(nodeID)
+		cur := perNode[key]
+		switch name {
+		case console.DiskTagAllocated:
+			cur.allocated = parsed
+		case console.DiskTagUsed:
+			cur.used = parsed
+		}
+		perNode[key] = cur
+	}
+	if err := rows.Err(); err != nil {
+		return 0, 0, Error.Wrap(err)
+	}
+	for _, cur := range perNode {
+		allocated += cur.allocated
+		used += cur.used
+	}
+	return allocated, used, nil
 }
 
 // AllNodeIDs returns every org-claimed node ID.

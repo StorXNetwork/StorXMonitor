@@ -278,6 +278,13 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 	return peer, nil
 }
 
+// UseClaimedNodes skips audit reputation updates for org-claimed nodes during repair.
+func (peer *Repairer) UseClaimedNodes(set *overlay.ClaimedNodeSet) {
+	if r, ok := peer.Audit.Reporter.(*audit.DBReporter); ok {
+		r.SetClaimedNodes(set)
+	}
+}
+
 // Run runs the repair process until it's either closed or it errors.
 func (peer *Repairer) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)

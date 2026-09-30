@@ -127,10 +127,19 @@ func (m *Repairer) reuploadSegment(ctx context.Context, segment metabase.Segment
 		return err
 	}
 
+	var allowedIDs []storxnetwork.NodeID
+	if m.segmentRepairer != nil {
+		allowedIDs, err = m.segmentRepairer.OwnNodeAllowedIDs(ctx, segment.Pieces, segment.Placement)
+		if err != nil {
+			return err
+		}
+	}
+
 	request := overlay.FindStorageNodesRequest{
 		RequestedCount: redundancy.OptimalThreshold(),
 		ExcludedIDs:    excludeNodeIDs,
 		Placement:      segment.Placement,
+		AllowedIDs:     allowedIDs,
 	}
 
 	newNodes, err := m.overlay.FindStorageNodesForUpload(ctx, request)

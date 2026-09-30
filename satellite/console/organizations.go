@@ -109,6 +109,10 @@ type OrgNodes interface {
 	GetNodeIDsByOrgID(ctx context.Context, orgID uuid.UUID) ([]storxnetwork.NodeID, error)
 	GetByNodeID(ctx context.Context, nodeID storxnetwork.NodeID) (*OrgNode, error)
 	CountByOrgID(ctx context.Context, orgID uuid.UUID) (int, error)
+	// SumFreeDiskByOrgID returns the sum of free disk bytes reported by the org's nodes.
+	SumFreeDiskByOrgID(ctx context.Context, orgID uuid.UUID) (int64, error)
+	// DiskTotalsByOrgID returns allocated and used disk bytes reported by the org's nodes.
+	DiskTotalsByOrgID(ctx context.Context, orgID uuid.UUID) (allocated, used int64, err error)
 	AllNodeIDs(ctx context.Context) ([]storxnetwork.NodeID, error)
 	CountOnlineByOrgID(ctx context.Context, orgID uuid.UUID, onlineWindow time.Duration) (int, error)
 	// NodeExists reports whether the node is present in the overlay nodes table.
