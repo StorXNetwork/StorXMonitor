@@ -8042,6 +8042,7 @@ func (s *Service) getProjectUsageLimits(ctx context.Context, projectID uuid.UUID
 		BucketsLimit:          int64(*bucketsLimit),
 	}
 	s.applyOwnNodesQuota(ctx, projectID, limitsOut)
+	s.hideExternalS3Quota(ctx, projectID, limitsOut)
 	return limitsOut, nil
 }
 
@@ -10880,6 +10881,7 @@ func (s *Service) getDashboardUsageLimits(ctx context.Context, userID, projectID
 		SegmentUsed:           segmentUsed,
 	}
 	s.applyOwnNodesQuota(ctx, projectID, out)
+	s.hideExternalS3Quota(ctx, projectID, out)
 	return out, nil
 }
 
@@ -11112,14 +11114,14 @@ func (s *Service) enrichBandwidthQuotaCardFromLimits(card *BaseCard, usageLimits
 }
 
 func (s *Service) enrichUsageQuotaCard(card *BaseCard, used, limit int64) {
-	percent := usagePercentUsed(used, limit)
+	percent, label := quotaCardStatus(used, limit)
 	card.Value1 = formatQuotaFraction(used, limit)
-	card.Value2 = percent
+	card.Value2 = int64(percent)
 	card.Value2Label = "percent_used"
 
 	status := s.getStatus("active")
-	status.Value = fmt.Sprintf("%d%% Used", percent)
-	if percent >= 90 {
+	status.Value = label
+	if limit > 0 && percent >= 90 {
 		warn := s.getStatus("partial_success")
 		warn.Value = status.Value
 		status = warn
@@ -11144,11 +11146,16 @@ func formatQuotaFraction(used, limit int64) string {
 	return fmt.Sprintf("%s / %s", formatBytes(displayUsed), formatBytes(limit))
 }
 
+func quotaCardStatus(used, limit int64) (percent int, label string) {
+	if limit <= 0 {
+		return 0, "No limit"
+	}
+	percent = usagePercentUsed(used, limit)
+	return percent, fmt.Sprintf("%d%% Used", percent)
+}
+
 func usagePercentUsed(used, limit int64) int {
 	if limit <= 0 {
-		if used > 0 {
-			return 100
-		}
 		return 0
 	}
 	percent := int(float64(used) / float64(limit) * 100)

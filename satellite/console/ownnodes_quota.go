@@ -78,3 +78,46 @@ func (s *Service) applyOwnNodesQuota(ctx context.Context, projectID uuid.UUID, l
 		s.log.Warn("own-nodes disk quota persist failed", zap.Error(err), zap.Stringer("project", projectID))
 	}
 }
+
+// hideExternalS3Quota drops the free-tier cap from the dashboard numbers when the
+// project owner stores data on an external S3 bucket. The satellite cannot read
+// that bucket's capacity, so the card shows usage only.
+func (s *Service) hideExternalS3Quota(ctx context.Context, projectID uuid.UUID, limits *ProjectUsageLimits) {
+	if limits == nil || !s.projectUsesExternalS3(ctx, projectID) {
+		return
+	}
+	limits.StorageLimit = quotaLimitForDestination(StorageDestinationExternalS3, limits.StorageLimit)
+	limits.BandwidthLimit = quotaLimitForDestination(StorageDestinationExternalS3, limits.BandwidthLimit)
+	limits.UserSetStorageLimit = nil
+	limits.UserSetBandwidthLimit = nil
+}
+
+func (s *Service) projectUsesExternalS3(ctx context.Context, projectID uuid.UUID) bool {
+	if s == nil || s.store == nil {
+		return false
+	}
+	project, err := s.store.Projects().Get(ctx, projectID)
+	if err != nil || project == nil {
+		return false
+	}
+	if backends := s.store.ExternalS3Backends(); backends != nil {
+		backend, bErr := backends.GetByUserID(ctx, project.OwnerID)
+		if bErr == nil && backend != nil && backend.Status == ExternalS3StatusActive {
+			return true
+		}
+	}
+	dest, err := s.store.StorageDestinations().GetByUserID(ctx, project.OwnerID)
+	if err != nil || dest == nil {
+		return false
+	}
+	return dest.Mode == StorageDestinationExternalS3
+}
+
+// quotaLimitForDestination is the cap shown on storage and bandwidth cards.
+// External S3 has no capacity this satellite can read, so the cap is omitted.
+func quotaLimitForDestination(mode string, limit int64) int64 {
+	if mode == StorageDestinationExternalS3 {
+		return 0
+	}
+	return limit
+}
