@@ -112,6 +112,7 @@ type flattenedEmailVars struct {
 	CancelPasswordRecoveryLink string
 	DoubleCheckLink            string
 	CreateAccountLink          string
+	CreateAnAccountLink        string
 	SupportTeamLink            string
 	SatelliteName              string
 	ContactInfoURL             string
@@ -126,6 +127,19 @@ type flattenedEmailVars struct {
 	ScheduleMeetingLink        string
 	LockoutDuration            string
 	ActivationCode             string
+	PlanName                   string
+	Price                      string
+	Credit                     string
+	Signature                  string
+	ExpireOn                   string
+	GBsize                     string
+	Bandwidth                  string
+	Error                      string
+	Method                     string
+	ActivityType               string
+	Percentage                 string
+	StorageUsed                string
+	Limit                      string
 }
 
 // copyStringField sets dst to the string value of v.FieldByName(fieldName) if the field exists and is a string.
@@ -133,6 +147,24 @@ func copyStringField(dst *string, v reflect.Value, fieldName string) {
 	if f := v.FieldByName(fieldName); f.IsValid() && f.Kind() == reflect.String {
 		*dst = f.String()
 	}
+}
+
+func copyFormattedDuration(dst *string, v reflect.Value, fieldName string) {
+	f := v.FieldByName(fieldName)
+	if !f.IsValid() || !f.CanInterface() {
+		return
+	}
+	if d, ok := f.Interface().(time.Duration); ok && d > 0 {
+		*dst = d.String()
+	}
+}
+
+func copyFormattedFloat(dst *string, v reflect.Value, fieldName, format string) {
+	f := v.FieldByName(fieldName)
+	if !f.IsValid() || f.Kind() != reflect.Float64 {
+		return
+	}
+	*dst = fmt.Sprintf(format, f.Float())
 }
 
 // Service sends template-backed email messages through SMTP.
@@ -301,8 +333,22 @@ func (service *Service) SendRendered(ctx context.Context, to []post.Address, msg
 			copyStringField(&flatVars.ProjectName, v, "ProjectName")
 			copyStringField(&flatVars.SupportURL, v, "SupportURL")
 			copyStringField(&flatVars.ScheduleMeetingLink, v, "ScheduleMeetingLink")
-			copyStringField(&flatVars.LockoutDuration, v, "LockoutDuration")
 			copyStringField(&flatVars.ActivationCode, v, "ActivationCode")
+			copyStringField(&flatVars.CreateAnAccountLink, v, "CreateAnAccountLink")
+			copyStringField(&flatVars.PlanName, v, "PlanName")
+			copyStringField(&flatVars.Price, v, "Price")
+			copyStringField(&flatVars.Credit, v, "Credit")
+			copyStringField(&flatVars.Signature, v, "Signature")
+			copyStringField(&flatVars.ExpireOn, v, "ExpireOn")
+			copyStringField(&flatVars.GBsize, v, "GBsize")
+			copyStringField(&flatVars.Bandwidth, v, "Bandwidth")
+			copyStringField(&flatVars.Error, v, "Error")
+			copyStringField(&flatVars.Method, v, "Method")
+			copyStringField(&flatVars.ActivityType, v, "ActivityType")
+			copyFormattedDuration(&flatVars.LockoutDuration, v, "LockoutDuration")
+			copyFormattedFloat(&flatVars.Percentage, v, "Percentage", "%.0f")
+			copyFormattedFloat(&flatVars.StorageUsed, v, "StorageUsed", "%.2f")
+			copyFormattedFloat(&flatVars.Limit, v, "Limit", "%.2f")
 		}
 	}
 	templateData := &flatVars
@@ -348,7 +394,7 @@ func (service *Service) SendRendered(ctx context.Context, to []post.Address, msg
 	return err
 }
 
-const defaultPrimaryColor = "#e04124"
+const defaultPrimaryColor = "#0d1724"
 
 func (service *Service) getEmailVars(ctx context.Context) emailVars {
 	defer mon.Task()(&ctx)(nil)

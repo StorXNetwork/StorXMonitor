@@ -30,6 +30,12 @@
     "link": "/guides?type=cyberls-2fa"
   },
   {
+    "name": "How to Set Up a CyberLs Storage Node (Shell)",
+    "desc": "Bootstrap, start, stop, and upgrade a CyberLs storage node with shell scripts",
+    "type": "url",
+    "link": "/guides?type=cyberls-storage-node-shell"
+  },
+  {
     "name": "Blogs",
     "desc": "Access wealth of information, shares on our articles",
     "type": "url",

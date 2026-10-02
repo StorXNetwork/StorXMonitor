@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"math/rand"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -18,9 +19,11 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/StorXNetwork/StorXMonitor/shared/nodetag"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
 	"github.com/StorXNetwork/common/pb"
 	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/signing"
 	"github.com/StorXNetwork/common/storxnetwork"
 	"github.com/StorXNetwork/common/sync2"
 )
@@ -124,6 +127,10 @@ type Service struct {
 	initialized sync2.Fence
 
 	tags *pb.SignedNodeTagSets
+
+	signer    signing.Signer
+	allocated int64
+	used      int64
 }
 
 // NewService creates a new contact service.
@@ -220,7 +227,7 @@ func (service *Service) pingSatelliteOnce(ctx context.Context, id storxnetwork.N
 		NoiseKeyAttestation: self.NoiseKeyAttestation,
 		DebounceLimit:       int32(self.DebounceLimit),
 		Features:            features,
-		SignedTags:          service.tags,
+		SignedTags:          service.tagsForCheckIn(ctx),
 	})
 	service.quicStats.SetStatus(false)
 	if err != nil {
@@ -334,3 +341,59 @@ func (service *Service) UpdateSelf(capacity *pb.NodeCapacity) {
 	}
 	service.initialized.Release()
 }
+
+// SetSigner signs the allocated and used disk tags sent on check-in.
+func (service *Service) SetSigner(signer signing.Signer) {
+	service.mu.Lock()
+	defer service.mu.Unlock()
+	service.signer = signer
+}
+
+// UpdateDisk records allocated and used disk for the next check-in.
+// Free space stays in NodeCapacity. Allocated is the operator quota, not the whole disk.
+func (service *Service) UpdateDisk(allocated, used int64) {
+	service.mu.Lock()
+	defer service.mu.Unlock()
+	service.allocated = allocated
+	service.used = used
+}
+
+func (service *Service) tagsForCheckIn(ctx context.Context) *pb.SignedNodeTagSets {
+	service.mu.Lock()
+	base := service.tags
+	signer := service.signer
+	nodeID := service.self.ID
+	allocated := service.allocated
+	used := service.used
+	service.mu.Unlock()
+
+	out := &pb.SignedNodeTagSets{}
+	if base != nil {
+		out.Tags = append(out.Tags, base.Tags...)
+	}
+	if signer == nil || nodeID.IsZero() || allocated <= 0 {
+		return out
+	}
+	tagSet := &pb.NodeTagSet{
+		NodeId:   nodeID.Bytes(),
+		SignedAt: time.Now().Unix(),
+		Tags: []*pb.Tag{
+			{Name: DiskTagAllocated, Value: []byte(strconv.FormatInt(allocated, 10))},
+			{Name: DiskTagUsed, Value: []byte(strconv.FormatInt(used, 10))},
+		},
+	}
+	signed, err := nodetag.Sign(ctx, tagSet, signer)
+	if err != nil {
+		service.log.Warn("failed to sign disk tags", zap.Error(err))
+		return out
+	}
+	out.Tags = append(out.Tags, signed)
+	return out
+}
+
+const (
+	// DiskTagAllocated is the self-signed check-in tag for the node's allocated disk bytes.
+	DiskTagAllocated = "storx_allocated_disk"
+	// DiskTagUsed is the self-signed check-in tag for bytes used inside that allocation.
+	DiskTagUsed = "storx_used_disk"
+)

@@ -26,6 +26,13 @@ type DBReporter struct {
 	containment      Containment
 	maxRetries       int
 	maxReverifyCount int32
+	claimed          *overlay.ClaimedNodeSet
+}
+
+// SetClaimedNodes skips reputation updates for org-claimed nodes.
+// Piece removal for failed audits still runs so segments can be repaired.
+func (reporter *DBReporter) SetClaimedNodes(set *overlay.ClaimedNodeSet) {
+	reporter.claimed = set
 }
 
 // Reporter records audit reports in the overlay and database.
@@ -89,6 +96,10 @@ func (reporter *DBReporter) RecordAudits(ctx context.Context, req Report) {
 	)
 
 	nodesReputation := req.NodesReputation
+	claimed := reporter.claimedIDs(ctx)
+	successes = excludeClaimedIDs(successes, claimed)
+	unknowns = excludeClaimedIDs(unknowns, claimed)
+	offlines = excludeClaimedIDs(offlines, claimed)
 
 	reportFailures := func(tries int, resultType string, err error, nodes storxnetwork.NodeIDList, pending []*ReverificationJob) {
 		if err == nil || tries < reporter.maxRetries {
@@ -111,13 +122,13 @@ func (reporter *DBReporter) RecordAudits(ctx context.Context, req Report) {
 
 		successes, err = reporter.recordAuditStatus(ctx, successes, nodesReputation, reputation.AuditSuccess)
 		reportFailures(tries, "successful", err, successes, nil)
-		fails, err = reporter.recordFailedAudits(ctx, req.Segment, fails, nodesReputation)
+		fails, err = reporter.recordFailedAudits(ctx, req.Segment, fails, nodesReputation, claimed)
 		reportFailures(tries, "failed", err, nil, nil)
 		unknowns, err = reporter.recordAuditStatus(ctx, unknowns, nodesReputation, reputation.AuditUnknown)
 		reportFailures(tries, "unknown", err, unknowns, nil)
 		offlines, err = reporter.recordAuditStatus(ctx, offlines, nodesReputation, reputation.AuditOffline)
 		reportFailures(tries, "offline", err, offlines, nil)
-		pendingAudits, err = reporter.recordPendingAudits(ctx, pendingAudits, nodesReputation)
+		pendingAudits, err = reporter.recordPendingAudits(ctx, pendingAudits, nodesReputation, claimed)
 		reportFailures(tries, "pending", err, nil, pendingAudits)
 	}
 }
@@ -141,11 +152,27 @@ func (reporter *DBReporter) recordAuditStatus(ctx context.Context, nodeIDs storx
 }
 
 // recordPendingAudits updates the containment status of nodes with pending piece audits.
-func (reporter *DBReporter) recordPendingAudits(ctx context.Context, pendingAudits []*ReverificationJob, nodesReputation map[storxnetwork.NodeID]overlay.ReputationStatus) (failed []*ReverificationJob, err error) {
+func (reporter *DBReporter) claimedIDs(ctx context.Context) map[storxnetwork.NodeID]struct{} {
+	if reporter.claimed == nil {
+		return nil
+	}
+	ids, err := reporter.claimed.Snapshot(ctx)
+	if err != nil {
+		reporter.log.Error("own-nodes lookup failed; recording audits", zap.Error(err))
+		return nil
+	}
+	return ids
+}
+
+func (reporter *DBReporter) recordPendingAudits(ctx context.Context, pendingAudits []*ReverificationJob, nodesReputation map[storxnetwork.NodeID]overlay.ReputationStatus, claimed map[storxnetwork.NodeID]struct{}) (failed []*ReverificationJob, err error) {
 	defer mon.Task()(&ctx)(&err)
 	var errlist errs.Group
 
 	for _, pendingAudit := range pendingAudits {
+		if claimedNode(claimed, pendingAudit.Locator.NodeID) {
+			reporter.releaseContainment(ctx, &pendingAudit.Locator)
+			continue
+		}
 		logger := reporter.log.With(
 			zap.Stringer("node_id", pendingAudit.Locator.NodeID),
 			zap.Stringer("stream_id", pendingAudit.Locator.StreamID),
@@ -199,13 +226,17 @@ const maxPiecesToRemoveAtOnce = 6
 // repaired if appropriate, and so that we don't continually dock reputation for the same missing
 // piece(s).
 func (reporter *DBReporter) recordFailedAudits(
-	ctx context.Context, segment *metabase.SegmentForAudit, failures []metabase.Piece, nodesReputation map[storxnetwork.NodeID]overlay.ReputationStatus,
+	ctx context.Context, segment *metabase.SegmentForAudit, failures []metabase.Piece, nodesReputation map[storxnetwork.NodeID]overlay.ReputationStatus, claimed map[storxnetwork.NodeID]struct{},
 ) (failedToRecord []metabase.Piece, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	piecesToRemove := make(metabase.Pieces, 0, len(failures))
 	var errors errs.Group
 	for _, f := range failures {
+		if claimedNode(claimed, f.StorageNode) {
+			piecesToRemove = append(piecesToRemove, f)
+			continue
+		}
 		err = reporter.reputations.ApplyAudit(ctx, f.StorageNode, nodesReputation[f.StorageNode], reputation.AuditFailure)
 		if err != nil {
 			failedToRecord = append(failedToRecord, f)
@@ -236,6 +267,22 @@ func (reporter *DBReporter) recordFailedAudits(
 		}))
 	}
 	return failedToRecord, errors.Err()
+}
+
+func (reporter *DBReporter) releaseContainment(ctx context.Context, locator *PieceLocator) {
+	_, stillContained, err := reporter.containment.Delete(ctx, locator)
+	if err != nil {
+		if !ErrContainedNotFound.Has(err) {
+			reporter.log.Error("failed to release containment for claimed node", zap.Error(err))
+		}
+		return
+	}
+	if stillContained {
+		return
+	}
+	if err := reporter.overlay.SetNodeContained(ctx, locator.NodeID, false); err != nil {
+		reporter.log.Error("failed to mark claimed node as not contained", zap.Error(err))
+	}
 }
 
 // ReportReverificationNeeded implements the Reporter interface.

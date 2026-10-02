@@ -18,6 +18,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -102,7 +103,7 @@ type Config struct {
 	ClientOrigin string `help:"client origin for redirection URLs" default:""`
 
 	BackupToolsURL         string `help:"Backup-Tools service URL for AutoSync stats (e.g., http://localhost:8000)" default:""`
-	BackupToolsAPIKey      string `help:"shared API key for Backup-Tools internal routes (X-API-Key on POST /api/v0/internal/storx-token/refresh and /api/v0/internal/google-token/clear)" default:""`
+	BackupToolsAPIKey      string `help:"shared API key for Backup-Tools (X-API-Key on Satellite internal routes, including storx-token refresh and google-token clear, and Satellite→BT /internal/account/* lifecycle calls)" default:""`
 	MailExportServiceToken string `help:"Bearer token for gateway-mt mail-export internal APIs under /api/v0/internal/mail-export-jobs and /api/v0/internal/bandwidth-quota" default:""`
 
 	GoogleClientID                string `help:"client id for google oauth" default:""`
@@ -165,6 +166,7 @@ type Config struct {
 	GeneralRequestURL               string        `help:"url link to general request page" default:"https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291"`
 	ProjectLimitsIncreaseRequestURL string        `help:"url link to project limit increase request page" default:"https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212"`
 	GatewayCredentialsRequestURL    string        `help:"url link for gateway credentials requests" default:"https://auth.storjsatelliteshare.io" devDefault:"http://localhost:8000"`
+	AuthServiceToken                string        `help:"bearer token for authservice when satellite registers external S3 backends" default:"" devDefault:"my-test-auth-token"`
 	IsBetaSatellite                 bool          `help:"indicates if satellite is in beta" default:"false"`
 	BetaSatelliteFeedbackURL        string        "help:\"url link for beta satellite feedback\" default:\"\""
 	BetaSatelliteSupportURL         string        "help:\"url link for beta satellite support\" default:\"\""
@@ -425,6 +427,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	mailExportController := consoleapi.NewMailExportJobs(logger, service, config.MailExportServiceToken)
 	internalRouter := router.PathPrefix("/api/v0/internal").Subrouter()
 	internalRouter.Handle("/storx-token/refresh", http.HandlerFunc(internalStorxTokenController.RefreshStorxToken)).Methods(http.MethodPost)
+	internalRouter.Handle("/project-usage-limits", http.HandlerFunc(internalStorxTokenController.ProjectUsageLimits)).Methods(http.MethodPost)
 	internalRouter.Handle("/google-token/clear", http.HandlerFunc(internalStorxTokenController.ClearGoogleToken)).Methods(http.MethodPost)
 	internalRouter.Handle("/mail-export-jobs", http.HandlerFunc(mailExportController.Create)).Methods(http.MethodPost)
 	internalRouter.Handle("/mail-export-jobs/claim", http.HandlerFunc(mailExportController.Claim)).Methods(http.MethodPost)
@@ -458,6 +461,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	projectsRouter.Handle("/{id}/members/{memberID}/bucket-grants", http.HandlerFunc(memberACLController.GetMemberGrants)).Methods(http.MethodGet, http.MethodOptions)
 	projectsRouter.Handle("/{id}/members/{memberID}/bucket-grants", server.withCSRFProtection(http.HandlerFunc(memberACLController.PutMemberGrants))).Methods(http.MethodPut, http.MethodOptions)
 	projectsRouter.Handle("/{id}/invite/{email}", server.withCSRFProtection(server.userIDRateLimiter.Limit(http.HandlerFunc(projectsController.InviteUser)))).Methods(http.MethodPost, http.MethodOptions)
+	projectsRouter.Handle("/{id}/invite/{email}", server.withCSRFProtection(server.userIDRateLimiter.Limit(http.HandlerFunc(projectsController.UpdatePendingInviteAccess)))).Methods(http.MethodPut, http.MethodOptions)
 	projectsRouter.Handle("/{id}/invites", server.withCSRFProtection(server.userIDRateLimiter.Limit(http.HandlerFunc(projectsController.InviteUsers)))).Methods(http.MethodPost, http.MethodOptions)
 	projectsRouter.Handle("/{id}/reinvite", server.withCSRFProtection(server.userIDRateLimiter.Limit(http.HandlerFunc(projectsController.ReinviteUsers)))).Methods(http.MethodPost, http.MethodOptions)
 	projectsRouter.Handle("/{id}/invite-link", http.HandlerFunc(projectsController.GetInviteLink)).Methods(http.MethodGet, http.MethodOptions)
@@ -552,6 +556,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	authRouter.Handle("/account/info", server.withAuth(http.HandlerFunc(authController.UpdateAccountInfo))).Methods(http.MethodPatch, http.MethodOptions)
 	authRouter.Handle("/account/freezestatus", server.withAuth(http.HandlerFunc(authController.GetFreezeStatus))).Methods(http.MethodGet, http.MethodOptions)
 	authRouter.Handle("/account/delete-request", server.withAuth(http.HandlerFunc(authController.DeleteAccountRequest))).Methods(http.MethodPost, http.MethodOptions)
+	authRouter.Handle("/account/cancel-delete-request", server.withAuth(http.HandlerFunc(authController.CancelAccountDeleteRequest))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/account/change-password", server.withAuth(server.userIDRateLimiter.Limit(http.HandlerFunc(authController.ChangePassword)))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/account/settings", server.withAuth(http.HandlerFunc(authController.GetUserSettings))).Methods(http.MethodGet, http.MethodOptions)
 	authRouter.Handle("/account/settings", server.withAuth(http.HandlerFunc(authController.SetUserSettings))).Methods(http.MethodPatch, http.MethodOptions)
@@ -614,7 +619,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	googleBackupUsersGroupsRouter.Handle("/jobs/active", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupUsersGroupsController.UpdateJobsActive))).Methods(http.MethodPut, http.MethodOptions)
 	googleBackupUsersGroupsRouter.Handle("", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupUsersGroupsController.List))).Methods(http.MethodGet, http.MethodOptions)
 
-	googleBackupController := consoleapi.NewGoogleBackup(logger, service, server.cookieAuth)
+	googleBackupController := consoleapi.NewGoogleBackup(logger, service, server.cookieAuth, server.config.BillingUpgradeURL)
 	googleBackupRouter := router.PathPrefix("/api/v0/google-backup").Subrouter()
 	googleBackupRouter.Use(server.withCORS)
 	googleBackupRouter.Use(server.withAuth)
@@ -746,6 +751,34 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	domainsRouter.Handle("/project/{projectID}", server.withCSRFProtection(http.HandlerFunc(domainsController.DeleteDomain))).Methods(http.MethodDelete, http.MethodOptions)
 	domainsRouter.Handle("/project/{projectID}/paged", http.HandlerFunc(domainsController.GetProjectDomains)).Methods(http.MethodGet, http.MethodOptions)
 	domainsRouter.Handle("/project/{projectID}/names", http.HandlerFunc(domainsController.GetProjectAllDomainNames)).Methods(http.MethodGet, http.MethodOptions)
+
+	orgsController := consoleapi.NewOrgs(logger, service)
+	orgsRouter := router.PathPrefix("/api/v0/orgs").Subrouter()
+	orgsRouter.Use(server.withCORS)
+	orgsRouter.Use(server.withAuth)
+	orgsRouter.Handle("", http.HandlerFunc(orgsController.ListOrgs)).Methods(http.MethodGet, http.MethodOptions)
+	orgsRouter.Handle("", server.withCSRFProtection(http.HandlerFunc(orgsController.CreateOrg))).Methods(http.MethodPost, http.MethodOptions)
+	orgsRouter.Handle("/{id}", http.HandlerFunc(orgsController.GetOrg)).Methods(http.MethodGet, http.MethodOptions)
+	orgsRouter.Handle("/{id}/members", server.withCSRFProtection(http.HandlerFunc(orgsController.AddMember))).Methods(http.MethodPost, http.MethodOptions)
+	orgsRouter.Handle("/{id}/members/{userId}", server.withCSRFProtection(http.HandlerFunc(orgsController.RemoveMember))).Methods(http.MethodDelete, http.MethodOptions)
+	orgsRouter.Handle("/{id}/nodes", http.HandlerFunc(orgsController.ListNodes)).Methods(http.MethodGet, http.MethodOptions)
+	orgsRouter.Handle("/{id}/node-setup", http.HandlerFunc(orgsController.GetNodeSetup)).Methods(http.MethodGet, http.MethodOptions)
+
+	storageDestinationController := consoleapi.NewStorageDestination(logger, service)
+	storageDestinationRouter := router.PathPrefix("/api/v0/storage-destination").Subrouter()
+	storageDestinationRouter.Use(server.withCORS)
+	storageDestinationRouter.Use(server.withAuth)
+	storageDestinationRouter.Handle("", http.HandlerFunc(storageDestinationController.GetStorageDestination)).Methods(http.MethodGet, http.MethodOptions)
+	storageDestinationRouter.Handle("", server.withCSRFProtection(http.HandlerFunc(storageDestinationController.SetStorageDestination))).Methods(http.MethodPut, http.MethodOptions)
+
+	externalS3Controller := consoleapi.NewExternalS3(logger, service)
+	externalS3Router := router.PathPrefix("/api/v0/external-s3").Subrouter()
+	externalS3Router.Use(server.withCORS)
+	externalS3Router.Use(server.withAuth)
+	externalS3Router.Handle("", http.HandlerFunc(externalS3Controller.Get)).Methods(http.MethodGet, http.MethodOptions)
+	externalS3Router.Handle("", server.withCSRFProtection(http.HandlerFunc(externalS3Controller.Put))).Methods(http.MethodPut, http.MethodOptions)
+	externalS3Router.Handle("", server.withCSRFProtection(http.HandlerFunc(externalS3Controller.Delete))).Methods(http.MethodDelete, http.MethodOptions)
+	externalS3Router.Handle("/ensure-gateway", server.withCSRFProtection(http.HandlerFunc(externalS3Controller.EnsureGateway))).Methods(http.MethodPost, http.MethodOptions)
 
 	// Developer endpoints moved to satellite/developer/server.go
 	// These endpoints are now handled by the separate developer server
@@ -896,6 +929,8 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	bucketsRouter.HandleFunc("/usage-totals", bucketsController.GetBucketTotals).Methods(http.MethodGet, http.MethodOptions)
 	bucketsRouter.HandleFunc("/usage-totals-for-reserved", bucketsController.GetBucketTotalsForReservedBucket).Methods(http.MethodGet, http.MethodOptions)
 	bucketsRouter.HandleFunc("/check-upload", bucketsController.CheckUpload).Methods(http.MethodPost, http.MethodOptions)
+	bucketsRouter.HandleFunc("/quota-status", bucketsController.QuotaStatus).Methods(http.MethodGet, http.MethodOptions)
+	bucketsRouter.HandleFunc("/quota-check", googleBackupController.QuotaCheck).Methods(http.MethodPost, http.MethodOptions)
 	bucketsRouter.HandleFunc("/bucket-totals", bucketsController.GetSingleBucketTotals).Methods(http.MethodGet, http.MethodOptions)
 
 	apiKeysController := consoleapi.NewAPIKeys(logger, service)
@@ -1277,10 +1312,27 @@ func (server *Server) googleVerificationHandler(googleHTML string) http.HandlerF
 	})
 }
 
+// defaultTrustSource is used when the satellite has no public contact address.
+//const defaultTrustSource = "12w2YPMMyNGdeiMuQN2uBi5hkDpmdMBqd2kyZ7SbmBwtei7XTa4@217.147.93.13:10000"
+
+// trustSourceLine prefers the running satellite identity and contact.external-address.
+// A listen address with no public host (":10000") keeps the hardcoded default.
+// func trustSourceLine(nodeURL storxnetwork.NodeURL) string {
+// 	if !nodeURL.ID.IsZero() {
+// 		return nodeURL.String()
+// 	}
+
+// 	return defaultTrustSource
+// }
+
+func trustSourceLine(nodeURL storxnetwork.NodeURL) string {
+	return nodeURL.String()
+}
+
 // oauth2IntegrationHandler handles the oauth2 integration.
 func (server *Server) trustSourceHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
-	w.Write([]byte(`12w2YPMMyNGdeiMuQN2uBi5hkDpmdMBqd2kyZ7SbmBwtei7XTa4@217.147.93.13:10000`))
+	_, _ = w.Write([]byte(trustSourceLine(server.nodeURL)))
 }
 
 // varBlockerMiddleWare is a middleware that blocks requests from VAR partners.
@@ -1388,8 +1440,52 @@ func (server *Server) withAuth(handler http.Handler) http.Handler {
 			}
 		}
 
+		if blockErr := server.enforcePendingDeletionAPIAllowlist(ctx, r); blockErr != nil {
+			web.ServeJSONError(ctx, server.log, w, http.StatusForbidden, blockErr)
+			return
+		}
+
 		handler.ServeHTTP(w, r.Clone(ctx))
 	})
+}
+
+// enforcePendingDeletionAPIAllowlist blocks all authenticated console APIs while the account is
+// PendingDeletion, including direct Postman/curl calls with a valid session cookie or _tokenKey header.
+// Only cancel-deletion and read-only account/status endpoints (plus logout and CORS preflight) are allowed.
+func (server *Server) enforcePendingDeletionAPIAllowlist(ctx context.Context, r *http.Request) error {
+	user, err := console.GetUser(ctx)
+	if err != nil || user == nil || user.Status != console.PendingDeletion {
+		return nil
+	}
+	if r.Method == http.MethodOptions {
+		return nil
+	}
+
+	path := path.Clean("/" + strings.TrimPrefix(r.URL.Path, "/"))
+	allowed := isPendingDeletionAllowedRoute(r.Method, path)
+	if !allowed {
+		return console.ErrForbidden.New("account pending deletion; only cancel-deletion and account status are allowed")
+	}
+	return nil
+}
+
+// isPendingDeletionAllowedRoute is the deny-by-default allowlist for PendingDeletion sessions.
+func isPendingDeletionAllowedRoute(method, cleanPath string) bool {
+	switch cleanPath {
+	case "/api/v0/auth/account/cancel-delete-request":
+		return method == http.MethodPost
+	case "/api/v0/auth/logout":
+		return method == http.MethodPost
+	case "/api/v0/auth/account":
+		return method == http.MethodGet
+	case "/api/v0/auth/account/freezestatus":
+		return method == http.MethodGet
+	case "/api/v0/auth/account/settings":
+		// Read-only: cancel-deletion UI may need settings; mutations are blocked.
+		return method == http.MethodGet
+	default:
+		return false
+	}
 }
 
 // withAuthDeveloper middleware moved to satellite/developer/server.go

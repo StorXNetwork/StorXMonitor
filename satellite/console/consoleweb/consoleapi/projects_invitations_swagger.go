@@ -7,11 +7,14 @@ import "time"
 
 // UserProjectInvitationSwaggerItem is one pending invitation for the logged-in user.
 type UserProjectInvitationSwaggerItem struct {
-	ProjectID          string    `json:"projectID" example:"00000000-0000-0000-0000-000000000000"`
-	ProjectName        string    `json:"projectName" example:"My Project"`
-	ProjectDescription string    `json:"projectDescription" example:"Shared backup project"`
-	InviterEmail       string    `json:"inviterEmail" example:"owner@example.com"`
-	CreatedAt          time.Time `json:"createdAt"`
+	ProjectID          string     `json:"projectID" example:"00000000-0000-0000-0000-000000000000"`
+	ProjectName        string     `json:"projectName" example:"My Project"`
+	ProjectDescription string     `json:"projectDescription" example:"Shared backup project"`
+	InviterEmail       string     `json:"inviterEmail" example:"owner@example.com"`
+	CreatedAt          time.Time  `json:"createdAt"`
+	LinkExpiresAt      time.Time  `json:"linkExpiresAt"`
+	VaultExpiresAt     *time.Time `json:"vaultExpiresAt,omitempty"`
+	Vaults             []string   `json:"vaults,omitempty"`
 }
 
 // RespondToProjectInvitationSwaggerRequest is the body for POST .../invitations/{id}/respond.
@@ -68,12 +71,13 @@ type ReinviteProjectMembersSwaggerRequest struct {
 
 // BulkInviteProjectMemberSwaggerItem is one entry in POST .../invites (same as single invite + vaults).
 type BulkInviteProjectMemberSwaggerItem struct {
-	Email  string   `json:"email" example:"alice@example.com"`
-	Vaults []string `json:"vaults" example:"gmail,google-drive"`
+	Email       string                        `json:"email" example:"alice@example.com"`
+	Vaults      []string                      `json:"vaults" example:"gmail,google-drive"`
+	Permissions *InviteAccessSelectionSwagger `json:"permissions,omitempty"`
 }
 
 // BulkInviteProjectMembersSwaggerRequest is the body for POST .../invites (multi-invite).
-// Per invite: email + vault bucket names. Server builds List+Download on {email}/ — no grants/scopes in body.
+// Per invite: email + vault bucket names. Optional permissions: omit → read + restore.
 type BulkInviteProjectMembersSwaggerRequest struct {
 	Invites []BulkInviteProjectMemberSwaggerItem `json:"invites"`
 }

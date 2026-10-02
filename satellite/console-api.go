@@ -627,6 +627,9 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			minimumChargeDate,
 			config.Payments.PackagePlans.Packages,
 			consoleConfig.BackupToolsURL,
+			consoleConfig.BackupToolsAPIKey,
+			consoleConfig.GatewayCredentialsRequestURL,
+			consoleConfig.AuthServiceToken,
 			nil, // socialShareHelper - Web3 auth not set up in console-api
 		)
 		if err != nil {

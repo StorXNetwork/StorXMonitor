@@ -5,12 +5,13 @@ package console_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
 	"github.com/StorXNetwork/common/grant"
 	"github.com/StorXNetwork/common/uuid"
-	"github.com/StorXNetwork/StorXMonitor/satellite/console"
 )
 
 func TestValidateBulkInviteCount(t *testing.T) {
@@ -36,6 +37,46 @@ func TestValidateBulkInviteCount(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
+		})
+	}
+}
+
+func TestApplyInviteAccess(t *testing.T) {
+	t.Parallel()
+
+	base := []console.MemberBucketGrantInput{{
+		Bucket: "gmail", Prefix: "a@x.com/", AllowList: true, AllowDownload: true, AllowUpload: true,
+	}}
+
+	tests := []struct {
+		name        string
+		sel         *console.InviteAccessSelection
+		wantErr     bool
+		wantList    bool
+		wantRestore bool
+		wantLabel   string
+	}{
+		{name: "omitted keeps read and restore", wantList: true, wantRestore: true, wantLabel: "read_restore"},
+		{name: "read only", sel: &console.InviteAccessSelection{Read: true}, wantList: true, wantLabel: "read"},
+		{name: "restore only", sel: &console.InviteAccessSelection{Restore: true}, wantRestore: true, wantLabel: "restore"},
+		{name: "neither rejected", sel: &console.InviteAccessSelection{}, wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sel, err := console.ResolveInviteAccess(tt.sel)
+			if tt.wantErr {
+				require.Error(t, err)
+				require.True(t, console.ErrValidation.Has(err))
+				return
+			}
+			require.NoError(t, err)
+			got := console.ApplyInviteAccess(base, sel)
+			require.Equal(t, tt.wantList, got[0].AllowList)
+			require.Equal(t, tt.wantList || tt.wantRestore, got[0].AllowDownload)
+			require.False(t, got[0].AllowUpload)
+			require.False(t, got[0].AllowDelete)
+			require.Equal(t, tt.wantLabel, console.InvitePermissionLabel(sel))
 		})
 	}
 }
@@ -249,4 +290,49 @@ func TestDefaultInviteGrants(t *testing.T) {
 	require.False(t, got[0].AllowUpload)
 	require.Equal(t, "gmail", got[0].Bucket)
 	require.Equal(t, "outlook", got[1].Bucket)
+}
+
+func TestSummarizeVaultGrants(t *testing.T) {
+	t.Parallel()
+
+	earlier := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
+	later := time.Date(2026, 8, 10, 0, 0, 0, 0, time.UTC)
+
+	tests := []struct {
+		name           string
+		grants         []console.MemberBucketGrant
+		wantVaults     []string
+		wantExpiresNil bool
+		wantExpires    time.Time
+	}{
+		{
+			name:           "empty",
+			grants:         nil,
+			wantVaults:     nil,
+			wantExpiresNil: true,
+		},
+		{
+			name: "unique vaults earliest expiry",
+			grants: []console.MemberBucketGrant{
+				{Bucket: "gmail", ExpiresAt: &later},
+				{Bucket: "gmail", ExpiresAt: &earlier},
+				{Bucket: "drive", ExpiresAt: nil},
+			},
+			wantVaults:  []string{"gmail", "drive"},
+			wantExpires: earlier,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			vaults, exp := console.SummarizeVaultGrants(tt.grants)
+			require.Equal(t, tt.wantVaults, vaults)
+			if tt.wantExpiresNil {
+				require.Nil(t, exp)
+				return
+			}
+			require.NotNil(t, exp)
+			require.True(t, exp.Equal(tt.wantExpires))
+		})
+	}
 }

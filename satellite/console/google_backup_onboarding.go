@@ -8,6 +8,8 @@ import (
 	"database/sql"
 	"errors"
 	"strings"
+
+	"github.com/StorXNetwork/common/uuid"
 )
 
 const (
@@ -70,6 +72,8 @@ func GoogleBackupOnboardingStatus(settings *UserSettings) string {
 }
 
 // InitGoogleBackupOnboarding marks a new Google backup user as pending after register-google.
+// Invitees stay pending too so the UI can show Set Password first; the Services / Auto-Sync /
+// Initialize wizard is skipped later (login EnsureInviteeOnboardingSkipped, or UI after password).
 // Does not use GetUserSettings: that helper auto-sets onboardingEnd=true when the user already has a project
 // (register-google creates "My Project" first), which incorrectly skipped pending and returned completed.
 func (s *Service) InitGoogleBackupOnboarding(ctx context.Context) error {
@@ -93,6 +97,53 @@ func (s *Service) InitGoogleBackupOnboarding(ctx context.Context) error {
 	onboardingEnd := false
 	step := OnboardingStepGoogleBackupPending
 	err = s.store.Users().UpsertSettings(ctx, user.ID, UpsertUserSettingsRequest{
+		OnboardingStart: &onboardingStart,
+		OnboardingEnd:   &onboardingEnd,
+		OnboardingStep:  &step,
+	})
+	return Error.Wrap(err)
+}
+
+// EnsureInviteeOnboardingSkipped marks Google backup onboarding complete when the user
+// has a pending project invite and already has a password (or is passwordless-complete on login).
+// New invitee registration stays pending so Set Password can show; call this after password
+// is set/skipped, or on login for existing invitees who already have credentials.
+func (s *Service) EnsureInviteeOnboardingSkipped(ctx context.Context) error {
+	user, err := GetUser(ctx)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	if !s.hasActiveProjectInvitation(ctx, user) {
+		return nil
+	}
+	// Fresh Google register has no password yet — keep pending for Set Password UI.
+	if !HasPasswordSet(user.PasswordHash) {
+		return nil
+	}
+	return s.completeInviteeGoogleBackupOnboarding(ctx, user.ID)
+}
+
+func (s *Service) hasActiveProjectInvitation(ctx context.Context, user *User) bool {
+	if user == nil {
+		return false
+	}
+	invites, err := s.store.ProjectInvitations().GetForActiveProjectsByEmailAndUserTenantID(ctx, user.Email, user.TenantID)
+	if err != nil {
+		return false
+	}
+	for i := range invites {
+		if !s.IsProjectInvitationExpired(&invites[i]) {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *Service) completeInviteeGoogleBackupOnboarding(ctx context.Context, userID uuid.UUID) error {
+	onboardingStart := true
+	onboardingEnd := true
+	step := OnboardingStepGoogleBackupSkipped
+	err := s.store.Users().UpsertSettings(ctx, userID, UpsertUserSettingsRequest{
 		OnboardingStart: &onboardingStart,
 		OnboardingEnd:   &onboardingEnd,
 		OnboardingStep:  &step,

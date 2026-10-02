@@ -63,6 +63,8 @@ type BackupCredentials interface {
 	UpdateMicrosoftTenant(ctx context.Context, id uuid.UUID, tenantID, tenantName string) error
 	UpdateTokens(ctx context.Context, id uuid.UUID, accessToken, refreshToken string, accessTokenExpiry *time.Time) error
 	ClearTokens(ctx context.Context, id uuid.UUID) error
+	// DeleteAllByUserID removes all backup credentials for the user (hard account delete).
+	DeleteAllByUserID(ctx context.Context, userID uuid.UUID) error
 }
 
 // GoogleBackupCredential is kept as an alias type name for Google-facing docs/callers.

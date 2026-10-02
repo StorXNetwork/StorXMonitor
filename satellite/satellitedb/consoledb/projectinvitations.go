@@ -33,6 +33,9 @@ func (invites *projectInvitations) Upsert(ctx context.Context, invite *console.P
 		id := invite.InviterID[:]
 		createFields.InviterId = dbx.ProjectInvitation_InviterId(id)
 	}
+	if invite.ExpiresAt != nil {
+		createFields.ExpiresAt = dbx.ProjectInvitation_ExpiresAt(*invite.ExpiresAt)
+	}
 
 	dbxInvite, err := invites.db.Replace_ProjectInvitation(ctx,
 		dbx.ProjectInvitation_ProjectId(invite.ProjectID[:]),
@@ -129,6 +132,7 @@ func projectInvitationFromDBX(dbxInvite *dbx.ProjectInvitation) (_ *console.Proj
 	invite := &console.ProjectInvitation{
 		Email:     dbxInvite.Email,
 		CreatedAt: dbxInvite.CreatedAt,
+		ExpiresAt: dbxInvite.ExpiresAt,
 	}
 
 	projectID, err := uuid.FromBytes(dbxInvite.ProjectId)

@@ -1046,7 +1046,8 @@ func convertProtoToBucket(req *pb.BucketCreateRequest, keyInfo *console.APIKeyIn
 
 	// Set default immutability rules for automated backup buckets
 	bucketName := strings.ToLower(bucket.Name)
-	if bucketName == "gmail" || bucketName == "google-drive" || bucketName == "google-photos" ||
+	if bucketName == "cyberls-gmail" || bucketName == "gmail" || bucketName == "cyberls-drive" || bucketName == "google-drive" || bucketName == "google-photos" ||
+		bucketName == "cyberls-calendar" || bucketName == "cyberls-contacts" ||
 		bucketName == "outlook" || bucketName == "outlook-calendar" || bucketName == "outlook-contacts" ||
 		bucketName == "outlook-onedrive" || bucketName == "outlook-sharepoint" ||
 		bucketName == "outlook-teams" || bucketName == "outlook-groups" {

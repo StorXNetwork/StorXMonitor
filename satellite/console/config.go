@@ -53,6 +53,8 @@ type Config struct {
 	AbbreviatedDeleteProjectEnabled           bool                      `help:"whether the abbreviated delete project flow is enabled" default:"false"`
 	SelfServeAccountDeleteEnabled             bool                      `help:"whether self-serve account delete flow is enabled" default:"false"`
 	AbbreviatedDeleteAccountEnabled           bool                      `help:"whether the abbreviated self-serve delete account flow is enabled" default:"false"`
+	AccountDeleteGracePeriod                  time.Duration             `help:"delay between soft-delete request and hard wipe; use a short value (e.g. 1m) for local testing" default:"720h" testDefault:"1h"`
+	AccountDeleteWorkerInterval               time.Duration             `help:"how often the delete-user worker polls due hard-delete queue rows" default:"24h" testDefault:"5s" devDefault:"1m"`
 	UseNewRestKeysTable                       bool                      `help:"whether to use the new rest keys table" default:"false"`
 	NewDetailedUsageReportEnabled             bool                      `help:"whether to use the new detailed usage report" default:"false"`
 	PricingPackagesEnabled                    bool                      `help:"whether to allow purchasing pricing packages" default:"true"`

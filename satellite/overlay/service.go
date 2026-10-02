@@ -228,6 +228,9 @@ type FindStorageNodesRequest struct {
 	AlreadySelected []*nodeselection.SelectedNode
 	Placement       storxnetwork.PlacementConstraint
 	Requester       storxnetwork.NodeID
+	// AllowedIDs, when non-empty, restricts selection to only these node IDs
+	// (intersected with placement filters via AllowedNodesFilter).
+	AllowedIDs []storxnetwork.NodeID
 }
 
 // NodeCriteria are the requirements for selecting nodes.
@@ -346,6 +349,12 @@ type NodeAccountingInfo struct {
 	Disqualified     *time.Time
 }
 
+// DedicatedNodes provides node IDs that are claimed for own-nodes isolation.
+// When set, these IDs are excluded from public (non-OwnNodesPlacement) uploads.
+type DedicatedNodes interface {
+	AllNodeIDs(ctx context.Context) ([]storxnetwork.NodeID, error)
+}
+
 // Service is used to store and handle node information.
 //
 // architecture: Service
@@ -364,6 +373,17 @@ type Service struct {
 	LastNetFunc            LastNetFunc
 	placementDefinitions   nodeselection.PlacementDefinitions
 	placementLookup        map[string]storxnetwork.PlacementConstraint
+
+	dedicatedNodes DedicatedNodes
+}
+
+// SetDedicatedNodes configures the source of claimed own-node IDs used to
+// isolate dedicated nodes from public upload selection.
+func (service *Service) SetDedicatedNodes(src DedicatedNodes) {
+	service.dedicatedNodes = src
+	if service.UploadSelectionCache != nil {
+		service.UploadSelectionCache.SetDedicatedNodes(src)
+	}
 }
 
 // LastNetFunc is the type of a function that will be used to derive a network from an ip and port.

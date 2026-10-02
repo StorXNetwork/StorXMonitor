@@ -873,6 +873,8 @@ CREATE TABLE backup_credentials (
 	refresh_token STRING(MAX),
 	access_token_expiry TIMESTAMP,
 	account_type STRING(MAX),
+	tenant_id STRING(MAX),
+	tenant_name STRING(MAX),
 	created_at TIMESTAMP NOT NULL,
 	updated_at TIMESTAMP NOT NULL,
 	CONSTRAINT backup_credentials_user_id_fkey FOREIGN KEY (user_id) REFERENCES users (id)
@@ -945,6 +947,7 @@ CREATE TABLE member_bucket_grants (
 	allow_delete BOOL NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	updated_at TIMESTAMP NOT NULL,
+	expires_at TIMESTAMP,
 	CONSTRAINT member_bucket_grants_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE ,
 	CONSTRAINT member_bucket_grants_member_id_fkey FOREIGN KEY (member_id) REFERENCES users (id) ON DELETE CASCADE 
 ) PRIMARY KEY ( id ) ;
@@ -954,6 +957,7 @@ CREATE TABLE project_invitations (
 	email STRING(MAX) NOT NULL,
 	inviter_id BYTES(MAX),
 	created_at TIMESTAMP NOT NULL,
+	expires_at TIMESTAMP,
 	CONSTRAINT project_invitations_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE ,
 	CONSTRAINT project_invitations_inviter_id_fkey FOREIGN KEY (inviter_id) REFERENCES users (id) ON DELETE CASCADE 
 ) PRIMARY KEY ( project_id, email ) ;

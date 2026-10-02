@@ -68,6 +68,7 @@ import (
 	"github.com/StorXNetwork/common/peertls/tlsopts"
 	"github.com/StorXNetwork/common/process"
 	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/signing"
 	"github.com/StorXNetwork/common/storxnetwork"
 	"github.com/StorXNetwork/common/version"
 )
@@ -507,7 +508,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			ID:      peer.ID(),
 			Address: c.ExternalAddress,
 			Operator: pb.NodeOperator{
-				Email:          config.Operator.Email,
+				Email:          config.Operator.CheckInEmail(),
 				Wallet:         config.Operator.Wallet,
 				WalletFeatures: config.Operator.WalletFeatures,
 			},
@@ -529,6 +530,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		}
 
 		peer.Contact.Service = contact.NewService(process.NamedLog(peer.Log, "contact:service"), peer.Dialer, self, peer.Storage2.Trust, peer.Contact.QUICStats, tags)
+		peer.Contact.Service.SetSigner(signing.SignerFromFullIdentity(peer.Identity))
 
 		peer.Contact.AmnestyClient = contact.NewAmnestyClient(process.NamedLog(peer.Log, "contact:amnesty"), peer.Dialer, peer.Storage2.Trust)
 

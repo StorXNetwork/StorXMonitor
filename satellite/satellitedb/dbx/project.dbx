@@ -284,6 +284,8 @@ model project_invitation (
 	field inviter_id  user.id     cascade  ( nullable, updatable )
 	// created_at is the time that the invitation was created.
 	field created_at  timestamp            ( autoinsert, updatable )
+	// expires_at is when the invite link stops being valid (nullable = use satellite default TTL from created_at).
+	field expires_at  timestamp            ( nullable, updatable )
 )
 
 create project_invitation ( replace )
@@ -478,6 +480,8 @@ model member_bucket_grant (
 	field allow_delete   bool ( updatable )
 	field created_at     timestamp ( autoinsert )
 	field updated_at     timestamp ( autoinsert, autoupdate )
+	// expires_at is when vault folder access from this grant ends (nullable = no expiry).
+	field expires_at     timestamp ( nullable, updatable )
 )
 
 create member_bucket_grant ( )

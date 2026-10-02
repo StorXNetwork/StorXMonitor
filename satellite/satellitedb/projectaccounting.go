@@ -1783,7 +1783,8 @@ func (db *ProjectAccounting) GetBucketTotalsForReservedBuckets(ctx context.Conte
 
 	bucketsQuery := db.db.Rebind(`SELECT name, versioning, placement, created_at FROM bucket_metainfos
 	WHERE project_id = ? AND name IN (
-		'gmail', 'google-drive', 'google-cloud', 'google-photos', 'google-calendar', 'google-contacts',
+		'cyberls-gmail', 'gmail', 'cyberls-drive', 'google-drive', 'google-cloud', 'google-photos',
+		'cyberls-calendar', 'google-calendar', 'cyberls-contacts', 'google-contacts',
 		'outlook', 'outlook-calendar', 'outlook-contacts', 'outlook-onedrive', 'outlook-sharepoint', 'outlook-teams', 'outlook-groups',
 		'dropbox', 'aws-s3', 'github', 'shopify', 'quickbooks'
 	)

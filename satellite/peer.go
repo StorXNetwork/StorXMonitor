@@ -318,7 +318,7 @@ func setupMailService(log *zap.Logger, mailConfig mailservice.Config, consoleCon
 
 	defaultBranding := mailservice.WhiteLabelConfig{
 		BrandName:         "CyberLS",
-		LogoURL:           "https://storxnetwork.io/img/logo.svg",
+		LogoURL:           "https://cyberls.com/cyberls-pulse-horizontal-fullcolor.svg",
 		HomepageURL:       consoleConfig.HomepageURL,
 		SupportURL:        consoleConfig.GeneralRequestURL,
 		DocsURL:           consoleConfig.DocumentationURL,
@@ -328,7 +328,7 @@ func setupMailService(log *zap.Logger, mailConfig mailservice.Config, consoleCon
 		SourceCodeURL:     "https://github.com/StorXNetwork",
 		SocialURL:         "https://twitter.com/storxnetwork",
 		BlogURL:           "https://storxnetwork.io/blog",
-		PrimaryColor:      "#e04124",
+		PrimaryColor:      "#0d1724",
 		CompanyName:       "CyberLS",
 		AddressLine1:      "1870 The Exchange SE Ste 220, PMB 75268",
 		AddressLine2:      "Atlanta, GA 30339-2171, United States",

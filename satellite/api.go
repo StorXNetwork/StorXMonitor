@@ -333,6 +333,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+		peer.Overlay.Service.SetDedicatedNodes(peer.DB.Console().OrgNodes())
 		peer.Services.Add(lifecycle.Item{
 			Name:  "overlay",
 			Run:   peer.Overlay.Service.Run,
@@ -445,15 +446,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.Services.Add(lifecycle.Item{
 			Name:  "reputation",
 			Close: peer.Reputation.Service.Close,
-		})
-	}
-
-	{
-		peer.DeleteUser.Service = userworker.NewDeleteUserWorker(peer.Log.Named("delete-user"), peer.DB.DeleteUserQueue(),
-			peer.DB.Console().Projects(), peer.DB.Console().APIKeys(), peer.DB.Buckets(), peer.DB.Console().Users())
-		peer.Services.Add(lifecycle.Item{
-			Name: "delete-user",
-			Run:  peer.DeleteUser.Service.Run,
 		})
 	}
 
@@ -579,6 +571,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.Console().Projects(),
 			peer.DB.Console().ProjectMembers(),
 			peer.DB.Console().Users(),
+			peer.DB.Console().OrgNodes(),
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.DB.Revocation(),
 			peer.SuccessTrackers,
@@ -844,6 +837,9 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			minimumChargeDate,
 			pc.PackagePlans.Packages,
 			consoleConfig.BackupToolsURL,
+			consoleConfig.BackupToolsAPIKey,
+			consoleConfig.GatewayCredentialsRequestURL,
+			consoleConfig.AuthServiceToken,
 			web3AuthSocialShareHelper,
 		)
 		if err != nil {
@@ -851,10 +847,21 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 		peer.Console.Service.SetResellerTenantLookup(consoleweb.NewResellerTenantResolver(peer.DB.Seller(), consoleConfig.SellerExternalAddress))
 		peer.Console.Service.SetMailExportOrdersDB(peer.Orders.DB)
+		if peer.Contact.Endpoint != nil {
+			peer.Contact.Endpoint.SetOwnNodesMapper(peer.Console.Service)
+		}
 		if peer.Mail.Service != nil {
 			peer.Mail.Service.SetBrandingResolver(peer.Console.Service.ResellerMailBranding)
 			peer.Mail.Service.SetSenderResolver(peer.Console.Service.ResellerMailSender)
 		}
+
+		peer.DeleteUser.Service = userworker.NewDeleteUserWorker(peer.Log.Named("delete-user"), peer.DB.DeleteUserQueue(),
+			peer.DB.Console().Projects(), peer.DB.Console().APIKeys(), peer.DB.Buckets(), peer.DB.Console().Users(),
+			peer.DB.Console().BackupCredentials(), peer.Console.Service, consoleConfig.AccountDeleteWorkerInterval)
+		peer.Services.Add(lifecycle.Item{
+			Name: "delete-user",
+			Run:  peer.DeleteUser.Service.Run,
+		})
 
 		auditLogChore := auditlog.NewChore(
 			peer.Log.Named("auditlog:chore"),
@@ -1270,6 +1277,9 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				minimumChargeDate,
 				config.Payments.PackagePlans.Packages,
 				consoleConfig.BackupToolsURL,
+				consoleConfig.BackupToolsAPIKey,
+				consoleConfig.GatewayCredentialsRequestURL,
+				consoleConfig.AuthServiceToken,
 				web3AuthSocialShareHelper,
 			)
 			if err != nil {
@@ -1277,6 +1287,9 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			}
 			peer.Console.Service.SetResellerTenantLookup(consoleweb.NewResellerTenantResolver(peer.DB.Seller(), consoleConfig.SellerExternalAddress))
 			peer.Console.Service.SetMailExportOrdersDB(peer.Orders.DB)
+			if peer.Contact.Endpoint != nil {
+				peer.Contact.Endpoint.SetOwnNodesMapper(peer.Console.Service)
+			}
 			if peer.Mail.Service != nil {
 				peer.Mail.Service.SetBrandingResolver(peer.Console.Service.ResellerMailBranding)
 				peer.Mail.Service.SetSenderResolver(peer.Console.Service.ResellerMailSender)

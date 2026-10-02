@@ -97,7 +97,7 @@ func (s *Service) BackfillMemberBucketGrants(ctx context.Context, projectID uuid
 				s.log.Error("backfill validate failed", zap.Error(err))
 				continue
 			}
-			_, err = s.store.MemberBucketGrants().ReplaceForMember(ctx, projectID, pm.MemberID, memberUser.Email, defaults)
+			_, err = s.store.MemberBucketGrants().ReplaceForMember(ctx, projectID, pm.MemberID, memberUser.Email, defaults, nil)
 			if err != nil {
 				report.Errors++
 				s.log.Error("backfill replace grants failed", zap.Error(err))

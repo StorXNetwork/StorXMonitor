@@ -99,13 +99,23 @@ func (s *Service) GetGoogleBackupUsersGroupsMailboxCredentials(ctx context.Conte
 
 // GetDashboardAlerts proxies Backup-Tools GET /autosync/dashboard-alerts.
 // Common for Google + Microsoft health overview (same idea as GetDashboardStats → /autosync/stats).
+// When own_nodes is under MinOwnNodesRequired, attaches readiness and forces jobs inactive
+// so cron cannot keep "push to queue".
 func (s *Service) GetDashboardAlerts(ctx context.Context, tokenKey string) (body []byte, status int, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if strings.TrimSpace(tokenKey) == "" {
-		return nil, 0, ErrUnauthorized.New("session token is required")
+	body, status, err = s.getGoogleBackupUsersGroups(ctx, tokenKey, "/autosync/dashboard-alerts", "")
+	if err != nil || status != http.StatusOK {
+		return body, status, err
 	}
-	return s.backupToolsRequest(ctx, http.MethodGet, "/autosync/dashboard-alerts", tokenKey, "", nil)
+	user, userErr := GetUser(ctx)
+	if userErr != nil {
+		return body, status, nil
+	}
+	ownStatus, stErr := s.ownNodesCapacityForUser(ctx, user.ID)
+	if stErr != nil || ownStatus == nil {
+		return body, status, nil
+	}
+	s.enforceOwnNodesInactiveJobs(ctx, tokenKey, ownStatus)
+	return mergeOwnNodesIntoJSONObject(body, "own_nodes", ownStatus), status, nil
 }
 
 // GetGoogleBackupDashboardAlerts is kept for the legacy google-backup path; prefer GetDashboardAlerts.
@@ -122,6 +132,15 @@ func (s *Service) UpdateGoogleBackupUsersGroupsJobsActive(ctx context.Context, t
 	}
 	if err := (&req).Validate(); err != nil {
 		return nil, 0, err
+	}
+	if req.Active {
+		user, userErr := GetUser(ctx)
+		if userErr != nil {
+			return nil, 0, Error.Wrap(userErr)
+		}
+		if gateErr := s.requireOwnNodesReadyForActivation(ctx, user.ID); gateErr != nil {
+			return nil, 0, gateErr
+		}
 	}
 
 	payload, err := (&req).backupToolsPayload()

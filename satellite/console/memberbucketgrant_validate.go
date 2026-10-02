@@ -6,6 +6,7 @@ package console
 import (
 	"fmt"
 	"strings"
+	"time"
 	"unicode"
 
 	"github.com/zeebo/errs"
@@ -151,10 +152,88 @@ func IntersectPermission(requested *grant.Permission, acl MemberBucketGrant) gra
 	if requested == nil {
 		out.AllowList = acl.AllowList
 		out.AllowDownload = acl.AllowDownload
-		return out
+	} else {
+		out.AllowList = requested.AllowList && acl.AllowList
+		out.AllowDownload = requested.AllowDownload && acl.AllowDownload
+		out.NotBefore = requested.NotBefore
+		out.NotAfter = requested.NotAfter
 	}
-	out.AllowList = requested.AllowList && acl.AllowList
-	out.AllowDownload = requested.AllowDownload && acl.AllowDownload
+	if acl.ExpiresAt != nil {
+		if out.NotAfter.IsZero() || acl.ExpiresAt.Before(out.NotAfter) {
+			out.NotAfter = *acl.ExpiresAt
+		}
+	}
+	return out
+}
+
+// FilterActiveMemberGrants drops grants whose vault expiration has passed.
+func FilterActiveMemberGrants(grants []MemberBucketGrant, now time.Time) []MemberBucketGrant {
+	if len(grants) == 0 {
+		return grants
+	}
+	out := make([]MemberBucketGrant, 0, len(grants))
+	for _, g := range grants {
+		if g.ExpiresAt != nil && !g.ExpiresAt.After(now) {
+			continue
+		}
+		out = append(out, g)
+	}
+	return out
+}
+
+// InviteAccessSelection is what the inviter chooses when sending an invitation.
+// Read is list. Restore is the product restore action. Download stays on when read is on.
+// A nil selection means both (the previous default).
+type InviteAccessSelection struct {
+	Read    bool `json:"read"`
+	Restore bool `json:"restore"`
+}
+
+// DefaultInviteAccess is read + restore, the previous always-on invite access.
+func DefaultInviteAccess() InviteAccessSelection {
+	return InviteAccessSelection{Read: true, Restore: true}
+}
+
+// ResolveInviteAccess returns the selection, or the default when omitted.
+// Both false is rejected.
+func ResolveInviteAccess(sel *InviteAccessSelection) (InviteAccessSelection, error) {
+	if sel == nil {
+		return DefaultInviteAccess(), nil
+	}
+	if !sel.Read && !sel.Restore {
+		return InviteAccessSelection{}, ErrValidation.New("select at least one permission: read or restore")
+	}
+	return *sel, nil
+}
+
+// InvitePermissionLabel is the API permission name for the chosen access.
+func InvitePermissionLabel(sel InviteAccessSelection) string {
+	switch {
+	case sel.Read && sel.Restore:
+		return "read_restore"
+	case sel.Read:
+		return "read"
+	case sel.Restore:
+		return "restore"
+	default:
+		return ""
+	}
+}
+
+// ApplyInviteAccess sets list and download from read. Restore does not remove
+// download. Upload and delete stay false. Restore is enforced in the product UI.
+func ApplyInviteAccess(grants []MemberBucketGrantInput, sel InviteAccessSelection) []MemberBucketGrantInput {
+	if grants == nil {
+		return nil
+	}
+	out := make([]MemberBucketGrantInput, len(grants))
+	copy(out, grants)
+	for i := range out {
+		out[i].AllowList = sel.Read
+		out[i].AllowDownload = sel.Read || sel.Restore
+		out[i].AllowUpload = false
+		out[i].AllowDelete = false
+	}
 	return out
 }
 
@@ -182,4 +261,27 @@ func GrantsFromVaults(inviteEmail string, vaults []string) []MemberBucketGrantIn
 		})
 	}
 	return out
+}
+
+// SummarizeVaultGrants returns unique vault bucket names and the earliest non-nil vault expiry.
+func SummarizeVaultGrants(grants []MemberBucketGrant) (vaults []string, vaultExpiresAt *time.Time) {
+	seen := make(map[string]struct{}, len(grants))
+	for _, g := range grants {
+		b := strings.TrimSpace(g.Bucket)
+		if b == "" {
+			continue
+		}
+		if _, ok := seen[b]; !ok {
+			seen[b] = struct{}{}
+			vaults = append(vaults, b)
+		}
+		if g.ExpiresAt == nil {
+			continue
+		}
+		if vaultExpiresAt == nil || g.ExpiresAt.Before(*vaultExpiresAt) {
+			t := *g.ExpiresAt
+			vaultExpiresAt = &t
+		}
+	}
+	return vaults, vaultExpiresAt
 }

@@ -12,6 +12,18 @@ type GoogleBackupDashboardAlertsSwaggerResponse struct {
 	ReAuthRequired          GoogleBackupDashboardAlertSectionSwagger `json:"re_auth_required"`
 	PausedBackups           GoogleBackupDashboardAlertSectionSwagger `json:"paused_backups"`
 	NewConnectedAccounts24h GoogleBackupDashboardAlertSectionSwagger `json:"new_connected_accounts_24h"`
+	OwnNodes                *GoogleBackupOwnNodesCapacitySwagger     `json:"own_nodes,omitempty"`
+}
+
+// GoogleBackupOwnNodesCapacitySwagger is satellite-added readiness for sidebar warnings.
+type GoogleBackupOwnNodesCapacitySwagger struct {
+	Mode      string `json:"mode" example:"own_nodes"`
+	Required  bool   `json:"required" example:"true"`
+	NodeCount int    `json:"nodeCount" example:"3"`
+	MinNodes  int    `json:"minNodes" example:"10"`
+	Ready     bool   `json:"ready" example:"false"`
+	Message   string `json:"message,omitempty" example:"Connect at least 10 storage nodes to your node group before starting backups. You currently have 3."`
+	OrgID     string `json:"orgId,omitempty" example:"859c442a-6fa9-488b-a75b-547f0e43f940"`
 }
 
 // GoogleBackupDashboardAlertSectionSwagger is one alert card: count plus mailbox rows.

@@ -137,6 +137,7 @@ func (g *GoogleBackupRestore) manualRestoreBatch(w http.ResponseWriter, r *http.
 	}
 	respBody, status, err := g.service.GoogleBackupManualRestore(ctx, tokenKey, backupToolsPath, req)
 	g.service.RecordUserAuditHTTP(ctx, "GB_MANUAL_RESTORE", "Manual restore", "Manual restore completed", status, respBody, err)
+	g.service.RecordInviteeAuditForOwner(ctx, "", "GB_MANUAL_RESTORE", "Manual restore", "Manual restore completed", status, respBody, err)
 	if err != nil {
 		g.serveJSONError(ctx, w, err)
 		return
@@ -259,6 +260,7 @@ func (g *GoogleBackupRestore) RestoreAll(w http.ResponseWriter, r *http.Request)
 		TargetEmail: body.TargetEmail,
 	})
 	g.service.RecordUserAuditHTTP(ctx, "GB_RESTORE_INITIATED", "Restore", "Restore initiated", status, respBody, err)
+	g.service.RecordInviteeAuditForOwner(ctx, body.ProjectID, "GB_RESTORE_INITIATED", "Restore", "Restore initiated", status, respBody, err)
 	if err != nil {
 		g.serveJSONError(ctx, w, err)
 		return
@@ -329,7 +331,7 @@ func (g *GoogleBackupRestore) RestoreWorkspaces(w http.ResponseWriter, r *http.R
 // @Router       /google-backup/restore/live [get]
 func (g *GoogleBackupRestore) RestoreLive(w http.ResponseWriter, r *http.Request) {
 	g.restoreCron(w, r, func(ctx context.Context, tokenKey string) ([]byte, int, error) {
-		return g.service.ProxyGoogleBackupRestoreCron(ctx, http.MethodGet, "/restore/live", tokenKey, nil)
+		return g.service.ProxyRestoreListIncludingShared(ctx, tokenKey, "/restore/live")
 	})
 }
 
@@ -361,7 +363,7 @@ func (g *GoogleBackupRestore) RestoreJobs(w http.ResponseWriter, r *http.Request
 		if r.URL.RawQuery != "" {
 			path += "?" + r.URL.RawQuery
 		}
-		return g.service.ProxyGoogleBackupRestoreCron(ctx, http.MethodGet, path, tokenKey, nil)
+		return g.service.ProxyRestoreListIncludingShared(ctx, tokenKey, path)
 	})
 }
 
@@ -413,6 +415,7 @@ func (g *GoogleBackupRestore) CancelRestoreJob(w http.ResponseWriter, r *http.Re
 
 	respBody, status, err := g.service.CancelGoogleBackupRestoreJob(ctx, tokenKey, jobID)
 	g.service.RecordUserAuditHTTP(ctx, "GB_RESTORE_CANCEL", "Restore job", "Restore job cancelled", status, respBody, err)
+	g.service.RecordInviteeAuditForOwner(ctx, "", "GB_RESTORE_CANCEL", "Restore job", "Restore job cancelled", status, respBody, err)
 	if err != nil {
 		g.serveJSONError(ctx, w, err)
 		return

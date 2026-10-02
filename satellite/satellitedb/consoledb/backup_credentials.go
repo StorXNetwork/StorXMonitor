@@ -220,6 +220,16 @@ func (g *backupCredentials) ClearTokens(ctx context.Context, id uuid.UUID) (err 
 	return err
 }
 
+// DeleteAllByUserID removes all backup credentials for the user.
+func (g *backupCredentials) DeleteAllByUserID(ctx context.Context, userID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = g.cdb.ExecContext(ctx, g.cdb.Rebind(`
+		DELETE FROM backup_credentials WHERE user_id = ?
+	`), userID[:])
+	return err
+}
+
 func (g *backupCredentials) credentialWithTenant(ctx context.Context, row *dbx.BackupCredentials) (*console.BackupCredential, error) {
 	out, err := backupCredentialFromDBX(row)
 	if err != nil {

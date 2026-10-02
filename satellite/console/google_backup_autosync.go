@@ -197,7 +197,15 @@ func (s *Service) CreateGoogleBackupAutoSyncJobs(ctx context.Context, req Create
 		}
 	}
 	if project.PassphraseEnc != nil {
-		storxToken, tokenErr := s.CreateAccessGrantForManagedProject(ctx, project.ID)
+		storxToken, tokenErr := s.ResolveBackupStorxToken(ctx, user.ID, project.ID)
+		if tokenErr != nil {
+			return nil, 0, Error.Wrap(tokenErr)
+		}
+		payload["storx_token"] = storxToken
+	} else if backend, destErr := s.store.ExternalS3Backends().GetByUserID(ctx, user.ID); destErr == nil &&
+		backend != nil && backend.Status == ExternalS3StatusActive {
+		// External S3 can supply a gateway token without managed passphrase.
+		storxToken, tokenErr := s.ResolveBackupStorxToken(ctx, user.ID, project.ID)
 		if tokenErr != nil {
 			return nil, 0, Error.Wrap(tokenErr)
 		}
@@ -222,6 +230,16 @@ func (s *Service) CreateGoogleBackupAutoSyncJobs(ctx context.Context, req Create
 		payload["org_unit_schedules"] = req.OrgUnitSchedules
 	}
 
+	// own_nodes mode: allow job create, but keep inactive until >= MinOwnNodesRequired.
+	ownNodesStatus, capacityErr := s.ownNodesCapacityForUser(ctx, user.ID)
+	jobsCreatedInactive := false
+	if capacityErr != nil {
+		s.log.Warn("own-nodes capacity check failed during job create", zap.Error(capacityErr))
+	} else if ownNodesStatus != nil && ownNodesStatus.Required && !ownNodesStatus.Ready {
+		payload["active"] = false
+		jobsCreatedInactive = true
+	}
+
 	btPayload, err := json.Marshal(payload)
 	if err != nil {
 		return nil, 0, Error.Wrap(err)
@@ -234,6 +252,13 @@ func (s *Service) CreateGoogleBackupAutoSyncJobs(ctx context.Context, req Create
 	}
 	if status == http.StatusOK {
 		s.maybeCompleteGoogleBackupOnboarding(ctx, body)
+		if ownNodesStatus != nil {
+			if jobsCreatedInactive {
+				s.enforceOwnNodesInactiveJobs(ctx, tokenKey, ownNodesStatus)
+				body = mergeOwnNodesCreateFlags(body, true)
+			}
+			body = mergeOwnNodesIntoJSONObject(body, "own_nodes", ownNodesStatus)
+		}
 	}
 	return body, status, nil
 }
@@ -255,6 +280,227 @@ func (s *Service) ListBackupRestoreLogs(ctx context.Context, tokenKey, query str
 // ListGoogleBackupRestoreLogs is kept for the legacy google-backup path; prefer ListBackupRestoreLogs.
 func (s *Service) ListGoogleBackupRestoreLogs(ctx context.Context, tokenKey, query string) (body []byte, status int, err error) {
 	return s.ListBackupRestoreLogs(ctx, tokenKey, query)
+}
+
+func (s *Service) ListGoogleBackupAutoSyncJobServices(ctx context.Context, tokenKey string) (body []byte, status int, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if strings.TrimSpace(tokenKey) == "" {
+		return nil, 0, ErrUnauthorized.New("session token is required")
+	}
+
+	return s.backupToolsRequest(ctx, http.MethodGet, "/auto-sync/job/services", tokenKey, "", nil)
+}
+
+// ListGoogleBackupAutoSyncLive proxies Backup-Tools GET /auto-sync/live (running/failed backup tasks).
+func (s *Service) ListGoogleBackupAutoSyncLive(ctx context.Context, tokenKey string) (body []byte, status int, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if strings.TrimSpace(tokenKey) == "" {
+		return nil, 0, ErrUnauthorized.New("session token is required")
+	}
+
+	return s.backupToolsRequest(ctx, http.MethodGet, "/auto-sync/live", tokenKey, "", nil)
+}
+
+func (s *Service) ListGoogleBackupAutoSyncJobs(ctx context.Context, tokenKey, filter string) (body []byte, status int, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if strings.TrimSpace(tokenKey) == "" {
+		return nil, 0, ErrUnauthorized.New("session token is required")
+	}
+
+	path := "/auto-sync/job/"
+	if filter != "" {
+		path += "?filter=" + url.QueryEscape(filter)
+	}
+	return s.backupToolsRequest(ctx, http.MethodGet, path, tokenKey, "", nil)
+}
+
+func (s *Service) GetGoogleBackupAutoSyncJob(ctx context.Context, tokenKey, jobID string) (body []byte, status int, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if strings.TrimSpace(tokenKey) == "" {
+		return nil, 0, ErrUnauthorized.New("session token is required")
+	}
+	jobID = strings.TrimSpace(jobID)
+	if jobID == "" {
+		return nil, 0, ErrValidation.New("job_id is required")
+	}
+
+	path := "/auto-sync/job/" + url.PathEscape(jobID)
+	return s.backupToolsRequest(ctx, http.MethodGet, path, tokenKey, "", nil)
+}
+
+// UpdateGoogleBackupAutoSyncJobsByProject proxies to Backup-Tools PUT /auto-sync/job/project.
+// When code is present, Satellite exchanges it for tokens, updates google_backup_credentials, then sends refresh_token only.
+func (s *Service) UpdateGoogleBackupAutoSyncJobsByProject(ctx context.Context, tokenKey string, req UpdateGoogleBackupAutoSyncJobsByProjectRequest, redirectURI string) (body []byte, status int, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if strings.TrimSpace(tokenKey) == "" {
+		return nil, 0, ErrUnauthorized.New("session token is required")
+	}
+	if err := req.Validate(); err != nil {
+		return nil, 0, err
+	}
+	if req.Active != nil && *req.Active {
+		user, userErr := GetUser(ctx)
+		if userErr != nil {
+			return nil, 0, Error.Wrap(userErr)
+		}
+		if gateErr := s.requireOwnNodesReadyForActivation(ctx, user.ID); gateErr != nil {
+			return nil, 0, gateErr
+		}
+	}
+	if err := s.applyGoogleBackupProjectUpdateTokens(ctx, &req, redirectURI); err != nil {
+		return nil, 0, err
+	}
+
+	btPayload, err := req.backupToolsPayload()
+	if err != nil {
+		return nil, 0, Error.Wrap(err)
+	}
+
+	return s.backupToolsRequest(ctx, http.MethodPut, "/auto-sync/job/project", tokenKey, "", btPayload)
+}
+
+func (s *Service) applyGoogleBackupProjectUpdateTokens(ctx context.Context, req *UpdateGoogleBackupAutoSyncJobsByProjectRequest, redirectURI string) error {
+	user, err := GetUser(ctx)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	googleEmail := strings.TrimSpace(req.GoogleEmail)
+	code := strings.TrimSpace(req.Code)
+	refreshToken := strings.TrimSpace(req.RefreshToken)
+
+	if code != "" {
+		tokenRes, err := socialmedia.GetGoogleOauthTokenWithRedirect(code, "googlebackup", false, redirectURI)
+		if err != nil {
+			return ErrValidation.New("failed to exchange google oauth code: %v", err)
+		}
+		if tokenRes.Refresh_token == "" {
+			return ErrValidation.New("google did not return a refresh token; re-authorize with consent")
+		}
+		if err := s.storeGoogleBackupCredential(ctx, user.ID, googleEmail, tokenRes.Access_token, tokenRes.Refresh_token, tokenRes.ExpiresAt, ""); err != nil {
+			return Error.Wrap(err)
+		}
+		req.RefreshToken = tokenRes.Refresh_token
+		req.Code = ""
+		return nil
+	}
+
+	if refreshToken == "" {
+		return nil
+	}
+
+	validAccessToken, validExpiry, err := socialmedia.ResolveAccessToken(ctx, "", refreshToken, time.Time{})
+	if err != nil {
+		return ErrValidation.Wrap(err)
+	}
+	if err := s.storeGoogleBackupCredential(ctx, user.ID, googleEmail, validAccessToken, refreshToken, validExpiry, ""); err != nil {
+		return Error.Wrap(err)
+	}
+	req.RefreshToken = refreshToken
+	return nil
+}
+
+// TriggerGoogleBackupAutoSyncBackupNow proxies Backup-Tools POST /auto-sync/task/{job_id}/backup-now.
+// Queues an on-demand backup for interval autosync jobs without changing the cron schedule or last_run.
+func (s *Service) TriggerGoogleBackupAutoSyncBackupNow(ctx context.Context, tokenKey, jobID string) (body []byte, status int, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if strings.TrimSpace(tokenKey) == "" {
+		return nil, 0, ErrUnauthorized.New("session token is required")
+	}
+	jobID = strings.TrimSpace(jobID)
+	if jobID == "" {
+		return nil, 0, ErrValidation.New("job_id is required")
+	}
+
+	path := "/auto-sync/task/" + url.PathEscape(jobID) + "/backup-now"
+	return s.backupToolsRequest(ctx, http.MethodPost, path, tokenKey, "", nil)
+}
+
+// TriggerGoogleBackupServicesQuotaCheck proxies Backup-Tools POST /auto-sync/job/services-quota-check.
+// Injects the connected Google refresh_token + google_email from satellite credentials
+// (same source as job create) so Backup-Tools can estimate before jobs exist.
+func (s *Service) TriggerGoogleBackupServicesQuotaCheck(ctx context.Context, tokenKey string, payload []byte) (body []byte, status int, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if strings.TrimSpace(tokenKey) == "" {
+		return nil, 0, ErrUnauthorized.New("session token is required")
+	}
+
+	user, err := GetUser(ctx)
+	if err != nil {
+		return nil, 0, Error.Wrap(err)
+	}
+
+	credential, err := s.store.BackupCredentials().GetByUserIDAndProvider(ctx, user.ID, BackupProviderGoogle)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, 0, ErrNotFound.New("google backup credentials not found")
+		}
+		return nil, 0, Error.Wrap(err)
+	}
+	if err := credential.ValidateForBackup(); err != nil {
+		return nil, 0, err
+	}
+
+	var req map[string]interface{}
+	if len(payload) > 0 {
+		if err := json.Unmarshal(payload, &req); err != nil {
+			return nil, 0, ErrValidation.New("invalid request body")
+		}
+	}
+	if req == nil {
+		req = map[string]interface{}{}
+	}
+	req["refresh_token"] = credential.RefreshToken
+	req["google_email"] = credential.Email
+	if accountType := strings.TrimSpace(credential.AccountType); accountType != "" {
+		req["account_type"] = accountType
+	}
+
+	btPayload, err := json.Marshal(req)
+	if err != nil {
+		return nil, 0, Error.Wrap(err)
+	}
+	return s.backupToolsRequest(ctx, http.MethodPost, "/auto-sync/job/services-quota-check", tokenKey, "", btPayload)
+}
+
+func (s *Service) UpdateGoogleBackupAutoSyncJob(ctx context.Context, tokenKey, jobID string, req UpdateGoogleBackupAutoSyncJobRequest) (body []byte, status int, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if strings.TrimSpace(tokenKey) == "" {
+		return nil, 0, ErrUnauthorized.New("session token is required")
+	}
+	jobID = strings.TrimSpace(jobID)
+	if jobID == "" {
+		return nil, 0, ErrValidation.New("job_id is required")
+	}
+	if err := req.Validate(); err != nil {
+		return nil, 0, err
+	}
+
+	if req.Active != nil && *req.Active {
+		user, userErr := GetUser(ctx)
+		if userErr != nil {
+			return nil, 0, Error.Wrap(userErr)
+		}
+		if gateErr := s.requireOwnNodesReadyForActivation(ctx, user.ID); gateErr != nil {
+			return nil, 0, gateErr
+		}
+	}
+
+	btPayload, err := req.backupToolsPayload()
+	if err != nil {
+		return nil, 0, Error.Wrap(err)
+	}
+
+	path := "/auto-sync/job/" + url.PathEscape(jobID)
+	return s.backupToolsRequest(ctx, http.MethodPut, path, tokenKey, "", btPayload)
 }
 
 func (s *Service) maybeCompleteGoogleBackupOnboarding(ctx context.Context, body []byte) {
@@ -646,7 +892,7 @@ func (s *Service) GetGoogleBackupDomainUsers(ctx context.Context, tokenKey, goog
 	}
 
 	googleEmail = strings.TrimSpace(googleEmail)
-	var credential *GoogleBackupCredential
+	var credential *BackupCredential
 	if googleEmail != "" {
 		credential, err = s.store.BackupCredentials().GetByUserIDProviderEmail(ctx, user.ID, BackupProviderGoogle, googleEmail)
 	} else {

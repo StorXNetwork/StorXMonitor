@@ -88,6 +88,18 @@ func (*ChangeEmailSuccessEmail) Template() string { return "EmailChangeSuccess" 
 // Subject gets email subject.
 func (*ChangeEmailSuccessEmail) Subject() string { return "Email has been changed" }
 
+// AccountDeletionScheduledEmail notifies the user that deletion was scheduled and how to cancel.
+type AccountDeletionScheduledEmail struct {
+	DeleteAt   time.Time
+	CancelLink string
+}
+
+// Template returns email template name.
+func (*AccountDeletionScheduledEmail) Template() string { return "AccountDeletionScheduled" }
+
+// Subject gets email subject.
+func (*AccountDeletionScheduledEmail) Subject() string { return "Your account is scheduled for deletion" }
+
 // AccountDeletionSuccessEmail is mailservice template to notify user about successful account deletion.
 type AccountDeletionSuccessEmail struct{}
 

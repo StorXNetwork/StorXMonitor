@@ -944,6 +944,8 @@ CREATE TABLE backup_credentials (
 	refresh_token text,
 	access_token_expiry timestamp with time zone,
 	account_type text,
+	tenant_id text,
+	tenant_name text,
 	created_at timestamp with time zone NOT NULL,
 	updated_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id ),
@@ -1014,6 +1016,7 @@ CREATE TABLE member_bucket_grants (
 	allow_delete boolean NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	updated_at timestamp with time zone NOT NULL,
+	expires_at timestamp with time zone,
 	PRIMARY KEY ( id ),
 	UNIQUE ( project_id, invite_email, bucket, prefix )
 ) ;
@@ -1022,6 +1025,7 @@ CREATE TABLE project_invitations (
 	email text NOT NULL,
 	inviter_id bytea REFERENCES users( id ) ON DELETE CASCADE,
 	created_at timestamp with time zone NOT NULL,
+	expires_at timestamp with time zone,
 	PRIMARY KEY ( project_id, email )
 ) ;
 CREATE TABLE project_members (

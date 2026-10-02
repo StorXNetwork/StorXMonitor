@@ -6,11 +6,14 @@ package consoleapi
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 
+	"github.com/gorilla/mux"
 	"go.uber.org/zap"
 
 	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/configs"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consoleapi/socialmedia"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consolewebauth"
 )
@@ -20,14 +23,16 @@ type GoogleBackup struct {
 	log        *zap.Logger
 	service    *console.Service
 	cookieAuth *consolewebauth.CookieAuth
+	billingURL string
 }
 
 // NewGoogleBackup constructs a Google Backup HTTP controller.
-func NewGoogleBackup(log *zap.Logger, service *console.Service, cookieAuth *consolewebauth.CookieAuth) *GoogleBackup {
+func NewGoogleBackup(log *zap.Logger, service *console.Service, cookieAuth *consolewebauth.CookieAuth, billingURL string) *GoogleBackup {
 	return &GoogleBackup{
 		log:        log,
 		service:    service,
 		cookieAuth: cookieAuth,
+		billingURL: billingURL,
 	}
 }
 
@@ -105,6 +110,390 @@ func (g *GoogleBackup) CreateAutoSyncJobs(w http.ResponseWriter, r *http.Request
 			g.service.RecordUserAudit(ctx, "GB_ONBOARDING_COMPLETE", "Google Backup onboarding", "Google Backup onboarding completed", nil)
 		}
 	}
+	if err != nil {
+		g.serveJSONError(ctx, w, err)
+		return
+	}
+	writeBackupToolsJSON(w, status, respBody)
+}
+
+// ListBackupRestoreLogs proxies Backup-Tools GET /backup-restore/logs.
+//
+// @Summary      List backup and restore logs
+// @Tags         google-backup-logs
+// @Produce      json
+// @Param        types           query  string  false  "Comma-separated: backup, restore, or both (default backup,restore)."
+// @Param        search          query  string  false  "Partial match on subject or message."
+// @Param        method          query  string  false  "Exact service filter: gmail, google_drive, google_photos, google_contacts, google_calendar."
+// @Param        message_status  query  string  false  "info, warning, or error."
+// @Param        limit           query  int     false  "Page size on merged list (default 10, max 100)."
+// @Param        offset          query  int     false  "Rows to skip (default 0)."
+// @Success      200  {object}  BackupToolsJSONResponse
+// @Failure      400  {object}  SwaggerErrorResponse
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Failure      500  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /google-backup/backup-restore/logs [get]
+func (g *GoogleBackup) ListBackupRestoreLogs(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	tokenKey, err := g.sessionTokenKey(r)
+	if err != nil {
+		g.serveJSONError(ctx, w, err)
+		return
+	}
+
+	respBody, status, err := g.service.ListGoogleBackupRestoreLogs(ctx, tokenKey, r.URL.RawQuery)
+	if err != nil {
+		g.serveJSONError(ctx, w, err)
+		return
+	}
+	writeBackupToolsJSON(w, status, respBody)
+}
+
+// ListAutoSyncJobServices returns per-service job counts for the Services Update page (Backup-Tools GET /auto-sync/job/services).
+//
+// @Summary      List Google Backup auto-sync service stats
+// @Description  **Full route:** `GET /api/v0/google-backup/auto-sync/jobs/services`
+//
+// Services Update page only — not Users & Groups. All five Google services are always returned.
+// @Tags         google-backup
+// @Produce      json
+// @Success      200  {object}  GoogleBackupAutoSyncJobServicesSwaggerResponse
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /google-backup/auto-sync/jobs/services [get]
+func (g *GoogleBackup) ListAutoSyncJobServices(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	tokenKey, err := g.sessionTokenKey(r)
+	if err != nil {
+		g.serveJSONError(ctx, w, err)
+		return
+	}
+
+	respBody, status, err := g.service.ListGoogleBackupAutoSyncJobServices(ctx, tokenKey)
+	if err != nil {
+		g.serveJSONError(ctx, w, err)
+		return
+	}
+	writeBackupToolsJSON(w, status, respBody)
+}
+
+// AutoSyncLive lists jobs with running or failed backup tasks (Backup-Tools GET /auto-sync/live).
+//
+// @Summary      Live auto-sync backup progress
+// @Description  **Full route:** `GET /api/v0/google-backup/auto-sync/live`
+//
+// Proxies Backup-Tools `GET /auto-sync/live` (hyphenated `auto-sync`, not `/autosync/live`) with session `token_key`. Poll every 3–5s for dashboard "backup in progress" UI. Returns only jobs with at least one `running` or `failed` task; empty `data` means nothing active. Not the full job list — use `GET .../auto-sync/jobs`. Related: `GET .../restore/live` (restore progress).
+// @Tags         google-backup-autosync-live
+// @Produce      json
+// @Success      200  {object}  GoogleBackupAutoSyncLiveSwaggerResponse
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Failure      500  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /google-backup/auto-sync/live [get]
+func (g *GoogleBackup) AutoSyncLive(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	tokenKey, err := g.sessionTokenKey(r)
+	if err != nil {
+		g.serveJSONError(ctx, w, err)
+		return
+	}
+
+	respBody, status, err := g.service.ListGoogleBackupAutoSyncLive(ctx, tokenKey)
+	if err != nil {
+		g.serveJSONError(ctx, w, err)
+		return
+	}
+	writeBackupToolsJSON(w, status, respBody)
+}
+
+// ListAutoSyncJobs lists Backup-Tools auto-sync jobs for the session user.
+//
+// @Summary      List Google Backup auto-sync jobs
+// @Description  **Full route:** `GET /api/v0/google-backup/auto-sync/jobs`. Proxies Backup-Tools `GET /auto-sync/job` with session `token_key`. Single `filter` query param = URL-encoded `AutosyncJobListFilter` JSON. UI mapping: Service dropdown → `method` (gmail, google_drive, google_photos, google_calendar, google_contacts); Active/Inactive → `active` (true/false, user toggle); Success/Failed/Running → `status` (success, failed, in_progress, in_queue, created — last run, not same as active); Search bar → `name` (partial email). No `search` param on job list — use `filter.name`. Mailbox/domain search → `GET .../users-groups?search=...`. See `GET .../auto-sync/jobs/filter-schema` for examples.
+// @Tags         google-backup
+// @Produce      json
+// @Param        filter  query     string  false  "URL-encoded AutosyncJobListFilter JSON. See definitions and GET .../auto-sync/jobs/filter-schema for four examples."  example(%7B%22method%22%3A%22gmail%22%2C%22active%22%3Atrue%2C%22status%22%3A%22failed%22%7D)
+// @Success      200     {object}  AutosyncJobListResponse
+// @Failure      400     {object}  SwaggerErrorResponse
+// @Failure      401     {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /google-backup/auto-sync/jobs [get]
+func (g *GoogleBackup) ListAutoSyncJobs(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	tokenKey, err := g.sessionTokenKey(r)
+	if err != nil {
+		g.serveJSONError(ctx, w, err)
+		return
+	}
+
+	respBody, status, err := g.service.ListGoogleBackupAutoSyncJobs(ctx, tokenKey, r.URL.Query().Get("filter"))
+	if err != nil {
+		g.serveJSONError(ctx, w, err)
+		return
+	}
+	writeBackupToolsJSON(w, status, respBody)
+}
+
+// GetAutoSyncJob returns one Backup-Tools auto-sync job by id.
+//
+// @Summary      Get Google Backup auto-sync job
+// @Description  **Full route:** `GET /api/v0/google-backup/auto-sync/jobs/{job_id}`. Proxies Backup-Tools `GET /auto-sync/job/{job_id}` with session `token_key`. Job is in `success[0]`.
+// @Tags         google-backup
+// @Produce      json
+// @Param        job_id  path      string  true  "Job ID"
+// @Success      200     {object}  AutosyncJobDetailResponse
+// @Failure      400     {object}  SwaggerErrorResponse
+// @Failure      401     {object}  SwaggerErrorResponse
+// @Failure      404     {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /google-backup/auto-sync/jobs/{job_id} [get]
+func (g *GoogleBackup) GetAutoSyncJob(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	tokenKey, err := g.sessionTokenKey(r)
+	if err != nil {
+		g.serveJSONError(ctx, w, err)
+		return
+	}
+
+	jobID := mux.Vars(r)["job_id"]
+	respBody, status, err := g.service.GetGoogleBackupAutoSyncJob(ctx, tokenKey, jobID)
+	if err != nil {
+		g.serveJSONError(ctx, w, err)
+		return
+	}
+	writeBackupToolsJSON(w, status, respBody)
+}
+
+// UpdateAutoSyncJobsByProject updates all jobs for a project via Backup-Tools PUT /auto-sync/job/project.
+//
+// @Summary      Update Google Backup jobs by project
+// @Description  **Full route:** `PUT /api/v0/google-backup/auto-sync/jobs/project`
+//
+// Account-level update (refresh_token, storx_token, active). Schedule and retention use PUT .../auto-sync/policy/{policy_id}. Send `code` to re-auth: Satellite exchanges OAuth code using Host-derived redirect_uri, updates google_backup_credentials, then forwards refresh_token to Backup-Tools (never forwards code).
+// @Tags         google-backup
+// @Accept       json
+// @Produce      json
+// @Param        body  body      UpdateGoogleBackupAutoSyncJobsByProjectSwaggerRequest  true  "Project-scoped update"
+// @Success      200   {object}  BackupToolsJSONResponse
+// @Failure      400   {object}  SwaggerErrorResponse
+// @Failure      401   {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /google-backup/auto-sync/jobs/project [put]
+func (g *GoogleBackup) UpdateAutoSyncJobsByProject(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	tokenKey, err := g.sessionTokenKey(r)
+	if err != nil {
+		g.serveJSONError(ctx, w, err)
+		return
+	}
+
+	var req console.UpdateGoogleBackupAutoSyncJobsByProjectRequest
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&req); err != nil {
+		g.serveJSONError(ctx, w, console.ErrValidation.New("invalid request body"))
+		return
+	}
+	if dec.More() {
+		g.serveJSONError(ctx, w, console.ErrValidation.New("invalid request body"))
+		return
+	}
+
+	respBody, status, err := g.service.UpdateGoogleBackupAutoSyncJobsByProject(ctx, tokenKey, req, socialmedia.ResolveRequestOrigin(r))
+	g.service.RecordUserAuditHTTP(ctx, "GB_JOB_UPDATE", "Auto-sync project", "Auto-sync project updated", status, respBody, err)
+	if err != nil {
+		g.serveJSONError(ctx, w, err)
+		return
+	}
+	writeBackupToolsJSON(w, status, respBody)
+}
+
+// BackupNowAutoSyncJob queues an on-demand backup for an interval autosync job (Backup-Tools POST /auto-sync/task/{job_id}/backup-now).
+//
+// @Summary      Trigger on-demand auto-sync backup
+// @Description  **Full route:** `POST /api/v0/google-backup/auto-sync/task/{job_id}/backup-now`
+//
+// Proxies Backup-Tools `POST /auto-sync/task/{job_id}/backup-now` with session `token_key` only. For interval jobs (`sync_type=daily`); does not change cron schedule or `last_run`. Use `POST .../auto-sync/task/{job_id}` for one-time jobs. Poll `GET .../auto-sync/jobs/{job_id}` or `GET .../auto-sync/live` for progress. Task history: `GET .../auto-sync/task/{job_id}?limit=10` (on-demand tasks have `trigger=on_demand`).
+// @Tags         google-backup
+// @Produce      json
+// @Param        job_id  path      string  true  "Auto-sync job ID"
+// @Success      200     {object}  GoogleBackupAutoSyncBackupNowSwaggerResponse
+// @Failure      400     {object}  SwaggerErrorResponse
+// @Failure      401     {object}  SwaggerErrorResponse
+// @Failure      404     {object}  SwaggerErrorResponse
+// @Failure      500     {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /google-backup/auto-sync/task/{job_id}/backup-now [post]
+func (g *GoogleBackup) BackupNowAutoSyncJob(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	tokenKey, err := g.sessionTokenKey(r)
+	if err != nil {
+		g.serveJSONError(ctx, w, err)
+		return
+	}
+
+	jobID := mux.Vars(r)["job_id"]
+	respBody, status, err := g.service.TriggerGoogleBackupAutoSyncBackupNow(ctx, tokenKey, jobID)
+	g.service.RecordUserAuditHTTP(ctx, "GB_BACKUP_NOW", "Auto-sync job", "On-demand backup queued", status, respBody, err)
+	if err != nil {
+		g.serveJSONError(ctx, w, err)
+		return
+	}
+	writeBackupToolsJSON(w, status, respBody)
+}
+
+// QuotaCheck proxies Backup-Tools Google size vs CyberLS remaining for onboarding/connect.
+// Estimates live in Backup-Tools (same as job-start pre-check). Satellite only proxies
+// and overlays popup text from configs `popup_messages` (same source as check-upload).
+//
+// @Summary      Google backup services storage quota check
+// @Description  **Full route:** `POST /api/v0/buckets/quota-check`
+//
+// Proxies Backup-Tools `POST /auto-sync/job/services-quota-check`. Body: `project_id`, `services[]`, optional `emails`.
+// @Tags         buckets-quota-check
+// @Accept       json
+// @Produce      json
+// @Success      200  {object}  BackupToolsJSONResponse
+// @Failure      400  {object}  SwaggerErrorResponse
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /buckets/quota-check [post]
+func (g *GoogleBackup) QuotaCheck(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	tokenKey, err := g.sessionTokenKey(r)
+	if err != nil {
+		g.serveJSONError(ctx, w, err)
+		return
+	}
+
+	payload, err := io.ReadAll(r.Body)
+	if err != nil {
+		g.serveJSONError(ctx, w, console.ErrValidation.New("invalid request body"))
+		return
+	}
+
+	respBody, status, err := g.service.TriggerGoogleBackupServicesQuotaCheck(ctx, tokenKey, payload)
+	if err != nil {
+		g.serveJSONError(ctx, w, err)
+		return
+	}
+
+	if status == http.StatusOK && len(respBody) > 0 {
+		respBody = g.overlayStorageQuotaPopupMessage(ctx, respBody)
+	}
+	writeBackupToolsJSON(w, status, respBody)
+}
+
+// overlayStorageQuotaPopupMessage sets configs popup text when Backup-Tools reports not allowed.
+func (g *GoogleBackup) overlayStorageQuotaPopupMessage(ctx context.Context, body []byte) []byte {
+	var result map[string]interface{}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return body
+	}
+	allowed, _ := result["allowed"].(bool)
+	if allowed {
+		return body
+	}
+	result["message"] = g.storageExceededPopupMessage(ctx)
+	if g.billingURL != "" {
+		result["upgrade_url"] = g.billingURL
+	}
+	out, err := json.Marshal(result)
+	if err != nil {
+		return body
+	}
+	return out
+}
+
+func (g *GoogleBackup) storageExceededPopupMessage(ctx context.Context) string {
+	fallback := "Not enough CyberLS storage for the selected Google services. You can upgrade, or continue and create the job anyway."
+	configService := configs.NewService(g.service.GetConfigs())
+	dbConfig, err := configService.GetConfigByName(ctx, configs.ConfigTypePopupMessages, "popup")
+	if err != nil || !dbConfig.IsActive {
+		return fallback
+	}
+	raw, err := json.Marshal(dbConfig.ConfigData)
+	if err != nil {
+		return fallback
+	}
+	var msgs PopupMessagesResponse
+	if err := json.Unmarshal(raw, &msgs); err != nil {
+		return fallback
+	}
+	if msgs.FileSize.StorageExceeded != "" {
+		return msgs.FileSize.StorageExceeded
+	}
+	if msgs.Upload.StorageLimit != "" {
+		return msgs.Upload.StorageLimit
+	}
+	return fallback
+}
+
+// UpdateAutoSyncJob toggles a single job active flag (Backup-Tools PUT /auto-sync/job/{job_id}).
+//
+// @Summary      Toggle Google Backup auto-sync job active
+// @Description  **Full route:** `PUT /api/v0/google-backup/auto-sync/jobs/{job_id}`. Proxies Backup-Tools `PUT /auto-sync/job/{job_id}` with body `{ "active": true|false }` only.
+// @Tags         google-backup
+// @Accept       json
+// @Produce      json
+// @Param        job_id  path      string                                       true  "Job ID"
+// @Param        body    body      UpdateGoogleBackupAutoSyncJobSwaggerRequest  true  "Active toggle"
+// @Success      200     {object}  AutosyncJobDetailResponse
+// @Failure      400     {object}  SwaggerErrorResponse
+// @Failure      401     {object}  SwaggerErrorResponse
+// @Failure      404     {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /google-backup/auto-sync/jobs/{job_id} [put]
+func (g *GoogleBackup) UpdateAutoSyncJob(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	tokenKey, err := g.sessionTokenKey(r)
+	if err != nil {
+		g.serveJSONError(ctx, w, err)
+		return
+	}
+
+	var req console.UpdateGoogleBackupAutoSyncJobRequest
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&req); err != nil {
+		g.serveJSONError(ctx, w, console.ErrValidation.New("invalid request body"))
+		return
+	}
+	if dec.More() {
+		g.serveJSONError(ctx, w, console.ErrValidation.New("invalid request body"))
+		return
+	}
+
+	respBody, status, err := g.service.UpdateGoogleBackupAutoSyncJob(ctx, tokenKey, mux.Vars(r)["job_id"], req)
+	g.service.RecordUserAuditHTTP(ctx, "GB_JOB_UPDATE", "Auto-sync job", "Auto-sync job updated", status, respBody, err)
 	if err != nil {
 		g.serveJSONError(ctx, w, err)
 		return

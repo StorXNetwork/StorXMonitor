@@ -9,11 +9,11 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
-	"github.com/zeebo/errs"
-	"github.com/StorXNetwork/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/pushnotifications"
+	"github.com/StorXNetwork/common/uuid"
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/zeebo/errs"
 )
 
 type PushNotificationWebhook struct {
@@ -75,7 +75,7 @@ func (p *PushNotificationWebhook) SendNotification(w http.ResponseWriter, r *htt
 	}
 	for field, value := range required {
 		if value == "" {
-			p.serveJSONError(w, fmt.Errorf("%s claim is required", field))
+			p.serveJSONError(w, errs.New("%s claim is required", field))
 			return
 		}
 	}

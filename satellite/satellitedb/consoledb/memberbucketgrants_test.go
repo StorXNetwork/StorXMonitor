@@ -64,7 +64,7 @@ func TestMemberBucketACLRepos(t *testing.T) {
 			created, err := grants.CreatePending(ctx, projectID, email, []console.MemberBucketGrantInput{
 				{Bucket: "gmail", Prefix: email + "/", AllowList: true, AllowDownload: true},
 				{Bucket: "outlook", Prefix: email + "/", AllowList: true, AllowDownload: true},
-			})
+			}, nil)
 			require.NoError(t, err)
 			require.Len(t, created, 2)
 			require.Nil(t, created[0].MemberID)
@@ -86,7 +86,7 @@ func TestMemberBucketACLRepos(t *testing.T) {
 		t.Run("replace clears and sets grants", func(t *testing.T) {
 			replaced, err := grants.ReplaceForMember(ctx, projectID, memberID, email, []console.MemberBucketGrantInput{
 				{Bucket: "gmail", Prefix: "other@mail.test/", AllowList: true},
-			})
+			}, nil)
 			require.NoError(t, err)
 			require.Len(t, replaced, 1)
 			require.Equal(t, "other@mail.test/", replaced[0].Prefix)
@@ -97,7 +97,7 @@ func TestMemberBucketACLRepos(t *testing.T) {
 		})
 
 		t.Run("replace with empty clears access", func(t *testing.T) {
-			replaced, err := grants.ReplaceForMember(ctx, projectID, memberID, email, nil)
+			replaced, err := grants.ReplaceForMember(ctx, projectID, memberID, email, nil, nil)
 			require.NoError(t, err)
 			require.Empty(t, replaced)
 
@@ -109,7 +109,7 @@ func TestMemberBucketACLRepos(t *testing.T) {
 		t.Run("delete by invite email", func(t *testing.T) {
 			_, err := grants.CreatePending(ctx, projectID, "pending@mail.test", []console.MemberBucketGrantInput{
 				{Bucket: "gmail", Prefix: "pending@mail.test/", AllowList: true},
-			})
+			}, nil)
 			require.NoError(t, err)
 			require.NoError(t, grants.DeleteByInviteEmail(ctx, projectID, "pending@mail.test"))
 			rows, err := grants.GetByInviteEmail(ctx, projectID, "pending@mail.test")

@@ -128,10 +128,10 @@ func TestInvitedRouting(t *testing.T) {
 		loginURL := baseURL + "login"
 		invalidURL := loginURL + "?invite_invalid=true"
 
-		tokenInvalidProj, err := service.CreateInviteToken(ctx, project.ID, invitedEmail, time.Now())
+		tokenInvalidProj, err := service.CreateInviteToken(ctx, project.ID, invitedEmail, time.Now().Add(168*time.Hour))
 		require.NoError(t, err)
 
-		token, err := service.CreateInviteToken(ctx, project.PublicID, invitedEmail, time.Now())
+		token, err := service.CreateInviteToken(ctx, project.PublicID, invitedEmail, time.Now().Add(168*time.Hour))
 		require.NoError(t, err)
 
 		checkInvitedRedirect("Invited - Invalid projectID", invalidURL, tokenInvalidProj)
