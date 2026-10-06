@@ -57,18 +57,22 @@ func (s *Service) ConnectMicrosoftBackupCredential(ctx context.Context, code, re
 
 	msUser, err := socialmedia.GetMicrosoftUserByAccessToken(tokenRes.Access_token)
 	if err != nil {
-		if claims, idErr := socialmedia.VerifyMicrosoftIDToken(tokenRes.Id_token); idErr == nil {
-			msUser = &socialmedia.MicrosoftUserResult{
-				Id:    claims.Oid,
-				Email: claims.Email,
-				Name:  claims.Name,
-			}
-		} else {
+		claims, idErr := socialmedia.VerifyMicrosoftIDToken(tokenRes.Id_token)
+		if idErr != nil {
 			return result, Error.Wrap(err)
+		}
+		msUser = &socialmedia.MicrosoftUserResult{
+			Id:       claims.Oid,
+			Email:    claims.Email,
+			Name:     claims.Name,
+			TenantID: claims.Tid,
 		}
 	}
 	if msUser == nil || strings.TrimSpace(msUser.Email) == "" {
 		return result, ErrValidation.New("microsoft user email is required")
+	}
+	if msUser.TenantID == "" {
+		msUser.TenantID = socialmedia.MicrosoftTenantIDFromTokens(tokenRes)
 	}
 
 	existing, lookupErr := s.store.BackupCredentials().GetByUserIDProviderEmail(ctx, user.ID, BackupProviderMicrosoft, msUser.Email)
@@ -78,11 +82,18 @@ func (s *Service) ConnectMicrosoftBackupCredential(ctx context.Context, code, re
 	result.Created = existing == nil
 	result.MicrosoftEmail = msUser.Email
 	result.HasRefreshToken = true
-	result.AccountType = InferMicrosoftAccountTypeFromEmail(msUser.Email)
 
-	if err := s.StoreMicrosoftBackupCredential(ctx, user.ID, msUser.Email, tokenRes.Access_token, tokenRes.Refresh_token, tokenRes.ExpiresAt, result.AccountType, "", ""); err != nil {
+	stored, err := s.storeMicrosoftSignIn(ctx, user, MicrosoftBackupSignIn{
+		Email:             msUser.Email,
+		TenantID:          msUser.TenantID,
+		AccessToken:       tokenRes.Access_token,
+		RefreshToken:      tokenRes.Refresh_token,
+		AccessTokenExpiry: tokenRes.ExpiresAt,
+	}, tokenKey)
+	if err != nil {
 		return result, err
 	}
+	result.AccountType = stored.AccountType
 
 	// restore/prepare reads Backup-Tools credentials — push RT so write scopes stick.
 	if tk := strings.TrimSpace(tokenKey); tk != "" {

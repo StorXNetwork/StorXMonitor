@@ -49,6 +49,8 @@ type MicrosoftUserResult struct {
 	Id    string
 	Email string
 	Name  string
+	// TenantID is the Entra `tid` of the signed-in account; empty when it could not be determined.
+	TenantID string
 }
 
 // MicrosoftAuthSession holds Microsoft profile and tokens after resolution.
@@ -84,22 +86,13 @@ func ResolveMicrosoftAuth(code, redirectURI string) (*MicrosoftAuthSession, erro
 
 	if looksLikeJWT(code) {
 		if user, err := GetMicrosoftUserByAccessToken(code); err == nil {
-			return &MicrosoftAuthSession{
-				User: user,
-				Tokens: &MicrosoftOauthToken{
-					Access_token: code,
-				},
-			}, nil
+			tokens := &MicrosoftOauthToken{Access_token: code}
+			user.TenantID = MicrosoftTenantIDFromTokens(tokens)
+			return &MicrosoftAuthSession{User: user, Tokens: tokens}, nil
 		} else if claims, idErr := VerifyMicrosoftIDToken(code); idErr == nil {
 			return &MicrosoftAuthSession{
-				User: &MicrosoftUserResult{
-					Id:    claims.Oid,
-					Email: claims.Email,
-					Name:  claims.Name,
-				},
-				Tokens: &MicrosoftOauthToken{
-					Id_token: code,
-				},
+				User:   microsoftUserFromIDTokenClaims(claims),
+				Tokens: &MicrosoftOauthToken{Id_token: code},
 			}, nil
 		} else {
 			return nil, fmt.Errorf("microsoft token validation failed: graph=%v; id_token=%v", err, idErr)
@@ -113,21 +106,56 @@ func ResolveMicrosoftAuth(code, redirectURI string) (*MicrosoftAuthSession, erro
 
 	user, err := GetMicrosoftUserByAccessToken(tokenRes.Access_token)
 	if err != nil {
-		if claims, idErr := VerifyMicrosoftIDToken(tokenRes.Id_token); idErr == nil {
-			user = &MicrosoftUserResult{
-				Id:    claims.Oid,
-				Email: claims.Email,
-				Name:  claims.Name,
-			}
-		} else {
+		claims, idErr := VerifyMicrosoftIDToken(tokenRes.Id_token)
+		if idErr != nil {
 			return nil, err
 		}
+		user = microsoftUserFromIDTokenClaims(claims)
+	}
+	if user.TenantID == "" {
+		user.TenantID = MicrosoftTenantIDFromTokens(tokenRes)
 	}
 
 	return &MicrosoftAuthSession{
 		User:   user,
 		Tokens: tokenRes,
 	}, nil
+}
+
+func microsoftUserFromIDTokenClaims(claims *MicrosoftIDTokenClaims) *MicrosoftUserResult {
+	return &MicrosoftUserResult{
+		Id:       claims.Oid,
+		Email:    claims.Email,
+		Name:     claims.Name,
+		TenantID: claims.Tid,
+	}
+}
+
+// MicrosoftTenantIDFromTokens returns the Entra `tid` for a Microsoft sign-in.
+// The verified id_token is preferred. Otherwise the `tid` claim is read from the access token,
+// which Graph has already accepted; personal-account access tokens may be opaque, in which case "" is returned.
+func MicrosoftTenantIDFromTokens(tokens *MicrosoftOauthToken) string {
+	if tokens == nil {
+		return ""
+	}
+	if strings.TrimSpace(tokens.Id_token) != "" {
+		if claims, err := VerifyMicrosoftIDToken(tokens.Id_token); err == nil && claims.Tid != "" {
+			return claims.Tid
+		}
+	}
+	return unverifiedJWTClaim(tokens.Access_token, "tid")
+}
+
+func unverifiedJWTClaim(token, key string) string {
+	token = strings.TrimSpace(token)
+	if !looksLikeJWT(token) {
+		return ""
+	}
+	claims := jwt.MapClaims{}
+	if _, _, err := jwt.NewParser().ParseUnverified(token, claims); err != nil {
+		return ""
+	}
+	return strings.TrimSpace(claimString(claims, key))
 }
 
 // GetMicrosoftOauthTokenWithRedirect exchanges an OAuth authorization code for Microsoft tokens.
@@ -268,6 +296,7 @@ type MicrosoftIDTokenClaims struct {
 	Email             string `json:"email"`
 	PreferredUsername string `json:"preferred_username"`
 	Name              string `json:"name"`
+	Tid               string `json:"tid"`
 	Aud               string `json:"aud"`
 	Iss               string `json:"iss"`
 	Exp               int64  `json:"exp"`
@@ -309,6 +338,7 @@ func VerifyMicrosoftIDToken(idToken string) (*MicrosoftIDTokenClaims, error) {
 		Email:             claimString(claims, "email"),
 		PreferredUsername: claimString(claims, "preferred_username"),
 		Name:              claimString(claims, "name"),
+		Tid:               claimString(claims, "tid"),
 		Aud:               claimString(claims, "aud"),
 		Iss:               claimString(claims, "iss"),
 	}
@@ -344,9 +374,24 @@ func VerifyMicrosoftIDToken(idToken string) (*MicrosoftIDTokenClaims, error) {
 	return out, nil
 }
 
+// looksLikeJWT requires a base64url JSON header with "alg": Microsoft authorization codes
+// (e.g. "1.AcYA...GAA.BQAB...") also contain exactly two dots.
 func looksLikeJWT(token string) bool {
 	parts := strings.Split(token, ".")
-	return len(parts) == 3 && parts[0] != "" && parts[1] != ""
+	if len(parts) != 3 || parts[0] == "" || parts[1] == "" {
+		return false
+	}
+	headerJSON, err := base64.RawURLEncoding.DecodeString(strings.TrimRight(parts[0], "="))
+	if err != nil {
+		return false
+	}
+	var header struct {
+		Alg string `json:"alg"`
+	}
+	if err := json.Unmarshal(headerJSON, &header); err != nil {
+		return false
+	}
+	return header.Alg != ""
 }
 
 func claimString(claims jwt.MapClaims, key string) string {
@@ -468,13 +513,12 @@ func jwkToRSAPublicKey(key microsoftJWK) (*rsa.PublicKey, error) {
 
 const microsoftAuthorizeURL = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize"
 
-// MicrosoftBackupScopes are required for Microsoft Backup login/connect and Backup-Tools cron (read).
-// Restore write scopes are NOT included — UI must use MicrosoftRestoreScopes + POST /microsoft-backup/microsoft-auth
-// (same pattern as Google: backup scopes ≠ restore; POST /google-backup/google-auth before restore).
-// Files.Read.All is required for OneDrive and SharePoint document libraries.
-// Sites.Read.All is required to list/resolve SharePoint sites (outlook_sharepoint).
-// Existing users must reconnect (prompt=consent) and org tenants often need admin consent.
-// Same role as GoogleRegisterBackupScopes; keep aligned with Backup-Tools apps/outlook defaultScopes.
+// MicrosoftBackupScopes are the delegated scopes for Microsoft Backup login/connect (self-backup).
+// Only scopes a normal user can approve are listed. Organization backup does not use delegated
+// scopes: it uses Graph application permissions granted through tenant admin consent and an
+// app-only token in Backup-Tools.
+// Restore write scopes are NOT included — UI must use MicrosoftRestoreScopes + POST /microsoft-backup/microsoft-auth.
+// Keep aligned with Backup-Tools apps/outlook defaultScopes.
 var MicrosoftBackupScopes = []string{
 	"openid",
 	"profile",
@@ -482,19 +526,9 @@ var MicrosoftBackupScopes = []string{
 	"offline_access", // required for opaque refresh_token (not a JWT)
 	"User.Read",
 	"Mail.Read",
-	"Mail.Read.Shared",
 	"Calendars.Read",
 	"Contacts.Read",
-	"Files.Read.All", // OneDrive + SharePoint libraries (outlook_onedrive, outlook_sharepoint)
-	"Sites.Read.All", // SharePoint site picker (outlook_sharepoint)
-	"Team.ReadBasic.All",
-	"Channel.ReadBasic.All",
-	"ChannelMessage.Read.All",
-	"Group.Read.All",
-	"Group-Conversation.Read.All",
-	// Corporate directory (admin consent may be required)
-	"User.Read.All",
-	"Directory.Read.All",
+	"Files.Read",
 }
 
 // MicrosoftRestoreScopes are write permissions for select-and-restore only.
@@ -522,34 +556,6 @@ func MicrosoftBackupScopesString() string {
 // MicrosoftRestoreScopesString returns space-separated restore scopes for the restore OAuth consent screen.
 func MicrosoftRestoreScopesString() string {
 	return strings.Join(MicrosoftRestoreScopes, " ")
-}
-
-// BuildMicrosoftRestoreOAuthURL builds the Microsoft authorize URL for restore consent (write scopes).
-// UI reference — same pattern as BuildMicrosoftBackupOAuthURL but uses MicrosoftRestoreScopes.
-func BuildMicrosoftRestoreOAuthURL(state, redirectURI string) (string, error) {
-	if configVal.OutlookClientID == "" {
-		return "", errors.New("invalid outlook client id")
-	}
-	redirectURL := strings.TrimSpace(redirectURI)
-	if redirectURL == "" {
-		redirectURL = strings.TrimSpace(configVal.OutlookOAuthRedirectUrl_microsoftbackup)
-	}
-	if redirectURL == "" {
-		return "", errors.New("OUTLOOK_OAUTH_REDIRECT_URL_MICROSOFT_BACKUP is not configured")
-	}
-	redirectURL = strings.TrimRight(redirectURL, "/")
-
-	params := url.Values{}
-	params.Set("client_id", configVal.OutlookClientID)
-	params.Set("response_type", "code")
-	params.Set("redirect_uri", redirectURL)
-	params.Set("response_mode", "query")
-	params.Set("scope", MicrosoftRestoreScopesString())
-	params.Set("prompt", "consent")
-	if state != "" {
-		params.Set("state", state)
-	}
-	return microsoftAuthorizeURL + "?" + params.Encode(), nil
 }
 
 // BuildMicrosoftBackupOAuthURL builds the Microsoft authorize URL for microsoft-backup.
@@ -604,58 +610,3 @@ func ParseMicrosoftScopeString(scope string) []string {
 	}
 	return out
 }
-
-var microsoftBackupScopeAlternates = map[string][]string{
-	"openid":            {"openid"},
-	"profile":           {"profile"},
-	"email":             {"email"},
-	"offline_access":    {"offline_access"},
-	"User.Read":         {"User.Read", "https://graph.microsoft.com/User.Read"},
-	"Mail.Read":          {"Mail.Read", "https://graph.microsoft.com/Mail.Read"},
-	"Mail.Read.Shared":   {"Mail.Read.Shared", "https://graph.microsoft.com/Mail.Read.Shared"},
-	"Calendars.Read":     {"Calendars.Read", "https://graph.microsoft.com/Calendars.Read"},
-	"Contacts.Read":      {"Contacts.Read", "https://graph.microsoft.com/Contacts.Read"},
-	"Files.Read.All":     {"Files.Read.All", "https://graph.microsoft.com/Files.Read.All"},
-	"Sites.Read.All":     {"Sites.Read.All", "https://graph.microsoft.com/Sites.Read.All"},
-	"User.Read.All":      {"User.Read.All", "https://graph.microsoft.com/User.Read.All"},
-	"Directory.Read.All": {"Directory.Read.All", "https://graph.microsoft.com/Directory.Read.All"},
-}
-
-func microsoftBackupScopeGranted(grantedSet map[string]struct{}, required string) bool {
-	for _, alt := range microsoftBackupScopeAlternates[required] {
-		short := strings.TrimPrefix(alt, "https://graph.microsoft.com/")
-		if _, ok := grantedSet[alt]; ok {
-			return true
-		}
-		if _, ok := grantedSet[short]; ok {
-			return true
-		}
-	}
-	return false
-}
-
-// MicrosoftBackupScopeSummary returns canonical backup scopes only: granted vs ungranted.
-// When hasRefreshToken is true, offline_access is treated as granted even if Microsoft omitted
-// it from the token response scope string (common after refresh_token issuance).
-func MicrosoftBackupScopeSummary(granted []string, hasRefreshToken bool) (grantedOut, ungranted []string) {
-	grantedSet := make(map[string]struct{}, len(granted))
-	for _, s := range granted {
-		s = strings.TrimPrefix(strings.TrimSpace(s), "https://graph.microsoft.com/")
-		if s == "" {
-			continue
-		}
-		grantedSet[s] = struct{}{}
-	}
-	if hasRefreshToken {
-		grantedSet["offline_access"] = struct{}{}
-	}
-	for _, req := range MicrosoftBackupScopes {
-		if microsoftBackupScopeGranted(grantedSet, req) {
-			grantedOut = append(grantedOut, req)
-		} else {
-			ungranted = append(ungranted, req)
-		}
-	}
-	return grantedOut, ungranted
-}
-

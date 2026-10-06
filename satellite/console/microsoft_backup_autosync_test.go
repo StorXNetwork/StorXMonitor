@@ -55,7 +55,7 @@ func TestNormalizeMicrosoftBackupServices(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := normalizeMicrosoftBackupServices(tt.services)
+			got, err := normalizeMicrosoftBackupServices(tt.services, false)
 			if tt.wantErr != "" {
 				require.Error(t, err)
 				require.Contains(t, err.Error(), tt.wantErr)
@@ -115,6 +115,15 @@ func TestCreateMicrosoftBackupAutoSyncJobsRequest_Validate(t *testing.T) {
 				Interval:       "daily",
 			},
 			wantErr: "sites is required",
+		},
+		{
+			name: "sharepoint all_tenant skips sites",
+			req: CreateMicrosoftBackupAutoSyncJobsRequest{
+				Services:       []string{"sharepoint"},
+				MicrosoftEmail: "admin@contoso.com",
+				Interval:       "daily",
+				BackupScope:    "all_tenant",
+			},
 		},
 		{
 			name: "teams requires teams array",
@@ -214,6 +223,90 @@ func TestCreateMicrosoftBackupAutoSyncJobsRequest_backupScopePayload(t *testing.
 
 	// Payload assembly is inside CreateMicrosoftBackupAutoSyncJobs; verify field survives validation.
 	require.Equal(t, "all_tenant", req.BackupScope)
+	require.Equal(t, MicrosoftBackupModeOrganization, req.BackupMode)
+}
+
+func TestCreateMicrosoftBackupAutoSyncJobsRequest_backupMode(t *testing.T) {
+	tests := []struct {
+		name         string
+		req          CreateMicrosoftBackupAutoSyncJobsRequest
+		wantMode     string
+		wantAuthMode string
+		wantErr      string
+	}{
+		{
+			name:         "omitted defaults to self",
+			req:          CreateMicrosoftBackupAutoSyncJobsRequest{Services: []string{"outlook"}, Interval: "daily"},
+			wantMode:     MicrosoftBackupModeSelf,
+			wantAuthMode: microsoftAuthModeDelegated,
+		},
+		{
+			name:         "omitted with all_users defaults to organization",
+			req:          CreateMicrosoftBackupAutoSyncJobsRequest{Services: []string{"outlook"}, Interval: "daily", AllUsers: true},
+			wantMode:     MicrosoftBackupModeOrganization,
+			wantAuthMode: microsoftAuthModeApplication,
+		},
+		{
+			name:         "explicit organization with user_ids",
+			req:          CreateMicrosoftBackupAutoSyncJobsRequest{Services: []string{"outlook"}, Interval: "daily", BackupMode: "Organization", UserIDs: []string{" a ", "A", "b"}},
+			wantMode:     MicrosoftBackupModeOrganization,
+			wantAuthMode: microsoftAuthModeApplication,
+		},
+		{
+			name:    "self rejects all_users",
+			req:     CreateMicrosoftBackupAutoSyncJobsRequest{Services: []string{"outlook"}, Interval: "daily", BackupMode: "self", AllUsers: true},
+			wantErr: "backup_mode=self only backs up your own mailbox",
+		},
+		{
+			name:    "self rejects org units",
+			req:     CreateMicrosoftBackupAutoSyncJobsRequest{Services: []string{"outlook"}, BackupMode: "self", PolicyScope: "org_unit", OrgUnitSchedules: map[string]GoogleBackupOrgUnitSchedule{"/Sales": {Interval: "daily"}}},
+			wantErr: "backup_mode=self only backs up your own mailbox",
+		},
+		{
+			name:    "unknown mode",
+			req:     CreateMicrosoftBackupAutoSyncJobsRequest{Services: []string{"outlook"}, Interval: "daily", BackupMode: "tenant"},
+			wantErr: "unsupported backup_mode",
+		},
+		{
+			name: "org unit schedules carry services and schedule",
+			req: CreateMicrosoftBackupAutoSyncJobsRequest{
+				BackupMode:  "organization",
+				PolicyScope: "org_unit",
+				OrgUnitSchedules: map[string]GoogleBackupOrgUnitSchedule{
+					"/Sales": {Interval: "daily", Services: []string{"mail", "onedrive"}},
+				},
+			},
+			wantMode:     MicrosoftBackupModeOrganization,
+			wantAuthMode: microsoftAuthModeApplication,
+		},
+		{
+			name:    "org unit scope requires schedules",
+			req:     CreateMicrosoftBackupAutoSyncJobsRequest{Services: []string{"outlook"}, BackupMode: "organization", PolicyScope: "org_unit"},
+			wantErr: "org_unit_schedules is required",
+		},
+		{
+			name:    "org unit schedule rejects google service",
+			req:     CreateMicrosoftBackupAutoSyncJobsRequest{BackupMode: "organization", PolicyScope: "org_unit", OrgUnitSchedules: map[string]GoogleBackupOrgUnitSchedule{"/Sales": {Interval: "daily", Services: []string{"gmail"}}}},
+			wantErr: "unsupported service",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.req.Validate()
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tt.wantMode, tt.req.BackupMode)
+			require.Equal(t, tt.wantAuthMode, tt.req.authMode())
+		})
+	}
+
+	req := CreateMicrosoftBackupAutoSyncJobsRequest{Services: []string{"outlook"}, Interval: "daily", BackupMode: "organization", UserIDs: []string{" a ", "A", "b"}}
+	require.NoError(t, req.Validate())
+	require.Equal(t, []string{"a", "b"}, req.UserIDs)
 }
 
 func TestUpdateBackupAutoSyncJobsByProjectRequest_microsoftEmailPayload(t *testing.T) {

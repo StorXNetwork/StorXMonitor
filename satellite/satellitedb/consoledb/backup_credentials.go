@@ -12,7 +12,6 @@ import (
 
 	"github.com/StorXNetwork/StorXMonitor/satellite/console"
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
-	"github.com/StorXNetwork/StorXMonitor/shared/dbutil"
 	"github.com/StorXNetwork/common/uuid"
 )
 
@@ -51,6 +50,12 @@ func (g *backupCredentials) Create(ctx context.Context, credential console.Backu
 	if credential.AccountType != "" {
 		optional.AccountType = dbx.BackupCredentials_AccountType(credential.AccountType)
 	}
+	if tenantID := strings.TrimSpace(credential.TenantID); tenantID != "" {
+		optional.TenantId = dbx.BackupCredentials_TenantId(tenantID)
+	}
+	if tenantName := strings.TrimSpace(credential.TenantName); tenantName != "" {
+		optional.TenantName = dbx.BackupCredentials_TenantName(tenantName)
+	}
 
 	row, err := g.cdb.Create_BackupCredentials(
 		ctx,
@@ -64,18 +69,7 @@ func (g *backupCredentials) Create(ctx context.Context, credential console.Backu
 	if err != nil {
 		return nil, err
 	}
-	out, err := backupCredentialFromDBX(row)
-	if err != nil {
-		return nil, err
-	}
-	if tenantID := strings.TrimSpace(credential.TenantID); tenantID != "" || strings.TrimSpace(credential.TenantName) != "" {
-		if err := g.UpdateMicrosoftTenant(ctx, out.ID, credential.TenantID, credential.TenantName); err != nil {
-			return nil, err
-		}
-		out.TenantID = strings.TrimSpace(credential.TenantID)
-		out.TenantName = strings.TrimSpace(credential.TenantName)
-	}
-	return out, nil
+	return backupCredentialFromDBX(row)
 }
 
 func (g *backupCredentials) GetByUserIDAndProvider(ctx context.Context, userID uuid.UUID, provider string) (_ *console.BackupCredential, err error) {
@@ -103,7 +97,7 @@ func (g *backupCredentials) GetByUserIDAndProvider(ctx context.Context, userID u
 			latest = row
 		}
 	}
-	return g.credentialWithTenant(ctx, latest)
+	return backupCredentialFromDBX(latest)
 }
 
 func (g *backupCredentials) GetByUserIDProviderEmail(ctx context.Context, userID uuid.UUID, provider, email string) (_ *console.BackupCredential, err error) {
@@ -125,7 +119,7 @@ func (g *backupCredentials) GetByUserIDProviderEmail(ctx context.Context, userID
 
 	for _, row := range rows {
 		if strings.EqualFold(row.Email, email) {
-			return g.credentialWithTenant(ctx, row)
+			return backupCredentialFromDBX(row)
 		}
 	}
 	return nil, sql.ErrNoRows
@@ -153,38 +147,14 @@ func (g *backupCredentials) UpdateMicrosoftTenant(ctx context.Context, id uuid.U
 		return nil
 	}
 
-	switch g.cdb.Impl {
-	case dbutil.Postgres, dbutil.Cockroach:
-		if tenantID != "" && tenantName != "" {
-			_, err = g.cdb.ExecContext(ctx, g.cdb.Rebind(`
-				UPDATE backup_credentials SET tenant_id = ?, tenant_name = ?, updated_at = NOW() WHERE id = ?
-			`), tenantID, tenantName, id[:])
-		} else if tenantID != "" {
-			_, err = g.cdb.ExecContext(ctx, g.cdb.Rebind(`
-				UPDATE backup_credentials SET tenant_id = ?, updated_at = NOW() WHERE id = ?
-			`), tenantID, id[:])
-		} else {
-			_, err = g.cdb.ExecContext(ctx, g.cdb.Rebind(`
-				UPDATE backup_credentials SET tenant_name = ?, updated_at = NOW() WHERE id = ?
-			`), tenantName, id[:])
-		}
-	case dbutil.Spanner:
-		if tenantID != "" && tenantName != "" {
-			_, err = g.cdb.ExecContext(ctx, `
-				UPDATE backup_credentials SET tenant_id = ?, tenant_name = ?, updated_at = PENDING_COMMIT_TIMESTAMP() WHERE id = ?
-			`, tenantID, tenantName, id[:])
-		} else if tenantID != "" {
-			_, err = g.cdb.ExecContext(ctx, `
-				UPDATE backup_credentials SET tenant_id = ?, updated_at = PENDING_COMMIT_TIMESTAMP() WHERE id = ?
-			`, tenantID, id[:])
-		} else {
-			_, err = g.cdb.ExecContext(ctx, `
-				UPDATE backup_credentials SET tenant_name = ?, updated_at = PENDING_COMMIT_TIMESTAMP() WHERE id = ?
-			`, tenantName, id[:])
-		}
-	default:
-		return errors.New("unhandled database for backup credential tenant update")
+	update := dbx.BackupCredentials_Update_Fields{}
+	if tenantID != "" {
+		update.TenantId = dbx.BackupCredentials_TenantId(tenantID)
 	}
+	if tenantName != "" {
+		update.TenantName = dbx.BackupCredentials_TenantName(tenantName)
+	}
+	_, err = g.cdb.Update_BackupCredentials_By_Id(ctx, dbx.BackupCredentials_Id(id[:]), update)
 	return err
 }
 
@@ -230,49 +200,6 @@ func (g *backupCredentials) DeleteAllByUserID(ctx context.Context, userID uuid.U
 	return err
 }
 
-func (g *backupCredentials) credentialWithTenant(ctx context.Context, row *dbx.BackupCredentials) (*console.BackupCredential, error) {
-	out, err := backupCredentialFromDBX(row)
-	if err != nil {
-		return nil, err
-	}
-	tenantID, tenantName, err := g.loadMicrosoftTenant(ctx, out.ID)
-	if err != nil {
-		return nil, err
-	}
-	out.TenantID = tenantID
-	out.TenantName = tenantName
-	return out, nil
-}
-
-func (g *backupCredentials) loadMicrosoftTenant(ctx context.Context, id uuid.UUID) (tenantID, tenantName string, err error) {
-	var tid, tname sql.NullString
-	switch g.cdb.Impl {
-	case dbutil.Postgres, dbutil.Cockroach:
-		err = g.cdb.QueryRowContext(ctx, g.cdb.Rebind(`
-			SELECT tenant_id, tenant_name FROM backup_credentials WHERE id = ?
-		`), id[:]).Scan(&tid, &tname)
-	case dbutil.Spanner:
-		err = g.cdb.QueryRowContext(ctx, `
-			SELECT tenant_id, tenant_name FROM backup_credentials WHERE id = ?
-		`, id[:]).Scan(&tid, &tname)
-	default:
-		return "", "", nil
-	}
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return "", "", nil
-		}
-		return "", "", err
-	}
-	if tid.Valid {
-		tenantID = tid.String
-	}
-	if tname.Valid {
-		tenantName = tname.String
-	}
-	return tenantID, tenantName, nil
-}
-
 func backupCredentialFromDBX(row *dbx.BackupCredentials) (*console.BackupCredential, error) {
 	if row == nil {
 		return nil, errors.New("nil backup credential row")
@@ -304,6 +231,12 @@ func backupCredentialFromDBX(row *dbx.BackupCredentials) (*console.BackupCredent
 	}
 	if row.AccountType != nil {
 		credential.AccountType = *row.AccountType
+	}
+	if row.TenantId != nil {
+		credential.TenantID = *row.TenantId
+	}
+	if row.TenantName != nil {
+		credential.TenantName = *row.TenantName
 	}
 	return credential, nil
 }

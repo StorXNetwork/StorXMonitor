@@ -364,14 +364,18 @@ func (g *GoogleBackup) BackupNowAutoSyncJob(w http.ResponseWriter, r *http.Reque
 	writeBackupToolsJSON(w, status, respBody)
 }
 
-// QuotaCheck proxies Backup-Tools Google size vs CyberLS remaining for onboarding/connect.
-// Estimates live in Backup-Tools (same as job-start pre-check). Satellite only proxies
-// and overlays popup text from configs `popup_messages` (same source as check-upload).
+// QuotaCheck proxies Backup-Tools Google or Microsoft 365 size vs CyberLS remaining for
+// onboarding/connect. Estimates live in Backup-Tools (same as job-start pre-check). Satellite
+// picks the connected credential from the service names, proxies, and overlays popup text
+// from configs `popup_messages` (same source as check-upload).
 //
-// @Summary      Google backup services storage quota check
+// @Summary      Google / Microsoft 365 backup services storage quota check
 // @Description  **Full route:** `POST /api/v0/buckets/quota-check`
 //
 // Proxies Backup-Tools `POST /auto-sync/job/services-quota-check`. Body: `project_id`, `services[]`, optional `emails`.
+// Microsoft services (`outlook`, `onedrive`, `sharepoint`, `teams`, `groups`) use the Microsoft backup
+// credential; Google services (`drive`, `gmail`, `photos`) use the Google one. When the services do not
+// decide (e.g. only `calendar`/`contacts`), whichever credential is connected is used.
 // @Tags         buckets-quota-check
 // @Accept       json
 // @Produce      json
@@ -397,7 +401,7 @@ func (g *GoogleBackup) QuotaCheck(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respBody, status, err := g.service.TriggerGoogleBackupServicesQuotaCheck(ctx, tokenKey, payload)
+	respBody, status, err := g.service.TriggerBackupServicesQuotaCheck(ctx, tokenKey, payload)
 	if err != nil {
 		g.serveJSONError(ctx, w, err)
 		return

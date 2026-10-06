@@ -9,13 +9,25 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestInferMicrosoftAccountTypeFromEmail(t *testing.T) {
-	require.Equal(t, "personal", InferMicrosoftAccountTypeFromEmail("user@outlook.com"))
-	require.Equal(t, "", InferMicrosoftAccountTypeFromEmail("admin@contoso.com"))
-}
-
-func TestIsMicrosoftConsumerEmail(t *testing.T) {
-	require.True(t, IsMicrosoftConsumerEmail("user@outlook.com"))
-	require.True(t, IsMicrosoftConsumerEmail("user@hotmail.com"))
-	require.False(t, IsMicrosoftConsumerEmail("admin@contoso.com"))
+func TestMicrosoftAccountTypeFromDetection(t *testing.T) {
+	tests := []struct {
+		name     string
+		detected string
+		existing string
+		want     string
+	}{
+		{name: "detection never promotes to admin_workspace", detected: MicrosoftAccountTypeAdminWorkspace, existing: "", want: MicrosoftAccountTypeWorkAccount},
+		{name: "detection never demotes admin_workspace", detected: MicrosoftAccountTypeWorkAccount, existing: MicrosoftAccountTypeAdminWorkspace, want: MicrosoftAccountTypeAdminWorkspace},
+		{name: "work account stays work account", detected: MicrosoftAccountTypeWorkAccount, existing: MicrosoftAccountTypeWorkAccount, want: MicrosoftAccountTypeWorkAccount},
+		{name: "legacy detection becomes work account", detected: "employee_workspace", existing: "", want: MicrosoftAccountTypeWorkAccount},
+		{name: "legacy stored value becomes work account", detected: "", existing: "employee_workspace", want: MicrosoftAccountTypeWorkAccount},
+		{name: "personal", detected: MicrosoftAccountTypePersonal, existing: "", want: MicrosoftAccountTypePersonal},
+		{name: "empty detection keeps existing", detected: "", existing: MicrosoftAccountTypeAdminWorkspace, want: MicrosoftAccountTypeAdminWorkspace},
+		{name: "unknown stays unknown", detected: "", existing: "", want: ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, microsoftAccountTypeFromDetection(tt.detected, tt.existing))
+		})
+	}
 }

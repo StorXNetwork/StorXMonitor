@@ -113,9 +113,10 @@ type Config struct {
 	GoogleBackupRedirectURLstring string `help:"redirect url for google oauth google-backup (GET /api/v0/auth/google-backup)" default:""`
 	GoogleSellerRedirectURLstring string `help:"redirect url for google oauth seller (GET /api/v0/seller/auth/google)" default:""`
 
-	OutlookClientID                  string `help:"client id for microsoft/outlook oauth (GET /api/v0/auth/microsoft-backup)" default:""`
-	OutlookClientSecret              string `help:"client secret for microsoft/outlook oauth (GET /api/v0/auth/microsoft-backup)" default:""`
-	MicrosoftBackupRedirectURLstring string `help:"redirect url for microsoft oauth microsoft-backup (GET /api/v0/auth/microsoft-backup)" default:""`
+	OutlookClientID                   string `help:"client id for microsoft/outlook oauth (GET /api/v0/auth/microsoft-backup)" default:""`
+	OutlookClientSecret               string `help:"client secret for microsoft/outlook oauth (GET /api/v0/auth/microsoft-backup)" default:""`
+	MicrosoftBackupRedirectURLstring  string `help:"redirect url for microsoft oauth microsoft-backup (GET /api/v0/auth/microsoft-backup)" default:""`
+	MicrosoftAdminConsentRedirectPath string `help:"frontend path Microsoft redirects to after tenant admin consent; appended to the microsoft-backup frontend origin and must be registered on the Azure app" default:"/connect/microsoft-admin-consent-callback"`
 
 	FacebookClientID               string `help:"client id for facebook oauth" default:""`
 	FacebookClientSecret           string `help:"client secret for facebook oauth" default:""`
@@ -490,6 +491,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	socialmedia.SetGoogleSellerOAuthRedirectURL(config.GoogleSellerRedirectURLstring)
 	socialmedia.SetOutlookSocialMediaConfig(config.OutlookClientID, config.OutlookClientSecret)
 	socialmedia.SetMicrosoftBackupOAuthRedirectURL(config.MicrosoftBackupRedirectURLstring)
+	socialmedia.SetMicrosoftAdminConsentRedirectPath(config.MicrosoftAdminConsentRedirectPath)
 	socialmedia.SetFacebookSocialMediaConfig(config.FacebookClientID, config.FacebookClientSecret, config.FacebookSigupRedirectURLstring, config.FacebookLoginRedirectURLstring)
 	socialmedia.SetLinkedinSocialMediaConfig(config.LinkedinClientID, config.LinkedinClientSecret, config.LinkedinSigupRedirectURLstring, config.LinkedinLoginRedirectURLstring, config.LinkedinRegisterIdTokenRedirectURLstring, config.LinkedinLoginIdTokenRedirectURLstring)
 	socialmedia.SetUnstoppableDomainSocialMediaConfig(config.UnstoppableDomainClientID, config.UnstoppableDomainClientSecret, config.UnstoppableDomainSignupRedirectURLstring, config.UnstoppableDomainLoginRedirectURLstring)
@@ -664,6 +666,12 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	microsoftBackupRouter.Use(server.withCORS)
 	microsoftBackupRouter.Use(server.withAuth)
 	microsoftBackupRouter.Handle("/connect", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.ConnectMicrosoft))).Methods(http.MethodPost, http.MethodOptions)
+	microsoftBackupRouter.Handle("/admin-consent-url", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.AdminConsentURL))).Methods(http.MethodGet, http.MethodOptions)
+	microsoftBackupRouter.Handle("/admin-consent/callback", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.AdminConsentCallback))).Methods(http.MethodGet, http.MethodOptions)
+	microsoftBackupRouter.Handle("/status", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.Status))).Methods(http.MethodGet, http.MethodOptions)
+	microsoftBackupRouter.Handle("/capabilities/refresh", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.RefreshCapabilities))).Methods(http.MethodPost, http.MethodOptions)
+	microsoftBackupRouter.Handle("/directory/users", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.DirectoryUsers))).Methods(http.MethodGet, http.MethodOptions)
+	microsoftBackupRouter.Handle("/organization/structure", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.GetOrgStructure))).Methods(http.MethodGet, http.MethodOptions)
 	microsoftBackupRouter.Handle("/domain-users", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.GetCorporateDomainUsers))).Methods(http.MethodGet, http.MethodOptions)
 	microsoftBackupRouter.Handle("/outlook/corporate/domain-users", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.GetCorporateDomainUsers))).Methods(http.MethodGet, http.MethodOptions)
 	microsoftBackupRouter.Handle("/backup/onboarding/jobs", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.CreateAutoSyncJobs))).Methods(http.MethodPost, http.MethodOptions)

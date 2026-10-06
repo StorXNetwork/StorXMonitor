@@ -15,48 +15,116 @@ import (
 	"go.uber.org/zap"
 )
 
+// MicrosoftBackupSignIn is the Microsoft identity and tokens from a microsoft-backup OAuth sign-in.
+type MicrosoftBackupSignIn struct {
+	Email             string
+	TenantID          string
+	AccessToken       string
+	RefreshToken      string
+	AccessTokenExpiry time.Time
+}
+
 // RegisterMicrosoftBackupResult is returned after microsoft-backup auth stores credentials.
 type RegisterMicrosoftBackupResult struct {
 	MicrosoftEmail  string
 	AccountType     string
+	TenantID        string
+	TenantName      string
 	HasRefreshToken bool
+	// Detection is the Backup-Tools account detection contract (is_admin, admin_roles, ...), when called.
+	Detection      map[string]interface{}
+	DetectionError string
 }
 
-// RegisterMicrosoftBackupCredential stores Microsoft OAuth tokens in backup_credentials.
-// No scope validation or Backup-Tools detect on login/register — UI builds authorize URL with all scopes (Google parity);
-// account_type for consumer mail is set locally; org detect uses GET /microsoft-backup/domain-users when needed.
-func (s *Service) RegisterMicrosoftBackupCredential(ctx context.Context, microsoftEmail, accessToken, refreshToken, scopeFromExchange string, accessTokenExpiry time.Time, tokenKey string) (result RegisterMicrosoftBackupResult, err error) {
+// RegisterMicrosoftBackupCredential stores the Microsoft tokens in backup_credentials and classifies the
+// account through Backup-Tools account detection (same role as RegisterGoogleBackupCredential calling
+// domain-users), which reports personal vs work/school, the tenant, and admin roles.
+// Detection never grants admin_workspace; only admin consent does.
+func (s *Service) RegisterMicrosoftBackupCredential(ctx context.Context, signIn MicrosoftBackupSignIn, tokenKey string) (result RegisterMicrosoftBackupResult, err error) {
 	defer mon.Task()(&ctx)(&err)
-	_ = scopeFromExchange
-	_ = tokenKey
-
-	result = RegisterMicrosoftBackupResult{
-		MicrosoftEmail:  strings.TrimSpace(microsoftEmail),
-		HasRefreshToken: strings.TrimSpace(refreshToken) != "" && !looksLikeOAuthJWT(refreshToken),
-	}
-
-	if result.MicrosoftEmail == "" {
-		return result, Error.New("microsoft email is required")
-	}
 
 	user, err := GetUser(ctx)
 	if err != nil {
 		return result, Error.Wrap(err)
 	}
+	return s.storeMicrosoftSignIn(ctx, user, signIn, tokenKey)
+}
+
+func (s *Service) storeMicrosoftSignIn(ctx context.Context, user *User, signIn MicrosoftBackupSignIn, tokenKey string) (result RegisterMicrosoftBackupResult, err error) {
+	signIn.Email = strings.TrimSpace(signIn.Email)
+	signIn.TenantID = strings.TrimSpace(signIn.TenantID)
+	signIn.RefreshToken = strings.TrimSpace(signIn.RefreshToken)
+
+	result = RegisterMicrosoftBackupResult{
+		MicrosoftEmail:  signIn.Email,
+		TenantID:        signIn.TenantID,
+		HasRefreshToken: signIn.RefreshToken != "" && !looksLikeOAuthJWT(signIn.RefreshToken),
+	}
+	if result.MicrosoftEmail == "" {
+		return result, Error.New("microsoft email is required")
+	}
 
 	if !result.HasRefreshToken {
 		s.log.Warn("microsoft-backup register: missing or invalid refresh_token; skip credential store",
 			zap.String("email", result.MicrosoftEmail),
-			zap.Bool("has_access_token", strings.TrimSpace(accessToken) != ""),
+			zap.Bool("has_access_token", strings.TrimSpace(signIn.AccessToken) != ""),
 		)
 		return result, nil
 	}
 
-	result.AccountType = InferMicrosoftAccountTypeFromEmail(result.MicrosoftEmail)
-	if storeErr := s.StoreMicrosoftBackupCredential(ctx, user.ID, result.MicrosoftEmail, accessToken, refreshToken, accessTokenExpiry, result.AccountType, "", ""); storeErr != nil {
-		s.log.Warn("failed to store microsoft backup credentials during registration", zap.Error(storeErr))
+	existing, err := s.store.BackupCredentials().GetByUserIDProviderEmail(ctx, user.ID, BackupProviderMicrosoft, result.MicrosoftEmail)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return result, Error.Wrap(err)
+	}
+	existingAccountType := ""
+	if existing != nil {
+		existingAccountType = existing.AccountType
+		if result.TenantID == "" {
+			result.TenantID = existing.TenantID
+		}
+		result.TenantName = existing.TenantName
 	}
 
+	detection, detectErr := s.detectMicrosoftAccount(ctx, tokenKey, signIn.RefreshToken)
+	if detectErr != nil {
+		s.log.Warn("microsoft-backup: Backup-Tools account detection failed", zap.String("email", result.MicrosoftEmail), zap.Error(detectErr))
+		result.DetectionError = detectErr.Error()
+	} else {
+		result.Detection = detection
+		result.AccountType, _ = detection["account_type"].(string)
+		tenantID, tenantName := microsoftTenantFromDomainUsers(detection)
+		if tenantID != "" {
+			result.TenantID = tenantID
+		}
+		if tenantName != "" {
+			result.TenantName = tenantName
+		}
+	}
+	result.AccountType = microsoftAccountTypeFromDetection(result.AccountType, existingAccountType)
+	if result.AccountType == MicrosoftAccountTypePersonal {
+		result.TenantID, result.TenantName = "", ""
+	}
+
+	err = s.StoreMicrosoftBackupCredential(ctx, user.ID, result.MicrosoftEmail, signIn.AccessToken, signIn.RefreshToken, signIn.AccessTokenExpiry, result.AccountType, result.TenantID, result.TenantName)
+	return result, err
+}
+
+// detectMicrosoftAccount calls Backup-Tools GET /microsoft/account/detect with the delegated refresh token.
+func (s *Service) detectMicrosoftAccount(ctx context.Context, tokenKey, refreshToken string) (map[string]interface{}, error) {
+	if strings.TrimSpace(tokenKey) == "" {
+		return nil, ErrUnauthorized.New("session token is required for account detection")
+	}
+	body, status, err := s.backupToolsRequestWithHeaders(ctx, http.MethodGet, "/microsoft/account/detect?top=1", tokenKey, "", refreshToken, nil)
+	if err != nil {
+		return nil, err
+	}
+	if status != http.StatusOK {
+		return nil, Error.New("Backup-Tools microsoft account detection returned status %d: %s", status, string(body))
+	}
+	var result map[string]interface{}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, Error.Wrap(err)
+	}
 	return result, nil
 }
 
@@ -81,10 +149,9 @@ func (s *Service) LoadMicrosoftBackupAtLogin(ctx context.Context, sessionToken s
 	result := RegisterMicrosoftBackupResult{
 		MicrosoftEmail:  credential.Email,
 		AccountType:     credential.AccountType,
+		TenantID:        credential.TenantID,
+		TenantName:      credential.TenantName,
 		HasRefreshToken: strings.TrimSpace(credential.RefreshToken) != "" && !looksLikeOAuthJWT(credential.RefreshToken),
-	}
-	if result.AccountType == "" && InferMicrosoftAccountTypeFromEmail(credential.Email) != "" {
-		result.AccountType = "personal"
 	}
 	return MicrosoftBackupRegistrationPayload(result), nil
 }
@@ -159,7 +226,7 @@ func (s *Service) GetMicrosoftBackupDomainUsers(ctx context.Context, tokenKey, r
 	if credential != nil && email == "" {
 		email = credential.Email
 	}
-	if InferMicrosoftAccountTypeFromEmail(email) == "personal" {
+	if credential != nil && credential.AccountType == MicrosoftAccountTypePersonal {
 		return microsoftBackupDomainUsersPayload(MicrosoftPersonalBackupDomainUsers(email), ""), nil
 	}
 
@@ -169,10 +236,17 @@ func (s *Service) GetMicrosoftBackupDomainUsers(ctx context.Context, tokenKey, r
 		s.log.Warn("microsoft domain-users call failed", zap.Error(domainErr))
 		domainError = domainErr.Error()
 	} else if credential != nil {
-		if accountType, ok := domainUsers["account_type"].(string); ok && accountType != "" && accountType != credential.AccountType {
-			if err := s.store.BackupCredentials().UpdateAccountType(ctx, credential.ID, accountType); err != nil {
+		// Delegated detection must not change app-only authorization state: it can neither grant nor
+		// revoke admin_workspace.
+		detected, _ := domainUsers["account_type"].(string)
+		merged := microsoftAccountTypeFromDetection(detected, credential.AccountType)
+		if merged != "" && merged != credential.AccountType {
+			if err := s.store.BackupCredentials().UpdateAccountType(ctx, credential.ID, merged); err != nil {
 				s.log.Warn("failed to update microsoft backup account type from domain-users", zap.Error(err))
 			}
+		}
+		if merged != "" {
+			domainUsers["account_type"] = merged
 		}
 		tenantID, tenantName := microsoftTenantFromDomainUsers(domainUsers)
 		if tenantID != "" || tenantName != "" {
@@ -204,14 +278,32 @@ func microsoftBackupDomainUsersPayload(domainUsers map[string]interface{}, domai
 	return nil
 }
 
-// MicrosoftBackupRegistrationPayload is the microsoft_backup block on auth responses.
+// MicrosoftBackupRegistrationPayload is the microsoft_backup block on auth responses:
+// the Backup-Tools detection contract (when available) plus the stored classification and has_refresh_token.
 func MicrosoftBackupRegistrationPayload(result RegisterMicrosoftBackupResult) map[string]interface{} {
-	out := make(map[string]interface{})
+	out := make(map[string]interface{}, len(result.Detection)+6)
+	for k, v := range result.Detection {
+		out[k] = v
+	}
 	if result.MicrosoftEmail != "" {
 		out["email"] = result.MicrosoftEmail
 	}
 	if result.AccountType != "" {
 		out["account_type"] = result.AccountType
+		workspaceKind := "organization"
+		if result.AccountType == MicrosoftAccountTypePersonal {
+			workspaceKind = "personal"
+		}
+		out["workspace_kind"] = workspaceKind
+	}
+	if result.TenantID != "" {
+		out["tenant_id"] = result.TenantID
+	}
+	if result.TenantName != "" {
+		out["tenant_name"] = result.TenantName
+	}
+	if result.DetectionError != "" {
+		out["detection_error"] = result.DetectionError
 	}
 	out["has_refresh_token"] = result.HasRefreshToken
 	return out

@@ -89,6 +89,29 @@ func (s *Service) InitMicrosoftBackupOnboarding(ctx context.Context) error {
 	return Error.Wrap(err)
 }
 
+// EnsureInviteeMicrosoftOnboardingSkipped marks Microsoft backup onboarding skipped when the user has a
+// pending project invite and already has a password. Same rule as EnsureInviteeOnboardingSkipped for Google.
+func (s *Service) EnsureInviteeMicrosoftOnboardingSkipped(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := GetUser(ctx)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	if !s.hasActiveProjectInvitation(ctx, user) || !HasPasswordSet(user.PasswordHash) {
+		return nil
+	}
+	onboardingStart := true
+	onboardingEnd := true
+	step := OnboardingStepMicrosoftBackupSkipped
+	err = s.store.Users().UpsertSettings(ctx, user.ID, UpsertUserSettingsRequest{
+		OnboardingStart: &onboardingStart,
+		OnboardingEnd:   &onboardingEnd,
+		OnboardingStep:  &step,
+	})
+	return Error.Wrap(err)
+}
+
 // MicrosoftBackupOnboardingAPI is returned on Microsoft Backup auth responses.
 type MicrosoftBackupOnboardingAPI struct {
 	OnboardingStart  bool   `json:"onboardingStart"`

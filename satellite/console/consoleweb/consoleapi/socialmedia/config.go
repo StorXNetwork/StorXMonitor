@@ -19,6 +19,7 @@ type Config struct {
 	OutlookClientID                         string `mapstructure:"OUTLOOK_CLIENT_ID"`
 	OutlookClientSecret                     string `mapstructure:"OUTLOOK_CLIENT_SECRET"`
 	OutlookOAuthRedirectUrl_microsoftbackup string `mapstructure:"OUTLOOK_OAUTH_REDIRECT_URL_MICROSOFT_BACKUP"`
+	MicrosoftAdminConsentRedirectPath       string `mapstructure:"MICROSOFT_ADMIN_CONSENT_REDIRECT_PATH"`
 
 	FacebookClientID                  string `mapstructure:"FACEBOOK_CLIENT_ID"`
 	FacebookClientSecret              string `mapstructure:"FACEBOOK_CLIENT_SECRET"`
@@ -84,6 +85,31 @@ func SetOutlookSocialMediaConfig(clientID, clientSecret string) {
 
 func SetMicrosoftBackupOAuthRedirectURL(redirectURL string) {
 	configVal.OutlookOAuthRedirectUrl_microsoftbackup = redirectURL
+}
+
+// SetMicrosoftAdminConsentRedirectPath sets the frontend path Microsoft redirects to after tenant admin consent.
+func SetMicrosoftAdminConsentRedirectPath(path string) {
+	configVal.MicrosoftAdminConsentRedirectPath = path
+}
+
+// DefaultMicrosoftAdminConsentRedirectPath is the frontend admin-consent callback page.
+const DefaultMicrosoftAdminConsentRedirectPath = "/connect/microsoft-admin-consent-callback"
+
+// ResolveMicrosoftAdminConsentRedirectURI returns the admin-consent redirect_uri: the microsoft-backup
+// frontend origin plus the configured callback path. It must be registered on the Azure app (Web platform).
+func ResolveMicrosoftAdminConsentRedirectURI(r *http.Request) string {
+	origin := ResolveMicrosoftBackupOrigin(r)
+	if origin == "" {
+		return ""
+	}
+	path := strings.TrimSpace(configVal.MicrosoftAdminConsentRedirectPath)
+	if path == "" {
+		path = DefaultMicrosoftAdminConsentRedirectPath
+	}
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+	return origin + path
 }
 
 func SetFacebookSocialMediaConfig(clientID string, clientSecret string, redirectUrl_register string, redirectUrl_login string) {

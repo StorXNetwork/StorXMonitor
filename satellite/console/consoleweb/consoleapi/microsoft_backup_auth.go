@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -20,7 +21,7 @@ import (
 // MicrosoftBackupAuth handles combined Microsoft OAuth register-or-login for Microsoft Backup.
 //
 // @Summary      Microsoft Backup auth (register or login)
-// @Description  **Route:** `GET /api/v0/auth/microsoft-backup`. Same pattern as `GET /auth/google-backup`: UI builds the Microsoft authorize URL client-side (`OUTLOOK_CLIENT_ID`, frontend origin as `redirect_uri`, `MicrosoftBackupScopes`, `prompt=consent`, `offline_access`), then redirects here with OAuth `code`. `redirect_uri` on token exchange is derived server-side from request Host (or `OUTLOOK_OAUTH_REDIRECT_URL_MICROSOFT_BACKUP`). MSAL JWT-as-code still works for login but will not yield refresh_token. Returns `action`, `token`, `onboarding`, and `microsoft_backup` (`email`, `account_type` for consumer mail, `has_refresh_token`). Sets session cookie.
+// @Description  **Route:** `GET /api/v0/auth/microsoft-backup`. Same pattern as `GET /auth/google-backup`: UI builds the Microsoft authorize URL client-side (`OUTLOOK_CLIENT_ID`, frontend origin as `redirect_uri`, `MicrosoftBackupScopes`, `prompt=consent`, `offline_access`), then redirects here with OAuth `code`. `redirect_uri` on token exchange is derived server-side from request Host (or `OUTLOOK_OAUTH_REDIRECT_URL_MICROSOFT_BACKUP`). MSAL JWT-as-code still works for login but will not yield refresh_token. Personal vs work/school, tenant, and admin roles come from Backup-Tools account detection (`GET /microsoft/account/detect`); Satellite does not classify accounts locally. Returns `action`, `token`, `onboarding`, and `microsoft_backup` (Backup-Tools contract: `account_type`, `workspace_kind`, `tenant_id`, `tenant_name`, `is_admin`, `admin_roles`, plus `email` and `has_refresh_token`). `account_type` is `work_account` for every work/school account (admins included, see `is_admin`) until admin consent grants app-only access. Pending-deletion accounts get `account_pending_deletion`. Sets session cookie.
 // @Tags         microsoft-backup-onboarding
 // @Produce      json
 // @Param        code         query  string  true   "Microsoft OAuth authorization code (preferred) or MSAL idToken/accessToken"
@@ -73,6 +74,11 @@ func (a *Auth) microsoftBackupAuthFromMicrosoft(w http.ResponseWriter, r *http.R
 	if err != nil && !console.ErrEmailNotFound.Has(err) {
 		a.writeMicrosoftBackupAuthError(w, "Error getting user details from system!")
 		return
+	}
+
+	// Soft-deleted accounts must never enter register/CreateProject.
+	if verified == nil {
+		verified = pendingDeletionUserFromUnverified(unverified)
 	}
 
 	if verified != nil {
@@ -195,18 +201,10 @@ func (a *Auth) completeMicrosoftBackupRegister(w http.ResponseWriter, r *http.Re
 	if tokens == nil {
 		tokens = &socialmedia.MicrosoftOauthToken{}
 	}
-	backupResult, backupErr := a.service.RegisterMicrosoftBackupCredential(
-		authed,
-		msUser.Email,
-		tokens.Access_token,
-		tokens.Refresh_token,
-		tokens.Scope,
-		tokens.ExpiresAt,
-		sessionToken,
-	)
+	backupResult, backupErr := a.service.RegisterMicrosoftBackupCredential(authed, microsoftBackupSignIn(msUser, tokens), sessionToken)
 	if backupErr != nil {
 		a.log.Warn("failed to register microsoft backup credentials", zap.Error(backupErr))
-		microsoftBackup = microsoftBackupPayload(msUser.Email, tokens)
+		microsoftBackup = microsoftBackupPayload(msUser, tokens)
 	} else {
 		microsoftBackup = console.MicrosoftBackupRegistrationPayload(backupResult)
 	}
@@ -235,24 +233,28 @@ func (a *Auth) completeMicrosoftBackupLogin(w http.ResponseWriter, r *http.Reque
 
 	authed := console.WithUser(ctx, user)
 
+	// Pending deletion: do not refresh credentials / onboarding — UI must cancel first.
+	if user.Status == console.PendingDeletion {
+		pending, deleteAt, pendingErr := a.service.GetAccountPendingDeletionInfo(authed)
+		if pendingErr != nil {
+			a.log.Warn("failed to load pending deletion info at microsoft-backup login", zap.Error(pendingErr))
+			pending = true
+		}
+		a.service.RecordUserAudit(authed, "AUTH_MICROSOFT_BACKUP", "Microsoft Backup", "Microsoft Backup login while pending deletion", nil)
+		a.writeMicrosoftBackupAuthSuccessWithPending(w, socialmedia.MicrosoftAuthActionLoggedIn, sessionToken, console.MicrosoftBackupOnboardingAPI{}, nil, pending, deleteAt)
+		return
+	}
+
 	var microsoftBackup map[string]interface{}
 	if tokens == nil {
 		tokens = &socialmedia.MicrosoftOauthToken{}
 	}
 	hasFreshTokens := strings.TrimSpace(tokens.Access_token) != "" || strings.TrimSpace(tokens.Refresh_token) != ""
 	if hasFreshTokens {
-		backupResult, backupErr := a.service.RegisterMicrosoftBackupCredential(
-			authed,
-			msUser.Email,
-			tokens.Access_token,
-			tokens.Refresh_token,
-			tokens.Scope,
-			tokens.ExpiresAt,
-			sessionToken,
-		)
+		backupResult, backupErr := a.service.RegisterMicrosoftBackupCredential(authed, microsoftBackupSignIn(msUser, tokens), sessionToken)
 		if backupErr != nil {
 			a.log.Warn("failed to register microsoft backup credentials at login", zap.Error(backupErr))
-			microsoftBackup = microsoftBackupPayload(msUser.Email, tokens)
+			microsoftBackup = microsoftBackupPayload(msUser, tokens)
 		} else {
 			microsoftBackup = console.MicrosoftBackupRegistrationPayload(backupResult)
 		}
@@ -270,17 +272,31 @@ func (a *Auth) completeMicrosoftBackupLogin(w http.ResponseWriter, r *http.Reque
 		a.log.Warn("failed to read onboarding at microsoft login", zap.Error(err))
 		onboarding = console.MicrosoftBackupOnboardingAPI{}
 	}
+	if err := a.service.EnsureInviteeMicrosoftOnboardingSkipped(authed); err != nil {
+		a.log.Warn("failed to skip microsoft onboarding for invitee at login", zap.Error(err))
+	} else if onboarding.OnboardingStatus != console.OnboardingStatusCompleted {
+		if refreshed, rErr := a.service.GetMicrosoftBackupOnboarding(authed); rErr == nil {
+			onboarding = refreshed
+		}
+	}
 
 	a.service.RecordUserAudit(authed, "AUTH_MICROSOFT_BACKUP", "Microsoft Backup", "Microsoft Backup login completed", nil)
 	a.writeMicrosoftBackupAuthSuccess(w, socialmedia.MicrosoftAuthActionLoggedIn, sessionToken, onboarding, microsoftBackup)
 }
 
-func microsoftBackupPayload(email string, tokens *socialmedia.MicrosoftOauthToken) map[string]interface{} {
-	payload := map[string]interface{}{
-		"email": email,
+func microsoftBackupSignIn(msUser *socialmedia.MicrosoftUserResult, tokens *socialmedia.MicrosoftOauthToken) console.MicrosoftBackupSignIn {
+	return console.MicrosoftBackupSignIn{
+		Email:             msUser.Email,
+		TenantID:          msUser.TenantID,
+		AccessToken:       tokens.Access_token,
+		RefreshToken:      tokens.Refresh_token,
+		AccessTokenExpiry: tokens.ExpiresAt,
 	}
-	if accountType := console.InferMicrosoftAccountTypeFromEmail(email); accountType != "" {
-		payload["account_type"] = accountType
+}
+
+func microsoftBackupPayload(msUser *socialmedia.MicrosoftUserResult, tokens *socialmedia.MicrosoftOauthToken) map[string]interface{} {
+	payload := map[string]interface{}{
+		"email": msUser.Email,
 	}
 	if tokens == nil {
 		payload["has_refresh_token"] = false
@@ -291,6 +307,10 @@ func microsoftBackupPayload(email string, tokens *socialmedia.MicrosoftOauthToke
 }
 
 func (a *Auth) writeMicrosoftBackupAuthSuccess(w http.ResponseWriter, action, sessionToken string, onboarding console.MicrosoftBackupOnboardingAPI, microsoftBackup map[string]interface{}) {
+	a.writeMicrosoftBackupAuthSuccessWithPending(w, action, sessionToken, onboarding, microsoftBackup, false, nil)
+}
+
+func (a *Auth) writeMicrosoftBackupAuthSuccessWithPending(w http.ResponseWriter, action, sessionToken string, onboarding console.MicrosoftBackupOnboardingAPI, microsoftBackup map[string]interface{}, accountPendingDeletion bool, deleteAt *time.Time) {
 	w.Header().Set("Content-Type", "application/json")
 	payload := map[string]interface{}{
 		"success":    true,
@@ -300,6 +320,12 @@ func (a *Auth) writeMicrosoftBackupAuthSuccess(w http.ResponseWriter, action, se
 	}
 	if microsoftBackup != nil {
 		payload["microsoft_backup"] = microsoftBackup
+	}
+	if accountPendingDeletion {
+		payload["account_pending_deletion"] = true
+		if deleteAt != nil {
+			payload["delete_at"] = deleteAt.UTC()
+		}
 	}
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(payload)

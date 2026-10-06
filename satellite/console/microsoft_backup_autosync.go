@@ -36,6 +36,16 @@ type GroupsOnboardingInput struct {
 	GroupName string `json:"group_name,omitempty"`
 }
 
+const (
+	// MicrosoftBackupModeSelf backs up only the caller's own mailbox with their delegated token (/me).
+	MicrosoftBackupModeSelf = "self"
+	// MicrosoftBackupModeOrganization backs up tenant users with the tenant app-only token (/users/{id}).
+	MicrosoftBackupModeOrganization = "organization"
+
+	microsoftAuthModeDelegated   = "delegated"
+	microsoftAuthModeApplication = "application"
+)
+
 // CreateMicrosoftBackupAutoSyncJobsRequest is the UI → Satellite body for Microsoft job create / onboarding.
 type CreateMicrosoftBackupAutoSyncJobsRequest struct {
 	Services        []string                        `json:"services"`
@@ -53,23 +63,163 @@ type CreateMicrosoftBackupAutoSyncJobsRequest struct {
 	On              string                          `json:"on,omitempty"`
 	SatelliteUserID string                          `json:"satellite_user_id,omitempty"`
 	// BackupScope when "all_tenant" lets Backup-Tools expand tenant teams/groups without teams[]/groups[].
-	BackupScope     string                          `json:"backup_scope,omitempty"`
+	BackupScope string `json:"backup_scope,omitempty"`
+
+	// BackupMode is self (delegated, own mailbox) or organization (application, tenant users).
+	// It decides the job's auth_mode; the account type never does.
+	BackupMode string `json:"backup_mode,omitempty"`
+	// AllUsers selects every enabled user in the tenant directory (organization mode).
+	AllUsers bool `json:"all_users,omitempty"`
+	// UserIDs selects tenant directory users by object ID (organization mode).
+	UserIDs          []string                               `json:"user_ids,omitempty"`
+	PolicyScope      string                                 `json:"policy_scope,omitempty"`
+	EmailOrgUnits    map[string]string                      `json:"email_org_units,omitempty"`
+	OrgUnitSchedules map[string]GoogleBackupOrgUnitSchedule `json:"org_unit_schedules,omitempty"`
+}
+
+func (r *CreateMicrosoftBackupAutoSyncJobsRequest) isOrgUnitScope() bool {
+	return strings.EqualFold(strings.TrimSpace(r.PolicyScope), "org_unit")
+}
+
+// allowsEmptyTopLevelServices is true when every org-unit schedule carries its own services list.
+func (r *CreateMicrosoftBackupAutoSyncJobsRequest) allowsEmptyTopLevelServices() bool {
+	if !r.isOrgUnitScope() || len(r.OrgUnitSchedules) == 0 {
+		return false
+	}
+	for _, sched := range r.OrgUnitSchedules {
+		if len(sched.Services) == 0 {
+			return false
+		}
+	}
+	return true
+}
+
+// needsScheduleInBody reports whether top-level interval/on should be forwarded to Backup-Tools.
+func (r *CreateMicrosoftBackupAutoSyncJobsRequest) needsScheduleInBody() bool {
+	return r.PolicyID == nil && !r.isOrgUnitScope()
+}
+
+func (r *CreateMicrosoftBackupAutoSyncJobsRequest) hasService(service string) bool {
+	for _, svc := range r.Services {
+		if svc == service {
+			return true
+		}
+	}
+	for _, sched := range r.OrgUnitSchedules {
+		for _, svc := range sched.Services {
+			if svc == service {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// normalizeBackupMode defaults an omitted backup_mode: organization when the request selects tenant
+// users or org units, otherwise self.
+func (r *CreateMicrosoftBackupAutoSyncJobsRequest) normalizeBackupMode() error {
+	mode := strings.ToLower(strings.TrimSpace(r.BackupMode))
+	if mode == "" {
+		mode = MicrosoftBackupModeSelf
+		if r.AllUsers || len(r.UserIDs) > 0 || r.BackupScope == "all_tenant" || r.isOrgUnitScope() {
+			mode = MicrosoftBackupModeOrganization
+		}
+	}
+	switch mode {
+	case MicrosoftBackupModeSelf:
+		if r.AllUsers || len(r.UserIDs) > 0 || r.BackupScope == "all_tenant" || r.isOrgUnitScope() || len(r.OrgUnitSchedules) > 0 {
+			return ErrValidation.New("backup_mode=self only backs up your own mailbox; use backup_mode=organization for tenant users, org units or all_tenant")
+		}
+	case MicrosoftBackupModeOrganization:
+	default:
+		return ErrValidation.New("unsupported backup_mode: %s", r.BackupMode)
+	}
+	r.BackupMode = mode
+	return nil
+}
+
+func (r *CreateMicrosoftBackupAutoSyncJobsRequest) authMode() string {
+	if r.BackupMode == MicrosoftBackupModeOrganization {
+		return microsoftAuthModeApplication
+	}
+	return microsoftAuthModeDelegated
 }
 
 // UI service → body value forwarded to Backup-Tools (BT maps onedrive → method outlook_onedrive).
 var allowedMicrosoftBackupServices = map[string]string{
-	"outlook":  "outlook",
-	"mail":     "outlook",
-	"calendar": "calendar",
-	"contacts": "contacts",
-	"onedrive": "onedrive",
+	"outlook":    "outlook",
+	"mail":       "outlook",
+	"calendar":   "calendar",
+	"contacts":   "contacts",
+	"onedrive":   "onedrive",
 	"sharepoint": "sharepoint",
 	"teams":      "teams",
 	"groups":     "groups",
 }
 
-func normalizeMicrosoftBackupServices(services []string) ([]string, error) {
+func normalizeMicrosoftOrgUnitSchedules(in map[string]GoogleBackupOrgUnitSchedule) (map[string]GoogleBackupOrgUnitSchedule, error) {
+	out := make(map[string]GoogleBackupOrgUnitSchedule, len(in))
+	for path, sched := range in {
+		path = strings.TrimSpace(path)
+		if path == "" {
+			continue
+		}
+		services, err := normalizeMicrosoftBackupServices(sched.Services, true)
+		if err != nil {
+			return nil, err
+		}
+		out[path] = GoogleBackupOrgUnitSchedule{
+			PolicyName: strings.TrimSpace(sched.PolicyName),
+			Interval:   strings.TrimSpace(sched.Interval),
+			On:         strings.TrimSpace(sched.On),
+			Services:   services,
+		}
+	}
+	if len(out) == 0 {
+		return nil, nil
+	}
+	return out, nil
+}
+
+func normalizeMicrosoftEmailOrgUnits(units map[string]string) map[string]string {
+	out := make(map[string]string, len(units))
+	for email, path := range units {
+		email = strings.ToLower(strings.TrimSpace(email))
+		path = strings.TrimSpace(path)
+		if email == "" || path == "" {
+			continue
+		}
+		out[email] = path
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func normalizeMicrosoftUserIDs(ids []string) ([]string, error) {
+	out := make([]string, 0, len(ids))
+	seen := make(map[string]struct{}, len(ids))
+	for _, id := range ids {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			return nil, ErrValidation.New("user_ids cannot contain empty values")
+		}
+		key := strings.ToLower(id)
+		if _, dup := seen[key]; dup {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, id)
+	}
+	return out, nil
+}
+
+func normalizeMicrosoftBackupServices(services []string, allowEmpty bool) ([]string, error) {
 	if len(services) == 0 {
+		if allowEmpty {
+			return nil, nil
+		}
 		return nil, ErrValidation.New("at least one service is required")
 	}
 	seen := make(map[string]struct{}, len(services))
@@ -94,8 +244,22 @@ func normalizeMicrosoftBackupServices(services []string) ([]string, error) {
 
 func (r *CreateMicrosoftBackupAutoSyncJobsRequest) Validate() error {
 	var err error
-	r.Services, err = normalizeMicrosoftBackupServices(r.Services)
+	r.OrgUnitSchedules, err = normalizeMicrosoftOrgUnitSchedules(r.OrgUnitSchedules)
 	if err != nil {
+		return err
+	}
+	r.Services, err = normalizeMicrosoftBackupServices(r.Services, r.allowsEmptyTopLevelServices())
+	if err != nil {
+		return err
+	}
+	r.PolicyScope = strings.TrimSpace(r.PolicyScope)
+	r.EmailOrgUnits = normalizeMicrosoftEmailOrgUnits(r.EmailOrgUnits)
+	r.UserIDs, err = normalizeMicrosoftUserIDs(r.UserIDs)
+	if err != nil {
+		return err
+	}
+	r.BackupScope = strings.TrimSpace(r.BackupScope)
+	if err := r.normalizeBackupMode(); err != nil {
 		return err
 	}
 	r.MicrosoftEmail = strings.TrimSpace(r.MicrosoftEmail)
@@ -108,8 +272,11 @@ func (r *CreateMicrosoftBackupAutoSyncJobsRequest) Validate() error {
 	if v := strings.TrimSpace(r.RefreshToken); v != "" && looksLikeOAuthJWT(v) {
 		return ErrValidation.New("refresh_token looks like an access/id token (JWT); use the OAuth refresh_token from the token response")
 	}
-	if r.PolicyID == nil && strings.TrimSpace(r.PolicyName) == "" && strings.TrimSpace(r.Interval) == "" {
+	if r.needsScheduleInBody() && strings.TrimSpace(r.PolicyName) == "" && strings.TrimSpace(r.Interval) == "" {
 		return ErrValidation.New("interval is required when policy_id and policy_name are not set")
+	}
+	if r.isOrgUnitScope() && r.PolicyID == nil && len(r.OrgUnitSchedules) == 0 {
+		return ErrValidation.New("org_unit_schedules is required when policy_scope is org_unit")
 	}
 	emails := make([]string, 0, len(r.Emails))
 	seen := make(map[string]struct{}, len(r.Emails))
@@ -130,20 +297,12 @@ func (r *CreateMicrosoftBackupAutoSyncJobsRequest) Validate() error {
 	}
 	r.Emails = emails
 
-	r.BackupScope = strings.TrimSpace(r.BackupScope)
 	if r.BackupScope != "" && r.BackupScope != "all_tenant" {
 		return ErrValidation.New("unsupported backup_scope: %s", r.BackupScope)
 	}
 
-	hasSharePoint := false
-	for _, svc := range r.Services {
-		if svc == "sharepoint" {
-			hasSharePoint = true
-			break
-		}
-	}
-	if hasSharePoint {
-		if len(r.Sites) == 0 {
+	if r.hasService("sharepoint") {
+		if r.BackupScope != "all_tenant" && len(r.Sites) == 0 {
 			return ErrValidation.New("sites is required when sharepoint service is selected")
 		}
 		for i, site := range r.Sites {
@@ -155,14 +314,7 @@ func (r *CreateMicrosoftBackupAutoSyncJobsRequest) Validate() error {
 		}
 	}
 
-	hasTeams := false
-	for _, svc := range r.Services {
-		if svc == "teams" {
-			hasTeams = true
-			break
-		}
-	}
-	if hasTeams {
+	if r.hasService("teams") {
 		if r.BackupScope != "all_tenant" && len(r.Teams) == 0 {
 			return ErrValidation.New("teams is required when teams service is selected")
 		}
@@ -173,14 +325,7 @@ func (r *CreateMicrosoftBackupAutoSyncJobsRequest) Validate() error {
 		}
 	}
 
-	hasGroups := false
-	for _, svc := range r.Services {
-		if svc == "groups" {
-			hasGroups = true
-			break
-		}
-	}
-	if hasGroups {
+	if r.hasService("groups") {
 		if r.BackupScope != "all_tenant" && len(r.Groups) == 0 {
 			return ErrValidation.New("groups is required when groups service is selected")
 		}
@@ -225,24 +370,43 @@ func (s *Service) CreateMicrosoftBackupAutoSyncJobs(ctx context.Context, req Cre
 		}
 		return nil, 0, Error.Wrap(err)
 	}
-	if err := credential.ValidateForMicrosoftBackup(); err != nil {
-		return nil, 0, err
-	}
-
 	microsoftEmail := strings.TrimSpace(req.MicrosoftEmail)
 	if microsoftEmail == "" {
 		microsoftEmail = credential.Email
 	}
 
-	bodyRefresh := strings.TrimSpace(req.RefreshToken)
-	if bodyRefresh != "" {
-		if looksLikeOAuthJWT(bodyRefresh) {
-			return nil, 0, ErrValidation.New("refresh_token looks like an access/id token (JWT); use the OAuth refresh_token from the token response")
+	accountType := strings.TrimSpace(credential.AccountType)
+	tenantID := strings.TrimSpace(credential.TenantID)
+
+	switch req.BackupMode {
+	case MicrosoftBackupModeOrganization:
+		// Organization jobs run on the tenant app-only token in Backup-Tools; no delegated refresh token
+		// is sent. Backup-Tools decides authorization from consent and capabilities, not account_type.
+		if accountType == MicrosoftAccountTypePersonal {
+			return nil, 0, ErrValidation.New("organization backup requires a work or school Microsoft account")
 		}
-		if storeErr := s.StoreMicrosoftBackupCredential(ctx, user.ID, microsoftEmail, credential.AccessToken, bodyRefresh, time.Time{}, credential.AccountType, credential.TenantID, credential.TenantName); storeErr != nil {
-			return nil, 0, storeErr
+		if tenantID == "" {
+			return nil, 0, ErrValidation.New("microsoft tenant is unknown; sign in again with your work or school account")
 		}
-		credential.RefreshToken = bodyRefresh
+	default:
+		for _, email := range req.Emails {
+			if !strings.EqualFold(email, microsoftEmail) {
+				return nil, 0, ErrValidation.New("backup_mode=self only backs up your own mailbox (%s); use backup_mode=organization for other users", microsoftEmail)
+			}
+		}
+		bodyRefresh := strings.TrimSpace(req.RefreshToken)
+		if bodyRefresh != "" {
+			if looksLikeOAuthJWT(bodyRefresh) {
+				return nil, 0, ErrValidation.New("refresh_token looks like an access/id token (JWT); use the OAuth refresh_token from the token response")
+			}
+			if storeErr := s.StoreMicrosoftBackupCredential(ctx, user.ID, microsoftEmail, credential.AccessToken, bodyRefresh, time.Time{}, credential.AccountType, credential.TenantID, credential.TenantName); storeErr != nil {
+				return nil, 0, storeErr
+			}
+			credential.RefreshToken = bodyRefresh
+		}
+		if err := credential.ValidateForMicrosoftBackup(); err != nil {
+			return nil, 0, err
+		}
 	}
 
 	projectID := strings.TrimSpace(req.ProjectID)
@@ -259,11 +423,6 @@ func (s *Service) CreateMicrosoftBackupAutoSyncJobs(ctx context.Context, req Cre
 		projectID = project.PublicID.String()
 	}
 
-	accountType := strings.TrimSpace(credential.AccountType)
-	if accountType == "" {
-		return nil, 0, ErrValidation.New("microsoft account_type is missing; complete microsoft-backup auth and domain-users detection first")
-	}
-
 	satelliteUserID := strings.TrimSpace(req.SatelliteUserID)
 	if satelliteUserID == "" {
 		satelliteUserID = user.ID.String()
@@ -272,14 +431,21 @@ func (s *Service) CreateMicrosoftBackupAutoSyncJobs(ctx context.Context, req Cre
 	}
 
 	payload := map[string]interface{}{
-		"services":          req.Services,
 		"microsoft_email":   microsoftEmail,
-		"account_type":      accountType,
+		"auth_mode":         req.authMode(),
 		"project_id":        projectID,
 		"satellite_user_id": satelliteUserID,
-		"refresh_token":     strings.TrimSpace(credential.RefreshToken),
 	}
-	if tenantID := strings.TrimSpace(credential.TenantID); tenantID != "" {
+	if len(req.Services) > 0 {
+		payload["services"] = req.Services
+	}
+	if accountType != "" {
+		payload["account_type"] = accountType
+	}
+	if req.BackupMode == MicrosoftBackupModeSelf {
+		payload["refresh_token"] = strings.TrimSpace(credential.RefreshToken)
+	}
+	if tenantID != "" {
 		payload["tenant_id"] = tenantID
 	}
 	if tenantName := strings.TrimSpace(credential.TenantName); tenantName != "" {
@@ -330,13 +496,22 @@ func (s *Service) CreateMicrosoftBackupAutoSyncJobs(ctx context.Context, req Cre
 	if v := strings.TrimSpace(req.PolicyName); v != "" {
 		payload["policy_name"] = v
 	}
-	if req.PolicyID == nil {
+	if req.needsScheduleInBody() {
 		if interval := strings.TrimSpace(req.Interval); interval != "" {
 			payload["interval"] = interval
 		}
 		if on := strings.TrimSpace(req.On); on != "" {
 			payload["on"] = on
 		}
+	}
+	if req.PolicyScope != "" {
+		payload["policy_scope"] = req.PolicyScope
+	}
+	if len(req.EmailOrgUnits) > 0 {
+		payload["email_org_units"] = req.EmailOrgUnits
+	}
+	if len(req.OrgUnitSchedules) > 0 {
+		payload["org_unit_schedules"] = req.OrgUnitSchedules
 	}
 	if v := strings.TrimSpace(req.StorxToken); v != "" {
 		payload["storx_token"] = v
@@ -347,13 +522,32 @@ func (s *Service) CreateMicrosoftBackupAutoSyncJobs(ctx context.Context, req Cre
 		}
 		payload["storx_token"] = storxToken
 	}
-	if len(req.Emails) > 0 {
+	switch {
+	case len(req.Emails) > 0:
 		payload["emails"] = req.Emails
-	} else {
+	case req.BackupMode == MicrosoftBackupModeSelf:
 		payload["emails"] = []string{microsoftEmail}
 	}
-	if v := strings.TrimSpace(req.BackupScope); v != "" {
-		payload["backup_scope"] = v
+	if req.BackupMode == MicrosoftBackupModeOrganization {
+		if req.AllUsers {
+			payload["all_users"] = true
+		}
+		if len(req.UserIDs) > 0 {
+			payload["user_ids"] = req.UserIDs
+		}
+	}
+	if req.BackupScope != "" {
+		payload["backup_scope"] = req.BackupScope
+	}
+
+	// own_nodes mode: allow job create, but keep inactive until >= MinOwnNodesRequired.
+	ownNodesStatus, capacityErr := s.ownNodesCapacityForUser(ctx, user.ID)
+	jobsCreatedInactive := false
+	if capacityErr != nil {
+		s.log.Warn("own-nodes capacity check failed during microsoft job create", zap.Error(capacityErr))
+	} else if ownNodesStatus != nil && ownNodesStatus.Required && !ownNodesStatus.Ready {
+		payload["active"] = false
+		jobsCreatedInactive = true
 	}
 
 	btPayload, err := json.Marshal(payload)
@@ -368,6 +562,13 @@ func (s *Service) CreateMicrosoftBackupAutoSyncJobs(ctx context.Context, req Cre
 	}
 	if status == http.StatusOK {
 		s.maybeCompleteMicrosoftBackupOnboarding(ctx, body)
+		if ownNodesStatus != nil {
+			if jobsCreatedInactive {
+				s.enforceOwnNodesInactiveJobs(ctx, tokenKey, ownNodesStatus)
+				body = mergeOwnNodesCreateFlags(body, true)
+			}
+			body = mergeOwnNodesIntoJSONObject(body, "own_nodes", ownNodesStatus)
+		}
 	}
 	return body, status, nil
 }
