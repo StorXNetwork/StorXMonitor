@@ -54,6 +54,23 @@ definitions:
           type: string
         type: array
     type: object
+  console.MicrosoftBackupAccount:
+    properties:
+      account_type:
+        type: string
+      email:
+        type: string
+      external_account_id:
+        type: string
+      has_refresh_token:
+        type: boolean
+      home_tenant_id:
+        type: string
+      home_tenant_name:
+        type: string
+      id:
+        type: string
+    type: object
   console.MinimumChargeConfig:
     properties:
       amount:
@@ -953,6 +970,11 @@ definitions:
       backup_scope:
         example: all_tenant
         type: string
+      credential_id:
+        description: CredentialID selects the Microsoft account; required when several
+          accounts are connected.
+        example: 6f1c2a1e-4c1b-4d2a-9c3e-2f6a7b8c9d0e
+        type: string
       email_org_units:
         additionalProperties:
           type: string
@@ -1017,6 +1039,11 @@ definitions:
         items:
           $ref: '#/definitions/consoleapi.TeamsOnboardingSwaggerInput'
         type: array
+      tenant_id:
+        description: TenantID is the tenant connected for backup (POST /microsoft-backup/tenants/{tid}/connect);
+          required.
+        example: 72f988bf-86f1-41af-91ab-2d7cd011db47
+        type: string
       user_ids:
         items:
           type: string
@@ -1850,6 +1877,13 @@ definitions:
       success:
         type: boolean
     type: object
+  consoleapi.MicrosoftBackupAccountsResponse:
+    properties:
+      accounts:
+        items:
+          $ref: '#/definitions/console.MicrosoftBackupAccount'
+        type: array
+    type: object
   consoleapi.MicrosoftBackupAuthError:
     properties:
       error:
@@ -1929,6 +1963,16 @@ definitions:
         type: boolean
       onboardingStep:
         example: MicrosoftBackupPending
+        type: string
+    type: object
+  consoleapi.MicrosoftBackupTenantConnectRequest:
+    properties:
+      backup_mode:
+        description: BackupMode is personal or organization.
+        example: organization
+        type: string
+      credential_id:
+        example: 6f1c2a1e-4c1b-4d2a-9c3e-2f6a7b8c9d0e
         type: string
     type: object
   consoleapi.MicrosoftBackupUsersGroupsJobsActiveSwaggerRequest:
@@ -7394,16 +7438,51 @@ paths:
       summary: Get documentation guide
       tags:
       - static-api
+  /microsoft-backup/accounts:
+    get:
+      description: '**Route:** `GET /api/v0/microsoft-backup/accounts`. Answered by
+        Satellite. Each Microsoft sign-in is one account identified by its home object
+        ID (`external_account_id`) and home tenant; it can reach several tenants (see
+        `GET /microsoft-backup/tenants`). Use `id` as `credential_id` on every other
+        Microsoft route.'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.MicrosoftBackupAccountsResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: List connected Microsoft accounts
+      tags:
+      - microsoft-backup-organization
   /microsoft-backup/admin-consent-url:
     get:
-      description: '**Route:** `GET /api/v0/microsoft-backup/admin-consent-url`. Only
-        for a work or school account that Backup-Tools detection reports as an Entra
-        administrator (`is_admin`, any Entra Administrator role). `admin_workspace`
-        is not required. Returns `https://login.microsoftonline.com/{tenant}/adminconsent?client_id&redirect_uri&state`
-        with an HMAC-signed callback `state` (user, tenant, client, expiry, nonce)
-        that only protects the redirect. `redirect_uri` is the frontend origin plus
-        `microsoft-admin-consent-redirect-path` and must be registered on the Azure
-        app (Web platform).'
+      description: '**Route:** `GET /api/v0/microsoft-backup/admin-consent-url`. For
+        the selected tenant (`tenant_id`, required) of the selected work or school
+        account (`credential_id`), only when Backup-Tools detection reports the account
+        as an Entra administrator there (`is_admin`, any Entra Administrator role).
+        `admin_workspace` is not required. Returns `https://login.microsoftonline.com/{tenant}/adminconsent?client_id&redirect_uri&state`
+        with an HMAC-signed callback `state` (user, account, tenant, client, expiry,
+        nonce) that only protects the redirect. `redirect_uri` is the frontend origin
+        plus `microsoft-admin-consent-redirect-path` and must be registered on the
+        Azure app (Web platform).'
+      parameters:
+      - description: Microsoft account (backup credential ID); required when several
+          accounts are connected
+        in: query
+        name: credential_id
+        type: string
+      - description: Entra tenant ID to consent for
+        in: query
+        name: tenant_id
+        required: true
+        type: string
       produces:
       - application/json
       responses:
@@ -7433,11 +7512,12 @@ paths:
       description: '**Route:** `GET /api/v0/microsoft-backup/admin-consent/callback`.
         The frontend callback page forwards Microsoft''s query (`state`, `tenant`,
         `admin_consent`, `error`, `error_description`). Satellite verifies the signed
-        `state`, then calls Backup-Tools `POST /microsoft/tenants/{tid}/consent` with
-        `consented_by`. Backup-Tools decides consent (`granted`, `insufficient`, `revoked`,
-        `auth_error`) from the app-only token; its contract is returned unchanged.
-        Satellite stores only `account_type`, and only when Backup-Tools returns `admin_workspace`.
-        Backup-Tools 4xx responses are passed through.'
+        `state` (the account and tenant come from it), then calls Backup-Tools `POST
+        /microsoft/tenants/{tid}/consent` with `consented_by`. Backup-Tools decides
+        consent (`granted`, `insufficient`, `revoked`, `auth_error`) from the app-only
+        token; its contract is returned unchanged. Satellite stores only `account_type`,
+        and only when Backup-Tools returns `admin_workspace`. Backup-Tools 4xx responses
+        are passed through.'
       parameters:
       - description: Signed callback state from admin-consent-url
         in: query
@@ -7489,19 +7569,23 @@ paths:
       consumes:
       - application/json
       description: '**Route:** `POST /api/v0/microsoft-backup/auto-sync/job` (also
-        `POST .../backup/onboarding/jobs`). Satellite enriches the UI payload (account_type,
-        tenant_id from `backup_credentials`, project_id, storx_token) and POSTs Backup-Tools
-        `/microsoft/auto-sync/job`. `backup_mode` decides the job''s `auth_mode`:
-        `self` (default) → `delegated`, own mailbox only, refresh_token sent; `organization`
-        → `application`, tenant users via `all_users`/`user_ids`/`emails`/org units
-        (`policy_scope`, `email_org_units`, `org_unit_schedules`), no refresh token
-        sent. Backup-Tools authorizes organization jobs from tenant consent and capabilities,
-        never from `account_type`. Services: outlook/mail, calendar, contacts, onedrive
-        (`outlook_onedrive`), sharepoint (`outlook_sharepoint` + `sites[]`), teams
-        (`outlook_teams` + `teams[]` or `backup_scope=all_tenant`), groups (`outlook_groups`
-        + `groups[]` or `backup_scope=all_tenant`). In own-nodes mode jobs are created
-        inactive until enough nodes exist. On success (no failed jobs) sets onboarding
-        to `MicrosoftBackupCompleted`.'
+        `POST .../backup/onboarding/jobs`). The body selects the Microsoft account
+        (`credential_id`, optional with one account) and the tenant (`tenant_id`:
+        required in both modes, the tenant connected via `POST /microsoft-backup/tenants/{tid}/connect`;
+        the home tenant is never assumed; error 400 `tenant_id_required`). Satellite
+        enriches the UI payload (account_type, project_id, storx_token), sends the
+        selected `tenant_id` plus the `MICROSOFT_ACCOUNT_ID` / `MICROSOFT_HOME_TENANT_ID`
+        / `MICROSOFT_TENANT_ID` headers, and POSTs Backup-Tools `/microsoft/auto-sync/job`.
+        `backup_mode` decides the job''s `auth_mode`: `self` (default) → `delegated`,
+        own mailbox only, refresh_token sent; `organization` → `application`, tenant
+        users via `all_users`/`user_ids`/`emails`/org units (`policy_scope`, `email_org_units`,
+        `org_unit_schedules`), no refresh token sent. Backup-Tools authorizes organization
+        jobs from tenant consent and capabilities, never from `account_type`. Services:
+        outlook/mail, calendar, contacts, onedrive (`outlook_onedrive`), sharepoint
+        (`outlook_sharepoint` + `sites[]`), teams (`outlook_teams` + `teams[]` or
+        `backup_scope=all_tenant`), groups (`outlook_groups` + `groups[]` or `backup_scope=all_tenant`).
+        In own-nodes mode jobs are created inactive until enough nodes exist. On success
+        (no failed jobs) sets onboarding to `MicrosoftBackupCompleted`.'
       parameters:
       - description: daily or one_time (default daily)
         in: query
@@ -7536,6 +7620,17 @@ paths:
   /microsoft-backup/calendar/events/{calendarId}:
     get:
       parameters:
+      - description: Microsoft account (backup credential ID); required when several
+          accounts are connected
+        in: query
+        name: credential_id
+        type: string
+      - description: Selected Entra tenant ID, forwarded to Backup-Tools (400 tenant_id_required
+          when missing)
+        in: query
+        name: tenant_id
+        required: true
+        type: string
       - description: Calendar ID
         in: path
         name: calendarId
@@ -7568,6 +7663,17 @@ paths:
   /microsoft-backup/calendar/list:
     get:
       parameters:
+      - description: Microsoft account (backup credential ID); required when several
+          accounts are connected
+        in: query
+        name: credential_id
+        type: string
+      - description: Selected Entra tenant ID, forwarded to Backup-Tools (400 tenant_id_required
+          when missing)
+        in: query
+        name: tenant_id
+        required: true
+        type: string
       - description: Microsoft OAuth refresh token
         in: header
         name: REFRESH_TOKEN
@@ -7595,8 +7701,19 @@ paths:
   /microsoft-backup/capabilities/refresh:
     post:
       description: '**Route:** `POST /api/v0/microsoft-backup/capabilities/refresh`.
-        Proxies Backup-Tools `POST /microsoft/tenants/{tid}/capabilities/refresh`;
-        the tenant comes from the stored credential.'
+        Proxies Backup-Tools `POST /microsoft/tenants/{tid}/capabilities/refresh`
+        for the selected account and tenant.'
+      parameters:
+      - description: Microsoft account (backup credential ID); required when several
+          accounts are connected
+        in: query
+        name: credential_id
+        type: string
+      - description: Selected Entra tenant ID
+        in: query
+        name: tenant_id
+        required: true
+        type: string
       produces:
       - application/json
       responses:
@@ -7656,6 +7773,17 @@ paths:
   /microsoft-backup/contacts/list:
     get:
       parameters:
+      - description: Microsoft account (backup credential ID); required when several
+          accounts are connected
+        in: query
+        name: credential_id
+        type: string
+      - description: Selected Entra tenant ID, forwarded to Backup-Tools (400 tenant_id_required
+          when missing)
+        in: query
+        name: tenant_id
+        required: true
+        type: string
       - description: Microsoft OAuth refresh token
         in: header
         name: REFRESH_TOKEN
@@ -7680,36 +7808,22 @@ paths:
       summary: Browse Microsoft contacts
       tags:
       - microsoft-backup-browse
-  /microsoft-backup/directory/sync:
-    post:
-      description: '**Route:** `POST /api/v0/microsoft-backup/directory/sync`. Proxies
-        Backup-Tools `POST /microsoft/tenants/{tid}/directory/sync`.'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
-      security:
-      - CookieAuth: []
-      summary: Sync Microsoft tenant directory
-      tags:
-      - microsoft-backup-organization
   /microsoft-backup/directory/users:
     get:
       description: '**Route:** `GET /api/v0/microsoft-backup/directory/users`. Proxies
-        Backup-Tools `GET /microsoft/tenants/{tid}/directory/users` (database-backed,
-        kept current by `/users/delta` sync).'
+        Backup-Tools `GET /microsoft/tenants/{tid}/directory/users` for the selected
+        account and tenant (listed live from Microsoft Graph; nothing is stored).'
       parameters:
+      - description: Microsoft account (backup credential ID); required when several
+          accounts are connected
+        in: query
+        name: credential_id
+        type: string
+      - description: Selected Entra tenant ID
+        in: query
+        name: tenant_id
+        required: true
+        type: string
       - description: Search by name or email
         in: query
         name: search
@@ -7753,6 +7867,11 @@ paths:
         omitted. Returns Backup-Tools JSON under `microsoft_backup` and updates `account_type`
         when present.'
       parameters:
+      - description: Microsoft account (backup credential ID); required when several
+          accounts are connected
+        in: query
+        name: credential_id
+        type: string
       - description: Microsoft mailbox email (defaults to stored credential)
         in: query
         name: microsoft_email
@@ -7786,6 +7905,17 @@ paths:
       description: '**Route:** `GET /api/v0/microsoft-backup/groups/flat-conversations`.
         Requires `group_id`. Query: `skip`, `top`.'
       parameters:
+      - description: Microsoft account (backup credential ID); required when several
+          accounts are connected
+        in: query
+        name: credential_id
+        type: string
+      - description: Selected Entra tenant ID, forwarded to Backup-Tools (400 tenant_id_required
+          when missing)
+        in: query
+        name: tenant_id
+        required: true
+        type: string
       - description: Microsoft 365 group ID
         in: query
         name: group_id
@@ -7825,6 +7955,17 @@ paths:
         picker for `outlook_groups` jobs. Uses stored refresh_token when `REFRESH_TOKEN`
         header omitted. Query: `search`, `top`.'
       parameters:
+      - description: Microsoft account (backup credential ID); required when several
+          accounts are connected
+        in: query
+        name: credential_id
+        type: string
+      - description: Selected Entra tenant ID, forwarded to Backup-Tools (400 tenant_id_required
+          when missing)
+        in: query
+        name: tenant_id
+        required: true
+        type: string
       - description: Filter groups by name
         in: query
         name: search
@@ -7891,8 +8032,20 @@ paths:
   /microsoft-backup/organization/structure:
     get:
       description: '**Route:** `GET /api/v0/microsoft-backup/organization/structure`.
-        Proxies Backup-Tools `GET /microsoft/tenants/{tid}/org-structure` (org-unit
-        tree with user counts; `org_unit_path` defaults to `/` plus department).'
+        Proxies Backup-Tools `GET /microsoft/tenants/{tid}/org-structure` for the
+        selected account and tenant (org-unit tree with user counts; `org_unit_path`
+        defaults to `/` plus department).'
+      parameters:
+      - description: Microsoft account (backup credential ID); required when several
+          accounts are connected
+        in: query
+        name: credential_id
+        type: string
+      - description: Selected Entra tenant ID
+        in: query
+        name: tenant_id
+        required: true
+        type: string
       produces:
       - application/json
       responses:
@@ -7913,42 +8066,20 @@ paths:
       summary: Get Microsoft organization structure
       tags:
       - microsoft-backup-organization
-    put:
-      consumes:
-      - application/json
-      description: '**Route:** `PUT /api/v0/microsoft-backup/organization/structure`.
-        Proxies Backup-Tools `PUT /microsoft/tenants/{tid}/org-structure`. Body is
-        forwarded as-is, e.g. `{"overrides": {"<object_id>": "/Sales"}}`.'
-      parameters:
-      - description: Org structure overrides
-        in: body
-        name: body
-        required: true
-        schema:
-          type: object
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
-      security:
-      - CookieAuth: []
-      summary: Update Microsoft organization structure
-      tags:
-      - microsoft-backup-organization
   /microsoft-backup/query-messages:
     get:
       parameters:
+      - description: Microsoft account (backup credential ID); required when several
+          accounts are connected
+        in: query
+        name: credential_id
+        type: string
+      - description: Selected Entra tenant ID, forwarded to Backup-Tools (400 tenant_id_required
+          when missing)
+        in: query
+        name: tenant_id
+        required: true
+        type: string
       - description: Microsoft OAuth refresh token
         in: header
         name: REFRESH_TOKEN
@@ -7978,6 +8109,17 @@ paths:
       description: '**Route:** `GET /api/v0/microsoft-backup/sharepoint/flat-files`.
         Requires `drive_id`. Query: `skip`, `top`.'
       parameters:
+      - description: Microsoft account (backup credential ID); required when several
+          accounts are connected
+        in: query
+        name: credential_id
+        type: string
+      - description: Selected Entra tenant ID, forwarded to Backup-Tools (400 tenant_id_required
+          when missing)
+        in: query
+        name: tenant_id
+        required: true
+        type: string
       - description: SharePoint document library drive id
         in: query
         name: drive_id
@@ -8021,6 +8163,17 @@ paths:
         org picker. Uses stored refresh_token when `REFRESH_TOKEN` header omitted.
         Query: `search`, `top`. Requires `Sites.Read.All` (reconnect after scope add).'
       parameters:
+      - description: Microsoft account (backup credential ID); required when several
+          accounts are connected
+        in: query
+        name: credential_id
+        type: string
+      - description: Selected Entra tenant ID, forwarded to Backup-Tools (400 tenant_id_required
+          when missing)
+        in: query
+        name: tenant_id
+        required: true
+        type: string
       - description: Filter sites by name
         in: query
         name: search
@@ -8052,11 +8205,24 @@ paths:
   /microsoft-backup/status:
     get:
       description: '**Route:** `GET /api/v0/microsoft-backup/status`. Proxies Backup-Tools
-        `GET /microsoft/workspace` for the stored Microsoft credential and returns
-        its contract unchanged plus `has_refresh_token`: `account_type`, `workspace_kind`,
+        `GET /microsoft/workspace` for the selected Microsoft account (`credential_id`,
+        optional with one account) and tenant (`tenant_id`, required for work or school
+        accounts; the home tenant is never assumed) and returns its contract unchanged
+        plus `has_refresh_token` and `credential_id`: `account_type`, `workspace_kind`,
         `tenant_id`, `tenant_name`, `is_admin`, `admin_roles`, `consent` (`not_requested|granted|insufficient|revoked|auth_error`),
         `capabilities`, `capability_errors`, `directory`. Personal accounts are answered
-        locally. The wizard derives its step from this response.'
+        locally. Errors: 400 `microsoft_credential_required`, 400 `tenant_id_required`,
+        404 `microsoft_credential_not_found`.'
+      parameters:
+      - description: Microsoft account (backup credential ID); required when several
+          accounts are connected
+        in: query
+        name: credential_id
+        type: string
+      - description: Selected Entra tenant ID (required for work or school accounts)
+        in: query
+        name: tenant_id
+        type: string
       produces:
       - application/json
       responses:
@@ -8064,6 +8230,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
         "401":
           description: Unauthorized
           schema:
@@ -8082,6 +8252,17 @@ paths:
       description: '**Route:** `GET /api/v0/microsoft-backup/teams/channels`. Requires
         `team_id` query param.'
       parameters:
+      - description: Microsoft account (backup credential ID); required when several
+          accounts are connected
+        in: query
+        name: credential_id
+        type: string
+      - description: Selected Entra tenant ID, forwarded to Backup-Tools (400 tenant_id_required
+          when missing)
+        in: query
+        name: tenant_id
+        required: true
+        type: string
       - description: Microsoft Teams team ID
         in: query
         name: team_id
@@ -8112,6 +8293,17 @@ paths:
       description: '**Route:** `GET /api/v0/microsoft-backup/teams/flat-messages`.
         Requires `team_id` and `channel_id`. Query: `skip`, `top`.'
       parameters:
+      - description: Microsoft account (backup credential ID); required when several
+          accounts are connected
+        in: query
+        name: credential_id
+        type: string
+      - description: Selected Entra tenant ID, forwarded to Backup-Tools (400 tenant_id_required
+          when missing)
+        in: query
+        name: tenant_id
+        required: true
+        type: string
       - description: Microsoft Teams team ID
         in: query
         name: team_id
@@ -8157,6 +8349,17 @@ paths:
         header omitted. Query: `search`, `top`. Requires Teams Graph scopes (reconnect
         after scope add).'
       parameters:
+      - description: Microsoft account (backup credential ID); required when several
+          accounts are connected
+        in: query
+        name: credential_id
+        type: string
+      - description: Selected Entra tenant ID, forwarded to Backup-Tools (400 tenant_id_required
+          when missing)
+        in: query
+        name: tenant_id
+        required: true
+        type: string
       - description: Filter teams by name
         in: query
         name: search
@@ -8185,6 +8388,173 @@ paths:
       summary: List Microsoft Teams (admin)
       tags:
       - microsoft-backup-browse
+  /microsoft-backup/tenants:
+    get:
+      description: '**Route:** `GET /api/v0/microsoft-backup/tenants`. Proxies Backup-Tools
+        `GET /microsoft/accounts/tenants` for the selected account: tenant discovery
+        plus the tenant access state of each tenant (role, consent, token, capabilities,
+        connection). Account-level: no tenant is selected. Backup-Tools responses,
+        including 4xx errors, are passed through.'
+      parameters:
+      - description: Microsoft account (backup credential ID); required when several
+          accounts are connected
+        in: query
+        name: credential_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: List tenants of a Microsoft account
+      tags:
+      - microsoft-backup-organization
+  /microsoft-backup/tenants/{tid}/connect:
+    post:
+      consumes:
+      - application/json
+      description: '**Route:** `POST /api/v0/microsoft-backup/tenants/{tid}/connect`.
+        Proxies Backup-Tools `POST /microsoft/accounts/tenants/{tid}/connect` with
+        body `{backup_mode}` (`personal` or `organization`). The account comes from
+        `credential_id` (query or body).'
+      parameters:
+      - description: Entra tenant ID
+        in: path
+        name: tid
+        required: true
+        type: string
+      - description: Microsoft account (backup credential ID); required when several
+          accounts are connected
+        in: query
+        name: credential_id
+        type: string
+      - description: Backup mode
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.MicrosoftBackupTenantConnectRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Connect a Microsoft tenant
+      tags:
+      - microsoft-backup-organization
+  /microsoft-backup/tenants/{tid}/disconnect:
+    post:
+      description: '**Route:** `POST /api/v0/microsoft-backup/tenants/{tid}/disconnect`.
+        Proxies Backup-Tools `POST /microsoft/accounts/tenants/{tid}/disconnect`.
+        Backups are kept; backup, browse and restore for the tenant are blocked until
+        it is connected again.'
+      parameters:
+      - description: Entra tenant ID
+        in: path
+        name: tid
+        required: true
+        type: string
+      - description: Microsoft account (backup credential ID); required when several
+          accounts are connected
+        in: query
+        name: credential_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Disconnect a Microsoft tenant
+      tags:
+      - microsoft-backup-organization
+  /microsoft-backup/tenants/{tid}/roles/refresh:
+    post:
+      description: '**Route:** `POST /api/v0/microsoft-backup/tenants/{tid}/roles/refresh`.
+        Proxies Backup-Tools `POST /microsoft/accounts/tenants/{tid}/roles/refresh`
+        and returns the updated tenant access state.'
+      parameters:
+      - description: Entra tenant ID
+        in: path
+        name: tid
+        required: true
+        type: string
+      - description: Microsoft account (backup credential ID); required when several
+          accounts are connected
+        in: query
+        name: credential_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Refresh Microsoft tenant roles
+      tags:
+      - microsoft-backup-organization
   /microsoft-backup/users-groups:
     get:
       description: 'Filter method: outlook, outlook_calendar, outlook_contacts, outlook_onedrive,

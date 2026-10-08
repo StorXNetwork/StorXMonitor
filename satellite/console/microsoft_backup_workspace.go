@@ -5,9 +5,7 @@ package console
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -32,23 +30,18 @@ func (e *BackupToolsStatusError) Error() string {
 // backupToolsJSON sends a JSON request to Backup-Tools, checks the status and decodes the JSON object body.
 // Non-2xx responses return *BackupToolsStatusError.
 func (s *Service) backupToolsJSON(ctx context.Context, method, path, tokenKey string, payload interface{}) (map[string]interface{}, error) {
-	return s.backupToolsJSONWithRefresh(ctx, method, path, tokenKey, "", payload)
+	return s.backupToolsJSONWithHeaders(ctx, method, path, tokenKey, "", nil, payload)
 }
 
-// backupToolsTenantJSON calls a Backup-Tools /microsoft/tenants/{tid} route with the caller's delegated
-// refresh token. Backup-Tools accepts it as proof of tenant membership before any backup credential
-// exists there (e.g. admin consent during onboarding).
-func (s *Service) backupToolsTenantJSON(ctx context.Context, method, path, tokenKey string, credential *BackupCredential, payload interface{}) (map[string]interface{}, error) {
-	refreshToken := ""
-	if credential != nil {
-		if rt := strings.TrimSpace(credential.RefreshToken); rt != "" && !looksLikeOAuthJWT(rt) {
-			refreshToken = rt
-		}
-	}
-	return s.backupToolsJSONWithRefresh(ctx, method, path, tokenKey, refreshToken, payload)
+// backupToolsTenantJSON calls a Backup-Tools Microsoft route for the credential with its delegated
+// refresh token and the credential/tenant headers. selectedTenantID is empty on account-level routes.
+// Backup-Tools accepts the refresh token as proof of identity before it stores any credential
+// (e.g. admin consent during onboarding).
+func (s *Service) backupToolsTenantJSON(ctx context.Context, method, path, tokenKey string, credential *BackupCredential, selectedTenantID string, payload interface{}) (map[string]interface{}, error) {
+	return s.backupToolsJSONWithHeaders(ctx, method, path, tokenKey, microsoftCredentialRefreshToken(credential), microsoftBackupToolsHeaders(credential, selectedTenantID), payload)
 }
 
-func (s *Service) backupToolsJSONWithRefresh(ctx context.Context, method, path, tokenKey, refreshToken string, payload interface{}) (map[string]interface{}, error) {
+func (s *Service) backupToolsJSONWithHeaders(ctx context.Context, method, path, tokenKey, refreshToken string, headers map[string]string, payload interface{}) (map[string]interface{}, error) {
 	var body []byte
 	if payload != nil {
 		var err error
@@ -57,7 +50,7 @@ func (s *Service) backupToolsJSONWithRefresh(ctx context.Context, method, path, 
 			return nil, Error.Wrap(err)
 		}
 	}
-	respBody, status, err := s.backupToolsRequestWithHeaders(ctx, method, path, tokenKey, "", refreshToken, body)
+	respBody, status, err := s.backupToolsRequestWithExtraHeaders(ctx, method, path, tokenKey, "", refreshToken, headers, body)
 	if err != nil {
 		return nil, err
 	}
@@ -74,39 +67,16 @@ func (s *Service) backupToolsJSONWithRefresh(ctx context.Context, method, path, 
 	return out, nil
 }
 
-// microsoftOrgCredential loads the caller's Microsoft credential and its tenant ID.
-// The tenant ID always comes from the stored credential, never from the client.
-func (s *Service) microsoftOrgCredential(ctx context.Context) (*BackupCredential, string, error) {
-	user, err := GetUser(ctx)
-	if err != nil {
-		return nil, "", Error.Wrap(err)
-	}
-	credential, err := s.store.BackupCredentials().GetByUserIDAndProvider(ctx, user.ID, BackupProviderMicrosoft)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, "", ErrNotFound.New("microsoft backup credentials not found; complete microsoft-backup auth first")
-		}
-		return nil, "", Error.Wrap(err)
-	}
-	if credential.AccountType == MicrosoftAccountTypePersonal {
-		return credential, "", ErrValidation.New("organization features require a work or school Microsoft account")
-	}
-	tenantID := strings.TrimSpace(credential.TenantID)
-	if tenantID == "" {
-		return credential, "", ErrValidation.New("microsoft tenant is unknown; sign in again with your work or school account")
-	}
-	return credential, tenantID, nil
-}
-
 func microsoftTenantPath(tenantID, suffix string) string {
 	return "/microsoft/tenants/" + url.PathEscape(tenantID) + suffix
 }
 
 // syncMicrosoftAccountTypeFromWorkspace stores the account_type reported by the Backup-Tools workspace
-// contract. Backup-Tools is the authority for app-only authorization, so this may promote to or
-// demote from admin_workspace.
-func (s *Service) syncMicrosoftAccountTypeFromWorkspace(ctx context.Context, credential *BackupCredential, contract map[string]interface{}) {
-	if credential == nil || contract == nil {
+// contract for the credential's home tenant. Backup-Tools is the authority for app-only authorization,
+// so this may promote to or demote from admin_workspace. Contracts for other tenants are not stored:
+// account_type describes the home tenant only.
+func (s *Service) syncMicrosoftAccountTypeFromWorkspace(ctx context.Context, credential *BackupCredential, tenantID string, contract map[string]interface{}) {
+	if credential == nil || contract == nil || !strings.EqualFold(tenantID, credential.HomeTenantID()) {
 		return
 	}
 	accountType, _ := contract["account_type"].(string)
@@ -121,69 +91,68 @@ func (s *Service) syncMicrosoftAccountTypeFromWorkspace(ctx context.Context, cre
 	credential.AccountType = accountType
 }
 
-// GetMicrosoftBackupStatus returns the Backup-Tools workspace contract for the caller's Microsoft credential
-// (GET /microsoft/workspace) plus has_refresh_token. The delegated refresh token is sent because
-// Backup-Tools has no credential row for the user until backup jobs are created (e.g. during onboarding).
-func (s *Service) GetMicrosoftBackupStatus(ctx context.Context, tokenKey string) (contract map[string]interface{}, err error) {
+// GetMicrosoftBackupStatus returns the Backup-Tools workspace contract (GET /microsoft/workspace) for the
+// selected credential and tenant, plus has_refresh_token. Personal accounts are answered locally.
+// The delegated refresh token is sent because Backup-Tools may have no credential row for the user
+// until backup jobs are created (e.g. during onboarding).
+func (s *Service) GetMicrosoftBackupStatus(ctx context.Context, tokenKey string, sel MicrosoftTenantSelection) (contract map[string]interface{}, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := GetUser(ctx)
+	sel = sel.normalized()
+	credential, err := s.resolveMicrosoftCredentialForUser(ctx, sel.CredentialID)
 	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-	credential, err := s.store.BackupCredentials().GetByUserIDAndProvider(ctx, user.ID, BackupProviderMicrosoft)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrNotFound.New("microsoft backup credentials not found; complete microsoft-backup auth first")
-		}
-		return nil, Error.Wrap(err)
+		return nil, err
 	}
 
-	hasRefreshToken := strings.TrimSpace(credential.RefreshToken) != "" && !looksLikeOAuthJWT(credential.RefreshToken)
+	hasRefreshToken := hasUsableRefreshToken(credential)
 	if credential.AccountType == MicrosoftAccountTypePersonal {
-		return MicrosoftBackupRegistrationPayload(RegisterMicrosoftBackupResult{
+		payload := MicrosoftBackupRegistrationPayload(RegisterMicrosoftBackupResult{
 			MicrosoftEmail:  credential.Email,
 			AccountType:     credential.AccountType,
 			HasRefreshToken: hasRefreshToken,
-		}), nil
+		})
+		payload["credential_id"] = credential.ID.String()
+		return payload, nil
+	}
+	if sel.TenantID == "" {
+		return nil, ErrMicrosoftTenantRequired.New("tenant_id is required")
 	}
 
 	query := url.Values{}
 	query.Set("email", credential.Email)
-	if credential.TenantID != "" {
-		query.Set("tenant_id", credential.TenantID)
-	}
-	contract, err = s.backupToolsTenantJSON(ctx, http.MethodGet, "/microsoft/workspace?"+query.Encode(), tokenKey, credential, nil)
+	query.Set("tenant_id", sel.TenantID)
+	contract, err = s.backupToolsTenantJSON(ctx, http.MethodGet, "/microsoft/workspace?"+query.Encode(), tokenKey, credential, sel.TenantID, nil)
 	if err != nil {
 		return nil, err
 	}
-	s.syncMicrosoftAccountTypeFromWorkspace(ctx, credential, contract)
+	s.syncMicrosoftAccountTypeFromWorkspace(ctx, credential, sel.TenantID, contract)
 	contract["has_refresh_token"] = hasRefreshToken
+	contract["credential_id"] = credential.ID.String()
 	return contract, nil
 }
 
-// RefreshMicrosoftBackupCapabilities asks Backup-Tools to re-run the capability engine for the caller's tenant.
-func (s *Service) RefreshMicrosoftBackupCapabilities(ctx context.Context, tokenKey string) (contract map[string]interface{}, err error) {
+// RefreshMicrosoftBackupCapabilities asks Backup-Tools to re-run the capability engine for the selected tenant.
+func (s *Service) RefreshMicrosoftBackupCapabilities(ctx context.Context, tokenKey string, sel MicrosoftTenantSelection) (contract map[string]interface{}, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	credential, tenantID, err := s.microsoftOrgCredential(ctx)
+	credential, tenantID, err := s.microsoftTenantContext(ctx, sel)
 	if err != nil {
 		return nil, err
 	}
-	contract, err = s.backupToolsTenantJSON(ctx, http.MethodPost, microsoftTenantPath(tenantID, "/capabilities/refresh"), tokenKey, credential, nil)
+	contract, err = s.backupToolsTenantJSON(ctx, http.MethodPost, microsoftTenantPath(tenantID, "/capabilities/refresh"), tokenKey, credential, tenantID, nil)
 	if err != nil {
 		return nil, err
 	}
-	s.syncMicrosoftAccountTypeFromWorkspace(ctx, credential, contract)
+	s.syncMicrosoftAccountTypeFromWorkspace(ctx, credential, tenantID, contract)
 	return contract, nil
 }
 
-// ListMicrosoftBackupDirectoryUsers lists the tenant directory stored by Backup-Tools.
+// ListMicrosoftBackupDirectoryUsers lists the selected tenant's directory users via Backup-Tools.
 // Allowed query parameters: search, department, page, page_size.
-func (s *Service) ListMicrosoftBackupDirectoryUsers(ctx context.Context, tokenKey string, query url.Values) (result map[string]interface{}, err error) {
+func (s *Service) ListMicrosoftBackupDirectoryUsers(ctx context.Context, tokenKey string, sel MicrosoftTenantSelection, query url.Values) (result map[string]interface{}, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	credential, tenantID, err := s.microsoftOrgCredential(ctx)
+	credential, tenantID, err := s.microsoftTenantContext(ctx, sel)
 	if err != nil {
 		return nil, err
 	}
@@ -197,16 +166,96 @@ func (s *Service) ListMicrosoftBackupDirectoryUsers(ctx context.Context, tokenKe
 	if encoded := forwarded.Encode(); encoded != "" {
 		path += "?" + encoded
 	}
-	return s.backupToolsTenantJSON(ctx, http.MethodGet, path, tokenKey, credential, nil)
+	return s.backupToolsTenantJSON(ctx, http.MethodGet, path, tokenKey, credential, tenantID, nil)
 }
 
-// GetMicrosoftBackupOrgStructure returns the StorX organization structure (org-unit tree) for the tenant.
-func (s *Service) GetMicrosoftBackupOrgStructure(ctx context.Context, tokenKey string) (result map[string]interface{}, err error) {
+// GetMicrosoftBackupOrgStructure returns the StorX organization structure (org-unit tree) for the selected tenant.
+func (s *Service) GetMicrosoftBackupOrgStructure(ctx context.Context, tokenKey string, sel MicrosoftTenantSelection) (result map[string]interface{}, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	credential, tenantID, err := s.microsoftOrgCredential(ctx)
+	credential, tenantID, err := s.microsoftTenantContext(ctx, sel)
 	if err != nil {
 		return nil, err
 	}
-	return s.backupToolsTenantJSON(ctx, http.MethodGet, microsoftTenantPath(tenantID, "/org-structure"), tokenKey, credential, nil)
+	return s.backupToolsTenantJSON(ctx, http.MethodGet, microsoftTenantPath(tenantID, "/org-structure"), tokenKey, credential, tenantID, nil)
+}
+
+// ListMicrosoftBackupTenants returns the tenant access state of every tenant the selected account can
+// reach (Backup-Tools GET /microsoft/accounts/tenants). This is an account-level route: no tenant is selected.
+func (s *Service) ListMicrosoftBackupTenants(ctx context.Context, tokenKey, credentialID string) (result map[string]interface{}, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	credential, err := s.resolveMicrosoftCredentialForUser(ctx, credentialID)
+	if err != nil {
+		return nil, err
+	}
+	result, err = s.backupToolsTenantJSON(ctx, http.MethodGet, "/microsoft/accounts/tenants", tokenKey, credential, "", nil)
+	if err != nil {
+		return nil, err
+	}
+	result["credential_id"] = credential.ID.String()
+	return result, nil
+}
+
+// ConnectMicrosoftBackupTenant marks the selected account's link to tenantID connected in Backup-Tools.
+// backupMode is personal or organization; Backup-Tools never changes it from access state.
+func (s *Service) ConnectMicrosoftBackupTenant(ctx context.Context, tokenKey string, sel MicrosoftTenantSelection, backupMode string) (result map[string]interface{}, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	backupMode = strings.ToLower(strings.TrimSpace(backupMode))
+	switch backupMode {
+	case "personal", "organization":
+	case "":
+		return nil, ErrValidation.New("backup_mode is required")
+	default:
+		return nil, ErrValidation.New("unsupported backup_mode: %s", backupMode)
+	}
+	credential, tenantID, err := s.microsoftTenantLinkContext(ctx, sel)
+	if err != nil {
+		return nil, err
+	}
+	return s.backupToolsTenantJSON(ctx, http.MethodPost, microsoftAccountTenantPath(tenantID, "/connect"), tokenKey, credential, tenantID, map[string]interface{}{
+		"backup_mode": backupMode,
+	})
+}
+
+// DisconnectMicrosoftBackupTenant disconnects the selected account's link to tenantID in Backup-Tools.
+// Backups are kept; backup, browse and restore are blocked until reconnect.
+func (s *Service) DisconnectMicrosoftBackupTenant(ctx context.Context, tokenKey string, sel MicrosoftTenantSelection) (result map[string]interface{}, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	credential, tenantID, err := s.microsoftTenantLinkContext(ctx, sel)
+	if err != nil {
+		return nil, err
+	}
+	return s.backupToolsTenantJSON(ctx, http.MethodPost, microsoftAccountTenantPath(tenantID, "/disconnect"), tokenKey, credential, tenantID, nil)
+}
+
+// RefreshMicrosoftBackupTenantRoles re-reads the account's directory roles in tenantID via Backup-Tools.
+func (s *Service) RefreshMicrosoftBackupTenantRoles(ctx context.Context, tokenKey string, sel MicrosoftTenantSelection) (result map[string]interface{}, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	credential, tenantID, err := s.microsoftTenantLinkContext(ctx, sel)
+	if err != nil {
+		return nil, err
+	}
+	return s.backupToolsTenantJSON(ctx, http.MethodPost, microsoftAccountTenantPath(tenantID, "/roles/refresh"), tokenKey, credential, tenantID, nil)
+}
+
+// microsoftTenantLinkContext resolves the credential and tenant for tenant-link routes. Unlike
+// organization routes, personal accounts are allowed (their only link is the personal tenant).
+func (s *Service) microsoftTenantLinkContext(ctx context.Context, sel MicrosoftTenantSelection) (*BackupCredential, string, error) {
+	sel = sel.normalized()
+	if sel.TenantID == "" {
+		return nil, "", ErrMicrosoftTenantRequired.New("tenant_id is required")
+	}
+	credential, err := s.resolveMicrosoftCredentialForUser(ctx, sel.CredentialID)
+	if err != nil {
+		return nil, "", err
+	}
+	return credential, sel.TenantID, nil
+}
+
+func microsoftAccountTenantPath(tenantID, suffix string) string {
+	return "/microsoft/accounts/tenants/" + url.PathEscape(tenantID) + suffix
 }

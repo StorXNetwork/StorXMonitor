@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"sort"
 	"strings"
 	"time"
 
@@ -39,6 +40,10 @@ func (g *backupCredentials) Create(ctx context.Context, credential console.Backu
 		provider = console.BackupProviderGoogle
 	}
 	email := strings.TrimSpace(strings.ToLower(credential.Email))
+	externalAccountID := normalizeExternalAccountID(credential.ExternalAccountID)
+	if externalAccountID == "" {
+		externalAccountID = email
+	}
 
 	optional := dbx.BackupCredentials_Create_Fields{}
 	if credential.RefreshToken != "" {
@@ -63,6 +68,7 @@ func (g *backupCredentials) Create(ctx context.Context, credential console.Backu
 		dbx.BackupCredentials_UserId(credential.UserID[:]),
 		dbx.BackupCredentials_Provider(provider),
 		dbx.BackupCredentials_Email(email),
+		dbx.BackupCredentials_ExternalAccountId(externalAccountID),
 		dbx.BackupCredentials_AccessToken(credential.AccessToken),
 		optional,
 	)
@@ -70,6 +76,85 @@ func (g *backupCredentials) Create(ctx context.Context, credential console.Backu
 		return nil, err
 	}
 	return backupCredentialFromDBX(row)
+}
+
+func (g *backupCredentials) GetByID(ctx context.Context, id uuid.UUID) (_ *console.BackupCredential, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	row, err := g.cdb.Get_BackupCredentials_By_Id(ctx, dbx.BackupCredentials_Id(id[:]))
+	if err != nil {
+		return nil, err
+	}
+	return backupCredentialFromDBX(row)
+}
+
+func (g *backupCredentials) GetByUserIDProviderAndAccount(ctx context.Context, userID uuid.UUID, provider, externalAccountID string) (_ *console.BackupCredential, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	provider = strings.TrimSpace(strings.ToLower(provider))
+	externalAccountID = normalizeExternalAccountID(externalAccountID)
+	if provider == "" || externalAccountID == "" {
+		return nil, sql.ErrNoRows
+	}
+
+	row, err := g.cdb.Get_BackupCredentials_By_UserId_And_Provider_And_ExternalAccountId(ctx,
+		dbx.BackupCredentials_UserId(userID[:]),
+		dbx.BackupCredentials_Provider(provider),
+		dbx.BackupCredentials_ExternalAccountId(externalAccountID),
+	)
+	if err != nil {
+		return nil, err
+	}
+	return backupCredentialFromDBX(row)
+}
+
+func (g *backupCredentials) ListByUserIDAndProvider(ctx context.Context, userID uuid.UUID, provider string) (_ []console.BackupCredential, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	provider = strings.TrimSpace(strings.ToLower(provider))
+	if provider == "" {
+		return nil, nil
+	}
+
+	rows, err := g.cdb.All_BackupCredentials_By_UserId_And_Provider(ctx,
+		dbx.BackupCredentials_UserId(userID[:]),
+		dbx.BackupCredentials_Provider(provider),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	credentials := make([]console.BackupCredential, 0, len(rows))
+	for _, row := range rows {
+		credential, err := backupCredentialFromDBX(row)
+		if err != nil {
+			return nil, err
+		}
+		credentials = append(credentials, *credential)
+	}
+	sort.SliceStable(credentials, func(i, j int) bool {
+		return credentials[i].CreatedAt.Before(credentials[j].CreatedAt)
+	})
+	return credentials, nil
+}
+
+func (g *backupCredentials) UpdateEmail(ctx context.Context, id uuid.UUID, email string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	email = strings.TrimSpace(strings.ToLower(email))
+	if email == "" {
+		return nil
+	}
+	_, err = g.cdb.Update_BackupCredentials_By_Id(ctx, dbx.BackupCredentials_Id(id[:]), dbx.BackupCredentials_Update_Fields{
+		Email: dbx.BackupCredentials_Email(email),
+	})
+	return err
+}
+
+// normalizeExternalAccountID lowercases provider account IDs; Microsoft object IDs are GUIDs and
+// Google fallbacks are emails, both case-insensitive.
+func normalizeExternalAccountID(id string) string {
+	return strings.TrimSpace(strings.ToLower(id))
 }
 
 func (g *backupCredentials) GetByUserIDAndProvider(ctx context.Context, userID uuid.UUID, provider string) (_ *console.BackupCredential, err error) {
@@ -217,11 +302,12 @@ func backupCredentialFromDBX(row *dbx.BackupCredentials) (*console.BackupCredent
 	credential := &console.BackupCredential{
 		ID:          id,
 		UserID:      userID,
-		Provider:    row.Provider,
-		Email:       row.Email,
-		AccessToken: row.AccessToken,
-		CreatedAt:   row.CreatedAt,
-		UpdatedAt:   row.UpdatedAt,
+		Provider:          row.Provider,
+		Email:             row.Email,
+		ExternalAccountID: row.ExternalAccountId,
+		AccessToken:       row.AccessToken,
+		CreatedAt:         row.CreatedAt,
+		UpdatedAt:         row.UpdatedAt,
 	}
 	if row.RefreshToken != nil {
 		credential.RefreshToken = *row.RefreshToken

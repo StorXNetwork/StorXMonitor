@@ -5,6 +5,10 @@ package consoleapi
 
 // CreateMicrosoftBackupAutoSyncJobsSwaggerRequest is the UI body for POST .../auto-sync/job and .../backup/onboarding/jobs.
 type CreateMicrosoftBackupAutoSyncJobsSwaggerRequest struct {
+	// CredentialID selects the Microsoft account; required when several accounts are connected.
+	CredentialID string `json:"credential_id,omitempty" example:"6f1c2a1e-4c1b-4d2a-9c3e-2f6a7b8c9d0e"`
+	// TenantID is the tenant connected for backup (POST /microsoft-backup/tenants/{tid}/connect); required.
+	TenantID        string                         `json:"tenant_id,omitempty" example:"72f988bf-86f1-41af-91ab-2d7cd011db47"`
 	Services        []string                       `json:"services" binding:"required" example:"outlook,calendar,contacts,onedrive,sharepoint,teams,groups"`
 	MicrosoftEmail  string                         `json:"microsoft_email" example:"user@contoso.com"`
 	ProjectID       string                         `json:"project_id" example:"00000000-0000-0000-0000-000000000001"`

@@ -6,8 +6,30 @@ package socialmedia
 import (
 	"testing"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/require"
 )
+
+func TestMicrosoftAccountIDFromTokens(t *testing.T) {
+	signed := func(claims jwt.MapClaims) string {
+		token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte("key"))
+		require.NoError(t, err)
+		return token
+	}
+
+	require.Equal(t, "0f1e-oid", MicrosoftAccountIDFromTokens(&MicrosoftOauthToken{
+		Access_token: signed(jwt.MapClaims{"oid": "0F1E-OID", "tid": "tenant"}),
+	}, "graph-id"))
+
+	require.Equal(t, "graph-id", MicrosoftAccountIDFromTokens(&MicrosoftOauthToken{
+		Access_token: signed(jwt.MapClaims{"tid": "tenant"}),
+	}, " Graph-ID "))
+
+	// Opaque (non-JWT) access tokens, e.g. for personal accounts, fall back as well.
+	require.Equal(t, "graph-id", MicrosoftAccountIDFromTokens(&MicrosoftOauthToken{Access_token: "EwB4A8l6BAAU"}, "graph-id"))
+	require.Equal(t, "graph-id", MicrosoftAccountIDFromTokens(nil, "graph-id"))
+	require.Empty(t, MicrosoftAccountIDFromTokens(nil, ""))
+}
 
 func TestLooksLikeJWT(t *testing.T) {
 	require.True(t, looksLikeJWT("eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIn0.c2ln"))

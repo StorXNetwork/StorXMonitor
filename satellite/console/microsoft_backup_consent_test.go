@@ -20,12 +20,13 @@ func TestMicrosoftAdminConsentState(t *testing.T) {
 	now := time.Now()
 
 	state := microsoftAdminConsentState{
-		Purpose:   microsoftAdminConsentStatePurpose,
-		UserID:    "user-1",
-		TenantID:  "tenant-1",
-		ClientID:  "client-1",
-		ExpiresAt: now.Add(microsoftAdminConsentStateTTL).Unix(),
-		Nonce:     "nonce",
+		Purpose:      microsoftAdminConsentStatePurpose,
+		UserID:       "user-1",
+		CredentialID: "credential-1",
+		TenantID:     "tenant-1",
+		ClientID:     "client-1",
+		ExpiresAt:    now.Add(microsoftAdminConsentStateTTL).Unix(),
+		Nonce:        "nonce",
 	}
 
 	t.Run("round trip", func(t *testing.T) {

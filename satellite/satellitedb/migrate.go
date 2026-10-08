@@ -1454,6 +1454,20 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 					`ALTER TABLE projects ADD COLUMN IF NOT EXISTS own_nodes_org_id BYTES(MAX)`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "identify backup_credentials by external_account_id instead of email",
+				Version:     144,
+				Action: migrate.SQL{
+					`DELETE FROM backup_credentials WHERE provider = 'microsoft'`,
+					`ALTER TABLE backup_credentials ADD COLUMN IF NOT EXISTS external_account_id STRING(MAX)`,
+					`UPDATE backup_credentials SET external_account_id = LOWER(email) WHERE external_account_id IS NULL`,
+					`ALTER TABLE backup_credentials ALTER COLUMN external_account_id STRING(MAX) NOT NULL`,
+					`DROP INDEX IF EXISTS backup_credentials_user_id_provider_email_unique`,
+					`DROP INDEX IF EXISTS index_backup_credentials_user_id_provider_email`,
+					`CREATE UNIQUE INDEX index_backup_credentials_user_id_provider_external_account_id ON backup_credentials ( user_id, provider, external_account_id )`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
@@ -5658,6 +5672,20 @@ true, NOW(), NOW());`,
 				Version:     394,
 				Action: migrate.SQL{
 					`ALTER TABLE projects ADD COLUMN IF NOT EXISTS own_nodes_org_id bytea;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "identify backup_credentials by external_account_id instead of email",
+				Version:     395,
+				Action: migrate.SQL{
+					`DELETE FROM backup_credentials WHERE provider = 'microsoft';`,
+					`ALTER TABLE backup_credentials ADD COLUMN IF NOT EXISTS external_account_id text;`,
+					`UPDATE backup_credentials SET external_account_id = lower(email) WHERE external_account_id IS NULL;`,
+					`ALTER TABLE backup_credentials ALTER COLUMN external_account_id SET NOT NULL;`,
+					`DROP INDEX IF EXISTS backup_credentials_user_id_provider_email_unique;`,
+					`ALTER TABLE backup_credentials DROP CONSTRAINT IF EXISTS backup_credentials_user_id_provider_email_key;`,
+					`CREATE UNIQUE INDEX IF NOT EXISTS backup_credentials_user_id_provider_external_account_id_unique ON backup_credentials ( user_id, provider, external_account_id );`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run

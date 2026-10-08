@@ -1374,6 +1374,7 @@ func (obj *pgxDB) Schema() []string {
 	user_id bytea NOT NULL REFERENCES users( id ),
 	provider text NOT NULL,
 	email text NOT NULL,
+	external_account_id text NOT NULL,
 	access_token text NOT NULL,
 	refresh_token text,
 	access_token_expiry timestamp with time zone,
@@ -1383,7 +1384,7 @@ func (obj *pgxDB) Schema() []string {
 	created_at timestamp with time zone NOT NULL,
 	updated_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id ),
-	UNIQUE ( user_id, provider, email )
+	UNIQUE ( user_id, provider, external_account_id )
 )`,
 
 		`CREATE TABLE bucket_metainfos (
@@ -2966,6 +2967,7 @@ func (obj *pgxcockroachDB) Schema() []string {
 	user_id bytea NOT NULL REFERENCES users( id ),
 	provider text NOT NULL,
 	email text NOT NULL,
+	external_account_id text NOT NULL,
 	access_token text NOT NULL,
 	refresh_token text,
 	access_token_expiry timestamp with time zone,
@@ -2975,7 +2977,7 @@ func (obj *pgxcockroachDB) Schema() []string {
 	created_at timestamp with time zone NOT NULL,
 	updated_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id ),
-	UNIQUE ( user_id, provider, email )
+	UNIQUE ( user_id, provider, external_account_id )
 )`,
 
 		`CREATE TABLE bucket_metainfos (
@@ -4507,6 +4509,7 @@ func (obj *spannerDB) Schema() []string {
 	user_id BYTES(MAX) NOT NULL,
 	provider STRING(MAX) NOT NULL,
 	email STRING(MAX) NOT NULL,
+	external_account_id STRING(MAX) NOT NULL,
 	access_token STRING(MAX) NOT NULL,
 	refresh_token STRING(MAX),
 	access_token_expiry TIMESTAMP,
@@ -4518,7 +4521,7 @@ func (obj *spannerDB) Schema() []string {
 	CONSTRAINT backup_credentials_user_id_fkey FOREIGN KEY (user_id) REFERENCES users (id)
 ) PRIMARY KEY ( id )`,
 
-		`CREATE UNIQUE INDEX index_backup_credentials_user_id_provider_email ON backup_credentials ( user_id, provider, email )`,
+		`CREATE UNIQUE INDEX index_backup_credentials_user_id_provider_external_account_id ON backup_credentials ( user_id, provider, external_account_id )`,
 
 		`CREATE TABLE bucket_metainfos (
 	id BYTES(MAX) NOT NULL,
@@ -4852,7 +4855,7 @@ func (obj *spannerDB) DropSchema() []string {
 
 		`ALTER TABLE backup_credentials DROP CONSTRAINT backup_credentials_user_id_fkey`,
 
-		`DROP INDEX IF EXISTS index_backup_credentials_user_id_provider_email`,
+		`DROP INDEX IF EXISTS index_backup_credentials_user_id_provider_external_account_id`,
 
 		`ALTER TABLE api_keys DROP CONSTRAINT api_keys_project_id_fkey`,
 
@@ -21949,6 +21952,7 @@ type BackupCredentials struct {
 	UserId            []byte
 	Provider          string
 	Email             string
+	ExternalAccountId string
 	AccessToken       string
 	RefreshToken      *string
 	AccessTokenExpiry *time.Time
@@ -21970,6 +21974,7 @@ type BackupCredentials_Create_Fields struct {
 }
 
 type BackupCredentials_Update_Fields struct {
+	Email             BackupCredentials_Email_Field
 	AccessToken       BackupCredentials_AccessToken_Field
 	RefreshToken      BackupCredentials_RefreshToken_Field
 	AccessTokenExpiry BackupCredentials_AccessTokenExpiry_Field
@@ -22040,6 +22045,23 @@ func BackupCredentials_Email(v string) BackupCredentials_Email_Field {
 }
 
 func (f BackupCredentials_Email_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type BackupCredentials_ExternalAccountId_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func BackupCredentials_ExternalAccountId(v string) BackupCredentials_ExternalAccountId_Field {
+	return BackupCredentials_ExternalAccountId_Field{_set: true, _value: v}
+}
+
+func (f BackupCredentials_ExternalAccountId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -26591,6 +26613,7 @@ func (obj *pgxImpl) Create_BackupCredentials(ctx context.Context,
 	backup_credentials_user_id BackupCredentials_UserId_Field,
 	backup_credentials_provider BackupCredentials_Provider_Field,
 	backup_credentials_email BackupCredentials_Email_Field,
+	backup_credentials_external_account_id BackupCredentials_ExternalAccountId_Field,
 	backup_credentials_access_token BackupCredentials_AccessToken_Field,
 	optional BackupCredentials_Create_Fields) (
 	backup_credentials *BackupCredentials, err error) {
@@ -26604,6 +26627,7 @@ func (obj *pgxImpl) Create_BackupCredentials(ctx context.Context,
 	__user_id_val := backup_credentials_user_id.value()
 	__provider_val := backup_credentials_provider.value()
 	__email_val := backup_credentials_email.value()
+	__external_account_id_val := backup_credentials_external_account_id.value()
 	__access_token_val := backup_credentials_access_token.value()
 	__refresh_token_val := optional.RefreshToken.value()
 	__access_token_expiry_val := optional.AccessTokenExpiry.value()
@@ -26613,16 +26637,16 @@ func (obj *pgxImpl) Create_BackupCredentials(ctx context.Context,
 	__created_at_val := __now
 	__updated_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO backup_credentials ( id, user_id, provider, email, access_token, refresh_token, access_token_expiry, account_type, tenant_id, tenant_name, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO backup_credentials ( id, user_id, provider, email, external_account_id, access_token, refresh_token, access_token_expiry, account_type, tenant_id, tenant_name, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.external_account_id, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at")
 
 	var __values []any
-	__values = append(__values, __id_val, __user_id_val, __provider_val, __email_val, __access_token_val, __refresh_token_val, __access_token_expiry_val, __account_type_val, __tenant_id_val, __tenant_name_val, __created_at_val, __updated_at_val)
+	__values = append(__values, __id_val, __user_id_val, __provider_val, __email_val, __external_account_id_val, __access_token_val, __refresh_token_val, __access_token_expiry_val, __account_type_val, __tenant_id_val, __tenant_name_val, __created_at_val, __updated_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	backup_credentials = &BackupCredentials{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.ExternalAccountId, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -32539,7 +32563,7 @@ func (obj *pgxImpl) Get_BackupCredentials_By_Id(ctx context.Context,
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at FROM backup_credentials WHERE backup_credentials.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.external_account_id, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at FROM backup_credentials WHERE backup_credentials.id = ?")
 
 	var __values []any
 	__values = append(__values, backup_credentials_id.value())
@@ -32548,7 +32572,7 @@ func (obj *pgxImpl) Get_BackupCredentials_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	backup_credentials = &BackupCredentials{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.ExternalAccountId, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
 	if err != nil {
 		return (*BackupCredentials)(nil), obj.makeErr(err)
 	}
@@ -32564,7 +32588,7 @@ func (obj *pgxImpl) All_BackupCredentials_By_UserId(ctx context.Context,
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at FROM backup_credentials WHERE backup_credentials.user_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.external_account_id, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at FROM backup_credentials WHERE backup_credentials.user_id = ?")
 
 	var __values []any
 	__values = append(__values, backup_credentials_user_id.value())
@@ -32582,7 +32606,7 @@ func (obj *pgxImpl) All_BackupCredentials_By_UserId(ctx context.Context,
 
 			for __rows.Next() {
 				backup_credentials := &BackupCredentials{}
-				err = __rows.Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
+				err = __rows.Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.ExternalAccountId, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -32610,7 +32634,7 @@ func (obj *pgxImpl) All_BackupCredentials_By_UserId_And_Provider(ctx context.Con
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at FROM backup_credentials WHERE backup_credentials.user_id = ? AND backup_credentials.provider = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.external_account_id, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at FROM backup_credentials WHERE backup_credentials.user_id = ? AND backup_credentials.provider = ?")
 
 	var __values []any
 	__values = append(__values, backup_credentials_user_id.value(), backup_credentials_provider.value())
@@ -32628,7 +32652,7 @@ func (obj *pgxImpl) All_BackupCredentials_By_UserId_And_Provider(ctx context.Con
 
 			for __rows.Next() {
 				backup_credentials := &BackupCredentials{}
-				err = __rows.Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
+				err = __rows.Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.ExternalAccountId, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -32644,6 +32668,33 @@ func (obj *pgxImpl) All_BackupCredentials_By_UserId_And_Provider(ctx context.Con
 		}
 		return rows, nil
 	}
+
+}
+
+func (obj *pgxImpl) Get_BackupCredentials_By_UserId_And_Provider_And_ExternalAccountId(ctx context.Context,
+	backup_credentials_user_id BackupCredentials_UserId_Field,
+	backup_credentials_provider BackupCredentials_Provider_Field,
+	backup_credentials_external_account_id BackupCredentials_ExternalAccountId_Field) (
+	backup_credentials *BackupCredentials, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.external_account_id, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at FROM backup_credentials WHERE backup_credentials.user_id = ? AND backup_credentials.provider = ? AND backup_credentials.external_account_id = ?")
+
+	var __values []any
+	__values = append(__values, backup_credentials_user_id.value(), backup_credentials_provider.value(), backup_credentials_external_account_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	backup_credentials = &BackupCredentials{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.ExternalAccountId, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
+	if err != nil {
+		return (*BackupCredentials)(nil), obj.makeErr(err)
+	}
+	return backup_credentials, nil
 
 }
 
@@ -39270,11 +39321,16 @@ func (obj *pgxImpl) Update_BackupCredentials_By_Id(ctx context.Context,
 
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE backup_credentials SET "), __sets, __sqlbundle_Literal(" WHERE backup_credentials.id = ? RETURNING backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE backup_credentials SET "), __sets, __sqlbundle_Literal(" WHERE backup_credentials.id = ? RETURNING backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.external_account_id, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []any
 	var __args []any
+
+	if update.Email._set {
+		__values = append(__values, update.Email.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("email = ?"))
+	}
 
 	if update.AccessToken._set {
 		__values = append(__values, update.AccessToken.value())
@@ -39320,7 +39376,7 @@ func (obj *pgxImpl) Update_BackupCredentials_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	backup_credentials = &BackupCredentials{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.ExternalAccountId, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -46185,6 +46241,7 @@ func (obj *pgxcockroachImpl) Create_BackupCredentials(ctx context.Context,
 	backup_credentials_user_id BackupCredentials_UserId_Field,
 	backup_credentials_provider BackupCredentials_Provider_Field,
 	backup_credentials_email BackupCredentials_Email_Field,
+	backup_credentials_external_account_id BackupCredentials_ExternalAccountId_Field,
 	backup_credentials_access_token BackupCredentials_AccessToken_Field,
 	optional BackupCredentials_Create_Fields) (
 	backup_credentials *BackupCredentials, err error) {
@@ -46198,6 +46255,7 @@ func (obj *pgxcockroachImpl) Create_BackupCredentials(ctx context.Context,
 	__user_id_val := backup_credentials_user_id.value()
 	__provider_val := backup_credentials_provider.value()
 	__email_val := backup_credentials_email.value()
+	__external_account_id_val := backup_credentials_external_account_id.value()
 	__access_token_val := backup_credentials_access_token.value()
 	__refresh_token_val := optional.RefreshToken.value()
 	__access_token_expiry_val := optional.AccessTokenExpiry.value()
@@ -46207,16 +46265,16 @@ func (obj *pgxcockroachImpl) Create_BackupCredentials(ctx context.Context,
 	__created_at_val := __now
 	__updated_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO backup_credentials ( id, user_id, provider, email, access_token, refresh_token, access_token_expiry, account_type, tenant_id, tenant_name, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO backup_credentials ( id, user_id, provider, email, external_account_id, access_token, refresh_token, access_token_expiry, account_type, tenant_id, tenant_name, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.external_account_id, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at")
 
 	var __values []any
-	__values = append(__values, __id_val, __user_id_val, __provider_val, __email_val, __access_token_val, __refresh_token_val, __access_token_expiry_val, __account_type_val, __tenant_id_val, __tenant_name_val, __created_at_val, __updated_at_val)
+	__values = append(__values, __id_val, __user_id_val, __provider_val, __email_val, __external_account_id_val, __access_token_val, __refresh_token_val, __access_token_expiry_val, __account_type_val, __tenant_id_val, __tenant_name_val, __created_at_val, __updated_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	backup_credentials = &BackupCredentials{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.ExternalAccountId, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -52133,7 +52191,7 @@ func (obj *pgxcockroachImpl) Get_BackupCredentials_By_Id(ctx context.Context,
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at FROM backup_credentials WHERE backup_credentials.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.external_account_id, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at FROM backup_credentials WHERE backup_credentials.id = ?")
 
 	var __values []any
 	__values = append(__values, backup_credentials_id.value())
@@ -52142,7 +52200,7 @@ func (obj *pgxcockroachImpl) Get_BackupCredentials_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	backup_credentials = &BackupCredentials{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.ExternalAccountId, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
 	if err != nil {
 		return (*BackupCredentials)(nil), obj.makeErr(err)
 	}
@@ -52158,7 +52216,7 @@ func (obj *pgxcockroachImpl) All_BackupCredentials_By_UserId(ctx context.Context
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at FROM backup_credentials WHERE backup_credentials.user_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.external_account_id, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at FROM backup_credentials WHERE backup_credentials.user_id = ?")
 
 	var __values []any
 	__values = append(__values, backup_credentials_user_id.value())
@@ -52176,7 +52234,7 @@ func (obj *pgxcockroachImpl) All_BackupCredentials_By_UserId(ctx context.Context
 
 			for __rows.Next() {
 				backup_credentials := &BackupCredentials{}
-				err = __rows.Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
+				err = __rows.Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.ExternalAccountId, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -52204,7 +52262,7 @@ func (obj *pgxcockroachImpl) All_BackupCredentials_By_UserId_And_Provider(ctx co
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at FROM backup_credentials WHERE backup_credentials.user_id = ? AND backup_credentials.provider = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.external_account_id, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at FROM backup_credentials WHERE backup_credentials.user_id = ? AND backup_credentials.provider = ?")
 
 	var __values []any
 	__values = append(__values, backup_credentials_user_id.value(), backup_credentials_provider.value())
@@ -52222,7 +52280,7 @@ func (obj *pgxcockroachImpl) All_BackupCredentials_By_UserId_And_Provider(ctx co
 
 			for __rows.Next() {
 				backup_credentials := &BackupCredentials{}
-				err = __rows.Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
+				err = __rows.Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.ExternalAccountId, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -52238,6 +52296,33 @@ func (obj *pgxcockroachImpl) All_BackupCredentials_By_UserId_And_Provider(ctx co
 		}
 		return rows, nil
 	}
+
+}
+
+func (obj *pgxcockroachImpl) Get_BackupCredentials_By_UserId_And_Provider_And_ExternalAccountId(ctx context.Context,
+	backup_credentials_user_id BackupCredentials_UserId_Field,
+	backup_credentials_provider BackupCredentials_Provider_Field,
+	backup_credentials_external_account_id BackupCredentials_ExternalAccountId_Field) (
+	backup_credentials *BackupCredentials, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.external_account_id, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at FROM backup_credentials WHERE backup_credentials.user_id = ? AND backup_credentials.provider = ? AND backup_credentials.external_account_id = ?")
+
+	var __values []any
+	__values = append(__values, backup_credentials_user_id.value(), backup_credentials_provider.value(), backup_credentials_external_account_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	backup_credentials = &BackupCredentials{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.ExternalAccountId, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
+	if err != nil {
+		return (*BackupCredentials)(nil), obj.makeErr(err)
+	}
+	return backup_credentials, nil
 
 }
 
@@ -58864,11 +58949,16 @@ func (obj *pgxcockroachImpl) Update_BackupCredentials_By_Id(ctx context.Context,
 
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE backup_credentials SET "), __sets, __sqlbundle_Literal(" WHERE backup_credentials.id = ? RETURNING backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE backup_credentials SET "), __sets, __sqlbundle_Literal(" WHERE backup_credentials.id = ? RETURNING backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.external_account_id, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []any
 	var __args []any
+
+	if update.Email._set {
+		__values = append(__values, update.Email.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("email = ?"))
+	}
 
 	if update.AccessToken._set {
 		__values = append(__values, update.AccessToken.value())
@@ -58914,7 +59004,7 @@ func (obj *pgxcockroachImpl) Update_BackupCredentials_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	backup_credentials = &BackupCredentials{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.ExternalAccountId, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -66003,6 +66093,7 @@ func (obj *spannerImpl) Create_BackupCredentials(ctx context.Context,
 	backup_credentials_user_id BackupCredentials_UserId_Field,
 	backup_credentials_provider BackupCredentials_Provider_Field,
 	backup_credentials_email BackupCredentials_Email_Field,
+	backup_credentials_external_account_id BackupCredentials_ExternalAccountId_Field,
 	backup_credentials_access_token BackupCredentials_AccessToken_Field,
 	optional BackupCredentials_Create_Fields) (
 	backup_credentials *BackupCredentials, err error) {
@@ -66016,6 +66107,7 @@ func (obj *spannerImpl) Create_BackupCredentials(ctx context.Context,
 	__user_id_val := backup_credentials_user_id.value()
 	__provider_val := backup_credentials_provider.value()
 	__email_val := backup_credentials_email.value()
+	__external_account_id_val := backup_credentials_external_account_id.value()
 	__access_token_val := backup_credentials_access_token.value()
 	__refresh_token_val := optional.RefreshToken.value()
 	__access_token_expiry_val := optional.AccessTokenExpiry.value()
@@ -66025,10 +66117,10 @@ func (obj *spannerImpl) Create_BackupCredentials(ctx context.Context,
 	__created_at_val := __now
 	__updated_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO backup_credentials ( id, user_id, provider, email, access_token, refresh_token, access_token_expiry, account_type, tenant_id, tenant_name, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) THEN RETURN backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO backup_credentials ( id, user_id, provider, email, external_account_id, access_token, refresh_token, access_token_expiry, account_type, tenant_id, tenant_name, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) THEN RETURN backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.external_account_id, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at")
 
 	var __values []any
-	__values = append(__values, __id_val, __user_id_val, __provider_val, __email_val, __access_token_val, __refresh_token_val, __access_token_expiry_val, __account_type_val, __tenant_id_val, __tenant_name_val, __created_at_val, __updated_at_val)
+	__values = append(__values, __id_val, __user_id_val, __provider_val, __email_val, __external_account_id_val, __access_token_val, __refresh_token_val, __access_token_expiry_val, __account_type_val, __tenant_id_val, __tenant_name_val, __created_at_val, __updated_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -66036,10 +66128,10 @@ func (obj *spannerImpl) Create_BackupCredentials(ctx context.Context,
 	backup_credentials = &BackupCredentials{}
 	if !obj.txn {
 		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
-			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.ExternalAccountId, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
 		})
 	} else {
-		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.ExternalAccountId, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
 	}
 	if err != nil {
 		return nil, obj.makeErr(err)
@@ -72245,7 +72337,7 @@ func (obj *spannerImpl) Get_BackupCredentials_By_Id(ctx context.Context,
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at FROM backup_credentials WHERE backup_credentials.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.external_account_id, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at FROM backup_credentials WHERE backup_credentials.id = ?")
 
 	var __values []any
 	__values = append(__values, backup_credentials_id.value())
@@ -72254,7 +72346,7 @@ func (obj *spannerImpl) Get_BackupCredentials_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	backup_credentials = &BackupCredentials{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.ExternalAccountId, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
 	if err != nil {
 		return (*BackupCredentials)(nil), obj.makeErr(err)
 	}
@@ -72270,7 +72362,7 @@ func (obj *spannerImpl) All_BackupCredentials_By_UserId(ctx context.Context,
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at FROM backup_credentials WHERE backup_credentials.user_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.external_account_id, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at FROM backup_credentials WHERE backup_credentials.user_id = ?")
 
 	var __values []any
 	__values = append(__values, backup_credentials_user_id.value())
@@ -72288,7 +72380,7 @@ func (obj *spannerImpl) All_BackupCredentials_By_UserId(ctx context.Context,
 
 			for __rows.Next() {
 				backup_credentials := &BackupCredentials{}
-				err = __rows.Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
+				err = __rows.Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.ExternalAccountId, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -72316,7 +72408,7 @@ func (obj *spannerImpl) All_BackupCredentials_By_UserId_And_Provider(ctx context
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at FROM backup_credentials WHERE backup_credentials.user_id = ? AND backup_credentials.provider = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.external_account_id, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at FROM backup_credentials WHERE backup_credentials.user_id = ? AND backup_credentials.provider = ?")
 
 	var __values []any
 	__values = append(__values, backup_credentials_user_id.value(), backup_credentials_provider.value())
@@ -72334,7 +72426,7 @@ func (obj *spannerImpl) All_BackupCredentials_By_UserId_And_Provider(ctx context
 
 			for __rows.Next() {
 				backup_credentials := &BackupCredentials{}
-				err = __rows.Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
+				err = __rows.Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.ExternalAccountId, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -72350,6 +72442,33 @@ func (obj *spannerImpl) All_BackupCredentials_By_UserId_And_Provider(ctx context
 		}
 		return rows, nil
 	}
+
+}
+
+func (obj *spannerImpl) Get_BackupCredentials_By_UserId_And_Provider_And_ExternalAccountId(ctx context.Context,
+	backup_credentials_user_id BackupCredentials_UserId_Field,
+	backup_credentials_provider BackupCredentials_Provider_Field,
+	backup_credentials_external_account_id BackupCredentials_ExternalAccountId_Field) (
+	backup_credentials *BackupCredentials, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.external_account_id, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at FROM backup_credentials WHERE backup_credentials.user_id = ? AND backup_credentials.provider = ? AND backup_credentials.external_account_id = ?")
+
+	var __values []any
+	__values = append(__values, backup_credentials_user_id.value(), backup_credentials_provider.value(), backup_credentials_external_account_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	backup_credentials = &BackupCredentials{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.ExternalAccountId, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
+	if err != nil {
+		return (*BackupCredentials)(nil), obj.makeErr(err)
+	}
+	return backup_credentials, nil
 
 }
 
@@ -78752,12 +78871,16 @@ func (obj *spannerImpl) Update_BackupCredentials_By_Id(ctx context.Context,
 
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE backup_credentials SET "), __sets, __sqlbundle_Literal(" WHERE backup_credentials.id = ? THEN RETURN backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE backup_credentials SET "), __sets, __sqlbundle_Literal(" WHERE backup_credentials.id = ? THEN RETURN backup_credentials.id, backup_credentials.user_id, backup_credentials.provider, backup_credentials.email, backup_credentials.external_account_id, backup_credentials.access_token, backup_credentials.refresh_token, backup_credentials.access_token_expiry, backup_credentials.account_type, backup_credentials.tenant_id, backup_credentials.tenant_name, backup_credentials.created_at, backup_credentials.updated_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []any
 	var __args []any
 
+	if update.Email._set {
+		__values = append(__values, update.Email.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("email = ?"))
+	}
 	if update.AccessToken._set {
 		__values = append(__values, update.AccessToken.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("access_token = ?"))
@@ -78797,7 +78920,7 @@ func (obj *spannerImpl) Update_BackupCredentials_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	backup_credentials = &BackupCredentials{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&backup_credentials.Id, &backup_credentials.UserId, &backup_credentials.Provider, &backup_credentials.Email, &backup_credentials.ExternalAccountId, &backup_credentials.AccessToken, &backup_credentials.RefreshToken, &backup_credentials.AccessTokenExpiry, &backup_credentials.AccountType, &backup_credentials.TenantId, &backup_credentials.TenantName, &backup_credentials.CreatedAt, &backup_credentials.UpdatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -84059,6 +84182,7 @@ type Methods interface {
 		backup_credentials_user_id BackupCredentials_UserId_Field,
 		backup_credentials_provider BackupCredentials_Provider_Field,
 		backup_credentials_email BackupCredentials_Email_Field,
+		backup_credentials_external_account_id BackupCredentials_ExternalAccountId_Field,
 		backup_credentials_access_token BackupCredentials_AccessToken_Field,
 		optional BackupCredentials_Create_Fields) (
 		backup_credentials *BackupCredentials, err error)
@@ -84773,6 +84897,12 @@ type Methods interface {
 
 	Get_BackupCredentials_By_Id(ctx context.Context,
 		backup_credentials_id BackupCredentials_Id_Field) (
+		backup_credentials *BackupCredentials, err error)
+
+	Get_BackupCredentials_By_UserId_And_Provider_And_ExternalAccountId(ctx context.Context,
+		backup_credentials_user_id BackupCredentials_UserId_Field,
+		backup_credentials_provider BackupCredentials_Provider_Field,
+		backup_credentials_external_account_id BackupCredentials_ExternalAccountId_Field) (
 		backup_credentials *BackupCredentials, err error)
 
 	Get_BackupFinalStatus_By_BackupDate(ctx context.Context,

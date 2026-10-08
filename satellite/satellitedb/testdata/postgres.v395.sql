@@ -423,7 +423,7 @@ CREATE TABLE payment_plans (
 	bandwidth bigint NOT NULL,
 	validity bigint NOT NULL,
 	validity_unit text NOT NULL,
-	group text NOT NULL,
+	"group" text NOT NULL,
 	PRIMARY KEY ( id )
 ) ;
 CREATE TABLE peer_identities (
@@ -935,23 +935,6 @@ CREATE TABLE api_keys (
 	UNIQUE ( head ),
 	UNIQUE ( name, project_id )
 ) ;
-CREATE TABLE backup_credentials (
-	id bytea NOT NULL,
-	user_id bytea NOT NULL REFERENCES users( id ),
-	provider text NOT NULL,
-	email text NOT NULL,
-	external_account_id text NOT NULL,
-	access_token text NOT NULL,
-	refresh_token text,
-	access_token_expiry timestamp with time zone,
-	account_type text,
-	tenant_id text,
-	tenant_name text,
-	created_at timestamp with time zone NOT NULL,
-	updated_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( id ),
-	UNIQUE ( user_id, provider, external_account_id )
-) ;
 CREATE TABLE bucket_metainfos (
 	id bytea NOT NULL,
 	project_id bytea NOT NULL REFERENCES projects( id ),
@@ -1003,6 +986,23 @@ CREATE TABLE domains (
 	created_by bytea NOT NULL REFERENCES users( id ),
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( project_id, subdomain )
+) ;
+CREATE TABLE backup_credentials (
+	id bytea NOT NULL,
+	user_id bytea NOT NULL REFERENCES users( id ),
+	provider text NOT NULL,
+	email text NOT NULL,
+	external_account_id text NOT NULL,
+	access_token text NOT NULL,
+	refresh_token text,
+	access_token_expiry timestamp with time zone,
+	account_type text,
+	tenant_id text,
+	tenant_name text,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( user_id, provider, external_account_id )
 ) ;
 CREATE TABLE member_bucket_grants (
 	id bytea NOT NULL,
@@ -1135,9 +1135,9 @@ CREATE INDEX user_delete_requests_user_id_index ON user_delete_requests ( user_i
 CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id ) ;
 CREATE INDEX webapp_session_developers_developer_id_index ON webapp_session_developers ( developer_id ) ;
 CREATE INDEX webapp_session_resellers_reseller_id_index ON webapp_session_resellers ( reseller_id ) ;
+CREATE INDEX bucket_migrations_state_created_at_index ON bucket_migrations ( state, created_at ) ;
 CREATE INDEX backup_credentials_user_id_index ON backup_credentials ( user_id ) ;
 CREATE INDEX backup_credentials_user_id_provider_index ON backup_credentials ( user_id, provider ) ;
-CREATE INDEX bucket_migrations_state_created_at_index ON bucket_migrations ( state, created_at ) ;
 CREATE INDEX member_bucket_grants_project_id_member_id_index ON member_bucket_grants ( project_id, member_id ) ;
 CREATE INDEX member_bucket_grants_project_id_invite_email_index ON member_bucket_grants ( project_id, invite_email ) ;
 CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id ) ;
@@ -1146,3 +1146,5 @@ CREATE INDEX project_members_project_id_index ON project_members ( project_id ) 
 CREATE INDEX project_member_acl_buckets_project_id_index ON project_member_acl_buckets ( project_id ) ;
 CREATE INDEX rest_api_keys_user_id_index ON rest_api_keys ( user_id ) ;
 CREATE INDEX rest_api_keys_name_index ON rest_api_keys ( name )
+
+-- NEW DATA --

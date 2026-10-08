@@ -26,9 +26,11 @@ type MicrosoftAdminConsentURLResponse struct {
 // AdminConsentURL returns the tenant admin-consent URL for organization onboarding.
 //
 // @Summary      Microsoft tenant admin-consent URL
-// @Description  **Route:** `GET /api/v0/microsoft-backup/admin-consent-url`. Only for a work or school account that Backup-Tools detection reports as an Entra administrator (`is_admin`, any Entra Administrator role). `admin_workspace` is not required. Returns `https://login.microsoftonline.com/{tenant}/adminconsent?client_id&redirect_uri&state` with an HMAC-signed callback `state` (user, tenant, client, expiry, nonce) that only protects the redirect. `redirect_uri` is the frontend origin plus `microsoft-admin-consent-redirect-path` and must be registered on the Azure app (Web platform).
+// @Description  **Route:** `GET /api/v0/microsoft-backup/admin-consent-url`. For the selected tenant (`tenant_id`, required) of the selected work or school account (`credential_id`), only when Backup-Tools detection reports the account as an Entra administrator there (`is_admin`, any Entra Administrator role). `admin_workspace` is not required. Returns `https://login.microsoftonline.com/{tenant}/adminconsent?client_id&redirect_uri&state` with an HMAC-signed callback `state` (user, account, tenant, client, expiry, nonce) that only protects the redirect. `redirect_uri` is the frontend origin plus `microsoft-admin-consent-redirect-path` and must be registered on the Azure app (Web platform).
 // @Tags         microsoft-backup-organization
 // @Produce      json
+// @Param        credential_id  query  string  false  "Microsoft account (backup credential ID); required when several accounts are connected"
+// @Param        tenant_id      query  string  true   "Entra tenant ID to consent for"
 // @Success      200  {object}  MicrosoftAdminConsentURLResponse
 // @Failure      400  {object}  SwaggerErrorResponse
 // @Failure      401  {object}  SwaggerErrorResponse
@@ -47,7 +49,7 @@ func (m *MicrosoftBackup) AdminConsentURL(w http.ResponseWriter, r *http.Request
 	}
 
 	redirectURI := socialmedia.ResolveMicrosoftAdminConsentRedirectURI(r)
-	consentURL, err := m.service.GetMicrosoftAdminConsentURL(ctx, tokenKey, redirectURI)
+	consentURL, err := m.service.GetMicrosoftAdminConsentURL(ctx, tokenKey, redirectURI, microsoftTenantSelectionFromRequest(r))
 	if err != nil {
 		m.serveMicrosoftWorkspaceError(ctx, w, err)
 		return
@@ -66,7 +68,7 @@ func (m *MicrosoftBackup) AdminConsentURL(w http.ResponseWriter, r *http.Request
 // AdminConsentCallback completes tenant admin consent.
 //
 // @Summary      Complete Microsoft tenant admin consent
-// @Description  **Route:** `GET /api/v0/microsoft-backup/admin-consent/callback`. The frontend callback page forwards Microsoft's query (`state`, `tenant`, `admin_consent`, `error`, `error_description`). Satellite verifies the signed `state`, then calls Backup-Tools `POST /microsoft/tenants/{tid}/consent` with `consented_by`. Backup-Tools decides consent (`granted`, `insufficient`, `revoked`, `auth_error`) from the app-only token; its contract is returned unchanged. Satellite stores only `account_type`, and only when Backup-Tools returns `admin_workspace`. Backup-Tools 4xx responses are passed through.
+// @Description  **Route:** `GET /api/v0/microsoft-backup/admin-consent/callback`. The frontend callback page forwards Microsoft's query (`state`, `tenant`, `admin_consent`, `error`, `error_description`). Satellite verifies the signed `state` (the account and tenant come from it), then calls Backup-Tools `POST /microsoft/tenants/{tid}/consent` with `consented_by`. Backup-Tools decides consent (`granted`, `insufficient`, `revoked`, `auth_error`) from the app-only token; its contract is returned unchanged. Satellite stores only `account_type`, and only when Backup-Tools returns `admin_workspace`. Backup-Tools 4xx responses are passed through.
 // @Tags         microsoft-backup-organization
 // @Produce      json
 // @Param        state              query  string  true   "Signed callback state from admin-consent-url"

@@ -29,11 +29,16 @@ var (
 )
 
 // BackupCredential stores OAuth tokens for Google or Microsoft backup (shared table).
+//
+// A credential is identified by Provider + ExternalAccountID within a user. For Microsoft,
+// ExternalAccountID is the home-tenant object ID (oid) and TenantID is the home tenant (tid);
+// neither is the tenant selected for backup.
 type BackupCredential struct {
 	ID                uuid.UUID
 	UserID            uuid.UUID
 	Provider          string
 	Email             string
+	ExternalAccountID string
 	AccessToken       string
 	RefreshToken      string
 	AccessTokenExpiry *time.Time
@@ -52,13 +57,36 @@ func (c *BackupCredential) GoogleEmail() string {
 	return c.Email
 }
 
+// HomeTenantID is the Entra tenant the Microsoft account signed in from.
+func (c *BackupCredential) HomeTenantID() string {
+	if c == nil {
+		return ""
+	}
+	return c.TenantID
+}
+
+// HomeTenantName is the display name of HomeTenantID.
+func (c *BackupCredential) HomeTenantName() string {
+	if c == nil {
+		return ""
+	}
+	return c.TenantName
+}
+
 // BackupCredentials exposes persistence for shared backup OAuth credentials.
 //
 // architecture: Database
 type BackupCredentials interface {
+	// Create inserts a credential. An empty ExternalAccountID defaults to the lowercased email.
 	Create(ctx context.Context, credential BackupCredential) (*BackupCredential, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*BackupCredential, error)
+	// GetByUserIDAndProvider returns the most recently updated credential of the provider.
 	GetByUserIDAndProvider(ctx context.Context, userID uuid.UUID, provider string) (*BackupCredential, error)
 	GetByUserIDProviderEmail(ctx context.Context, userID uuid.UUID, provider, email string) (*BackupCredential, error)
+	GetByUserIDProviderAndAccount(ctx context.Context, userID uuid.UUID, provider, externalAccountID string) (*BackupCredential, error)
+	// ListByUserIDAndProvider returns all credentials of the provider, oldest first.
+	ListByUserIDAndProvider(ctx context.Context, userID uuid.UUID, provider string) ([]BackupCredential, error)
+	UpdateEmail(ctx context.Context, id uuid.UUID, email string) error
 	UpdateAccountType(ctx context.Context, id uuid.UUID, accountType string) error
 	UpdateMicrosoftTenant(ctx context.Context, id uuid.UUID, tenantID, tenantName string) error
 	UpdateTokens(ctx context.Context, id uuid.UUID, accessToken, refreshToken string, accessTokenExpiry *time.Time) error

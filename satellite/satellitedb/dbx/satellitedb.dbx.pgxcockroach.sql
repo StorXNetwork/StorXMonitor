@@ -940,6 +940,7 @@ CREATE TABLE backup_credentials (
 	user_id bytea NOT NULL REFERENCES users( id ),
 	provider text NOT NULL,
 	email text NOT NULL,
+	external_account_id text NOT NULL,
 	access_token text NOT NULL,
 	refresh_token text,
 	access_token_expiry timestamp with time zone,
@@ -949,7 +950,7 @@ CREATE TABLE backup_credentials (
 	created_at timestamp with time zone NOT NULL,
 	updated_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id ),
-	UNIQUE ( user_id, provider, email )
+	UNIQUE ( user_id, provider, external_account_id )
 ) ;
 CREATE TABLE bucket_metainfos (
 	id bytea NOT NULL,

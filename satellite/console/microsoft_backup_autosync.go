@@ -15,6 +15,8 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // SharePointSiteOnboardingInput selects a SharePoint site for outlook_sharepoint jobs.
@@ -48,6 +50,11 @@ const (
 
 // CreateMicrosoftBackupAutoSyncJobsRequest is the UI → Satellite body for Microsoft job create / onboarding.
 type CreateMicrosoftBackupAutoSyncJobsRequest struct {
+	// CredentialID selects the Microsoft account (backup_credentials ID); optional with a single account.
+	CredentialID string `json:"credential_id,omitempty"`
+	// TenantID is the selected tenant. Required for organization mode; self mode defaults to the
+	// account's home tenant, where its own mailbox lives.
+	TenantID        string                          `json:"tenant_id,omitempty"`
 	Services        []string                        `json:"services"`
 	MicrosoftEmail  string                          `json:"microsoft_email"`
 	ProjectID       string                          `json:"project_id"`
@@ -358,17 +365,9 @@ func (s *Service) CreateMicrosoftBackupAutoSyncJobs(ctx context.Context, req Cre
 		return nil, 0, Error.Wrap(err)
 	}
 
-	var credential *BackupCredential
-	if email := strings.TrimSpace(req.MicrosoftEmail); email != "" {
-		credential, err = s.store.BackupCredentials().GetByUserIDProviderEmail(ctx, user.ID, BackupProviderMicrosoft, email)
-	} else {
-		credential, err = s.store.BackupCredentials().GetByUserIDAndProvider(ctx, user.ID, BackupProviderMicrosoft)
-	}
+	credential, err := s.resolveMicrosoftJobCredential(ctx, user.ID, req.CredentialID, req.MicrosoftEmail)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, 0, ErrNotFound.New("microsoft backup credentials not found; complete microsoft-backup auth with a real OAuth refresh_token")
-		}
-		return nil, 0, Error.Wrap(err)
+		return nil, 0, err
 	}
 	microsoftEmail := strings.TrimSpace(req.MicrosoftEmail)
 	if microsoftEmail == "" {
@@ -376,17 +375,18 @@ func (s *Service) CreateMicrosoftBackupAutoSyncJobs(ctx context.Context, req Cre
 	}
 
 	accountType := strings.TrimSpace(credential.AccountType)
-	tenantID := strings.TrimSpace(credential.TenantID)
+	// Jobs belong to the tenant the user connected for backup; the home tenant is never assumed.
+	tenantID := strings.ToLower(strings.TrimSpace(req.TenantID))
+	if tenantID == "" {
+		return nil, 0, ErrMicrosoftTenantRequired.New("tenant_id is required")
+	}
 
 	switch req.BackupMode {
 	case MicrosoftBackupModeOrganization:
-		// Organization jobs run on the tenant app-only token in Backup-Tools; no delegated refresh token
-		// is sent. Backup-Tools decides authorization from consent and capabilities, not account_type.
+		// Organization jobs run on the tenant app-only token in Backup-Tools; the body carries no delegated
+		// refresh token. Backup-Tools decides authorization from consent and capabilities, not account_type.
 		if accountType == MicrosoftAccountTypePersonal {
 			return nil, 0, ErrValidation.New("organization backup requires a work or school Microsoft account")
-		}
-		if tenantID == "" {
-			return nil, 0, ErrValidation.New("microsoft tenant is unknown; sign in again with your work or school account")
 		}
 	default:
 		for _, email := range req.Emails {
@@ -399,10 +399,9 @@ func (s *Service) CreateMicrosoftBackupAutoSyncJobs(ctx context.Context, req Cre
 			if looksLikeOAuthJWT(bodyRefresh) {
 				return nil, 0, ErrValidation.New("refresh_token looks like an access/id token (JWT); use the OAuth refresh_token from the token response")
 			}
-			if storeErr := s.StoreMicrosoftBackupCredential(ctx, user.ID, microsoftEmail, credential.AccessToken, bodyRefresh, time.Time{}, credential.AccountType, credential.TenantID, credential.TenantName); storeErr != nil {
+			if storeErr := s.updateMicrosoftCredentialTokens(ctx, credential, "", bodyRefresh, time.Time{}); storeErr != nil {
 				return nil, 0, storeErr
 			}
-			credential.RefreshToken = bodyRefresh
 		}
 		if err := credential.ValidateForMicrosoftBackup(); err != nil {
 			return nil, 0, err
@@ -445,11 +444,12 @@ func (s *Service) CreateMicrosoftBackupAutoSyncJobs(ctx context.Context, req Cre
 	if req.BackupMode == MicrosoftBackupModeSelf {
 		payload["refresh_token"] = strings.TrimSpace(credential.RefreshToken)
 	}
-	if tenantID != "" {
-		payload["tenant_id"] = tenantID
-	}
-	if tenantName := strings.TrimSpace(credential.TenantName); tenantName != "" {
-		payload["tenant_name"] = tenantName
+	payload["tenant_id"] = tenantID
+	// The stored name belongs to the home tenant; Backup-Tools knows other tenants' names.
+	if strings.EqualFold(tenantID, credential.HomeTenantID()) {
+		if tenantName := strings.TrimSpace(credential.HomeTenantName()); tenantName != "" {
+			payload["tenant_name"] = tenantName
+		}
 	}
 	if len(req.Sites) > 0 {
 		sites := make([]map[string]string, 0, len(req.Sites))
@@ -556,7 +556,7 @@ func (s *Service) CreateMicrosoftBackupAutoSyncJobs(ctx context.Context, req Cre
 	}
 
 	path := "/microsoft/auto-sync/job?sync_type=" + url.QueryEscape(syncType)
-	body, status, err = s.backupToolsRequest(ctx, http.MethodPost, path, tokenKey, "", btPayload)
+	body, status, err = s.backupToolsRequestWithExtraHeaders(ctx, http.MethodPost, path, tokenKey, "", microsoftCredentialRefreshToken(credential), microsoftBackupToolsHeaders(credential, tenantID), btPayload)
 	if err != nil {
 		return nil, 0, Error.Wrap(err)
 	}
@@ -571,6 +571,23 @@ func (s *Service) CreateMicrosoftBackupAutoSyncJobs(ctx context.Context, req Cre
 		}
 	}
 	return body, status, nil
+}
+
+// resolveMicrosoftJobCredential selects the credential by credentialID, else by microsoftEmail,
+// else the only Microsoft credential.
+func (s *Service) resolveMicrosoftJobCredential(ctx context.Context, userID uuid.UUID, credentialID, microsoftEmail string) (*BackupCredential, error) {
+	email := strings.TrimSpace(microsoftEmail)
+	if strings.TrimSpace(credentialID) != "" || email == "" {
+		return s.resolveMicrosoftCredential(ctx, userID, credentialID)
+	}
+	credential, err := s.store.BackupCredentials().GetByUserIDProviderEmail(ctx, userID, BackupProviderMicrosoft, email)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrNotFound.New("microsoft backup credentials not found; complete microsoft-backup auth with a real OAuth refresh_token")
+		}
+		return nil, Error.Wrap(err)
+	}
+	return credential, nil
 }
 
 func (s *Service) maybeCompleteMicrosoftBackupOnboarding(ctx context.Context, body []byte) {
@@ -599,14 +616,34 @@ func (s *Service) getMicrosoftBackupWithRefreshToken(ctx context.Context, tokenK
 	if strings.TrimSpace(tokenKey) == "" {
 		return nil, 0, ErrUnauthorized.New("session token is required")
 	}
-	resolved, _, err := s.resolveMicrosoftRefreshToken(ctx, refreshToken, "")
+	values, err := url.ParseQuery(query)
+	if err != nil {
+		return nil, 0, ErrValidation.New("invalid query string")
+	}
+	sel := MicrosoftTenantSelectionFromQuery(values)
+	if sel.TenantID == "" {
+		return nil, 0, ErrMicrosoftTenantRequired.New("tenant_id is required")
+	}
+	// credential_id is a Satellite ID; Backup-Tools identifies the account by the headers instead.
+	values.Del("credential_id")
+	values.Set("tenant_id", sel.TenantID)
+
+	resolved, credential, err := s.resolveMicrosoftRefreshToken(ctx, refreshToken, sel.CredentialID, "")
 	if err != nil {
 		return nil, 0, err
 	}
-	if query != "" {
-		path += "?" + query
+	if encoded := values.Encode(); encoded != "" {
+		path += "?" + encoded
 	}
-	return s.backupToolsRequestWithHeaders(ctx, http.MethodGet, path, tokenKey, "", resolved, nil)
+	return s.backupToolsRequestWithExtraHeaders(ctx, http.MethodGet, path, tokenKey, "", resolved, microsoftBackupToolsHeaders(credential, sel.TenantID), nil)
+}
+
+// MicrosoftTenantSelectionFromQuery reads credential_id and tenant_id query parameters.
+func MicrosoftTenantSelectionFromQuery(values url.Values) MicrosoftTenantSelection {
+	return MicrosoftTenantSelection{
+		CredentialID: values.Get("credential_id"),
+		TenantID:     values.Get("tenant_id"),
+	}.normalized()
 }
 
 // GetMicrosoftBackupQueryMessages proxies Backup-Tools GET /microsoft/query-messages.

@@ -286,6 +286,7 @@ func (a *Auth) completeMicrosoftBackupLogin(w http.ResponseWriter, r *http.Reque
 
 func microsoftBackupSignIn(msUser *socialmedia.MicrosoftUserResult, tokens *socialmedia.MicrosoftOauthToken) console.MicrosoftBackupSignIn {
 	return console.MicrosoftBackupSignIn{
+		AccountID:         socialmedia.MicrosoftAccountIDFromTokens(tokens, msUser.Id),
 		Email:             msUser.Email,
 		TenantID:          msUser.TenantID,
 		AccessToken:       tokens.Access_token,

@@ -376,6 +376,8 @@ func (g *GoogleBackup) BackupNowAutoSyncJob(w http.ResponseWriter, r *http.Reque
 // Microsoft services (`outlook`, `onedrive`, `sharepoint`, `teams`, `groups`) use the Microsoft backup
 // credential; Google services (`drive`, `gmail`, `photos`) use the Google one. When the services do not
 // decide (e.g. only `calendar`/`contacts`), whichever credential is connected is used.
+// Microsoft checks also take `credential_id` (optional with one account) and `tenant_id` (required;
+// error 400 `tenant_id_required`).
 // @Tags         buckets-quota-check
 // @Accept       json
 // @Produce      json

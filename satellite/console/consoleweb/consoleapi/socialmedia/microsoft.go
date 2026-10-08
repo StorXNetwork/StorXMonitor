@@ -88,6 +88,7 @@ func ResolveMicrosoftAuth(code, redirectURI string) (*MicrosoftAuthSession, erro
 		if user, err := GetMicrosoftUserByAccessToken(code); err == nil {
 			tokens := &MicrosoftOauthToken{Access_token: code}
 			user.TenantID = MicrosoftTenantIDFromTokens(tokens)
+			user.Id = MicrosoftAccountIDFromTokens(tokens, user.Id)
 			return &MicrosoftAuthSession{User: user, Tokens: tokens}, nil
 		} else if claims, idErr := VerifyMicrosoftIDToken(code); idErr == nil {
 			return &MicrosoftAuthSession{
@@ -115,6 +116,7 @@ func ResolveMicrosoftAuth(code, redirectURI string) (*MicrosoftAuthSession, erro
 	if user.TenantID == "" {
 		user.TenantID = MicrosoftTenantIDFromTokens(tokenRes)
 	}
+	user.Id = MicrosoftAccountIDFromTokens(tokenRes, user.Id)
 
 	return &MicrosoftAuthSession{
 		User:   user,
@@ -144,6 +146,24 @@ func MicrosoftTenantIDFromTokens(tokens *MicrosoftOauthToken) string {
 		}
 	}
 	return unverifiedJWTClaim(tokens.Access_token, "tid")
+}
+
+// MicrosoftAccountIDFromTokens returns the home-tenant object ID (`oid`) of a Microsoft sign-in, which
+// identifies the backup credential. The verified id_token is preferred, then the access token claim.
+// Graph /me returns a differently formatted id for personal accounts, so fallback is used only when
+// neither token carries `oid`.
+func MicrosoftAccountIDFromTokens(tokens *MicrosoftOauthToken, fallback string) string {
+	if tokens != nil {
+		if strings.TrimSpace(tokens.Id_token) != "" {
+			if claims, err := VerifyMicrosoftIDToken(tokens.Id_token); err == nil && claims.Oid != "" {
+				return strings.ToLower(claims.Oid)
+			}
+		}
+		if oid := unverifiedJWTClaim(tokens.Access_token, "oid"); oid != "" {
+			return strings.ToLower(oid)
+		}
+	}
+	return strings.ToLower(strings.TrimSpace(fallback))
 }
 
 func unverifiedJWTClaim(token, key string) string {

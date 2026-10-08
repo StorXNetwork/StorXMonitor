@@ -27,8 +27,10 @@ const (
 // It only protects the redirect (who started it, for which tenant and app); it says nothing about
 // whether consent was granted. Backup-Tools decides that from the app-only token.
 type microsoftAdminConsentState struct {
-	Purpose   string `json:"p"`
-	UserID    string `json:"uid"`
+	Purpose      string `json:"p"`
+	UserID       string `json:"uid"`
+	CredentialID string `json:"crid"`
+	// TenantID is the tenant selected for consent, not necessarily the account's home tenant.
 	TenantID  string `json:"tid"`
 	ClientID  string `json:"cid"`
 	ExpiresAt int64  `json:"exp"`
@@ -87,17 +89,17 @@ func (s *Service) verifyMicrosoftAdminConsentState(raw string, now time.Time) (s
 	return state, nil
 }
 
-// GetMicrosoftAdminConsentURL builds the tenant admin-consent URL for the caller's work or school account.
-// Only accounts that Backup-Tools detection reports as Entra administrators (is_admin) may start it.
-// admin_workspace is not required: that label only exists after consent.
-func (s *Service) GetMicrosoftAdminConsentURL(ctx context.Context, tokenKey, redirectURI string) (consentURL string, err error) {
+// GetMicrosoftAdminConsentURL builds the admin-consent URL of the selected tenant for the selected work or
+// school account. Only accounts that Backup-Tools detection reports as Entra administrators (is_admin) in
+// that tenant may start it. admin_workspace is not required: that label only exists after consent.
+func (s *Service) GetMicrosoftAdminConsentURL(ctx context.Context, tokenKey, redirectURI string, sel MicrosoftTenantSelection) (consentURL string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	user, err := GetUser(ctx)
 	if err != nil {
 		return "", Error.Wrap(err)
 	}
-	credential, tenantID, err := s.microsoftOrgCredential(ctx)
+	credential, tenantID, err := s.microsoftTenantContext(ctx, sel)
 	if err != nil {
 		return "", err
 	}
@@ -114,7 +116,7 @@ func (s *Service) GetMicrosoftAdminConsentURL(ctx context.Context, tokenKey, red
 	if refreshToken == "" || looksLikeOAuthJWT(refreshToken) {
 		return "", ErrReauthRequired.New("sign in with Microsoft again before starting admin consent")
 	}
-	detection, err := s.detectMicrosoftAccount(ctx, tokenKey, refreshToken)
+	detection, err := s.detectMicrosoftAccount(ctx, tokenKey, refreshToken, microsoftBackupToolsHeaders(credential, tenantID))
 	if err != nil {
 		return "", err
 	}
@@ -127,12 +129,13 @@ func (s *Service) GetMicrosoftAdminConsentURL(ctx context.Context, tokenKey, red
 		return "", Error.Wrap(err)
 	}
 	state, err := s.signMicrosoftAdminConsentState(microsoftAdminConsentState{
-		Purpose:   microsoftAdminConsentStatePurpose,
-		UserID:    user.ID.String(),
-		TenantID:  tenantID,
-		ClientID:  clientID,
-		ExpiresAt: s.nowFn().Add(microsoftAdminConsentStateTTL).Unix(),
-		Nonce:     hex.EncodeToString(nonce),
+		Purpose:      microsoftAdminConsentStatePurpose,
+		UserID:       user.ID.String(),
+		CredentialID: credential.ID.String(),
+		TenantID:     tenantID,
+		ClientID:     clientID,
+		ExpiresAt:    s.nowFn().Add(microsoftAdminConsentStateTTL).Unix(),
+		Nonce:        hex.EncodeToString(nonce),
 	})
 	if err != nil {
 		return "", err
@@ -169,12 +172,13 @@ func (s *Service) CompleteMicrosoftAdminConsent(ctx context.Context, tokenKey st
 		return nil, ErrValidation.New("admin consent was completed for a different tenant")
 	}
 
-	credential, tenantID, err := s.microsoftOrgCredential(ctx)
+	// The account and tenant come from the signed state, so the callback targets exactly what was started.
+	credential, tenantID, err := s.microsoftTenantContext(ctx, MicrosoftTenantSelection{
+		CredentialID: state.CredentialID,
+		TenantID:     state.TenantID,
+	})
 	if err != nil {
 		return nil, err
-	}
-	if !strings.EqualFold(tenantID, state.TenantID) {
-		return nil, ErrValidation.New("microsoft account tenant changed since admin consent was started")
 	}
 
 	payload := map[string]interface{}{
@@ -188,11 +192,13 @@ func (s *Service) CompleteMicrosoftAdminConsent(ctx context.Context, tokenKey st
 		payload["error_description"] = v
 	}
 
-	contract, err = s.backupToolsTenantJSON(ctx, http.MethodPost, microsoftTenantPath(tenantID, "/consent"), tokenKey, credential, payload)
+	contract, err = s.backupToolsTenantJSON(ctx, http.MethodPost, microsoftTenantPath(tenantID, "/consent"), tokenKey, credential, tenantID, payload)
 	if err != nil {
 		return nil, err
 	}
-	if accountType, _ := contract["account_type"].(string); accountType == MicrosoftAccountTypeAdminWorkspace && credential.AccountType != accountType {
+	// account_type describes the home tenant only; consent in another tenant is tracked by Backup-Tools.
+	if accountType, _ := contract["account_type"].(string); accountType == MicrosoftAccountTypeAdminWorkspace &&
+		strings.EqualFold(tenantID, credential.HomeTenantID()) && credential.AccountType != accountType {
 		if err := s.store.BackupCredentials().UpdateAccountType(ctx, credential.ID, accountType); err != nil {
 			return nil, Error.Wrap(err)
 		}

@@ -75,14 +75,14 @@ func TestBackupToolsTenantJSONRefreshToken(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("sends stored refresh token", func(t *testing.T) {
-		_, err := s.backupToolsTenantJSON(ctx, http.MethodGet, "/microsoft/workspace", "session", &BackupCredential{RefreshToken: "1.refresh-token"}, nil)
+		_, err := s.backupToolsTenantJSON(ctx, http.MethodGet, "/microsoft/workspace", "session", &BackupCredential{RefreshToken: "1.refresh-token"}, "", nil)
 		require.NoError(t, err)
 		require.Equal(t, "1.refresh-token", gotRefresh)
 	})
 
 	t.Run("never sends a JWT as refresh token", func(t *testing.T) {
 		jwtLike := "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxIn0.c2ln"
-		_, err := s.backupToolsTenantJSON(ctx, http.MethodGet, "/microsoft/workspace", "session", &BackupCredential{RefreshToken: jwtLike}, nil)
+		_, err := s.backupToolsTenantJSON(ctx, http.MethodGet, "/microsoft/workspace", "session", &BackupCredential{RefreshToken: jwtLike}, "", nil)
 		require.NoError(t, err)
 		require.Empty(t, gotRefresh)
 	})

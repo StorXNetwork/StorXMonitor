@@ -117,7 +117,7 @@ func (m *MicrosoftBackup) ConnectMicrosoft(w http.ResponseWriter, r *http.Reques
 // CreateAutoSyncJobs creates Microsoft Backup auto-sync jobs (Backup-Tools POST /microsoft/auto-sync/job).
 //
 // @Summary      Create Microsoft Backup auto-sync jobs
-// @Description  **Route:** `POST /api/v0/microsoft-backup/auto-sync/job` (also `POST .../backup/onboarding/jobs`). Satellite enriches the UI payload (account_type, tenant_id from `backup_credentials`, project_id, storx_token) and POSTs Backup-Tools `/microsoft/auto-sync/job`. `backup_mode` decides the job's `auth_mode`: `self` (default) → `delegated`, own mailbox only, refresh_token sent; `organization` → `application`, tenant users via `all_users`/`user_ids`/`emails`/org units (`policy_scope`, `email_org_units`, `org_unit_schedules`), no refresh token sent. Backup-Tools authorizes organization jobs from tenant consent and capabilities, never from `account_type`. Services: outlook/mail, calendar, contacts, onedrive (`outlook_onedrive`), sharepoint (`outlook_sharepoint` + `sites[]`), teams (`outlook_teams` + `teams[]` or `backup_scope=all_tenant`), groups (`outlook_groups` + `groups[]` or `backup_scope=all_tenant`). In own-nodes mode jobs are created inactive until enough nodes exist. On success (no failed jobs) sets onboarding to `MicrosoftBackupCompleted`.
+// @Description  **Route:** `POST /api/v0/microsoft-backup/auto-sync/job` (also `POST .../backup/onboarding/jobs`). The body selects the Microsoft account (`credential_id`, optional with one account) and the tenant (`tenant_id`: required in both modes, the tenant connected via `POST /microsoft-backup/tenants/{tid}/connect`; the home tenant is never assumed; error 400 `tenant_id_required`). Satellite enriches the UI payload (account_type, project_id, storx_token), sends the selected `tenant_id` plus the `MICROSOFT_ACCOUNT_ID` / `MICROSOFT_HOME_TENANT_ID` / `MICROSOFT_TENANT_ID` headers, and POSTs Backup-Tools `/microsoft/auto-sync/job`. `backup_mode` decides the job's `auth_mode`: `self` (default) → `delegated`, own mailbox only, refresh_token sent; `organization` → `application`, tenant users via `all_users`/`user_ids`/`emails`/org units (`policy_scope`, `email_org_units`, `org_unit_schedules`), no refresh token sent. Backup-Tools authorizes organization jobs from tenant consent and capabilities, never from `account_type`. Services: outlook/mail, calendar, contacts, onedrive (`outlook_onedrive`), sharepoint (`outlook_sharepoint` + `sites[]`), teams (`outlook_teams` + `teams[]` or `backup_scope=all_tenant`), groups (`outlook_groups` + `groups[]` or `backup_scope=all_tenant`). In own-nodes mode jobs are created inactive until enough nodes exist. On success (no failed jobs) sets onboarding to `MicrosoftBackupCompleted`.
 // @Tags         microsoft-backup
 // @Accept       json
 // @Produce      json
@@ -186,6 +186,8 @@ func (m *MicrosoftBackup) proxyBrowseGet(w http.ResponseWriter, r *http.Request,
 // @Summary      Browse Microsoft Outlook messages
 // @Tags         microsoft-backup-browse
 // @Produce      json
+// @Param        credential_id  query   string  false  "Microsoft account (backup credential ID); required when several accounts are connected"
+// @Param        tenant_id      query   string  true   "Selected Entra tenant ID, forwarded to Backup-Tools (400 tenant_id_required when missing)"
 // @Param        REFRESH_TOKEN  header  string  false  "Microsoft OAuth refresh token"
 // @Param        refresh_token  query   string  false  "Microsoft OAuth refresh token (fallback)"
 // @Success      200  {object}  BackupToolsJSONResponse
@@ -201,6 +203,8 @@ func (m *MicrosoftBackup) QueryMessages(w http.ResponseWriter, r *http.Request) 
 // @Summary      Browse Microsoft contacts
 // @Tags         microsoft-backup-browse
 // @Produce      json
+// @Param        credential_id  query   string  false  "Microsoft account (backup credential ID); required when several accounts are connected"
+// @Param        tenant_id      query   string  true   "Selected Entra tenant ID, forwarded to Backup-Tools (400 tenant_id_required when missing)"
 // @Param        REFRESH_TOKEN  header  string  false  "Microsoft OAuth refresh token"
 // @Param        refresh_token  query   string  false  "Microsoft OAuth refresh token (fallback)"
 // @Success      200  {object}  BackupToolsJSONResponse
@@ -216,6 +220,8 @@ func (m *MicrosoftBackup) ListContacts(w http.ResponseWriter, r *http.Request) {
 // @Summary      Browse Microsoft calendars
 // @Tags         microsoft-backup-browse
 // @Produce      json
+// @Param        credential_id  query   string  false  "Microsoft account (backup credential ID); required when several accounts are connected"
+// @Param        tenant_id      query   string  true   "Selected Entra tenant ID, forwarded to Backup-Tools (400 tenant_id_required when missing)"
 // @Param        REFRESH_TOKEN  header  string  false  "Microsoft OAuth refresh token"
 // @Param        refresh_token  query   string  false  "Microsoft OAuth refresh token (fallback)"
 // @Success      200  {object}  BackupToolsJSONResponse
@@ -231,6 +237,8 @@ func (m *MicrosoftBackup) ListCalendars(w http.ResponseWriter, r *http.Request) 
 // @Summary      Browse Microsoft calendar events
 // @Tags         microsoft-backup-browse
 // @Produce      json
+// @Param        credential_id  query   string  false  "Microsoft account (backup credential ID); required when several accounts are connected"
+// @Param        tenant_id      query   string  true   "Selected Entra tenant ID, forwarded to Backup-Tools (400 tenant_id_required when missing)"
 // @Param        calendarId     path    string  true   "Calendar ID"
 // @Param        REFRESH_TOKEN  header  string  false  "Microsoft OAuth refresh token"
 // @Param        refresh_token  query   string  false  "Microsoft OAuth refresh token (fallback)"
@@ -262,6 +270,7 @@ func (m *MicrosoftBackup) ListCalendarEvents(w http.ResponseWriter, r *http.Requ
 // @Description  **Route:** `GET /api/v0/microsoft-backup/domain-users` (also `.../outlook/corporate/domain-users`). Uses refresh_token from `backup_credentials` when `REFRESH_TOKEN` header is omitted. Returns Backup-Tools JSON under `microsoft_backup` and updates `account_type` when present.
 // @Tags         microsoft-backup
 // @Produce      json
+// @Param        credential_id    query   string  false  "Microsoft account (backup credential ID); required when several accounts are connected"
 // @Param        microsoft_email  query   string  false  "Microsoft mailbox email (defaults to stored credential)"
 // @Param        REFRESH_TOKEN    header  string  false  "Optional override; prefer DB injection"
 // @Param        refresh_token    query   string  false  "Optional override"
@@ -282,7 +291,8 @@ func (m *MicrosoftBackup) GetCorporateDomainUsers(w http.ResponseWriter, r *http
 
 	microsoftEmail := strings.TrimSpace(r.URL.Query().Get("microsoft_email"))
 	refresh := microsoftBackupRefreshTokenFromRequest(r)
-	microsoftBackup, err := m.service.GetMicrosoftBackupDomainUsers(ctx, tokenKey, refresh, microsoftEmail)
+	credentialID := microsoftTenantSelectionFromRequest(r).CredentialID
+	microsoftBackup, err := m.service.GetMicrosoftBackupDomainUsers(ctx, tokenKey, refresh, credentialID, microsoftEmail)
 	if err != nil {
 		m.serveJSONError(ctx, w, err)
 		return
@@ -302,6 +312,8 @@ func (m *MicrosoftBackup) GetCorporateDomainUsers(w http.ResponseWriter, r *http
 // @Description  **Route:** `GET /api/v0/microsoft-backup/sharepoint/sites`. Admin org picker. Uses stored refresh_token when `REFRESH_TOKEN` header omitted. Query: `search`, `top`. Requires `Sites.Read.All` (reconnect after scope add).
 // @Tags         microsoft-backup-browse
 // @Produce      json
+// @Param        credential_id  query   string  false  "Microsoft account (backup credential ID); required when several accounts are connected"
+// @Param        tenant_id      query   string  true   "Selected Entra tenant ID, forwarded to Backup-Tools (400 tenant_id_required when missing)"
 // @Param        search  query  string  false  "Filter sites by name"
 // @Param        top     query  int     false  "Page size (default 50)"
 // @Success      200     {object}  BackupToolsJSONResponse
@@ -319,6 +331,8 @@ func (m *MicrosoftBackup) ListSharePointSites(w http.ResponseWriter, r *http.Req
 // @Description  **Route:** `GET /api/v0/microsoft-backup/sharepoint/flat-files`. Requires `drive_id`. Query: `skip`, `top`.
 // @Tags         microsoft-backup-browse
 // @Produce      json
+// @Param        credential_id  query   string  false  "Microsoft account (backup credential ID); required when several accounts are connected"
+// @Param        tenant_id      query   string  true   "Selected Entra tenant ID, forwarded to Backup-Tools (400 tenant_id_required when missing)"
 // @Param        drive_id  query  string  true  "SharePoint document library drive id"
 // @Param        skip      query  int     false  "Rows to skip"
 // @Param        top       query  int     false  "Page size (default 50)"
@@ -338,6 +352,8 @@ func (m *MicrosoftBackup) ListSharePointFlatFiles(w http.ResponseWriter, r *http
 // @Description  **Route:** `GET /api/v0/microsoft-backup/teams/list`. Admin team picker for `outlook_teams` jobs. Uses stored refresh_token when `REFRESH_TOKEN` header omitted. Query: `search`, `top`. Requires Teams Graph scopes (reconnect after scope add).
 // @Tags         microsoft-backup-browse
 // @Produce      json
+// @Param        credential_id  query   string  false  "Microsoft account (backup credential ID); required when several accounts are connected"
+// @Param        tenant_id      query   string  true   "Selected Entra tenant ID, forwarded to Backup-Tools (400 tenant_id_required when missing)"
 // @Param        search  query  string  false  "Filter teams by name"
 // @Param        top     query  int     false  "Page size (default 50)"
 // @Success      200     {object}  BackupToolsJSONResponse
@@ -355,6 +371,8 @@ func (m *MicrosoftBackup) ListTeams(w http.ResponseWriter, r *http.Request) {
 // @Description  **Route:** `GET /api/v0/microsoft-backup/teams/channels`. Requires `team_id` query param.
 // @Tags         microsoft-backup-browse
 // @Produce      json
+// @Param        credential_id  query   string  false  "Microsoft account (backup credential ID); required when several accounts are connected"
+// @Param        tenant_id      query   string  true   "Selected Entra tenant ID, forwarded to Backup-Tools (400 tenant_id_required when missing)"
 // @Param        team_id  query  string  true  "Microsoft Teams team ID"
 // @Success      200      {object}  BackupToolsJSONResponse
 // @Failure      400      {object}  SwaggerErrorResponse
@@ -371,6 +389,8 @@ func (m *MicrosoftBackup) ListTeamChannels(w http.ResponseWriter, r *http.Reques
 // @Description  **Route:** `GET /api/v0/microsoft-backup/teams/flat-messages`. Requires `team_id` and `channel_id`. Query: `skip`, `top`.
 // @Tags         microsoft-backup-browse
 // @Produce      json
+// @Param        credential_id  query   string  false  "Microsoft account (backup credential ID); required when several accounts are connected"
+// @Param        tenant_id      query   string  true   "Selected Entra tenant ID, forwarded to Backup-Tools (400 tenant_id_required when missing)"
 // @Param        team_id     query  string  true  "Microsoft Teams team ID"
 // @Param        channel_id  query  string  true  "Channel ID within the team"
 // @Param        skip        query  int     false  "Rows to skip"
@@ -390,6 +410,8 @@ func (m *MicrosoftBackup) ListTeamsFlatMessages(w http.ResponseWriter, r *http.R
 // @Description  **Route:** `GET /api/v0/microsoft-backup/groups/list`. Admin group picker for `outlook_groups` jobs. Uses stored refresh_token when `REFRESH_TOKEN` header omitted. Query: `search`, `top`.
 // @Tags         microsoft-backup-browse
 // @Produce      json
+// @Param        credential_id  query   string  false  "Microsoft account (backup credential ID); required when several accounts are connected"
+// @Param        tenant_id      query   string  true   "Selected Entra tenant ID, forwarded to Backup-Tools (400 tenant_id_required when missing)"
 // @Param        search  query  string  false  "Filter groups by name"
 // @Param        top     query  int     false  "Page size (default 50)"
 // @Success      200     {object}  BackupToolsJSONResponse
@@ -407,6 +429,8 @@ func (m *MicrosoftBackup) ListGroups(w http.ResponseWriter, r *http.Request) {
 // @Description  **Route:** `GET /api/v0/microsoft-backup/groups/flat-conversations`. Requires `group_id`. Query: `skip`, `top`.
 // @Tags         microsoft-backup-browse
 // @Produce      json
+// @Param        credential_id  query   string  false  "Microsoft account (backup credential ID); required when several accounts are connected"
+// @Param        tenant_id      query   string  true   "Selected Entra tenant ID, forwarded to Backup-Tools (400 tenant_id_required when missing)"
 // @Param        group_id  query  string  true  "Microsoft 365 group ID"
 // @Param        skip      query  int     false  "Rows to skip"
 // @Param        top       query  int     false  "Page size (default 50)"

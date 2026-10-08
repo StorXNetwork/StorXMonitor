@@ -60,10 +60,12 @@ func (m *MicrosoftBackupRestoreAll) restoreCron(w http.ResponseWriter, r *http.R
 
 // MicrosoftBackupRestoreAllSwaggerRequest is the body for POST /microsoft-backup/restore/all.
 type MicrosoftBackupRestoreAllSwaggerRequest struct {
-	Service     string `json:"service"`
-	ProjectID   string `json:"project_id"`
-	LoginID     string `json:"login_id"`
-	TargetEmail string `json:"target_email,omitempty"`
+	Service      string `json:"service"`
+	ProjectID    string `json:"project_id"`
+	LoginID      string `json:"login_id"`
+	TargetEmail  string `json:"target_email,omitempty"`
+	CredentialID string `json:"credential_id,omitempty"`
+	TenantID     string `json:"tenant_id,omitempty"`
 }
 
 // RestorePrepare proxies GET /restore/prepare for Microsoft services.
@@ -79,10 +81,12 @@ func (m *MicrosoftBackupRestoreAll) RestorePrepare(w http.ResponseWriter, r *htt
 	}
 
 	respBody, status, err := m.service.PrepareMicrosoftBackupRestore(ctx, tokenKey, console.MicrosoftBackupRestorePrepareParams{
-		ProjectID:   r.URL.Query().Get("project_id"),
-		LoginID:     r.URL.Query().Get("login_id"),
-		Service:     r.URL.Query().Get("service"),
-		TargetEmail: r.URL.Query().Get("target_email"),
+		ProjectID:    r.URL.Query().Get("project_id"),
+		LoginID:      r.URL.Query().Get("login_id"),
+		Service:      r.URL.Query().Get("service"),
+		TargetEmail:  r.URL.Query().Get("target_email"),
+		CredentialID: r.URL.Query().Get("credential_id"),
+		TenantID:     r.URL.Query().Get("tenant_id"),
 	})
 	if err != nil {
 		m.serveJSONError(ctx, w, err)
@@ -110,10 +114,12 @@ func (m *MicrosoftBackupRestoreAll) RestoreAll(w http.ResponseWriter, r *http.Re
 	}
 
 	respBody, status, err := m.service.StartMicrosoftBackupRestoreAll(ctx, tokenKey, console.MicrosoftBackupRestoreAllRequest{
-		Service:     body.Service,
-		ProjectID:   body.ProjectID,
-		LoginID:     body.LoginID,
-		TargetEmail: body.TargetEmail,
+		Service:      body.Service,
+		ProjectID:    body.ProjectID,
+		LoginID:      body.LoginID,
+		TargetEmail:  body.TargetEmail,
+		CredentialID: body.CredentialID,
+		TenantID:     body.TenantID,
 	})
 	m.service.RecordUserAuditHTTP(ctx, "MB_RESTORE_INITIATED", "Restore", "Microsoft restore initiated", status, respBody, err)
 	if err != nil {

@@ -17,7 +17,10 @@ import (
 
 // MicrosoftBackupSignIn is the Microsoft identity and tokens from a microsoft-backup OAuth sign-in.
 type MicrosoftBackupSignIn struct {
-	Email             string
+	// AccountID is the home-tenant object ID (oid); it identifies the stored credential.
+	AccountID string
+	Email     string
+	// TenantID is the home tenant (tid) of the sign-in.
 	TenantID          string
 	AccessToken       string
 	RefreshToken      string
@@ -26,6 +29,8 @@ type MicrosoftBackupSignIn struct {
 
 // RegisterMicrosoftBackupResult is returned after microsoft-backup auth stores credentials.
 type RegisterMicrosoftBackupResult struct {
+	// CredentialID is the stored backup_credentials ID, used to select this account later.
+	CredentialID    string
 	MicrosoftEmail  string
 	AccountType     string
 	TenantID        string
@@ -51,6 +56,7 @@ func (s *Service) RegisterMicrosoftBackupCredential(ctx context.Context, signIn 
 }
 
 func (s *Service) storeMicrosoftSignIn(ctx context.Context, user *User, signIn MicrosoftBackupSignIn, tokenKey string) (result RegisterMicrosoftBackupResult, err error) {
+	signIn.AccountID = strings.ToLower(strings.TrimSpace(signIn.AccountID))
 	signIn.Email = strings.TrimSpace(signIn.Email)
 	signIn.TenantID = strings.TrimSpace(signIn.TenantID)
 	signIn.RefreshToken = strings.TrimSpace(signIn.RefreshToken)
@@ -63,6 +69,9 @@ func (s *Service) storeMicrosoftSignIn(ctx context.Context, user *User, signIn M
 	if result.MicrosoftEmail == "" {
 		return result, Error.New("microsoft email is required")
 	}
+	if signIn.AccountID == "" {
+		return result, Error.New("microsoft account id (oid) is required")
+	}
 
 	if !result.HasRefreshToken {
 		s.log.Warn("microsoft-backup register: missing or invalid refresh_token; skip credential store",
@@ -72,7 +81,7 @@ func (s *Service) storeMicrosoftSignIn(ctx context.Context, user *User, signIn M
 		return result, nil
 	}
 
-	existing, err := s.store.BackupCredentials().GetByUserIDProviderEmail(ctx, user.ID, BackupProviderMicrosoft, result.MicrosoftEmail)
+	existing, err := s.store.BackupCredentials().GetByUserIDProviderAndAccount(ctx, user.ID, BackupProviderMicrosoft, signIn.AccountID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return result, Error.Wrap(err)
 	}
@@ -85,7 +94,10 @@ func (s *Service) storeMicrosoftSignIn(ctx context.Context, user *User, signIn M
 		result.TenantName = existing.TenantName
 	}
 
-	detection, detectErr := s.detectMicrosoftAccount(ctx, tokenKey, signIn.RefreshToken)
+	detection, detectErr := s.detectMicrosoftAccount(ctx, tokenKey, signIn.RefreshToken, microsoftBackupToolsHeaders(&BackupCredential{
+		ExternalAccountID: signIn.AccountID,
+		TenantID:          result.TenantID,
+	}, ""))
 	if detectErr != nil {
 		s.log.Warn("microsoft-backup: Backup-Tools account detection failed", zap.String("email", result.MicrosoftEmail), zap.Error(detectErr))
 		result.DetectionError = detectErr.Error()
@@ -105,16 +117,30 @@ func (s *Service) storeMicrosoftSignIn(ctx context.Context, user *User, signIn M
 		result.TenantID, result.TenantName = "", ""
 	}
 
-	err = s.StoreMicrosoftBackupCredential(ctx, user.ID, result.MicrosoftEmail, signIn.AccessToken, signIn.RefreshToken, signIn.AccessTokenExpiry, result.AccountType, result.TenantID, result.TenantName)
-	return result, err
+	stored, err := s.StoreMicrosoftBackupCredential(ctx, user.ID, MicrosoftCredentialInput{
+		AccountID:         signIn.AccountID,
+		Email:             result.MicrosoftEmail,
+		AccessToken:       signIn.AccessToken,
+		RefreshToken:      signIn.RefreshToken,
+		AccessTokenExpiry: signIn.AccessTokenExpiry,
+		AccountType:       result.AccountType,
+		HomeTenantID:      result.TenantID,
+		HomeTenantName:    result.TenantName,
+	})
+	if err != nil {
+		return result, err
+	}
+	result.CredentialID = stored.ID.String()
+	return result, nil
 }
 
-// detectMicrosoftAccount calls Backup-Tools GET /microsoft/account/detect with the delegated refresh token.
-func (s *Service) detectMicrosoftAccount(ctx context.Context, tokenKey, refreshToken string) (map[string]interface{}, error) {
+// detectMicrosoftAccount calls Backup-Tools GET /microsoft/account/detect with the delegated refresh token
+// and the Microsoft credential/tenant headers.
+func (s *Service) detectMicrosoftAccount(ctx context.Context, tokenKey, refreshToken string, headers map[string]string) (map[string]interface{}, error) {
 	if strings.TrimSpace(tokenKey) == "" {
 		return nil, ErrUnauthorized.New("session token is required for account detection")
 	}
-	body, status, err := s.backupToolsRequestWithHeaders(ctx, http.MethodGet, "/microsoft/account/detect?top=1", tokenKey, "", refreshToken, nil)
+	body, status, err := s.backupToolsRequestWithExtraHeaders(ctx, http.MethodGet, "/microsoft/account/detect?top=1", tokenKey, "", refreshToken, headers, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -138,30 +164,40 @@ func (s *Service) LoadMicrosoftBackupAtLogin(ctx context.Context, sessionToken s
 		return nil, Error.Wrap(err)
 	}
 
-	credential, err := s.store.BackupCredentials().GetByUserIDAndProvider(ctx, user.ID, BackupProviderMicrosoft)
+	// Without fresh tokens the signed-in account is unknown: report the most recently used one,
+	// plus all accounts so the UI can select by credential_id.
+	credentials, err := s.store.BackupCredentials().ListByUserIDAndProvider(ctx, user.ID, BackupProviderMicrosoft)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, nil
-		}
 		return nil, Error.Wrap(err)
+	}
+	credential := latestMicrosoftCredential(credentials)
+	if credential == nil {
+		return nil, nil
 	}
 
 	result := RegisterMicrosoftBackupResult{
+		CredentialID:    credential.ID.String(),
 		MicrosoftEmail:  credential.Email,
 		AccountType:     credential.AccountType,
-		TenantID:        credential.TenantID,
-		TenantName:      credential.TenantName,
-		HasRefreshToken: strings.TrimSpace(credential.RefreshToken) != "" && !looksLikeOAuthJWT(credential.RefreshToken),
+		TenantID:        credential.HomeTenantID(),
+		TenantName:      credential.HomeTenantName(),
+		HasRefreshToken: hasUsableRefreshToken(credential),
 	}
-	return MicrosoftBackupRegistrationPayload(result), nil
+	payload := MicrosoftBackupRegistrationPayload(result)
+	accounts := make([]MicrosoftBackupAccount, 0, len(credentials))
+	for i := range credentials {
+		accounts = append(accounts, microsoftBackupAccountFromCredential(&credentials[i]))
+	}
+	payload["accounts"] = accounts
+	return payload, nil
 }
 
-func (s *Service) fetchMicrosoftCorporateDomainUsers(ctx context.Context, tokenKey, refreshToken string) (map[string]interface{}, error) {
+func (s *Service) fetchMicrosoftCorporateDomainUsers(ctx context.Context, tokenKey, refreshToken string, headers map[string]string) (map[string]interface{}, error) {
 	refreshToken = strings.TrimSpace(refreshToken)
 	if refreshToken == "" {
 		return nil, ErrValidation.New("refresh token is required")
 	}
-	body, status, err := s.backupToolsRequestWithHeaders(ctx, http.MethodGet, "/microsoft/outlook/corporate/domain-users", tokenKey, "", refreshToken, nil)
+	body, status, err := s.backupToolsRequestWithExtraHeaders(ctx, http.MethodGet, "/microsoft/outlook/corporate/domain-users", tokenKey, "", refreshToken, headers, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -175,8 +211,9 @@ func (s *Service) fetchMicrosoftCorporateDomainUsers(ctx context.Context, tokenK
 	return result, nil
 }
 
-// resolveMicrosoftRefreshToken returns a client-supplied refresh token, or loads from backup_credentials.
-func (s *Service) resolveMicrosoftRefreshToken(ctx context.Context, refreshToken, microsoftEmail string) (resolved string, credential *BackupCredential, err error) {
+// resolveMicrosoftRefreshToken returns a client-supplied refresh token, or the stored token of the
+// Microsoft credential selected by credentialID (or microsoftEmail, or the only credential).
+func (s *Service) resolveMicrosoftRefreshToken(ctx context.Context, refreshToken, credentialID, microsoftEmail string) (resolved string, credential *BackupCredential, err error) {
 	refreshToken = strings.TrimSpace(refreshToken)
 	if refreshToken != "" {
 		if looksLikeOAuthJWT(refreshToken) {
@@ -190,17 +227,21 @@ func (s *Service) resolveMicrosoftRefreshToken(ctx context.Context, refreshToken
 		return "", nil, Error.Wrap(err)
 	}
 
+	credentialID = strings.TrimSpace(credentialID)
 	microsoftEmail = strings.TrimSpace(microsoftEmail)
-	if microsoftEmail != "" {
+	if credentialID == "" && microsoftEmail != "" {
 		credential, err = s.store.BackupCredentials().GetByUserIDProviderEmail(ctx, user.ID, BackupProviderMicrosoft, microsoftEmail)
-	} else {
-		credential, err = s.store.BackupCredentials().GetByUserIDAndProvider(ctx, user.ID, BackupProviderMicrosoft)
-	}
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return "", nil, ErrNotFound.New("microsoft backup credentials not found; complete microsoft-backup auth with a real OAuth refresh_token")
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return "", nil, ErrNotFound.New("microsoft backup credentials not found; complete microsoft-backup auth with a real OAuth refresh_token")
+			}
+			return "", nil, Error.Wrap(err)
 		}
-		return "", nil, Error.Wrap(err)
+	} else {
+		credential, err = s.resolveMicrosoftCredential(ctx, user.ID, credentialID)
+		if err != nil {
+			return "", nil, err
+		}
 	}
 	if err := credential.ValidateForMicrosoftBackup(); err != nil {
 		return "", nil, err
@@ -210,14 +251,15 @@ func (s *Service) resolveMicrosoftRefreshToken(ctx context.Context, refreshToken
 
 // GetMicrosoftBackupDomainUsers loads refresh from DB (or optional header), calls Backup-Tools,
 // updates account_type, and returns microsoft_backup payload — same role as GetGoogleBackupDomainUsers.
-func (s *Service) GetMicrosoftBackupDomainUsers(ctx context.Context, tokenKey, refreshToken, microsoftEmail string) (microsoftBackup map[string]interface{}, err error) {
+// Domain users describe the account's home tenant.
+func (s *Service) GetMicrosoftBackupDomainUsers(ctx context.Context, tokenKey, refreshToken, credentialID, microsoftEmail string) (microsoftBackup map[string]interface{}, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if strings.TrimSpace(tokenKey) == "" {
 		return nil, ErrUnauthorized.New("session token is required")
 	}
 
-	resolved, credential, err := s.resolveMicrosoftRefreshToken(ctx, refreshToken, microsoftEmail)
+	resolved, credential, err := s.resolveMicrosoftRefreshToken(ctx, refreshToken, credentialID, microsoftEmail)
 	if err != nil {
 		return nil, err
 	}
@@ -230,7 +272,7 @@ func (s *Service) GetMicrosoftBackupDomainUsers(ctx context.Context, tokenKey, r
 		return microsoftBackupDomainUsersPayload(MicrosoftPersonalBackupDomainUsers(email), ""), nil
 	}
 
-	domainUsers, domainErr := s.fetchMicrosoftCorporateDomainUsers(ctx, tokenKey, resolved)
+	domainUsers, domainErr := s.fetchMicrosoftCorporateDomainUsers(ctx, tokenKey, resolved, microsoftBackupToolsHeaders(credential, ""))
 	var domainError string
 	if domainErr != nil {
 		s.log.Warn("microsoft domain-users call failed", zap.Error(domainErr))
@@ -284,6 +326,9 @@ func MicrosoftBackupRegistrationPayload(result RegisterMicrosoftBackupResult) ma
 	out := make(map[string]interface{}, len(result.Detection)+6)
 	for k, v := range result.Detection {
 		out[k] = v
+	}
+	if result.CredentialID != "" {
+		out["credential_id"] = result.CredentialID
 	}
 	if result.MicrosoftEmail != "" {
 		out["email"] = result.MicrosoftEmail

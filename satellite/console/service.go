@@ -11525,6 +11525,12 @@ func (s *Service) backupToolsRequest(ctx context.Context, method, path, tokenKey
 
 // backupToolsRequestWithHeaders proxies to Backup-Tools with optional ACCESS_TOKEN and REFRESH_TOKEN headers.
 func (s *Service) backupToolsRequestWithHeaders(ctx context.Context, method, path, tokenKey, accessToken, refreshToken string, payload []byte) ([]byte, int, error) {
+	return s.backupToolsRequestWithExtraHeaders(ctx, method, path, tokenKey, accessToken, refreshToken, nil, payload)
+}
+
+// backupToolsRequestWithExtraHeaders is backupToolsRequestWithHeaders plus additional headers
+// (e.g. the Microsoft credential and tenant context).
+func (s *Service) backupToolsRequestWithExtraHeaders(ctx context.Context, method, path, tokenKey, accessToken, refreshToken string, extra map[string]string, payload []byte) ([]byte, int, error) {
 	if s.backupToolsURL == "" {
 		return nil, 0, Error.New("Backup-Tools URL not configured")
 	}
@@ -11546,6 +11552,11 @@ func (s *Service) backupToolsRequestWithHeaders(ctx context.Context, method, pat
 	}
 	if refreshToken != "" {
 		req.Header.Set("REFRESH_TOKEN", refreshToken)
+	}
+	for name, value := range extra {
+		if value != "" {
+			req.Header.Set(name, value)
+		}
 	}
 	req.Header.Set("Content-Type", "application/json")
 	if ownerID := restoreOwnerFromContext(ctx); ownerID != "" {

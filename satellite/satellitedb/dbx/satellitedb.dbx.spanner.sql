@@ -869,6 +869,7 @@ CREATE TABLE backup_credentials (
 	user_id BYTES(MAX) NOT NULL,
 	provider STRING(MAX) NOT NULL,
 	email STRING(MAX) NOT NULL,
+	external_account_id STRING(MAX) NOT NULL,
 	access_token STRING(MAX) NOT NULL,
 	refresh_token STRING(MAX),
 	access_token_expiry TIMESTAMP,
@@ -879,7 +880,7 @@ CREATE TABLE backup_credentials (
 	updated_at TIMESTAMP NOT NULL,
 	CONSTRAINT backup_credentials_user_id_fkey FOREIGN KEY (user_id) REFERENCES users (id)
 ) PRIMARY KEY ( id ) ;
-CREATE UNIQUE INDEX index_backup_credentials_user_id_provider_email ON backup_credentials ( user_id, provider, email ) ;
+CREATE UNIQUE INDEX index_backup_credentials_user_id_provider_external_account_id ON backup_credentials ( user_id, provider, external_account_id ) ;
 CREATE TABLE bucket_metainfos (
 	id BYTES(MAX) NOT NULL,
 	project_id BYTES(MAX) NOT NULL,

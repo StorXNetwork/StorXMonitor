@@ -229,6 +229,9 @@ type MicrosoftBackupRestorePrepareParams struct {
 	LoginID     string
 	Service     string
 	TargetEmail string
+	// CredentialID and TenantID select the Microsoft account and the tenant the backup belongs to.
+	CredentialID string
+	TenantID     string
 }
 
 func (p *MicrosoftBackupRestorePrepareParams) Validate() error {
@@ -260,15 +263,20 @@ func (p MicrosoftBackupRestorePrepareParams) queryString() string {
 	if target := strings.TrimSpace(p.TargetEmail); target != "" {
 		v.Set("target_email", target)
 	}
+	if tenantID := strings.ToLower(strings.TrimSpace(p.TenantID)); tenantID != "" {
+		v.Set("tenant_id", tenantID)
+	}
 	return v.Encode()
 }
 
 // MicrosoftBackupRestoreAllRequest is the UI body for Backup-Tools POST /restore/all (MS).
 type MicrosoftBackupRestoreAllRequest struct {
-	Service     string `json:"service"`
-	ProjectID   string `json:"project_id"`
-	LoginID     string `json:"login_id"`
-	TargetEmail string `json:"target_email,omitempty"`
+	Service      string `json:"service"`
+	ProjectID    string `json:"project_id"`
+	LoginID      string `json:"login_id"`
+	TargetEmail  string `json:"target_email,omitempty"`
+	CredentialID string `json:"credential_id,omitempty"`
+	TenantID     string `json:"tenant_id,omitempty"`
 }
 
 func (r *MicrosoftBackupRestoreAllRequest) Validate() error {
@@ -300,7 +308,21 @@ func (r *MicrosoftBackupRestoreAllRequest) backupToolsPayload() ([]byte, error) 
 	if target := strings.TrimSpace(r.TargetEmail); target != "" {
 		out["target_email"] = target
 	}
+	if tenantID := strings.ToLower(strings.TrimSpace(r.TenantID)); tenantID != "" {
+		out["tenant_id"] = tenantID
+	}
 	return json.Marshal(out)
+}
+
+// microsoftRestoreRequest sends a restore request for the selected Microsoft account. The tenant is
+// optional here: Backup-Tools answers tenant_required when the backup cannot be attributed to one.
+func (s *Service) microsoftRestoreRequest(ctx context.Context, method, path, tokenKey string, sel MicrosoftTenantSelection, payload []byte) ([]byte, int, error) {
+	sel = sel.normalized()
+	credential, err := s.resolveMicrosoftCredentialForUser(ctx, sel.CredentialID)
+	if err != nil {
+		return nil, 0, err
+	}
+	return s.backupToolsRequestWithExtraHeaders(ctx, method, path, tokenKey, "", microsoftCredentialRefreshToken(credential), microsoftBackupToolsHeaders(credential, sel.TenantID), payload)
 }
 
 var microsoftRestoreCredentialsAllowedQuery = map[string]struct{}{
@@ -327,7 +349,7 @@ func (s *Service) PrepareMicrosoftBackupRestore(ctx context.Context, tokenKey st
 		return nil, 0, err
 	}
 	path := "/restore/prepare?" + (&params).queryString()
-	return s.backupToolsRequest(ctx, http.MethodGet, path, tokenKey, "", nil)
+	return s.microsoftRestoreRequest(ctx, http.MethodGet, path, tokenKey, MicrosoftTenantSelection{CredentialID: params.CredentialID, TenantID: params.TenantID}, nil)
 }
 
 // StartMicrosoftBackupRestoreAll proxies POST /restore/all for Microsoft services (token_key only).
@@ -340,7 +362,7 @@ func (s *Service) StartMicrosoftBackupRestoreAll(ctx context.Context, tokenKey s
 	if err != nil {
 		return nil, 0, Error.Wrap(err)
 	}
-	return s.backupToolsRequest(ctx, http.MethodPost, "/restore/all", tokenKey, "", payload)
+	return s.microsoftRestoreRequest(ctx, http.MethodPost, "/restore/all", tokenKey, MicrosoftTenantSelection{CredentialID: req.CredentialID, TenantID: req.TenantID}, payload)
 }
 
 // ProxyMicrosoftBackupRestoreCron proxies Backup-Tools async restore routes (/restore/*) with token_key only.

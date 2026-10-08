@@ -240,8 +240,18 @@ func (s *Service) applyBackupAutoSyncProjectUpdateTokens(ctx context.Context, re
 			if looksLikeOAuthJWT(tokenRes.Refresh_token) {
 				return ErrValidation.New("microsoft refresh_token looks like a JWT; check OUTLOOK client and offline_access scope")
 			}
-			// Empty accountType/tenant → preserve existing row fields (same as Google grant passes "").
-			if err := s.StoreMicrosoftBackupCredential(ctx, user.ID, microsoftEmail, tokenRes.Access_token, tokenRes.Refresh_token, tokenRes.ExpiresAt, "", "", ""); err != nil {
+			if accountID := socialmedia.MicrosoftAccountIDFromTokens(tokenRes, ""); accountID != "" {
+				// Empty accountType/tenant → preserve existing row fields (same as Google grant passes "").
+				if _, err := s.StoreMicrosoftBackupCredential(ctx, user.ID, MicrosoftCredentialInput{
+					AccountID:         accountID,
+					Email:             microsoftEmail,
+					AccessToken:       tokenRes.Access_token,
+					RefreshToken:      tokenRes.Refresh_token,
+					AccessTokenExpiry: tokenRes.ExpiresAt,
+				}); err != nil {
+					return err
+				}
+			} else if err := s.updateMicrosoftTokensByEmail(ctx, user.ID, microsoftEmail, tokenRes.Access_token, tokenRes.Refresh_token, tokenRes.ExpiresAt); err != nil {
 				return err
 			}
 			req.RefreshToken = tokenRes.Refresh_token
@@ -269,7 +279,7 @@ func (s *Service) applyBackupAutoSyncProjectUpdateTokens(ctx context.Context, re
 	}
 
 	if microsoftEmail != "" {
-		if err := s.StoreMicrosoftBackupCredential(ctx, user.ID, microsoftEmail, "", refreshToken, time.Time{}, "", "", ""); err != nil {
+		if err := s.updateMicrosoftTokensByEmail(ctx, user.ID, microsoftEmail, "", refreshToken, time.Time{}); err != nil {
 			return err
 		}
 		req.RefreshToken = refreshToken

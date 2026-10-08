@@ -10,6 +10,8 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // TriggerBackupServicesQuotaCheck proxies Backup-Tools POST /auto-sync/job/services-quota-check
@@ -51,6 +53,10 @@ func (s *Service) triggerBackupServicesQuotaCheckWithProvider(ctx context.Contex
 		return nil, 0, Error.Wrap(err)
 	}
 
+	if provider == BackupProviderMicrosoft {
+		return s.triggerMicrosoftServicesQuotaCheck(ctx, tokenKey, user.ID, req)
+	}
+
 	credential, err := s.store.BackupCredentials().GetByUserIDAndProvider(ctx, user.ID, provider)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -58,14 +64,7 @@ func (s *Service) triggerBackupServicesQuotaCheckWithProvider(ctx context.Contex
 		}
 		return nil, 0, Error.Wrap(err)
 	}
-	emailKey := "google_email"
-	if provider == BackupProviderGoogle {
-		err = credential.ValidateForBackup()
-	} else {
-		emailKey = "microsoft_email"
-		err = credential.ValidateForMicrosoftBackup()
-	}
-	if err != nil {
+	if err := credential.ValidateForBackup(); err != nil {
 		return nil, 0, err
 	}
 
@@ -73,13 +72,48 @@ func (s *Service) triggerBackupServicesQuotaCheckWithProvider(ctx context.Contex
 	if accountType := strings.TrimSpace(credential.AccountType); accountType != "" {
 		req["account_type"] = accountType
 	}
-	req[emailKey] = strings.TrimSpace(credential.Email)
+	req["google_email"] = strings.TrimSpace(credential.Email)
 
 	btPayload, err := json.Marshal(req)
 	if err != nil {
 		return nil, 0, Error.Wrap(err)
 	}
 	return s.backupToolsRequest(ctx, http.MethodPost, "/auto-sync/job/services-quota-check", tokenKey, "", btPayload)
+}
+
+// triggerMicrosoftServicesQuotaCheck runs the quota check for the Microsoft account selected by
+// credential_id and the tenant selected by tenant_id; the home tenant is never assumed.
+func (s *Service) triggerMicrosoftServicesQuotaCheck(ctx context.Context, tokenKey string, userID uuid.UUID, req map[string]interface{}) (body []byte, status int, err error) {
+	credentialID, _ := req["credential_id"].(string)
+	// credential_id is a Satellite ID; Backup-Tools identifies the account by the headers instead.
+	delete(req, "credential_id")
+
+	credential, err := s.resolveMicrosoftCredential(ctx, userID, credentialID)
+	if err != nil {
+		return nil, 0, err
+	}
+	if err := credential.ValidateForMicrosoftBackup(); err != nil {
+		return nil, 0, err
+	}
+
+	tenantID, _ := req["tenant_id"].(string)
+	tenantID = strings.ToLower(strings.TrimSpace(tenantID))
+	if tenantID == "" {
+		return nil, 0, ErrMicrosoftTenantRequired.New("tenant_id is required")
+	}
+	req["tenant_id"] = tenantID
+
+	req["refresh_token"] = credential.RefreshToken
+	if accountType := strings.TrimSpace(credential.AccountType); accountType != "" {
+		req["account_type"] = accountType
+	}
+	req["microsoft_email"] = strings.TrimSpace(credential.Email)
+
+	btPayload, err := json.Marshal(req)
+	if err != nil {
+		return nil, 0, Error.Wrap(err)
+	}
+	return s.backupToolsRequestWithExtraHeaders(ctx, http.MethodPost, "/auto-sync/job/services-quota-check", tokenKey, "", microsoftCredentialRefreshToken(credential), microsoftBackupToolsHeaders(credential, tenantID), btPayload)
 }
 
 func servicesFromQuotaRequest(req map[string]interface{}) []string {

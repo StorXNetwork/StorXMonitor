@@ -18,6 +18,8 @@ import (
 
 // ConnectMicrosoftBackupResult is returned after POST /microsoft-backup/connect.
 type ConnectMicrosoftBackupResult struct {
+	CredentialID    string
+	HomeTenantID    string
 	MicrosoftEmail  string
 	Created         bool
 	HasRefreshToken bool
@@ -74,8 +76,12 @@ func (s *Service) ConnectMicrosoftBackupCredential(ctx context.Context, code, re
 	if msUser.TenantID == "" {
 		msUser.TenantID = socialmedia.MicrosoftTenantIDFromTokens(tokenRes)
 	}
+	accountID := socialmedia.MicrosoftAccountIDFromTokens(tokenRes, msUser.Id)
+	if accountID == "" {
+		return result, ErrValidation.New("microsoft account id (oid) could not be determined; sign in again")
+	}
 
-	existing, lookupErr := s.store.BackupCredentials().GetByUserIDProviderEmail(ctx, user.ID, BackupProviderMicrosoft, msUser.Email)
+	existing, lookupErr := s.store.BackupCredentials().GetByUserIDProviderAndAccount(ctx, user.ID, BackupProviderMicrosoft, accountID)
 	if lookupErr != nil && !errors.Is(lookupErr, sql.ErrNoRows) {
 		return result, Error.Wrap(lookupErr)
 	}
@@ -84,6 +90,7 @@ func (s *Service) ConnectMicrosoftBackupCredential(ctx context.Context, code, re
 	result.HasRefreshToken = true
 
 	stored, err := s.storeMicrosoftSignIn(ctx, user, MicrosoftBackupSignIn{
+		AccountID:         accountID,
 		Email:             msUser.Email,
 		TenantID:          msUser.TenantID,
 		AccessToken:       tokenRes.Access_token,
@@ -94,10 +101,13 @@ func (s *Service) ConnectMicrosoftBackupCredential(ctx context.Context, code, re
 		return result, err
 	}
 	result.AccountType = stored.AccountType
+	result.CredentialID = stored.CredentialID
+	result.HomeTenantID = stored.TenantID
 
 	// restore/prepare reads Backup-Tools credentials — push RT so write scopes stick.
 	if tk := strings.TrimSpace(tokenKey); tk != "" {
-		if syncErr := s.syncMicrosoftRefreshTokenToBackupTools(ctx, tk, msUser.Email, tokenRes.Refresh_token); syncErr != nil {
+		headers := microsoftBackupToolsHeaders(&BackupCredential{ExternalAccountID: accountID, TenantID: stored.TenantID}, "")
+		if syncErr := s.syncMicrosoftRefreshTokenToBackupTools(ctx, tk, msUser.Email, tokenRes.Refresh_token, headers); syncErr != nil {
 			s.log.Warn("microsoft-backup connect: Backup-Tools refresh_token sync failed",
 				zap.String("email", msUser.Email),
 				zap.Error(syncErr),
@@ -108,7 +118,7 @@ func (s *Service) ConnectMicrosoftBackupCredential(ctx context.Context, code, re
 }
 
 // syncMicrosoftRefreshTokenToBackupTools updates BT credentials for each owned project (PUT /auto-sync/job/project).
-func (s *Service) syncMicrosoftRefreshTokenToBackupTools(ctx context.Context, tokenKey, email, refreshToken string) error {
+func (s *Service) syncMicrosoftRefreshTokenToBackupTools(ctx context.Context, tokenKey, email, refreshToken string, headers map[string]string) error {
 	user, err := GetUser(ctx)
 	if err != nil {
 		return err
@@ -134,7 +144,7 @@ func (s *Service) syncMicrosoftRefreshTokenToBackupTools(ctx context.Context, to
 			lastErr = mErr
 			continue
 		}
-		_, status, reqErr := s.backupToolsRequest(ctx, http.MethodPut, "/auto-sync/job/project", tokenKey, "", payload)
+		_, status, reqErr := s.backupToolsRequestWithExtraHeaders(ctx, http.MethodPut, "/auto-sync/job/project", tokenKey, "", "", headers, payload)
 		if reqErr != nil {
 			lastErr = reqErr
 			continue
