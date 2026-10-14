@@ -515,6 +515,9 @@ func (m *MicrosoftBackup) MicrosoftAuth(w http.ResponseWriter, r *http.Request) 
 
 func (m *MicrosoftBackup) manualRestoreBatch(w http.ResponseWriter, r *http.Request, backupToolsPath string) {
 	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
 	tokenKey, err := m.sessionTokenKey(r)
 	if err != nil {
 		m.serveJSONError(ctx, w, err)
@@ -526,6 +529,8 @@ func (m *MicrosoftBackup) manualRestoreBatch(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	respBody, status, err := m.service.MicrosoftBackupManualRestore(ctx, tokenKey, backupToolsPath, req)
+	m.service.RecordUserAuditHTTP(ctx, "MB_MANUAL_RESTORE", "Manual restore", "Microsoft manual restore completed", status, respBody, err)
+	m.service.RecordInviteeAuditForOwner(ctx, req.ProjectID, "MB_MANUAL_RESTORE", "Manual restore", "Microsoft manual restore completed", status, respBody, err)
 	if err != nil {
 		m.serveJSONError(ctx, w, err)
 		return
@@ -563,6 +568,11 @@ func (m *MicrosoftBackup) ManualRestoreSharePoint(w http.ResponseWriter, r *http
 // ManualRestoreTeams proxies Backup-Tools POST /office365/satellite-to-teams.
 func (m *MicrosoftBackup) ManualRestoreTeams(w http.ResponseWriter, r *http.Request) {
 	m.manualRestoreBatch(w, r, "/office365/satellite-to-teams")
+}
+
+// ManualRestoreTeamsChats proxies Backup-Tools POST /office365/satellite-to-teams-chats.
+func (m *MicrosoftBackup) ManualRestoreTeamsChats(w http.ResponseWriter, r *http.Request) {
+	m.manualRestoreBatch(w, r, "/office365/satellite-to-teams-chats")
 }
 
 // ManualRestoreGroups proxies Backup-Tools POST /office365/satellite-to-groups.

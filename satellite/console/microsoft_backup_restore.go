@@ -15,6 +15,8 @@ import (
 	"time"
 
 	"golang.org/x/exp/slices"
+
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // MicrosoftBackupManualRestoreRequest is the Satellite body for batch manual restore (≤10 base64 vault keys).
@@ -316,13 +318,30 @@ func (r *MicrosoftBackupRestoreAllRequest) backupToolsPayload() ([]byte, error) 
 
 // microsoftRestoreRequest sends a restore request for the selected Microsoft account. The tenant is
 // optional here: Backup-Tools answers tenant_required when the backup cannot be attributed to one.
-func (s *Service) microsoftRestoreRequest(ctx context.Context, method, path, tokenKey string, sel MicrosoftTenantSelection, payload []byte) ([]byte, int, error) {
+// An invited Member of projectID restores with the project owner's Microsoft account, as Google
+// restore does.
+func (s *Service) microsoftRestoreRequest(ctx context.Context, method, path, tokenKey, projectID string, sel MicrosoftTenantSelection, payload []byte) ([]byte, int, error) {
 	sel = sel.normalized()
-	credential, err := s.resolveMicrosoftCredentialForUser(ctx, sel.CredentialID)
+	ctx = s.withSharedRestoreOwner(ctx, projectID)
+	credential, err := s.resolveMicrosoftRestoreCredential(ctx, sel.CredentialID)
 	if err != nil {
 		return nil, 0, err
 	}
 	return s.backupToolsRequestWithExtraHeaders(ctx, method, path, tokenKey, "", microsoftCredentialRefreshToken(credential), microsoftBackupToolsHeaders(credential, sel.TenantID), payload)
+}
+
+// resolveMicrosoftRestoreCredential is the restoring account's credential: the shared project
+// owner's when the context carries one, else the session user's.
+func (s *Service) resolveMicrosoftRestoreCredential(ctx context.Context, credentialID string) (*BackupCredential, error) {
+	ownerID := restoreOwnerFromContext(ctx)
+	if ownerID == "" {
+		return s.resolveMicrosoftCredentialForUser(ctx, credentialID)
+	}
+	owner, err := uuid.FromString(ownerID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	return s.resolveMicrosoftCredential(ctx, owner, credentialID)
 }
 
 var microsoftRestoreCredentialsAllowedQuery = map[string]struct{}{
@@ -349,7 +368,7 @@ func (s *Service) PrepareMicrosoftBackupRestore(ctx context.Context, tokenKey st
 		return nil, 0, err
 	}
 	path := "/restore/prepare?" + (&params).queryString()
-	return s.microsoftRestoreRequest(ctx, http.MethodGet, path, tokenKey, MicrosoftTenantSelection{CredentialID: params.CredentialID, TenantID: params.TenantID}, nil)
+	return s.microsoftRestoreRequest(ctx, http.MethodGet, path, tokenKey, params.ProjectID, MicrosoftTenantSelection{CredentialID: params.CredentialID, TenantID: params.TenantID}, nil)
 }
 
 // StartMicrosoftBackupRestoreAll proxies POST /restore/all for Microsoft services (token_key only).
@@ -362,7 +381,7 @@ func (s *Service) StartMicrosoftBackupRestoreAll(ctx context.Context, tokenKey s
 	if err != nil {
 		return nil, 0, Error.Wrap(err)
 	}
-	return s.microsoftRestoreRequest(ctx, http.MethodPost, "/restore/all", tokenKey, MicrosoftTenantSelection{CredentialID: req.CredentialID, TenantID: req.TenantID}, payload)
+	return s.microsoftRestoreRequest(ctx, http.MethodPost, "/restore/all", tokenKey, req.ProjectID, MicrosoftTenantSelection{CredentialID: req.CredentialID, TenantID: req.TenantID}, payload)
 }
 
 // ProxyMicrosoftBackupRestoreCron proxies Backup-Tools async restore routes (/restore/*) with token_key only.

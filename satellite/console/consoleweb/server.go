@@ -706,14 +706,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	microsoftBackupRouter.Handle("/restore/job/{job_id}", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupRestoreAllController.GetRestoreJob))).Methods(http.MethodGet, http.MethodOptions)
 	microsoftBackupRouter.Handle("/restore/job/{job_id}/cancel", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupRestoreAllController.CancelRestoreJob))).Methods(http.MethodPost, http.MethodOptions)
 	microsoftBackupRouter.Handle("/restore/job/{job_id}/dead-items", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupRestoreAllController.ListRestoreDeadItems))).Methods(http.MethodGet, http.MethodOptions)
-	// Manual select-and-restore (≤10 vault keys), mirrors /google-backup/google/satellite-to-*.
-	microsoftBackupRouter.Handle("/office365/satellite-to-outlook", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.ManualRestoreOutlook))).Methods(http.MethodPost, http.MethodOptions)
-	microsoftBackupRouter.Handle("/office365/satellite-to-outlook-calendar", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.ManualRestoreOutlookCalendar))).Methods(http.MethodPost, http.MethodOptions)
-	microsoftBackupRouter.Handle("/office365/satellite-to-outlook-contacts", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.ManualRestoreOutlookContacts))).Methods(http.MethodPost, http.MethodOptions)
-	microsoftBackupRouter.Handle("/office365/satellite-to-onedrive", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.ManualRestoreOneDrive))).Methods(http.MethodPost, http.MethodOptions)
-	microsoftBackupRouter.Handle("/office365/satellite-to-sharepoint", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.ManualRestoreSharePoint))).Methods(http.MethodPost, http.MethodOptions)
-	microsoftBackupRouter.Handle("/office365/satellite-to-teams", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.ManualRestoreTeams))).Methods(http.MethodPost, http.MethodOptions)
-	microsoftBackupRouter.Handle("/office365/satellite-to-groups", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.ManualRestoreGroups))).Methods(http.MethodPost, http.MethodOptions)
+	registerMicrosoftManualRestoreRoutes(microsoftBackupRouter, server.userIDRateLimiter.Limit, microsoftBackupController)
 
 	// User developer access management
 	authRouter.Handle("/developer-access", server.withAuth(http.HandlerFunc(authController.GetUserDeveloperAccess))).Methods(http.MethodGet, http.MethodOptions)                           // Alias for frontend compatibility
@@ -2229,6 +2222,27 @@ type responseWriterStatusCode struct {
 func (w *responseWriterStatusCode) WriteHeader(code int) {
 	w.code = code
 	w.ResponseWriter.WriteHeader(code)
+}
+
+// registerMicrosoftManualRestoreRoutes mounts manual select-and-restore (≤10 vault keys),
+// mirrors /google-backup/google/satellite-to-*.
+func registerMicrosoftManualRestoreRoutes(router *mux.Router, limit func(http.Handler) http.Handler, controller *consoleapi.MicrosoftBackup) {
+	routes := []struct {
+		path    string
+		handler http.HandlerFunc
+	}{
+		{"/office365/satellite-to-outlook", controller.ManualRestoreOutlook},
+		{"/office365/satellite-to-outlook-calendar", controller.ManualRestoreOutlookCalendar},
+		{"/office365/satellite-to-outlook-contacts", controller.ManualRestoreOutlookContacts},
+		{"/office365/satellite-to-onedrive", controller.ManualRestoreOneDrive},
+		{"/office365/satellite-to-sharepoint", controller.ManualRestoreSharePoint},
+		{"/office365/satellite-to-teams", controller.ManualRestoreTeams},
+		{"/office365/satellite-to-teams-chats", controller.ManualRestoreTeamsChats},
+		{"/office365/satellite-to-groups", controller.ManualRestoreGroups},
+	}
+	for _, route := range routes {
+		router.Handle(route.path, limit(route.handler)).Methods(http.MethodPost, http.MethodOptions)
+	}
 }
 
 // newTraceRequestMiddleware returns middleware for tracing each request to a

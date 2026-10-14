@@ -122,6 +122,7 @@ func (m *MicrosoftBackupRestoreAll) RestoreAll(w http.ResponseWriter, r *http.Re
 		TenantID:     body.TenantID,
 	})
 	m.service.RecordUserAuditHTTP(ctx, "MB_RESTORE_INITIATED", "Restore", "Microsoft restore initiated", status, respBody, err)
+	m.service.RecordInviteeAuditForOwner(ctx, body.ProjectID, "MB_RESTORE_INITIATED", "Restore", "Microsoft restore initiated", status, respBody, err)
 	if err != nil {
 		m.serveJSONError(ctx, w, err)
 		return
@@ -143,21 +144,23 @@ func (m *MicrosoftBackupRestoreAll) RestoreWorkspaces(w http.ResponseWriter, r *
 	})
 }
 
-// RestoreLive proxies GET /restore/live.
+// RestoreLive proxies GET /restore/live; an invited Member also sees the owner's jobs for the
+// mailboxes granted to them.
 func (m *MicrosoftBackupRestoreAll) RestoreLive(w http.ResponseWriter, r *http.Request) {
 	m.restoreCron(w, r, func(ctx context.Context, tokenKey string) ([]byte, int, error) {
-		return m.service.ProxyMicrosoftBackupRestoreCron(ctx, http.MethodGet, "/restore/live", tokenKey, nil)
+		return m.service.ProxyRestoreListIncludingShared(ctx, tokenKey, "/restore/live")
 	})
 }
 
-// RestoreJobs proxies GET /restore/jobs.
+// RestoreJobs proxies GET /restore/jobs; an invited Member also sees the owner's jobs for the
+// mailboxes granted to them.
 func (m *MicrosoftBackupRestoreAll) RestoreJobs(w http.ResponseWriter, r *http.Request) {
 	m.restoreCron(w, r, func(ctx context.Context, tokenKey string) ([]byte, int, error) {
 		path := "/restore/jobs"
 		if r.URL.RawQuery != "" {
 			path += "?" + r.URL.RawQuery
 		}
-		return m.service.ProxyMicrosoftBackupRestoreCron(ctx, http.MethodGet, path, tokenKey, nil)
+		return m.service.ProxyRestoreListIncludingShared(ctx, tokenKey, path)
 	})
 }
 
@@ -182,6 +185,8 @@ func (m *MicrosoftBackupRestoreAll) CancelRestoreJob(w http.ResponseWriter, r *h
 	}
 	jobID := mux.Vars(r)["job_id"]
 	respBody, status, err := m.service.CancelMicrosoftBackupRestoreJob(ctx, tokenKey, jobID)
+	m.service.RecordUserAuditHTTP(ctx, "MB_RESTORE_CANCEL", "Restore job", "Microsoft restore job cancelled", status, respBody, err)
+	m.service.RecordInviteeAuditForOwner(ctx, "", "MB_RESTORE_CANCEL", "Restore job", "Microsoft restore job cancelled", status, respBody, err)
 	if err != nil {
 		m.serveJSONError(ctx, w, err)
 		return
