@@ -29,6 +29,8 @@ jobs:
       env:
         PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
       run: |
+        # git uses the first matching insteadOf, so rewrites left by earlier runs would keep an old token in use.
+        git config --global --name-only --get-regexp '^url\..*\.insteadof$' '^https://github\.com/$' | ForEach-Object { git config --global --unset-all $_ }
         git config --global url."https://x-access-token:$env:PERSONAL_ACCESS_TOKEN@github.com/".insteadOf "https://github.com/"
         go env -w GOPRIVATE=github.com/StorXNetwork/*
         go env -w GONOSUMDB=github.com/StorXNetwork/*
