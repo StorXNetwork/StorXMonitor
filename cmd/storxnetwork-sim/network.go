@@ -405,13 +405,13 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 				"--developer.address", net.JoinHostPort(host, port(satellitePeer, i, developerHTTP)),
 				"--developer.static-dir", filepath.Join(storjRoot, "satellite/developer/ui/build"),
-				"--console.developer-external-address", "http://"+net.JoinHostPort(host, port(satellitePeer, i, developerHTTP)),
+				"--console.developer-external-address", "http://" + net.JoinHostPort(host, port(satellitePeer, i, developerHTTP)),
 
 				"--seller.address", net.JoinHostPort(host, port(satellitePeer, i, sellerHTTP)),
 				"--seller.static-dir", filepath.Join(storjRoot, "satellite/seller/ui/build"),
-				"--console.seller-external-address", "http://"+net.JoinHostPort(host, port(satellitePeer, i, sellerHTTP)),
+				"--console.seller-external-address", "http://" + net.JoinHostPort(host, port(satellitePeer, i, sellerHTTP)),
 				// cfgstruct turns GoogleSellerRedirectURLstring into google-seller-redirect-ur-lstring
-				"--console.google-seller-redirect-ur-lstring", "http://"+net.JoinHostPort(host, port(satellitePeer, i, sellerHTTP))+"/api/v0/seller/auth/google",
+				"--console.google-seller-redirect-ur-lstring", "http://" + net.JoinHostPort(host, port(satellitePeer, i, sellerHTTP)) + "/api/v0/seller/auth/google",
 			},
 			"run": {"api"},
 		})
