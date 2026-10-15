@@ -30,7 +30,9 @@ type MicrosoftBackupSignIn struct {
 // RegisterMicrosoftBackupResult is returned after microsoft-backup auth stores credentials.
 type RegisterMicrosoftBackupResult struct {
 	// CredentialID is the stored backup_credentials ID, used to select this account later.
-	CredentialID    string
+	CredentialID string
+	// Created is true when this sign-in stored a new credential (not an update).
+	Created         bool
 	MicrosoftEmail  string
 	AccountType     string
 	TenantID        string
@@ -131,6 +133,7 @@ func (s *Service) storeMicrosoftSignIn(ctx context.Context, user *User, signIn M
 		return result, err
 	}
 	result.CredentialID = stored.ID.String()
+	result.Created = existing == nil
 	return result, nil
 }
 
@@ -140,12 +143,17 @@ func (s *Service) detectMicrosoftAccount(ctx context.Context, tokenKey, refreshT
 	if strings.TrimSpace(tokenKey) == "" {
 		return nil, ErrUnauthorized.New("session token is required for account detection")
 	}
-	body, status, err := s.backupToolsRequestWithExtraHeaders(ctx, http.MethodGet, "/microsoft/account/detect?top=1", tokenKey, "", refreshToken, headers, nil)
+	return s.getMicrosoftAccountJSON(ctx, "/microsoft/account/detect", "account detection", tokenKey, refreshToken, headers)
+}
+
+// getMicrosoftAccountJSON GETs a Backup-Tools Microsoft account route with the delegated refresh token.
+func (s *Service) getMicrosoftAccountJSON(ctx context.Context, path, what, tokenKey, refreshToken string, headers map[string]string) (map[string]interface{}, error) {
+	body, status, err := s.backupToolsRequestWithExtraHeaders(ctx, http.MethodGet, path, tokenKey, "", refreshToken, headers, nil)
 	if err != nil {
 		return nil, err
 	}
 	if status != http.StatusOK {
-		return nil, Error.New("Backup-Tools microsoft account detection returned status %d: %s", status, string(body))
+		return nil, Error.New("Backup-Tools microsoft %s returned status %d: %s", what, status, string(body))
 	}
 	var result map[string]interface{}
 	if err := json.Unmarshal(body, &result); err != nil {
@@ -155,9 +163,8 @@ func (s *Service) detectMicrosoftAccount(ctx context.Context, tokenKey, refreshT
 }
 
 // LoadMicrosoftBackupAtLogin returns stored microsoft_backup credentials (no scope validation or BT detect).
-func (s *Service) LoadMicrosoftBackupAtLogin(ctx context.Context, sessionToken string) (microsoftBackup map[string]interface{}, err error) {
+func (s *Service) LoadMicrosoftBackupAtLogin(ctx context.Context) (microsoftBackup map[string]interface{}, err error) {
 	defer mon.Task()(&ctx)(&err)
-	_ = sessionToken
 
 	user, err := GetUser(ctx)
 	if err != nil {
@@ -197,18 +204,7 @@ func (s *Service) fetchMicrosoftCorporateDomainUsers(ctx context.Context, tokenK
 	if refreshToken == "" {
 		return nil, ErrValidation.New("refresh token is required")
 	}
-	body, status, err := s.backupToolsRequestWithExtraHeaders(ctx, http.MethodGet, "/microsoft/outlook/corporate/domain-users", tokenKey, "", refreshToken, headers, nil)
-	if err != nil {
-		return nil, err
-	}
-	if status != http.StatusOK {
-		return nil, Error.New("Backup-Tools microsoft domain-users returned status %d: %s", status, string(body))
-	}
-	var result map[string]interface{}
-	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, err
-	}
-	return result, nil
+	return s.getMicrosoftAccountJSON(ctx, "/microsoft/outlook/corporate/domain-users", "domain-users", tokenKey, refreshToken, headers)
 }
 
 // resolveMicrosoftRefreshToken returns a client-supplied refresh token, or the stored token of the
@@ -320,32 +316,45 @@ func microsoftBackupDomainUsersPayload(domainUsers map[string]interface{}, domai
 	return nil
 }
 
-// MicrosoftBackupRegistrationPayload is the microsoft_backup block on auth responses:
-// the Backup-Tools detection contract (when available) plus the stored classification and has_refresh_token.
+// MicrosoftBackupRegistrationPayload is the microsoft_backup block on auth responses: the stored
+// classification, with the Backup-Tools detection filling what is not stored (personal accounts keep
+// the consumer tenant id) plus is_admin, admin_roles and can_personal_backup. Consent, capabilities,
+// access_state and directory entities are served by GET /microsoft-backup/status and the tenants routes.
 func MicrosoftBackupRegistrationPayload(result RegisterMicrosoftBackupResult) map[string]interface{} {
-	out := make(map[string]interface{}, len(result.Detection)+6)
-	for k, v := range result.Detection {
-		out[k] = v
+	detection := result.Detection
+	out := make(map[string]interface{}, 12)
+	storedOrDetected := func(key, stored string) {
+		if stored != "" {
+			out[key] = stored
+		} else if v, ok := detection[key]; ok {
+			out[key] = v
+		}
 	}
-	if result.CredentialID != "" {
-		out["credential_id"] = result.CredentialID
+	storedOrDetected("account_type", result.AccountType)
+	storedOrDetected("tenant_id", result.TenantID)
+	storedOrDetected("tenant_name", result.TenantName)
+	for _, k := range []string{"is_admin", "admin_roles"} {
+		if v, ok := detection[k]; ok {
+			out[k] = v
+		}
 	}
-	if result.MicrosoftEmail != "" {
-		out["email"] = result.MicrosoftEmail
+	if state, ok := detection["access_state"].(map[string]interface{}); ok {
+		if v, ok := state["can_personal_backup"].(bool); ok {
+			out["can_personal_backup"] = v
+		}
 	}
 	if result.AccountType != "" {
-		out["account_type"] = result.AccountType
 		workspaceKind := "organization"
 		if result.AccountType == MicrosoftAccountTypePersonal {
 			workspaceKind = "personal"
 		}
 		out["workspace_kind"] = workspaceKind
 	}
-	if result.TenantID != "" {
-		out["tenant_id"] = result.TenantID
+	if result.CredentialID != "" {
+		out["credential_id"] = result.CredentialID
 	}
-	if result.TenantName != "" {
-		out["tenant_name"] = result.TenantName
+	if result.MicrosoftEmail != "" {
+		out["email"] = result.MicrosoftEmail
 	}
 	if result.DetectionError != "" {
 		out["detection_error"] = result.DetectionError

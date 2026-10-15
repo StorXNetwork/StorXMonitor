@@ -2730,7 +2730,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Service filter: gmail, google_drive, google_photos, google_contacts, google_calendar, outlook, outlook_calendar, outlook_contacts, outlook_onedrive, outlook_sharepoint, outlook_teams, outlook_groups.",
+                        "description": "Service filter: gmail, google_drive, google_photos, google_contacts, google_calendar, outlook, outlook_calendar, outlook_contacts, outlook_onedrive, outlook_sharepoint, outlook_teams.",
                         "name": "method",
                         "in": "query"
                     },
@@ -5043,7 +5043,7 @@ const docTemplate = `{
                         "CookieAuth": []
                     }
                 ],
-                "description": "**Route:** ` + "`" + `POST /api/v0/microsoft-backup/auto-sync/job` + "`" + ` (also ` + "`" + `POST .../backup/onboarding/jobs` + "`" + `). The body selects the Microsoft account (` + "`" + `credential_id` + "`" + `, optional with one account) and the tenant (` + "`" + `tenant_id` + "`" + `: required in both modes, the tenant connected via ` + "`" + `POST /microsoft-backup/tenants/{tid}/connect` + "`" + `; the home tenant is never assumed; error 400 ` + "`" + `tenant_id_required` + "`" + `). Satellite enriches the UI payload (account_type, project_id, storx_token), sends the selected ` + "`" + `tenant_id` + "`" + ` plus the ` + "`" + `MICROSOFT_ACCOUNT_ID` + "`" + ` / ` + "`" + `MICROSOFT_HOME_TENANT_ID` + "`" + ` / ` + "`" + `MICROSOFT_TENANT_ID` + "`" + ` headers, and POSTs Backup-Tools ` + "`" + `/microsoft/auto-sync/job` + "`" + `. ` + "`" + `backup_mode` + "`" + ` decides the job's ` + "`" + `auth_mode` + "`" + `: ` + "`" + `self` + "`" + ` (default) → ` + "`" + `delegated` + "`" + `, own mailbox only, refresh_token sent; ` + "`" + `organization` + "`" + ` → ` + "`" + `application` + "`" + `, tenant users via ` + "`" + `all_users` + "`" + `/` + "`" + `user_ids` + "`" + `/` + "`" + `emails` + "`" + `/org units (` + "`" + `policy_scope` + "`" + `, ` + "`" + `email_org_units` + "`" + `, ` + "`" + `org_unit_schedules` + "`" + `), no refresh token sent. Backup-Tools authorizes organization jobs from tenant consent and capabilities, never from ` + "`" + `account_type` + "`" + `. Services: outlook/mail, calendar, contacts, onedrive (` + "`" + `outlook_onedrive` + "`" + `), sharepoint (` + "`" + `outlook_sharepoint` + "`" + ` + ` + "`" + `sites[]` + "`" + `), teams (` + "`" + `outlook_teams` + "`" + ` + ` + "`" + `teams[]` + "`" + ` or ` + "`" + `backup_scope=all_tenant` + "`" + `), groups (` + "`" + `outlook_groups` + "`" + ` + ` + "`" + `groups[]` + "`" + ` or ` + "`" + `backup_scope=all_tenant` + "`" + `). In own-nodes mode jobs are created inactive until enough nodes exist. On success (no failed jobs) sets onboarding to ` + "`" + `MicrosoftBackupCompleted` + "`" + `.",
+                "description": "**Route:** ` + "`" + `POST /api/v0/microsoft-backup/auto-sync/job` + "`" + `. The body selects the Microsoft account (` + "`" + `credential_id` + "`" + `, optional with one account) and the tenant (` + "`" + `tenant_id` + "`" + `: required in both modes, the tenant connected via ` + "`" + `POST /microsoft-backup/tenants/{tid}/connect` + "`" + `; the home tenant is never assumed; error 400 ` + "`" + `tenant_id_required` + "`" + `). Satellite enriches the UI payload (account_type, project_id, storx_token), sends the selected ` + "`" + `tenant_id` + "`" + ` plus the ` + "`" + `MICROSOFT_ACCOUNT_ID` + "`" + ` / ` + "`" + `MICROSOFT_HOME_TENANT_ID` + "`" + ` / ` + "`" + `MICROSOFT_TENANT_ID` + "`" + ` headers, and POSTs Backup-Tools ` + "`" + `/microsoft/auto-sync/job` + "`" + `. ` + "`" + `backup_mode` + "`" + ` decides the job's ` + "`" + `auth_mode` + "`" + `: ` + "`" + `self` + "`" + ` (default) → ` + "`" + `delegated` + "`" + `, own mailbox only, refresh_token sent; ` + "`" + `organization` + "`" + ` → ` + "`" + `application` + "`" + `, tenant users via ` + "`" + `all_users` + "`" + `/` + "`" + `user_ids` + "`" + `/` + "`" + `emails` + "`" + `, no refresh token sent. Backup-Tools authorizes organization jobs from tenant consent and capabilities, never from ` + "`" + `account_type` + "`" + `. Services: outlook/mail, calendar, contacts, onedrive (` + "`" + `outlook_onedrive` + "`" + `), sharepoint (` + "`" + `outlook_sharepoint` + "`" + ` + ` + "`" + `sites[]` + "`" + `), teams (` + "`" + `outlook_teams` + "`" + ` + ` + "`" + `teams[]` + "`" + ` or ` + "`" + `backup_scope=all_tenant` + "`" + `). In own-nodes mode jobs are created inactive until enough nodes exist. On success (no failed jobs) sets onboarding to ` + "`" + `MicrosoftBackupCompleted` + "`" + `.",
                 "consumes": [
                     "application/json"
                 ],
@@ -5082,127 +5082,6 @@ const docTemplate = `{
                         "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/microsoft-backup/calendar/events/{calendarId}": {
-            "get": {
-                "security": [
-                    {
-                        "CookieAuth": []
-                    }
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "microsoft-backup-browse"
-                ],
-                "summary": "Browse Microsoft calendar events",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Microsoft account (backup credential ID); required when several accounts are connected",
-                        "name": "credential_id",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Selected Entra tenant ID, forwarded to Backup-Tools (400 tenant_id_required when missing)",
-                        "name": "tenant_id",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Calendar ID",
-                        "name": "calendarId",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Microsoft OAuth refresh token",
-                        "name": "REFRESH_TOKEN",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Microsoft OAuth refresh token (fallback)",
-                        "name": "refresh_token",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/microsoft-backup/calendar/list": {
-            "get": {
-                "security": [
-                    {
-                        "CookieAuth": []
-                    }
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "microsoft-backup-browse"
-                ],
-                "summary": "Browse Microsoft calendars",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Microsoft account (backup credential ID); required when several accounts are connected",
-                        "name": "credential_id",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Selected Entra tenant ID, forwarded to Backup-Tools (400 tenant_id_required when missing)",
-                        "name": "tenant_id",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Microsoft OAuth refresh token",
-                        "name": "REFRESH_TOKEN",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Microsoft OAuth refresh token (fallback)",
-                        "name": "refresh_token",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
                         }
                     },
                     "401": {
@@ -5317,63 +5196,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/microsoft-backup/contacts/list": {
-            "get": {
-                "security": [
-                    {
-                        "CookieAuth": []
-                    }
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "microsoft-backup-browse"
-                ],
-                "summary": "Browse Microsoft contacts",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Microsoft account (backup credential ID); required when several accounts are connected",
-                        "name": "credential_id",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Selected Entra tenant ID, forwarded to Backup-Tools (400 tenant_id_required when missing)",
-                        "name": "tenant_id",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Microsoft OAuth refresh token",
-                        "name": "REFRESH_TOKEN",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Microsoft OAuth refresh token (fallback)",
-                        "name": "refresh_token",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
         "/microsoft-backup/directory/users": {
             "get": {
                 "security": [
@@ -5450,198 +5272,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/microsoft-backup/domain-users": {
-            "get": {
-                "security": [
-                    {
-                        "CookieAuth": []
-                    }
-                ],
-                "description": "**Route:** ` + "`" + `GET /api/v0/microsoft-backup/domain-users` + "`" + ` (also ` + "`" + `.../outlook/corporate/domain-users` + "`" + `). Uses refresh_token from ` + "`" + `backup_credentials` + "`" + ` when ` + "`" + `REFRESH_TOKEN` + "`" + ` header is omitted. Returns Backup-Tools JSON under ` + "`" + `microsoft_backup` + "`" + ` and updates ` + "`" + `account_type` + "`" + ` when present.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "microsoft-backup"
-                ],
-                "summary": "Microsoft corporate domain users",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Microsoft account (backup credential ID); required when several accounts are connected",
-                        "name": "credential_id",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Microsoft mailbox email (defaults to stored credential)",
-                        "name": "microsoft_email",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Optional override; prefer DB injection",
-                        "name": "REFRESH_TOKEN",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Optional override",
-                        "name": "refresh_token",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.MicrosoftBackupDomainUsersSwaggerResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/microsoft-backup/groups/flat-conversations": {
-            "get": {
-                "security": [
-                    {
-                        "CookieAuth": []
-                    }
-                ],
-                "description": "**Route:** ` + "`" + `GET /api/v0/microsoft-backup/groups/flat-conversations` + "`" + `. Requires ` + "`" + `group_id` + "`" + `. Query: ` + "`" + `skip` + "`" + `, ` + "`" + `top` + "`" + `.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "microsoft-backup-browse"
-                ],
-                "summary": "Browse M365 Group conversations (admin)",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Microsoft account (backup credential ID); required when several accounts are connected",
-                        "name": "credential_id",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Selected Entra tenant ID, forwarded to Backup-Tools (400 tenant_id_required when missing)",
-                        "name": "tenant_id",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Microsoft 365 group ID",
-                        "name": "group_id",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Rows to skip",
-                        "name": "skip",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Page size (default 50)",
-                        "name": "top",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/microsoft-backup/groups/list": {
-            "get": {
-                "security": [
-                    {
-                        "CookieAuth": []
-                    }
-                ],
-                "description": "**Route:** ` + "`" + `GET /api/v0/microsoft-backup/groups/list` + "`" + `. Admin group picker for ` + "`" + `outlook_groups` + "`" + ` jobs. Uses stored refresh_token when ` + "`" + `REFRESH_TOKEN` + "`" + ` header omitted. Query: ` + "`" + `search` + "`" + `, ` + "`" + `top` + "`" + `.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "microsoft-backup-browse"
-                ],
-                "summary": "List Microsoft 365 Groups (admin)",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Microsoft account (backup credential ID); required when several accounts are connected",
-                        "name": "credential_id",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Selected Entra tenant ID, forwarded to Backup-Tools (400 tenant_id_required when missing)",
-                        "name": "tenant_id",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Filter groups by name",
-                        "name": "search",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Page size (default 50)",
-                        "name": "top",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
         "/microsoft-backup/microsoft-auth": {
             "post": {
                 "security": [
@@ -5687,256 +5317,6 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/microsoft-backup/organization/structure": {
-            "get": {
-                "security": [
-                    {
-                        "CookieAuth": []
-                    }
-                ],
-                "description": "**Route:** ` + "`" + `GET /api/v0/microsoft-backup/organization/structure` + "`" + `. Proxies Backup-Tools ` + "`" + `GET /microsoft/tenants/{tid}/org-structure` + "`" + ` for the selected account and tenant (org-unit tree with user counts; ` + "`" + `org_unit_path` + "`" + ` defaults to ` + "`" + `/` + "`" + ` plus department).",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "microsoft-backup-organization"
-                ],
-                "summary": "Get Microsoft organization structure",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Microsoft account (backup credential ID); required when several accounts are connected",
-                        "name": "credential_id",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Selected Entra tenant ID",
-                        "name": "tenant_id",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/microsoft-backup/query-messages": {
-            "get": {
-                "security": [
-                    {
-                        "CookieAuth": []
-                    }
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "microsoft-backup-browse"
-                ],
-                "summary": "Browse Microsoft Outlook messages",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Microsoft account (backup credential ID); required when several accounts are connected",
-                        "name": "credential_id",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Selected Entra tenant ID, forwarded to Backup-Tools (400 tenant_id_required when missing)",
-                        "name": "tenant_id",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Microsoft OAuth refresh token",
-                        "name": "REFRESH_TOKEN",
-                        "in": "header"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Microsoft OAuth refresh token (fallback)",
-                        "name": "refresh_token",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/microsoft-backup/sharepoint/flat-files": {
-            "get": {
-                "security": [
-                    {
-                        "CookieAuth": []
-                    }
-                ],
-                "description": "**Route:** ` + "`" + `GET /api/v0/microsoft-backup/sharepoint/flat-files` + "`" + `. Requires ` + "`" + `drive_id` + "`" + `. Query: ` + "`" + `skip` + "`" + `, ` + "`" + `top` + "`" + `.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "microsoft-backup-browse"
-                ],
-                "summary": "Browse SharePoint files (admin)",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Microsoft account (backup credential ID); required when several accounts are connected",
-                        "name": "credential_id",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Selected Entra tenant ID, forwarded to Backup-Tools (400 tenant_id_required when missing)",
-                        "name": "tenant_id",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "SharePoint document library drive id",
-                        "name": "drive_id",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Rows to skip",
-                        "name": "skip",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Page size (default 50)",
-                        "name": "top",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/microsoft-backup/sharepoint/sites": {
-            "get": {
-                "security": [
-                    {
-                        "CookieAuth": []
-                    }
-                ],
-                "description": "**Route:** ` + "`" + `GET /api/v0/microsoft-backup/sharepoint/sites` + "`" + `. Admin org picker. Uses stored refresh_token when ` + "`" + `REFRESH_TOKEN` + "`" + ` header omitted. Query: ` + "`" + `search` + "`" + `, ` + "`" + `top` + "`" + `. Requires ` + "`" + `Sites.Read.All` + "`" + ` (reconnect after scope add).",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "microsoft-backup-browse"
-                ],
-                "summary": "List SharePoint sites (admin)",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Microsoft account (backup credential ID); required when several accounts are connected",
-                        "name": "credential_id",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Selected Entra tenant ID, forwarded to Backup-Tools (400 tenant_id_required when missing)",
-                        "name": "tenant_id",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Filter sites by name",
-                        "name": "search",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Page size (default 50)",
-                        "name": "top",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
                         "schema": {
                             "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
                         }
@@ -5994,207 +5374,6 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/microsoft-backup/teams/channels": {
-            "get": {
-                "security": [
-                    {
-                        "CookieAuth": []
-                    }
-                ],
-                "description": "**Route:** ` + "`" + `GET /api/v0/microsoft-backup/teams/channels` + "`" + `. Requires ` + "`" + `team_id` + "`" + ` query param.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "microsoft-backup-browse"
-                ],
-                "summary": "List Teams channels (admin)",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Microsoft account (backup credential ID); required when several accounts are connected",
-                        "name": "credential_id",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Selected Entra tenant ID, forwarded to Backup-Tools (400 tenant_id_required when missing)",
-                        "name": "tenant_id",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Microsoft Teams team ID",
-                        "name": "team_id",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/microsoft-backup/teams/flat-messages": {
-            "get": {
-                "security": [
-                    {
-                        "CookieAuth": []
-                    }
-                ],
-                "description": "**Route:** ` + "`" + `GET /api/v0/microsoft-backup/teams/flat-messages` + "`" + `. Requires ` + "`" + `team_id` + "`" + ` and ` + "`" + `channel_id` + "`" + `. Query: ` + "`" + `skip` + "`" + `, ` + "`" + `top` + "`" + `.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "microsoft-backup-browse"
-                ],
-                "summary": "Browse Teams channel messages (admin)",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Microsoft account (backup credential ID); required when several accounts are connected",
-                        "name": "credential_id",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Selected Entra tenant ID, forwarded to Backup-Tools (400 tenant_id_required when missing)",
-                        "name": "tenant_id",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Microsoft Teams team ID",
-                        "name": "team_id",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Channel ID within the team",
-                        "name": "channel_id",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Rows to skip",
-                        "name": "skip",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Page size (default 50)",
-                        "name": "top",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/microsoft-backup/teams/list": {
-            "get": {
-                "security": [
-                    {
-                        "CookieAuth": []
-                    }
-                ],
-                "description": "**Route:** ` + "`" + `GET /api/v0/microsoft-backup/teams/list` + "`" + `. Admin team picker for ` + "`" + `outlook_teams` + "`" + ` jobs. Uses stored refresh_token when ` + "`" + `REFRESH_TOKEN` + "`" + ` header omitted. Query: ` + "`" + `search` + "`" + `, ` + "`" + `top` + "`" + `. Requires Teams Graph scopes (reconnect after scope add).",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "microsoft-backup-browse"
-                ],
-                "summary": "List Microsoft Teams (admin)",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Microsoft account (backup credential ID); required when several accounts are connected",
-                        "name": "credential_id",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Selected Entra tenant ID, forwarded to Backup-Tools (400 tenant_id_required when missing)",
-                        "name": "tenant_id",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Filter teams by name",
-                        "name": "search",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Page size (default 50)",
-                        "name": "top",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.BackupToolsJSONResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
                         "schema": {
                             "$ref": "#/definitions/consoleapi.SwaggerErrorResponse"
                         }
@@ -6446,7 +5625,7 @@ const docTemplate = `{
                         "CookieAuth": []
                     }
                 ],
-                "description": "Filter method: outlook, outlook_calendar, outlook_contacts, outlook_onedrive, outlook_sharepoint, outlook_teams, outlook_groups, or all. Response includes ` + "`" + `organization_resources` + "`" + ` with ` + "`" + `sharepoint_sites` + "`" + `, ` + "`" + `teams` + "`" + `, and ` + "`" + `groups` + "`" + ` (admin_workspace).",
+                "description": "Filter method: outlook, outlook_calendar, outlook_contacts, outlook_onedrive, outlook_sharepoint, outlook_teams, or all. Response includes ` + "`" + `organization_resources` + "`" + ` with ` + "`" + `sharepoint_sites` + "`" + ` and ` + "`" + `teams` + "`" + ` (admin_workspace).",
                 "produces": [
                     "application/json"
                 ],
@@ -6469,7 +5648,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "outlook, outlook_calendar, outlook_contacts, outlook_onedrive, outlook_sharepoint, outlook_teams, outlook_groups, all",
+                        "description": "outlook, outlook_calendar, outlook_contacts, outlook_onedrive, outlook_sharepoint, outlook_teams, all",
                         "name": "method",
                         "in": "query"
                     },
@@ -12246,12 +11425,6 @@ const docTemplate = `{
                     "type": "string",
                     "example": "6f1c2a1e-4c1b-4d2a-9c3e-2f6a7b8c9d0e"
                 },
-                "email_org_units": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
-                },
                 "emails": {
                     "type": "array",
                     "items": {
@@ -12260,12 +11433,6 @@ const docTemplate = `{
                     "example": [
                         "user@contoso.com"
                     ]
-                },
-                "groups": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/consoleapi.GroupsOnboardingSwaggerInput"
-                    }
                 },
                 "interval": {
                     "type": "string",
@@ -12279,12 +11446,6 @@ const docTemplate = `{
                     "type": "string",
                     "example": "12am"
                 },
-                "org_unit_schedules": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "$ref": "#/definitions/consoleapi.MicrosoftOrgUnitScheduleSwagger"
-                    }
-                },
                 "policy_id": {
                     "type": "integer"
                 },
@@ -12292,19 +11453,9 @@ const docTemplate = `{
                     "type": "string",
                     "example": "Outlook defaults"
                 },
-                "policy_scope": {
-                    "type": "string",
-                    "example": "org_unit"
-                },
                 "project_id": {
                     "type": "string",
                     "example": "00000000-0000-0000-0000-000000000001"
-                },
-                "refresh_token": {
-                    "type": "string"
-                },
-                "satellite_user_id": {
-                    "type": "string"
                 },
                 "services": {
                     "type": "array",
@@ -12317,8 +11468,7 @@ const docTemplate = `{
                         "contacts",
                         "onedrive",
                         "sharepoint",
-                        "teams",
-                        "groups"
+                        "teams"
                     ]
                 },
                 "sites": {
@@ -13319,19 +12469,6 @@ const docTemplate = `{
                 }
             }
         },
-        "consoleapi.GroupsOnboardingSwaggerInput": {
-            "type": "object",
-            "properties": {
-                "group_id": {
-                    "type": "string",
-                    "example": "00000000-0000-0000-0000-000000000002"
-                },
-                "group_name": {
-                    "type": "string",
-                    "example": "HR Team"
-                }
-            }
-        },
         "consoleapi.InviteAccessSelectionSwagger": {
             "type": "object",
             "properties": {
@@ -13609,14 +12746,6 @@ const docTemplate = `{
                 }
             }
         },
-        "consoleapi.MicrosoftBackupDomainUsersSwaggerResponse": {
-            "type": "object",
-            "properties": {
-                "microsoft_backup": {
-                    "type": "object"
-                }
-            }
-        },
         "consoleapi.MicrosoftBackupOnboardingSwagger": {
             "type": "object",
             "properties": {
@@ -13676,33 +12805,6 @@ const docTemplate = `{
                     "example": [
                         101,
                         102
-                    ]
-                }
-            }
-        },
-        "consoleapi.MicrosoftOrgUnitScheduleSwagger": {
-            "type": "object",
-            "properties": {
-                "interval": {
-                    "type": "string",
-                    "example": "daily"
-                },
-                "on": {
-                    "type": "string",
-                    "example": "12am"
-                },
-                "policy_name": {
-                    "type": "string",
-                    "example": "Sales nightly"
-                },
-                "services": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "example": [
-                        "outlook",
-                        "onedrive"
                     ]
                 }
             }
@@ -16955,7 +16057,7 @@ const docTemplate = `{
             "name": "microsoft-backup"
         },
         {
-            "description": "GET/PUT ` + "`" + `/microsoft-backup/users-groups/*` + "`" + ` → Backup-Tools ` + "`" + `/microsoft/users-groups/*` + "`" + `. Method filter: outlook, outlook_calendar, outlook_contacts, outlook_onedrive, outlook_sharepoint, outlook_teams, outlook_groups. List response splits ` + "`" + `mailboxes` + "`" + ` vs ` + "`" + `organization_resources` + "`" + ` (` + "`" + `sharepoint_sites` + "`" + `, ` + "`" + `teams` + "`" + `, ` + "`" + `groups` + "`" + `).",
+            "description": "GET/PUT ` + "`" + `/microsoft-backup/users-groups/*` + "`" + ` → Backup-Tools ` + "`" + `/microsoft/users-groups/*` + "`" + `. Method filter: outlook, outlook_calendar, outlook_contacts, outlook_onedrive, outlook_sharepoint, outlook_teams. List response splits ` + "`" + `mailboxes` + "`" + ` vs ` + "`" + `organization_resources` + "`" + ` (` + "`" + `sharepoint_sites` + "`" + `, ` + "`" + `teams` + "`" + `).",
             "name": "microsoft-backup-users-groups"
         },
         {
@@ -16969,10 +16071,6 @@ const docTemplate = `{
         {
             "description": "Deprecated: use ` + "`" + `/api/v0/backup/auto-sync/policy/*` + "`" + ` (common). Legacy Microsoft policy routes removed from Satellite.",
             "name": "microsoft-backup-policy"
-        },
-        {
-            "description": "Browse Outlook mail/contacts/calendar, SharePoint sites/files, Teams, and M365 Groups via ` + "`" + `/microsoft-backup/query-messages|contacts/list|calendar/*|sharepoint/*|teams/*|groups/*` + "`" + `. Requires ` + "`" + `REFRESH_TOKEN` + "`" + ` header (or ` + "`" + `refresh_token` + "`" + ` query). SharePoint, teams, and groups browse require admin_workspace.",
-            "name": "microsoft-backup-browse"
         },
         {
             "description": "Google Backup provider APIs: connect, domain-users, job create (` + "`" + `POST /google-backup/auto-sync/jobs` + "`" + `), restore. Shared list/live/policy/job-mutate use ` + "`" + `/api/v0/backup/auto-sync/*` + "`" + `.",

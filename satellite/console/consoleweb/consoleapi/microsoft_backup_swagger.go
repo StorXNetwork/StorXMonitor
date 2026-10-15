@@ -39,8 +39,3 @@ type MicrosoftBackupConnectSwaggerResponse struct {
 	HasRefreshToken bool                   `json:"has_refresh_token" example:"true"`
 	MicrosoftBackup map[string]interface{} `json:"microsoft_backup,omitempty" swaggertype:"object"`
 }
-
-// MicrosoftBackupDomainUsersSwaggerResponse is returned from GET /microsoft-backup/domain-users.
-type MicrosoftBackupDomainUsersSwaggerResponse struct {
-	MicrosoftBackup map[string]interface{} `json:"microsoft_backup,omitempty" swaggertype:"object"`
-}

@@ -71,12 +71,12 @@ func (m *MicrosoftBackupUsersGroups) GetDomains(w http.ResponseWriter, r *http.R
 // List proxies Backup-Tools GET /microsoft/users-groups.
 //
 // @Summary      List Microsoft Users & Groups mailboxes
-// @Description  Filter method: outlook, outlook_calendar, outlook_contacts, outlook_onedrive, outlook_sharepoint, outlook_teams, outlook_groups, or all. Response includes `organization_resources` with `sharepoint_sites`, `teams`, and `groups` (admin_workspace).
+// @Description  Filter method: outlook, outlook_calendar, outlook_contacts, outlook_onedrive, outlook_sharepoint, outlook_teams, or all. Response includes `organization_resources` with `sharepoint_sites` and `teams` (admin_workspace).
 // @Tags         microsoft-backup-users-groups
 // @Produce      json
 // @Param        domain            query  string  false  "Filter by domain"
 // @Param        search            query  string  false  "Partial email match"
-// @Param        method            query  string  false  "outlook, outlook_calendar, outlook_contacts, outlook_onedrive, outlook_sharepoint, outlook_teams, outlook_groups, all"
+// @Param        method            query  string  false  "outlook, outlook_calendar, outlook_contacts, outlook_onedrive, outlook_sharepoint, outlook_teams, all"
 // @Param        account_type      query  string  false  "corporate, individual, all"
 // @Param        credential_status query  string  false  "Same as Google credential_status"
 // @Param        active            query  bool    false  "Filter by active"

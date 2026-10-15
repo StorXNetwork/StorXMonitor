@@ -30,7 +30,6 @@ var microsoftManualRestorePaths = []string{
 	"/office365/satellite-to-sharepoint",
 	"/office365/satellite-to-teams",
 	"/office365/satellite-to-teams-chats",
-	"/office365/satellite-to-groups",
 }
 
 func newMicrosoftManualRestoreRouter(t *testing.T) (*mux.Router, *int) {

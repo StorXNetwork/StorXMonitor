@@ -169,17 +169,6 @@ func (s *Service) ListMicrosoftBackupDirectoryUsers(ctx context.Context, tokenKe
 	return s.backupToolsTenantJSON(ctx, http.MethodGet, path, tokenKey, credential, tenantID, nil)
 }
 
-// GetMicrosoftBackupOrgStructure returns the StorX organization structure (org-unit tree) for the selected tenant.
-func (s *Service) GetMicrosoftBackupOrgStructure(ctx context.Context, tokenKey string, sel MicrosoftTenantSelection) (result map[string]interface{}, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	credential, tenantID, err := s.microsoftTenantContext(ctx, sel)
-	if err != nil {
-		return nil, err
-	}
-	return s.backupToolsTenantJSON(ctx, http.MethodGet, microsoftTenantPath(tenantID, "/org-structure"), tokenKey, credential, tenantID, nil)
-}
-
 // ListMicrosoftBackupTenants returns the tenant access state of every tenant the selected account can
 // reach (Backup-Tools GET /microsoft/accounts/tenants). This is an account-level route: no tenant is selected.
 func (s *Service) ListMicrosoftBackupTenants(ctx context.Context, tokenKey, credentialID string) (result map[string]interface{}, err error) {

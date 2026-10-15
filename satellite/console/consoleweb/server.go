@@ -676,24 +676,11 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	microsoftBackupRouter.Handle("/status", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.Status))).Methods(http.MethodGet, http.MethodOptions)
 	microsoftBackupRouter.Handle("/capabilities/refresh", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.RefreshCapabilities))).Methods(http.MethodPost, http.MethodOptions)
 	microsoftBackupRouter.Handle("/directory/users", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.DirectoryUsers))).Methods(http.MethodGet, http.MethodOptions)
-	microsoftBackupRouter.Handle("/organization/structure", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.GetOrgStructure))).Methods(http.MethodGet, http.MethodOptions)
 	microsoftBackupRouter.Handle("/domain-users", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.GetCorporateDomainUsers))).Methods(http.MethodGet, http.MethodOptions)
 	microsoftBackupRouter.Handle("/outlook/corporate/domain-users", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.GetCorporateDomainUsers))).Methods(http.MethodGet, http.MethodOptions)
 	microsoftBackupRouter.Handle("/backup/onboarding/jobs", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.CreateAutoSyncJobs))).Methods(http.MethodPost, http.MethodOptions)
 	microsoftBackupRouter.Handle("/auto-sync/job", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.CreateAutoSyncJobs))).Methods(http.MethodPost, http.MethodOptions)
 	// Job list / live / get / update / backup-now / policy: /api/v0/backup/auto-sync/* (same as Google).
-	microsoftBackupRouter.Handle("/query-messages", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.QueryMessages))).Methods(http.MethodGet, http.MethodOptions)
-	microsoftBackupRouter.Handle("/contacts/list", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.ListContacts))).Methods(http.MethodGet, http.MethodOptions)
-	microsoftBackupRouter.Handle("/calendar/list", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.ListCalendars))).Methods(http.MethodGet, http.MethodOptions)
-	microsoftBackupRouter.Handle("/calendar/events/{calendarId}", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.ListCalendarEvents))).Methods(http.MethodGet, http.MethodOptions)
-	microsoftBackupRouter.Handle("/sharepoint/sites", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.ListSharePointSites))).Methods(http.MethodGet, http.MethodOptions)
-	microsoftBackupRouter.Handle("/sharepoint/flat-files", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.ListSharePointFlatFiles))).Methods(http.MethodGet, http.MethodOptions)
-	microsoftBackupRouter.Handle("/teams/list", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.ListTeams))).Methods(http.MethodGet, http.MethodOptions)
-	microsoftBackupRouter.Handle("/teams/channels", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.ListTeamChannels))).Methods(http.MethodGet, http.MethodOptions)
-	microsoftBackupRouter.Handle("/teams/flat-messages", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.ListTeamsFlatMessages))).Methods(http.MethodGet, http.MethodOptions)
-	microsoftBackupRouter.Handle("/groups/list", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.ListGroups))).Methods(http.MethodGet, http.MethodOptions)
-	microsoftBackupRouter.Handle("/groups/flat-conversations", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.ListGroupsFlatConversations))).Methods(http.MethodGet, http.MethodOptions)
-	// Restore auth first (mirrors /google-backup/google-auth), then office365/satellite-to-*.
 	// Restore auth for all Microsoft Graph services (mirrors /google-backup/google-auth), then office365/satellite-to-*.
 	microsoftBackupRouter.Handle("/microsoft-auth", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.MicrosoftAuth))).Methods(http.MethodPost, http.MethodOptions)
 	// Restore-all (mirrors /google-backup/restore/*); token_key only — Graph auth from stored credential.
@@ -2238,7 +2225,6 @@ func registerMicrosoftManualRestoreRoutes(router *mux.Router, limit func(http.Ha
 		{"/office365/satellite-to-sharepoint", controller.ManualRestoreSharePoint},
 		{"/office365/satellite-to-teams", controller.ManualRestoreTeams},
 		{"/office365/satellite-to-teams-chats", controller.ManualRestoreTeamsChats},
-		{"/office365/satellite-to-groups", controller.ManualRestoreGroups},
 	}
 	for _, route := range routes {
 		router.Handle(route.path, limit(route.handler)).Methods(http.MethodPost, http.MethodOptions)

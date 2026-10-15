@@ -28,7 +28,6 @@ type MicrosoftBackupManualRestoreRequest struct {
 	ProjectID     string   `json:"project_id,omitempty"`
 	TeamID        string   `json:"team_id,omitempty"`
 	ChannelID     string   `json:"channel_id,omitempty"`
-	GroupID       string   `json:"group_id,omitempty"`
 }
 
 // Validate checks keys and microsoft_auth.
@@ -130,9 +129,6 @@ func (s *Service) MicrosoftBackupManualRestore(ctx context.Context, tokenKey, ba
 	if v := strings.TrimSpace(req.ChannelID); v != "" {
 		q.Set("channel_id", v)
 	}
-	if v := strings.TrimSpace(req.GroupID); v != "" {
-		q.Set("group_id", v)
-	}
 	if encoded := q.Encode(); encoded != "" {
 		path += "?" + encoded
 	}
@@ -200,7 +196,6 @@ var allowedMicrosoftBackupRestoreServices = []string{
 	"outlook_onedrive", "onedrive",
 	"outlook_sharepoint", "sharepoint",
 	"outlook_teams", "teams",
-	"outlook_groups", "groups",
 }
 
 // normalizeMicrosoftBackupRestoreService maps UI aliases to Backup-Tools service names.
@@ -218,8 +213,6 @@ func normalizeMicrosoftBackupRestoreService(service string) string {
 		return "outlook_sharepoint"
 	case "teams", "outlook_teams":
 		return "outlook_teams"
-	case "groups", "outlook_groups":
-		return "outlook_groups"
 	default:
 		return strings.TrimSpace(strings.ToLower(service))
 	}
@@ -250,8 +243,7 @@ func (p *MicrosoftBackupRestorePrepareParams) Validate() error {
 	if p.Service == "" {
 		return ErrValidation.New("service is required")
 	}
-	if !slices.Contains(allowedMicrosoftBackupRestoreServices, p.Service) &&
-		!slices.Contains([]string{"outlook", "outlook_calendar", "outlook_contacts", "outlook_onedrive", "outlook_sharepoint", "outlook_teams", "outlook_groups"}, p.Service) {
+	if !slices.Contains(allowedMicrosoftBackupRestoreServices, p.Service) {
 		return ErrValidation.New("unsupported service: %s", p.Service)
 	}
 	return nil
@@ -289,7 +281,7 @@ func (r *MicrosoftBackupRestoreAllRequest) Validate() error {
 	if r.Service == "" {
 		return ErrValidation.New("service is required")
 	}
-	if !slices.Contains([]string{"outlook", "outlook_calendar", "outlook_contacts", "outlook_onedrive", "outlook_sharepoint", "outlook_teams", "outlook_groups"}, r.Service) {
+	if !slices.Contains(allowedMicrosoftBackupRestoreServices, r.Service) {
 		return ErrValidation.New("unsupported service: %s", r.Service)
 	}
 	if r.ProjectID == "" {

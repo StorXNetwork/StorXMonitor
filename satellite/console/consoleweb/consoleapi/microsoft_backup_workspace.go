@@ -118,25 +118,6 @@ func (m *MicrosoftBackup) DirectoryUsers(w http.ResponseWriter, r *http.Request)
 	})
 }
 
-// GetOrgStructure returns the StorX organization structure for the selected tenant.
-//
-// @Summary      Get Microsoft organization structure
-// @Description  **Route:** `GET /api/v0/microsoft-backup/organization/structure`. Proxies Backup-Tools `GET /microsoft/tenants/{tid}/org-structure` for the selected account and tenant (org-unit tree with user counts; `org_unit_path` defaults to `/` plus department).
-// @Tags         microsoft-backup-organization
-// @Produce      json
-// @Param        credential_id  query  string  false  "Microsoft account (backup credential ID); required when several accounts are connected"
-// @Param        tenant_id      query  string  true   "Selected Entra tenant ID"
-// @Success      200  {object}  BackupToolsJSONResponse
-// @Failure      400  {object}  SwaggerErrorResponse
-// @Failure      401  {object}  SwaggerErrorResponse
-// @Security     CookieAuth
-// @Router       /microsoft-backup/organization/structure [get]
-func (m *MicrosoftBackup) GetOrgStructure(w http.ResponseWriter, r *http.Request) {
-	m.proxyWorkspace(w, r, func(ctx context.Context, tokenKey string) (map[string]interface{}, error) {
-		return m.service.GetMicrosoftBackupOrgStructure(ctx, tokenKey, microsoftTenantSelectionFromRequest(r))
-	})
-}
-
 // ListAccounts lists the Microsoft accounts the user connected.
 //
 // @Summary      List connected Microsoft accounts

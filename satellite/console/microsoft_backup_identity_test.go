@@ -351,15 +351,11 @@ func TestMicrosoftTenantScopedRoutes(t *testing.T) {
 		require.True(t, ErrMicrosoftTenantRequired.Has(err), "%v", err)
 		_, err = h.service.ListMicrosoftBackupDirectoryUsers(h.ctx, "session", noTenant, nil)
 		require.True(t, ErrMicrosoftTenantRequired.Has(err), "%v", err)
-		_, err = h.service.GetMicrosoftBackupOrgStructure(h.ctx, "session", noTenant)
-		require.True(t, ErrMicrosoftTenantRequired.Has(err), "%v", err)
 		_, err = h.service.ConnectMicrosoftBackupTenant(h.ctx, "session", noTenant, "organization")
 		require.True(t, ErrMicrosoftTenantRequired.Has(err), "%v", err)
 		_, err = h.service.DisconnectMicrosoftBackupTenant(h.ctx, "session", noTenant)
 		require.True(t, ErrMicrosoftTenantRequired.Has(err), "%v", err)
 		_, err = h.service.RefreshMicrosoftBackupTenantRoles(h.ctx, "session", noTenant)
-		require.True(t, ErrMicrosoftTenantRequired.Has(err), "%v", err)
-		_, _, err = h.service.GetMicrosoftBackupTeamsList(h.ctx, "session", "", "credential_id="+alice.ID.String())
 		require.True(t, ErrMicrosoftTenantRequired.Has(err), "%v", err)
 
 		require.Equal(t, before, h.callCount(), "no request may reach Backup-Tools without a tenant")
@@ -438,17 +434,6 @@ func TestMicrosoftTenantScopedRoutes(t *testing.T) {
 		_, err = h.service.RefreshMicrosoftBackupTenantRoles(h.ctx, "session", sel)
 		require.NoError(t, err)
 		require.Equal(t, "/microsoft/accounts/tenants/tenant-guest/roles/refresh", h.lastCall().Path)
-	})
-
-	t.Run("browse strips credential_id and forwards tenant", func(t *testing.T) {
-		_, _, err := h.service.GetMicrosoftBackupTeamsList(h.ctx, "session", "", "credential_id="+alice.ID.String()+"&tenant_id=tenant-guest&page=2")
-		require.NoError(t, err)
-		call := h.lastCall()
-		require.Equal(t, "/microsoft/teams/list", call.Path)
-		require.NotContains(t, call.Query, "credential_id")
-		require.Equal(t, []string{"2"}, call.Query["page"])
-		require.Equal(t, "1.refresh-alice@contoso.com", call.Header.Get("REFRESH_TOKEN"))
-		requireMicrosoftHeaders(t, call, "oid-a", "tenant-home", "tenant-guest")
 	})
 }
 
@@ -615,24 +600,39 @@ func TestBackupServicesQuotaCheckIdentity(t *testing.T) {
 	alice := h.addCredential(h.user.ID, BackupProviderMicrosoft, "alice@contoso.com", "oid-a", "tenant-home")
 	h.addCredential(h.user.ID, BackupProviderGoogle, "user@gmail.com", "", "")
 
-	t.Run("microsoft uses the selected credential and tenant", func(t *testing.T) {
-		_, _, err := h.service.TriggerBackupServicesQuotaCheck(h.ctx, "session",
+	t.Run("microsoft quota check is disabled", func(t *testing.T) {
+		before := h.callCount()
+		body, status, err := h.service.TriggerBackupServicesQuotaCheck(h.ctx, "session",
 			[]byte(`{"services":["outlook"],"credential_id":"`+alice.ID.String()+`","tenant_id":"Tenant-Guest"}`))
 		require.NoError(t, err)
-		call := h.lastCall()
-		require.Equal(t, "/auto-sync/job/services-quota-check", call.Path)
-		require.Equal(t, "tenant-guest", call.Body["tenant_id"])
-		require.Equal(t, "alice@contoso.com", call.Body["microsoft_email"])
-		require.NotContains(t, call.Body, "credential_id")
-		requireMicrosoftHeaders(t, call, "oid-a", "tenant-home", "tenant-guest")
+		require.Equal(t, http.StatusOK, status)
+		var got map[string]interface{}
+		require.NoError(t, json.Unmarshal(body, &got))
+		require.Equal(t, true, got["allowed"])
+		require.Equal(t, true, got["estimate_skipped"])
+		require.Equal(t, "alice@contoso.com", got["oauth_holder"])
+		require.Equal(t, before, h.callCount(), "Backup-Tools must not be called")
 	})
 
-	t.Run("microsoft never assumes the home tenant", func(t *testing.T) {
-		before := h.callCount()
-		_, _, err := h.service.TriggerBackupServicesQuotaCheck(h.ctx, "session", []byte(`{"services":["onedrive"]}`))
-		require.True(t, ErrMicrosoftTenantRequired.Has(err), "%v", err)
-		require.Equal(t, before, h.callCount())
-	})
+	// Kept for when the Microsoft 365 quota check is turned back on.
+	// t.Run("microsoft uses the selected credential and tenant", func(t *testing.T) {
+	// 	_, _, err := h.service.TriggerBackupServicesQuotaCheck(h.ctx, "session",
+	// 		[]byte(`{"services":["outlook"],"credential_id":"`+alice.ID.String()+`","tenant_id":"Tenant-Guest"}`))
+	// 	require.NoError(t, err)
+	// 	call := h.lastCall()
+	// 	require.Equal(t, "/auto-sync/job/services-quota-check", call.Path)
+	// 	require.Equal(t, "tenant-guest", call.Body["tenant_id"])
+	// 	require.Equal(t, "alice@contoso.com", call.Body["microsoft_email"])
+	// 	require.NotContains(t, call.Body, "credential_id")
+	// 	requireMicrosoftHeaders(t, call, "oid-a", "tenant-home", "tenant-guest")
+	// })
+	//
+	// t.Run("microsoft never assumes the home tenant", func(t *testing.T) {
+	// 	before := h.callCount()
+	// 	_, _, err := h.service.TriggerBackupServicesQuotaCheck(h.ctx, "session", []byte(`{"services":["onedrive"]}`))
+	// 	require.True(t, ErrMicrosoftTenantRequired.Has(err), "%v", err)
+	// 	require.Equal(t, before, h.callCount())
+	// })
 
 	t.Run("google is unchanged", func(t *testing.T) {
 		_, _, err := h.service.TriggerBackupServicesQuotaCheck(h.ctx, "session", []byte(`{"services":["gmail"]}`))

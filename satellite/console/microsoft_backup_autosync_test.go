@@ -55,7 +55,7 @@ func TestNormalizeMicrosoftBackupServices(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := normalizeMicrosoftBackupServices(tt.services, false)
+			got, err := normalizeMicrosoftBackupServices(tt.services)
 			if tt.wantErr != "" {
 				require.Error(t, err)
 				require.Contains(t, err.Error(), tt.wantErr)
@@ -80,16 +80,6 @@ func TestCreateMicrosoftBackupAutoSyncJobsRequest_Validate(t *testing.T) {
 				MicrosoftEmail: "user@contoso.com",
 				Interval:       "daily",
 			},
-		},
-		{
-			name: "rejects jwt refresh_token",
-			req: CreateMicrosoftBackupAutoSyncJobsRequest{
-				Services:       []string{"outlook"},
-				MicrosoftEmail: "user@contoso.com",
-				RefreshToken:   "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.aaa.bbb",
-				Interval:       "daily",
-			},
-			wantErr: "looks like an access/id token",
 		},
 		{
 			name: "missing schedule without policy",
@@ -163,31 +153,13 @@ func TestCreateMicrosoftBackupAutoSyncJobsRequest_Validate(t *testing.T) {
 			wantErr: "unsupported backup_scope",
 		},
 		{
-			name: "groups requires groups array",
+			name: "rejects groups service",
 			req: CreateMicrosoftBackupAutoSyncJobsRequest{
 				Services:       []string{"groups"},
 				MicrosoftEmail: "admin@contoso.com",
 				Interval:       "daily",
 			},
-			wantErr: "groups is required",
-		},
-		{
-			name: "groups with group_id",
-			req: CreateMicrosoftBackupAutoSyncJobsRequest{
-				Services:       []string{"groups"},
-				MicrosoftEmail: "admin@contoso.com",
-				Interval:       "daily",
-				Groups:         []GroupsOnboardingInput{{GroupID: "group-1"}},
-			},
-		},
-		{
-			name: "groups all_tenant without groups array",
-			req: CreateMicrosoftBackupAutoSyncJobsRequest{
-				Services:       []string{"groups"},
-				MicrosoftEmail: "admin@contoso.com",
-				Interval:       "daily",
-				BackupScope:    "all_tenant",
-			},
+			wantErr: "unsupported service",
 		},
 		{
 			name: "sharepoint with site_id",
@@ -258,36 +230,9 @@ func TestCreateMicrosoftBackupAutoSyncJobsRequest_backupMode(t *testing.T) {
 			wantErr: "backup_mode=self only backs up your own mailbox",
 		},
 		{
-			name:    "self rejects org units",
-			req:     CreateMicrosoftBackupAutoSyncJobsRequest{Services: []string{"outlook"}, BackupMode: "self", PolicyScope: "org_unit", OrgUnitSchedules: map[string]GoogleBackupOrgUnitSchedule{"/Sales": {Interval: "daily"}}},
-			wantErr: "backup_mode=self only backs up your own mailbox",
-		},
-		{
 			name:    "unknown mode",
 			req:     CreateMicrosoftBackupAutoSyncJobsRequest{Services: []string{"outlook"}, Interval: "daily", BackupMode: "tenant"},
 			wantErr: "unsupported backup_mode",
-		},
-		{
-			name: "org unit schedules carry services and schedule",
-			req: CreateMicrosoftBackupAutoSyncJobsRequest{
-				BackupMode:  "organization",
-				PolicyScope: "org_unit",
-				OrgUnitSchedules: map[string]GoogleBackupOrgUnitSchedule{
-					"/Sales": {Interval: "daily", Services: []string{"mail", "onedrive"}},
-				},
-			},
-			wantMode:     MicrosoftBackupModeOrganization,
-			wantAuthMode: microsoftAuthModeApplication,
-		},
-		{
-			name:    "org unit scope requires schedules",
-			req:     CreateMicrosoftBackupAutoSyncJobsRequest{Services: []string{"outlook"}, BackupMode: "organization", PolicyScope: "org_unit"},
-			wantErr: "org_unit_schedules is required",
-		},
-		{
-			name:    "org unit schedule rejects google service",
-			req:     CreateMicrosoftBackupAutoSyncJobsRequest{BackupMode: "organization", PolicyScope: "org_unit", OrgUnitSchedules: map[string]GoogleBackupOrgUnitSchedule{"/Sales": {Interval: "daily", Services: []string{"gmail"}}}},
-			wantErr: "unsupported service",
 		},
 	}
 	for _, tt := range tests {

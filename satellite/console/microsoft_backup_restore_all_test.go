@@ -18,7 +18,6 @@ func TestNormalizeMicrosoftBackupRestoreService_table(t *testing.T) {
 		{in: "onedrive", want: "outlook_onedrive"},
 		{in: "sharepoint", want: "outlook_sharepoint"},
 		{in: "teams", want: "outlook_teams"},
-		{in: "groups", want: "outlook_groups"},
 		{in: "outlook_calendar", want: "outlook_calendar"},
 	}
 	for _, tt := range tests {

@@ -5,9 +5,7 @@ package console
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"strings"
 
@@ -46,46 +44,25 @@ func (s *Service) ConnectMicrosoftBackupCredential(ctx context.Context, code, re
 		return result, Error.Wrap(err)
 	}
 
-	tokenRes, err := socialmedia.GetMicrosoftOauthTokenWithRedirect(code, redirectURI)
+	session, err := socialmedia.ResolveMicrosoftAuth(code, redirectURI)
 	if err != nil {
 		return result, ErrValidation.New("failed to exchange microsoft oauth code: %v", err)
 	}
+	tokenRes, msUser := session.Tokens, session.User
 	if strings.TrimSpace(tokenRes.Refresh_token) == "" {
 		return result, ErrValidation.New("microsoft did not return a refresh token; re-authorize with consent and offline_access scopes")
 	}
 	if looksLikeOAuthJWT(tokenRes.Refresh_token) {
 		return result, ErrValidation.New("microsoft refresh_token looks like a JWT; check OUTLOOK client and offline_access scope")
 	}
-
-	msUser, err := socialmedia.GetMicrosoftUserByAccessToken(tokenRes.Access_token)
-	if err != nil {
-		claims, idErr := socialmedia.VerifyMicrosoftIDToken(tokenRes.Id_token)
-		if idErr != nil {
-			return result, Error.Wrap(err)
-		}
-		msUser = &socialmedia.MicrosoftUserResult{
-			Id:       claims.Oid,
-			Email:    claims.Email,
-			Name:     claims.Name,
-			TenantID: claims.Tid,
-		}
-	}
 	if msUser == nil || strings.TrimSpace(msUser.Email) == "" {
 		return result, ErrValidation.New("microsoft user email is required")
 	}
-	if msUser.TenantID == "" {
-		msUser.TenantID = socialmedia.MicrosoftTenantIDFromTokens(tokenRes)
-	}
-	accountID := socialmedia.MicrosoftAccountIDFromTokens(tokenRes, msUser.Id)
+	accountID := msUser.Id
 	if accountID == "" {
 		return result, ErrValidation.New("microsoft account id (oid) could not be determined; sign in again")
 	}
 
-	existing, lookupErr := s.store.BackupCredentials().GetByUserIDProviderAndAccount(ctx, user.ID, BackupProviderMicrosoft, accountID)
-	if lookupErr != nil && !errors.Is(lookupErr, sql.ErrNoRows) {
-		return result, Error.Wrap(lookupErr)
-	}
-	result.Created = existing == nil
 	result.MicrosoftEmail = msUser.Email
 	result.HasRefreshToken = true
 
@@ -100,6 +77,7 @@ func (s *Service) ConnectMicrosoftBackupCredential(ctx context.Context, code, re
 	if err != nil {
 		return result, err
 	}
+	result.Created = stored.Created
 	result.AccountType = stored.AccountType
 	result.CredentialID = stored.CredentialID
 	result.HomeTenantID = stored.TenantID

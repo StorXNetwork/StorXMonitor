@@ -197,17 +197,7 @@ func (a *Auth) completeMicrosoftBackupRegister(w http.ResponseWriter, r *http.Re
 		a.log.Warn("failed to init microsoft backup onboarding status", zap.Error(err))
 	}
 
-	var microsoftBackup map[string]interface{}
-	if tokens == nil {
-		tokens = &socialmedia.MicrosoftOauthToken{}
-	}
-	backupResult, backupErr := a.service.RegisterMicrosoftBackupCredential(authed, microsoftBackupSignIn(msUser, tokens), sessionToken)
-	if backupErr != nil {
-		a.log.Warn("failed to register microsoft backup credentials", zap.Error(backupErr))
-		microsoftBackup = microsoftBackupPayload(msUser, tokens)
-	} else {
-		microsoftBackup = console.MicrosoftBackupRegistrationPayload(backupResult)
-	}
+	microsoftBackup := a.storeMicrosoftBackupSignIn(authed, msUser, tokens, sessionToken)
 
 	onboarding, err := a.service.GetMicrosoftBackupOnboarding(authed)
 	if err != nil {
@@ -246,20 +236,11 @@ func (a *Auth) completeMicrosoftBackupLogin(w http.ResponseWriter, r *http.Reque
 	}
 
 	var microsoftBackup map[string]interface{}
-	if tokens == nil {
-		tokens = &socialmedia.MicrosoftOauthToken{}
-	}
 	hasFreshTokens := strings.TrimSpace(tokens.Access_token) != "" || strings.TrimSpace(tokens.Refresh_token) != ""
 	if hasFreshTokens {
-		backupResult, backupErr := a.service.RegisterMicrosoftBackupCredential(authed, microsoftBackupSignIn(msUser, tokens), sessionToken)
-		if backupErr != nil {
-			a.log.Warn("failed to register microsoft backup credentials at login", zap.Error(backupErr))
-			microsoftBackup = microsoftBackupPayload(msUser, tokens)
-		} else {
-			microsoftBackup = console.MicrosoftBackupRegistrationPayload(backupResult)
-		}
+		microsoftBackup = a.storeMicrosoftBackupSignIn(authed, msUser, tokens, sessionToken)
 	} else {
-		backupPayload, backupErr := a.service.LoadMicrosoftBackupAtLogin(authed, sessionToken)
+		backupPayload, backupErr := a.service.LoadMicrosoftBackupAtLogin(authed)
 		if backupErr != nil {
 			a.log.Warn("failed to load microsoft backup credentials at login", zap.Error(backupErr))
 		} else {
@@ -284,6 +265,17 @@ func (a *Auth) completeMicrosoftBackupLogin(w http.ResponseWriter, r *http.Reque
 	a.writeMicrosoftBackupAuthSuccess(w, socialmedia.MicrosoftAuthActionLoggedIn, sessionToken, onboarding, microsoftBackup)
 }
 
+// storeMicrosoftBackupSignIn stores the sign-in's Microsoft credential and returns the microsoft_backup
+// response block. A store failure does not fail sign-in; the block then carries email and has_refresh_token.
+func (a *Auth) storeMicrosoftBackupSignIn(authed context.Context, msUser *socialmedia.MicrosoftUserResult, tokens *socialmedia.MicrosoftOauthToken, sessionToken string) map[string]interface{} {
+	result, err := a.service.RegisterMicrosoftBackupCredential(authed, microsoftBackupSignIn(msUser, tokens), sessionToken)
+	if err != nil {
+		a.log.Warn("failed to register microsoft backup credentials", zap.Error(err))
+		return microsoftBackupPayload(msUser, tokens)
+	}
+	return console.MicrosoftBackupRegistrationPayload(result)
+}
+
 func microsoftBackupSignIn(msUser *socialmedia.MicrosoftUserResult, tokens *socialmedia.MicrosoftOauthToken) console.MicrosoftBackupSignIn {
 	return console.MicrosoftBackupSignIn{
 		AccountID:         socialmedia.MicrosoftAccountIDFromTokens(tokens, msUser.Id),
@@ -296,15 +288,10 @@ func microsoftBackupSignIn(msUser *socialmedia.MicrosoftUserResult, tokens *soci
 }
 
 func microsoftBackupPayload(msUser *socialmedia.MicrosoftUserResult, tokens *socialmedia.MicrosoftOauthToken) map[string]interface{} {
-	payload := map[string]interface{}{
-		"email": msUser.Email,
+	return map[string]interface{}{
+		"email":             msUser.Email,
+		"has_refresh_token": strings.TrimSpace(tokens.Refresh_token) != "",
 	}
-	if tokens == nil {
-		payload["has_refresh_token"] = false
-		return payload
-	}
-	payload["has_refresh_token"] = strings.TrimSpace(tokens.Refresh_token) != ""
-	return payload
 }
 
 func (a *Auth) writeMicrosoftBackupAuthSuccess(w http.ResponseWriter, action, sessionToken string, onboarding console.MicrosoftBackupOnboardingAPI, microsoftBackup map[string]interface{}) {

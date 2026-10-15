@@ -73,7 +73,7 @@ package consoleweb
 // @tag.description Microsoft Backup product APIs under `/api/v0/microsoft-backup/*` → Backup-Tools `/microsoft/*`. Job create uses stored credential `account_type` + `tenant_id` (not UI body). Services: outlook/mail, calendar, contacts, onedrive, sharepoint (+ `sites[]`), teams (+ `teams[]` or `backup_scope=all_tenant`), groups (+ `groups[]` or `backup_scope=all_tenant`).
 
 // @tag.name microsoft-backup-users-groups
-// @tag.description GET/PUT `/microsoft-backup/users-groups/*` → Backup-Tools `/microsoft/users-groups/*`. Method filter: outlook, outlook_calendar, outlook_contacts, outlook_onedrive, outlook_sharepoint, outlook_teams, outlook_groups. List response splits `mailboxes` vs `organization_resources` (`sharepoint_sites`, `teams`, `groups`).
+// @tag.description GET/PUT `/microsoft-backup/users-groups/*` → Backup-Tools `/microsoft/users-groups/*`. Method filter: outlook, outlook_calendar, outlook_contacts, outlook_onedrive, outlook_sharepoint, outlook_teams. List response splits `mailboxes` vs `organization_resources` (`sharepoint_sites`, `teams`).
 
 // @tag.name backup
 // @tag.description Common backup auto-sync + policy for Google + Microsoft under `/api/v0/backup/auto-sync/*` → Backup-Tools `/auto-sync/*` (Google template until BT unifies Microsoft). Alerts and logs stay on `/dashboard/*`.
@@ -83,9 +83,6 @@ package consoleweb
 
 // @tag.name microsoft-backup-policy
 // @tag.description Deprecated: use `/api/v0/backup/auto-sync/policy/*` (common). Legacy Microsoft policy routes removed from Satellite.
-
-// @tag.name microsoft-backup-browse
-// @tag.description Browse Outlook mail/contacts/calendar, SharePoint sites/files, Teams, and M365 Groups via `/microsoft-backup/query-messages|contacts/list|calendar/*|sharepoint/*|teams/*|groups/*`. Requires `REFRESH_TOKEN` header (or `refresh_token` query). SharePoint, teams, and groups browse require admin_workspace.
 
 // @tag.name google-backup
 // @tag.description Google Backup provider APIs: connect, domain-users, job create (`POST /google-backup/auto-sync/jobs`), restore. Shared list/live/policy/job-mutate use `/api/v0/backup/auto-sync/*`.

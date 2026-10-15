@@ -83,6 +83,10 @@ func (s *Service) triggerBackupServicesQuotaCheckWithProvider(ctx context.Contex
 
 // triggerMicrosoftServicesQuotaCheck runs the quota check for the Microsoft account selected by
 // credential_id and the tenant selected by tenant_id; the home tenant is never assumed.
+//
+// Microsoft 365 size estimates and the storage pre-check are disabled for now: the account is
+// still resolved (same errors as before), then the check always allows without calling
+// Backup-Tools. The commented code below is kept to turn the check back on.
 func (s *Service) triggerMicrosoftServicesQuotaCheck(ctx context.Context, tokenKey string, userID uuid.UUID, req map[string]interface{}) (body []byte, status int, err error) {
 	credentialID, _ := req["credential_id"].(string)
 	// credential_id is a Satellite ID; Backup-Tools identifies the account by the headers instead.
@@ -96,24 +100,43 @@ func (s *Service) triggerMicrosoftServicesQuotaCheck(ctx context.Context, tokenK
 		return nil, 0, err
 	}
 
-	tenantID, _ := req["tenant_id"].(string)
-	tenantID = strings.ToLower(strings.TrimSpace(tenantID))
-	if tenantID == "" {
-		return nil, 0, ErrMicrosoftTenantRequired.New("tenant_id is required")
-	}
-	req["tenant_id"] = tenantID
-
-	req["refresh_token"] = credential.RefreshToken
-	if accountType := strings.TrimSpace(credential.AccountType); accountType != "" {
-		req["account_type"] = accountType
-	}
-	req["microsoft_email"] = strings.TrimSpace(credential.Email)
-
-	btPayload, err := json.Marshal(req)
+	body, err = json.Marshal(microsoftQuotaCheckDisabledResponse(credential.Email))
 	if err != nil {
 		return nil, 0, Error.Wrap(err)
 	}
-	return s.backupToolsRequestWithExtraHeaders(ctx, http.MethodPost, "/auto-sync/job/services-quota-check", tokenKey, "", microsoftCredentialRefreshToken(credential), microsoftBackupToolsHeaders(credential, tenantID), btPayload)
+	return body, http.StatusOK, nil
+
+	// tenantID, _ := req["tenant_id"].(string)
+	// tenantID = strings.ToLower(strings.TrimSpace(tenantID))
+	// if tenantID == "" {
+	// 	return nil, 0, ErrMicrosoftTenantRequired.New("tenant_id is required")
+	// }
+	// req["tenant_id"] = tenantID
+	//
+	// req["refresh_token"] = credential.RefreshToken
+	// if accountType := strings.TrimSpace(credential.AccountType); accountType != "" {
+	// 	req["account_type"] = accountType
+	// }
+	// req["microsoft_email"] = strings.TrimSpace(credential.Email)
+	//
+	// btPayload, err := json.Marshal(req)
+	// if err != nil {
+	// 	return nil, 0, Error.Wrap(err)
+	// }
+	// return s.backupToolsRequestWithExtraHeaders(ctx, http.MethodPost, "/auto-sync/job/services-quota-check", tokenKey, "", microsoftCredentialRefreshToken(credential), microsoftBackupToolsHeaders(credential, tenantID), btPayload)
+}
+
+// microsoftQuotaCheckDisabledResponse is the Backup-Tools quota-check shape while Microsoft 365
+// size estimates are disabled: always allowed, no estimate.
+func microsoftQuotaCheckDisabledResponse(holderEmail string) map[string]interface{} {
+	return map[string]interface{}{
+		"allowed":          true,
+		"failure_code":     "",
+		"quota_kind":       "storage",
+		"estimate_skipped": true,
+		"message":          "",
+		"oauth_holder":     strings.TrimSpace(holderEmail),
+	}
 }
 
 func servicesFromQuotaRequest(req map[string]interface{}) []string {

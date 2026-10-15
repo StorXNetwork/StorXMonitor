@@ -135,7 +135,7 @@ func (d *Dashboard) GetDashboardAlerts(w http.ResponseWriter, r *http.Request) {
 // @Produce      json
 // @Param        types           query  string  false  "Comma-separated: backup, restore, or both (default backup,restore)."
 // @Param        search          query  string  false  "Partial match on subject or message."
-// @Param        method          query  string  false  "Service filter: gmail, google_drive, google_photos, google_contacts, google_calendar, outlook, outlook_calendar, outlook_contacts, outlook_onedrive, outlook_sharepoint, outlook_teams, outlook_groups."
+// @Param        method          query  string  false  "Service filter: gmail, google_drive, google_photos, google_contacts, google_calendar, outlook, outlook_calendar, outlook_contacts, outlook_onedrive, outlook_sharepoint, outlook_teams."
 // @Param        message_status  query  string  false  "info, warning, or error."
 // @Param        limit           query  int     false  "Page size (default 10, max 100)."
 // @Param        offset          query  int     false  "Rows to skip (default 0)."
