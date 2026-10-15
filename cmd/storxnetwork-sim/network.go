@@ -80,10 +80,19 @@ const (
 	debugGCHTTP        = 2
 )
 
+// portOffset is added to every port, so that more than one network can run on the same host.
+// It must be the same for setup and run, because run-only ports (e.g. worker debug addresses)
+// are not stored in the config files.
+var portOffset int
+
+// maxPortOffset keeps the highest generated port (ranged loop of the last satellite) below 65536.
+const maxPortOffset = 65535 - (10000 + rangedloopPeer*1000 + (maxInstanceCount-1)*10 + debugSellerHTTP)
+
 // port creates a port with a consistent format for storj-sim services.
 // The port format is: "1PXXE", where P is the peer class, XX is the index of the instance, and E is the endpoint.
+// The whole range is shifted by portOffset.
 func port(peerclass, index, endpoint int) string {
-	port := 10000 + peerclass*1000 + index*10 + endpoint
+	port := 10000 + portOffset + peerclass*1000 + index*10 + endpoint
 	return strconv.Itoa(port)
 }
 
@@ -239,6 +248,11 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		return nil, errs.New("no caller information")
 	}
 	storjRoot := strings.TrimSuffix(filename, "/cmd/storj-sim/network.go")
+
+	if flags.PortOffset < 0 || flags.PortOffset > maxPortOffset {
+		return nil, fmt.Errorf("port offset must be between 0 and %d, got %d", maxPortOffset, flags.PortOffset)
+	}
+	portOffset = flags.PortOffset
 
 	// with common adds all common arguments to the process
 	withCommon := func(dir string, all Arguments) Arguments {
