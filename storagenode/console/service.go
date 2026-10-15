@@ -14,6 +14,7 @@ import (
 
 	"github.com/StorXNetwork/StorXMonitor/private/date"
 	"github.com/StorXNetwork/StorXMonitor/private/version/checker"
+	"github.com/StorXNetwork/StorXMonitor/shared/nodeconfigpb"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/bandwidth"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/contact"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/monitor"
@@ -129,6 +130,8 @@ type Dashboard struct {
 	NodeID         storxnetwork.NodeID `json:"nodeID"`
 	Wallet         string              `json:"wallet"`
 	WalletFeatures []string            `json:"walletFeatures"`
+	// WalletExplorerURL is empty until a satellite provides a wallet explorer URL template.
+	WalletExplorerURL string `json:"walletExplorerURL"`
 
 	Satellites []SatelliteInfo `json:"satellites"`
 
@@ -156,6 +159,7 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 	data.NodeID = s.contact.Local().ID
 	data.Wallet = s.walletAddress
 	data.WalletFeatures = s.walletFeatures
+	data.WalletExplorerURL = nodeconfigpb.RenderWalletExplorerURL(s.contact.WalletExplorerURLTemplate(), s.walletAddress)
 	data.Version = s.versionInfo.Version
 	data.StartedAt = s.startedAt
 

@@ -68,6 +68,7 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/satellite/snopayouts"
 	"github.com/StorXNetwork/StorXMonitor/satellite/trust"
 	"github.com/StorXNetwork/StorXMonitor/satellite/userworker"
+	"github.com/StorXNetwork/StorXMonitor/shared/nodeconfigpb"
 	"github.com/StorXNetwork/StorXMonitor/shared/nodetag"
 	"github.com/StorXNetwork/common/debug"
 	"github.com/StorXNetwork/common/identity"
@@ -457,6 +458,12 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.Contact.Service = contact.NewService(peer.Log.Named("contact:service"), peer.Overlay.Service, peer.DB.PeerIdentities(), peer.Dialer, authority, config.Contact)
 		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"), peer.Contact.Service)
 		if err := pb.DRPCRegisterNode(peer.Server.DRPC(), peer.Contact.Endpoint); err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+		if err := nodeconfigpb.ValidateWalletExplorerURLTemplate(config.Contact.WalletExplorerURLTemplate); err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+		if err := nodeconfigpb.DRPCRegisterNodeConfig(peer.Server.DRPC(), peer.Contact.Endpoint); err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 

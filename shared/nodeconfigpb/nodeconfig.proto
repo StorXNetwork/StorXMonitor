@@ -1,0 +1,21 @@
+// Copyright (C) 2026 StorX Network, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+option go_package = "github.com/StorXNetwork/StorXMonitor/shared/nodeconfigpb";
+
+package nodeconfig;
+
+// NodeConfig lets an authenticated storage node fetch configuration managed by the satellite.
+service NodeConfig {
+  // GetNodeConfig returns the satellite-managed node configuration.
+  rpc GetNodeConfig(GetNodeConfigRequest) returns (GetNodeConfigResponse);
+}
+
+message GetNodeConfigRequest {}
+
+message GetNodeConfigResponse {
+  // wallet_explorer_url_template is a block explorer URL for the operator wallet.
+  // The node replaces {{WALLET_ADDRESS}} with its own wallet address.
+  string wallet_explorer_url_template = 1;
+}

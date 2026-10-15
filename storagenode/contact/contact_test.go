@@ -119,6 +119,34 @@ func TestServicePingSatellites(t *testing.T) {
 	})
 }
 
+func TestServiceFetchesWalletExplorerURLTemplate(t *testing.T) {
+	const template = "https://explorer.example.com/address/{{WALLET_ADDRESS}}#tokentxns"
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Overlay.NodeCheckInWaitPeriod = 0
+				config.Console.Web3AuthNetworkRPC = "http://127.0.0.1:1"
+				config.Console.DeveloperExternalAddress = "http://127.0.0.1:1"
+				config.Console.SellerExternalAddress = "http://127.0.0.1:1"
+				config.Contact.WalletExplorerURLTemplate = template
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		node := planet.StorageNodes[0]
+		node.Contact.Chore.Pause(ctx)
+
+		err := node.Contact.Service.PingSatellites(ctx, 10*time.Second, 15*time.Second)
+		require.NoError(t, err)
+		require.Equal(t, template, node.Contact.Service.WalletExplorerURLTemplate())
+
+		dashboard, err := node.Console.Service.GetDashboardData(ctx)
+		require.NoError(t, err)
+		require.Equal(t, "https://explorer.example.com/address/"+dashboard.Wallet+"#tokentxns", dashboard.WalletExplorerURL)
+	})
+}
+
 func TestEndpointPingNode_UnTrust(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
