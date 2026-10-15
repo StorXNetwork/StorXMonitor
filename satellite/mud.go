@@ -76,6 +76,7 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/shared/modular/profiler"
 	"github.com/StorXNetwork/StorXMonitor/shared/modular/tracing"
 	"github.com/StorXNetwork/StorXMonitor/shared/mud"
+	"github.com/StorXNetwork/StorXMonitor/shared/nodeconfigpb"
 	"github.com/StorXNetwork/StorXMonitor/shared/nodetag"
 	"github.com/StorXNetwork/common/debug"
 	"github.com/StorXNetwork/common/identity"
@@ -285,6 +286,11 @@ func Module(ball *mud.Ball) {
 		}
 
 		err = pb.DRPCRegisterNode(srv.DRPC(), endpoint)
+		if err != nil {
+			return nil, err
+		}
+
+		err = nodeconfigpb.DRPCRegisterNodeConfig(srv.DRPC(), endpoint)
 		if err != nil {
 			return nil, err
 		}

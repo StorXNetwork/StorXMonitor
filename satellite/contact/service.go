@@ -57,6 +57,8 @@ type Config struct {
 	RateLimitBurst     int           `help:"the maximum burst size for the contact rate limit token bucket" releaseDefault:"2" devDefault:"1000"`
 	RateLimitCacheSize int           `help:"the number of nodes or addresses to keep token buckets for" default:"1000"`
 
+	WalletExplorerURLTemplate string `help:"block explorer URL template sent to storage nodes for their operator wallet; nodes replace {{WALLET_ADDRESS}} with their wallet. Empty keeps the node's built-in link." default:"https://xdcscan.com/address/{{WALLET_ADDRESS}}"`
+
 	HashstoreRollout struct {
 		Seed    string  `help:"the hashstore rollout seed" default:""`
 		Cursor  float64 `help:"the hashstore rollout cursor (between 0 and 1)" default:"0"`

@@ -14,6 +14,7 @@ import (
 
 	"github.com/StorXNetwork/StorXMonitor/private/nodeoperator"
 	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
+	"github.com/StorXNetwork/StorXMonitor/shared/nodeconfigpb"
 	"github.com/StorXNetwork/common/identity"
 	"github.com/StorXNetwork/common/pb"
 	"github.com/StorXNetwork/common/rpc/noise"
@@ -195,6 +196,19 @@ func emitEventkitEvent(ctx context.Context, req *pb.CheckInRequest, pingNodeTCPS
 	}
 
 	ek.Event("checkin", tags...)
+}
+
+// GetNodeConfig returns the satellite-managed configuration for the calling storage node.
+func (endpoint *Endpoint) GetNodeConfig(ctx context.Context, req *nodeconfigpb.GetNodeConfigRequest) (_ *nodeconfigpb.GetNodeConfigResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if _, err := identity.PeerIdentityFromContext(ctx); err != nil {
+		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, errCheckInIdentity.Wrap(err).Error())
+	}
+
+	return &nodeconfigpb.GetNodeConfigResponse{
+		WalletExplorerUrlTemplate: endpoint.service.config.WalletExplorerURLTemplate,
+	}, nil
 }
 
 // GetTime returns current timestamp.
