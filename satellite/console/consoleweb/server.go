@@ -102,8 +102,8 @@ type Config struct {
 
 	ClientOrigin string `help:"client origin for redirection URLs" default:""`
 
-	BackupToolsURL    string `help:"Backup-Tools service URL for AutoSync stats (e.g., http://localhost:8000)" default:""`
-	BackupToolsAPIKey string `help:"shared API key for Backup-Tools (X-API-Key on Satellite internal routes and Satellite→BT /internal/account/* lifecycle calls)" default:""`
+	BackupToolsURL         string `help:"Backup-Tools service URL for AutoSync stats (e.g., http://localhost:8000)" default:""`
+	BackupToolsAPIKey      string `help:"shared API key for Backup-Tools (X-API-Key on Satellite internal routes and Satellite→BT /internal/account/* lifecycle calls)" default:""`
 	MailExportServiceToken string `help:"Bearer token for gateway-mt mail-export internal APIs under /api/v0/internal/mail-export-jobs and /api/v0/internal/bandwidth-quota" default:""`
 
 	GoogleClientID                string `help:"client id for google oauth" default:""`
@@ -422,6 +422,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	mailExportController := consoleapi.NewMailExportJobs(logger, service, config.MailExportServiceToken)
 	internalRouter := router.PathPrefix("/api/v0/internal").Subrouter()
 	internalRouter.Handle("/storx-token/refresh", http.HandlerFunc(internalStorxTokenController.RefreshStorxToken)).Methods(http.MethodPost)
+	internalRouter.Handle("/project-usage-limits", http.HandlerFunc(internalStorxTokenController.ProjectUsageLimits)).Methods(http.MethodPost)
 	internalRouter.Handle("/google-token/clear", http.HandlerFunc(internalStorxTokenController.ClearGoogleToken)).Methods(http.MethodPost)
 	internalRouter.Handle("/mail-export-jobs", http.HandlerFunc(mailExportController.Create)).Methods(http.MethodPost)
 	internalRouter.Handle("/mail-export-jobs/claim", http.HandlerFunc(mailExportController.Claim)).Methods(http.MethodPost)
@@ -580,7 +581,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	googleBackupUsersGroupsRouter.Handle("/dashboard-alerts", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupUsersGroupsController.GetDashboardAlerts))).Methods(http.MethodGet, http.MethodOptions)
 	googleBackupUsersGroupsRouter.Handle("", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupUsersGroupsController.List))).Methods(http.MethodGet, http.MethodOptions)
 
-	googleBackupController := consoleapi.NewGoogleBackup(logger, service, server.cookieAuth)
+	googleBackupController := consoleapi.NewGoogleBackup(logger, service, server.cookieAuth, server.config.BillingUpgradeURL)
 	googleBackupRouter := router.PathPrefix("/api/v0/google-backup").Subrouter()
 	googleBackupRouter.Use(server.withCORS)
 	googleBackupRouter.Use(server.withAuth)
@@ -828,6 +829,8 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	bucketsRouter.HandleFunc("/usage-totals", bucketsController.GetBucketTotals).Methods(http.MethodGet, http.MethodOptions)
 	bucketsRouter.HandleFunc("/usage-totals-for-reserved", bucketsController.GetBucketTotalsForReservedBucket).Methods(http.MethodGet, http.MethodOptions)
 	bucketsRouter.HandleFunc("/check-upload", bucketsController.CheckUpload).Methods(http.MethodPost, http.MethodOptions)
+	bucketsRouter.HandleFunc("/quota-status", bucketsController.QuotaStatus).Methods(http.MethodGet, http.MethodOptions)
+	bucketsRouter.HandleFunc("/quota-check", googleBackupController.QuotaCheck).Methods(http.MethodPost, http.MethodOptions)
 	bucketsRouter.HandleFunc("/bucket-totals", bucketsController.GetSingleBucketTotals).Methods(http.MethodGet, http.MethodOptions)
 
 	apiKeysController := consoleapi.NewAPIKeys(logger, service)

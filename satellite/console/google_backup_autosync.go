@@ -383,6 +383,54 @@ func (s *Service) TriggerGoogleBackupAutoSyncBackupNow(ctx context.Context, toke
 	return s.backupToolsRequest(ctx, http.MethodPost, path, tokenKey, "", nil)
 }
 
+// TriggerGoogleBackupServicesQuotaCheck proxies Backup-Tools POST /auto-sync/job/services-quota-check.
+// Injects the connected Google refresh_token + google_email from satellite credentials
+// (same source as job create) so Backup-Tools can estimate before jobs exist.
+func (s *Service) TriggerGoogleBackupServicesQuotaCheck(ctx context.Context, tokenKey string, payload []byte) (body []byte, status int, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if strings.TrimSpace(tokenKey) == "" {
+		return nil, 0, ErrUnauthorized.New("session token is required")
+	}
+
+	user, err := GetUser(ctx)
+	if err != nil {
+		return nil, 0, Error.Wrap(err)
+	}
+
+	credential, err := s.store.BackupCredentials().GetByUserIDAndProvider(ctx, user.ID, BackupProviderGoogle)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, 0, ErrNotFound.New("google backup credentials not found")
+		}
+		return nil, 0, Error.Wrap(err)
+	}
+	if err := credential.ValidateForBackup(); err != nil {
+		return nil, 0, err
+	}
+
+	var req map[string]interface{}
+	if len(payload) > 0 {
+		if err := json.Unmarshal(payload, &req); err != nil {
+			return nil, 0, ErrValidation.New("invalid request body")
+		}
+	}
+	if req == nil {
+		req = map[string]interface{}{}
+	}
+	req["refresh_token"] = credential.RefreshToken
+	req["google_email"] = credential.Email
+	if accountType := strings.TrimSpace(credential.AccountType); accountType != "" {
+		req["account_type"] = accountType
+	}
+
+	btPayload, err := json.Marshal(req)
+	if err != nil {
+		return nil, 0, Error.Wrap(err)
+	}
+	return s.backupToolsRequest(ctx, http.MethodPost, "/auto-sync/job/services-quota-check", tokenKey, "", btPayload)
+}
+
 func (s *Service) UpdateGoogleBackupAutoSyncJob(ctx context.Context, tokenKey, jobID string, req UpdateGoogleBackupAutoSyncJobRequest) (body []byte, status int, err error) {
 	defer mon.Task()(&ctx)(&err)
 
