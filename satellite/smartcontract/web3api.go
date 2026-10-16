@@ -16,17 +16,19 @@ import (
 )
 
 type Web3Config struct {
-	NetworkRPC   string
-	ContractAddr string
-	Address      string
+	NetworkRPC      string
+	ContractAddr    string
+	Address         string
+	MinGasPriceGwei int64
 }
 
 type web3Helper struct {
-	client       *ethclient.Client
-	abi          abi.ABI
-	address      common.Address
-	contractAddr common.Address
-	privateKey   *ecdsa.PrivateKey
+	client          *ethclient.Client
+	abi             abi.ABI
+	address         common.Address
+	contractAddr    common.Address
+	privateKey      *ecdsa.PrivateKey
+	minGasPriceGwei int64
 }
 
 func NewWeb3Helper(cnf Web3Config, privateKey string) (*web3Helper, error) {
@@ -41,10 +43,11 @@ func NewWeb3Helper(cnf Web3Config, privateKey string) (*web3Helper, error) {
 	}
 
 	return &web3Helper{
-		client:       client,
-		address:      common.HexToAddress(cnf.Address),
-		contractAddr: common.HexToAddress(cnf.ContractAddr),
-		privateKey:   privateKeyECDSA,
+		client:          client,
+		address:         common.HexToAddress(cnf.Address),
+		contractAddr:    common.HexToAddress(cnf.ContractAddr),
+		privateKey:      privateKeyECDSA,
+		minGasPriceGwei: cnf.MinGasPriceGwei,
 	}, nil
 }
 
@@ -68,8 +71,12 @@ func (w *web3Helper) SubmitTransaction(ctx context.Context, method string, param
 		return fmt.Errorf("error suggesting gas price: %v", err)
 	}
 
-	if gasPrice.Cmp(big.NewInt(15000000000)) > 0 {
-		gasPrice = big.NewInt(15000000000)
+	chainID, err := w.client.NetworkID(ctx)
+	if err != nil {
+		return fmt.Errorf("error getting network ID: method %s, params %v, gasPrice %v, err %v", method, params, gasPrice, err)
+	}
+	if min := w.minGasPriceWei(chainID); min != nil && gasPrice.Cmp(min) < 0 {
+		gasPrice = min
 	}
 
 	nonceCount, err := w.getNonce(ctx)
@@ -83,11 +90,6 @@ func (w *web3Helper) SubmitTransaction(ctx context.Context, method string, param
 	}
 
 	tx := types.NewTransaction(nonceCount, w.contractAddr, big.NewInt(0), gasLimit, gasPrice, data)
-
-	chainID, err := w.client.NetworkID(ctx)
-	if err != nil {
-		return fmt.Errorf("error getting network ID: method %s, params %v, gasPrice %v, nonceCount %v, err %v", method, params, gasPrice, nonceCount, err)
-	}
 
 	signedTx, err := types.SignTx(tx, types.NewEIP155Signer(chainID), w.privateKey)
 	if err != nil {
@@ -119,6 +121,31 @@ func (w *web3Helper) SubmitTransaction(ctx context.Context, method string, param
 	}
 
 	return nil
+}
+
+// minGasPriceWei is the lowest gas price to send.
+// A configured MinGasPriceGwei wins. When it is 0, fall back to the chain default:
+// XDC mainnet (50) 15 gwei, Apothem (51) 630 gwei.
+func (w *web3Helper) minGasPriceWei(chainID *big.Int) *big.Int {
+	if w != nil && w.minGasPriceGwei > 0 {
+		return new(big.Int).Mul(big.NewInt(w.minGasPriceGwei), big.NewInt(1_000_000_000))
+	}
+	return defaultMinGasPriceWei(chainID)
+}
+
+func defaultMinGasPriceWei(chainID *big.Int) *big.Int {
+	if chainID == nil {
+		return nil
+	}
+	gwei := big.NewInt(1_000_000_000)
+	switch chainID.Int64() {
+	case 51:
+		return new(big.Int).Mul(big.NewInt(630), gwei)
+	case 50:
+		return new(big.Int).Mul(big.NewInt(15), gwei)
+	default:
+		return nil
+	}
 }
 
 func (w *web3Helper) GetMethodCallData(ctx context.Context, method string, output interface{}, params ...interface{}) error {

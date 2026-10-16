@@ -782,9 +782,10 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			return nil, errs.New("Web3AuthPrivateKey is not set")
 		}
 		web3AuthSocialShareHelper, err := smartcontract.NewKeyValueWeb3Helper(smartcontract.Web3Config{
-			NetworkRPC:   consoleConfig.Web3AuthNetworkRPC,
-			ContractAddr: consoleConfig.Web3AuthContractAddress,
-			Address:      consoleConfig.Web3AuthAddress,
+			NetworkRPC:      consoleConfig.Web3AuthNetworkRPC,
+			ContractAddr:    consoleConfig.Web3AuthContractAddress,
+			Address:         consoleConfig.Web3AuthAddress,
+			MinGasPriceGwei: consoleConfig.Web3AuthMinGasPriceGwei,
 		}, secretconstants.Web3AuthPrivateKey)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -1273,9 +1274,10 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			var web3AuthSocialShareHelper smartcontract.SocialShareHelper
 			if secretconstants.Web3AuthPrivateKey != "" {
 				web3AuthSocialShareHelper, err = smartcontract.NewKeyValueWeb3Helper(smartcontract.Web3Config{
-					NetworkRPC:   consoleConfig.Web3AuthNetworkRPC,
-					ContractAddr: consoleConfig.Web3AuthContractAddress,
-					Address:      consoleConfig.Web3AuthAddress,
+					NetworkRPC:      consoleConfig.Web3AuthNetworkRPC,
+					ContractAddr:    consoleConfig.Web3AuthContractAddress,
+					Address:         consoleConfig.Web3AuthAddress,
+					MinGasPriceGwei: consoleConfig.Web3AuthMinGasPriceGwei,
 				}, secretconstants.Web3AuthPrivateKey)
 				if err != nil {
 					return nil, errs.Combine(err, peer.Close())

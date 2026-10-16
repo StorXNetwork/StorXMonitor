@@ -66,9 +66,10 @@ func cmdAuditorRun(cmd *cobra.Command, args []string) (err error) {
 	var connector audit.ReputationConnector
 
 	smartContractConnector, err := smartcontract.NewReputationWeb3Helper(smartcontract.Web3Config{
-		NetworkRPC:   runCfg.Audit.SmartContractNetworkRPC,
-		ContractAddr: runCfg.Audit.SmartContractReputationContractAddr,
-		Address:      runCfg.Audit.SmartContractNounceAddr,
+		NetworkRPC:      runCfg.Audit.SmartContractNetworkRPC,
+		ContractAddr:    runCfg.Audit.SmartContractReputationContractAddr,
+		Address:         runCfg.Audit.SmartContractNounceAddr,
+		MinGasPriceGwei: runCfg.Audit.SmartContractMinGasPriceGwei,
 	}, runCfg.Audit.SmartContractPrivateKey)
 	if err != nil {
 		b, _ := json.MarshalIndent(runCfg.Audit, "", "  ")

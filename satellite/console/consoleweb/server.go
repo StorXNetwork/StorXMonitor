@@ -148,6 +148,7 @@ type Config struct {
 	Web3AuthContractAddress string `help:"contract address for web3 auth" default:""`
 	Web3AuthAddress         string `help:"address for web3 auth" default:""`
 	Web3AuthNetworkRPC      string `help:"network rpc for web3 auth" default:""`
+	Web3AuthMinGasPriceGwei int64  `help:"minimum gas price in gwei for key-value contract transactions. 0 uses the chain default (mainnet 15, apothem 630)" default:"0"`
 
 	StaticDir string `help:"path to static resources" default:""`
 	Watch     bool   `help:"whether to load templates on each request" default:"false" devDefault:"true"`
