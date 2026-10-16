@@ -382,6 +382,52 @@ CREATE TABLE oauth_tokens (
 	created_at TIMESTAMP NOT NULL,
 	expires_at TIMESTAMP NOT NULL
 ) PRIMARY KEY ( token ) ;
+CREATE TABLE payment_attempts (
+	id BYTES(MAX) NOT NULL,
+	user_id BYTES(MAX) NOT NULL,
+	plan_id INT64 NOT NULL,
+	provider STRING(MAX) NOT NULL,
+	provider_ref STRING(MAX) NOT NULL,
+	amount_minor INT64 NOT NULL,
+	currency STRING(MAX) NOT NULL,
+	status STRING(MAX) NOT NULL,
+	coupon_code STRING(MAX),
+	metadata JSON,
+	created_at TIMESTAMP NOT NULL,
+	updated_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( id ) ;
+CREATE UNIQUE INDEX index_payment_attempts_provider_provider_ref ON payment_attempts ( provider, provider_ref ) ;
+CREATE TABLE payment_customers (
+	user_id BYTES(MAX) NOT NULL,
+	provider STRING(MAX) NOT NULL,
+	provider_customer_id STRING(MAX) NOT NULL,
+	created_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( user_id, provider ) ;
+CREATE UNIQUE INDEX index_payment_customers_provider_provider_customer_id ON payment_customers ( provider, provider_customer_id ) ;
+CREATE TABLE payment_events (
+	id BYTES(MAX) NOT NULL,
+	provider STRING(MAX) NOT NULL,
+	provider_event_id STRING(MAX) NOT NULL,
+	event_type STRING(MAX) NOT NULL,
+	payload JSON NOT NULL,
+	attempt_id BYTES(MAX),
+	subscription_id BYTES(MAX),
+	received_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( id ) ;
+CREATE UNIQUE INDEX index_payment_events_provider_provider_event_id ON payment_events ( provider, provider_event_id ) ;
+CREATE TABLE payment_methods (
+	id BYTES(MAX) NOT NULL,
+	user_id BYTES(MAX) NOT NULL,
+	provider STRING(MAX) NOT NULL,
+	provider_method_id STRING(MAX) NOT NULL,
+	brand STRING(MAX) NOT NULL,
+	last4 STRING(MAX) NOT NULL,
+	exp_month INT64 NOT NULL,
+	exp_year INT64 NOT NULL,
+	is_default BOOL NOT NULL,
+	created_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( id ) ;
+CREATE UNIQUE INDEX index_payment_methods_provider_provider_method_id ON payment_methods ( provider, provider_method_id ) ;
 CREATE SEQUENCE payment_plans_id OPTIONS (sequence_kind='bit_reversed_positive') ;
 CREATE TABLE payment_plans (
 	id INT64 NOT NULL DEFAULT (GET_NEXT_SEQUENCE_VALUE(SEQUENCE payment_plans_id)),
@@ -392,8 +438,25 @@ CREATE TABLE payment_plans (
 	bandwidth INT64 NOT NULL,
 	validity INT64 NOT NULL,
 	validity_unit STRING(MAX) NOT NULL,
-	group STRING(MAX) NOT NULL
+	group STRING(MAX) NOT NULL,
+	provider_plan_ids JSON
 ) PRIMARY KEY ( id ) ;
+CREATE TABLE payment_subscriptions (
+	id BYTES(MAX) NOT NULL,
+	user_id BYTES(MAX) NOT NULL,
+	plan_id INT64 NOT NULL,
+	provider STRING(MAX) NOT NULL,
+	provider_sub_id STRING(MAX) NOT NULL,
+	provider_plan_id STRING(MAX) NOT NULL,
+	status STRING(MAX) NOT NULL,
+	current_period_end TIMESTAMP,
+	cancel_at_period_end BOOL NOT NULL,
+	default_method_id BYTES(MAX),
+	coupon_code STRING(MAX),
+	created_at TIMESTAMP NOT NULL,
+	updated_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( id ) ;
+CREATE UNIQUE INDEX index_payment_subscriptions_provider_provider_sub_id ON payment_subscriptions ( provider, provider_sub_id ) ;
 CREATE TABLE peer_identities (
 	node_id BYTES(MAX) NOT NULL,
 	leaf_serial_number BYTES(MAX) NOT NULL,
@@ -614,6 +677,84 @@ CREATE TABLE segment_pending_audits (
 	expected_share_hash BYTES(MAX) NOT NULL,
 	reverify_count INT64 NOT NULL
 ) PRIMARY KEY ( node_id ) ;
+CREATE TABLE seller_billing_notifications (
+	id BYTES(MAX) NOT NULL,
+	reseller_id BYTES(MAX) NOT NULL,
+	user_id BYTES(MAX),
+	type STRING(MAX) NOT NULL,
+	title STRING(MAX) NOT NULL,
+	body STRING(MAX) NOT NULL,
+	read BOOL NOT NULL DEFAULT (false),
+	created_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( id ) ;
+CREATE TABLE seller_invoices (
+	id BYTES(MAX) NOT NULL,
+	reseller_id BYTES(MAX) NOT NULL,
+	period_start TIMESTAMP NOT NULL,
+	period_end TIMESTAMP NOT NULL,
+	total_amount INT64 NOT NULL,
+	currency STRING(MAX) NOT NULL DEFAULT ("INR"),
+	status STRING(MAX) NOT NULL,
+	issued_at TIMESTAMP,
+	paid_at TIMESTAMP,
+	admin_note STRING(MAX),
+	created_at TIMESTAMP NOT NULL,
+	updated_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( id ) ;
+CREATE TABLE seller_invoice_lines (
+	id BYTES(MAX) NOT NULL,
+	invoice_id BYTES(MAX) NOT NULL,
+	assignment_id BYTES(MAX) NOT NULL,
+	user_id BYTES(MAX) NOT NULL,
+	plan_id BYTES(MAX) NOT NULL,
+	description STRING(MAX) NOT NULL,
+	amount INT64 NOT NULL,
+	retail_amount INT64 NOT NULL,
+	assigned_at TIMESTAMP NOT NULL,
+	created_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( id ) ;
+CREATE TABLE seller_plans (
+	id BYTES(MAX) NOT NULL,
+	name STRING(MAX) NOT NULL,
+	tier_key STRING(MAX) NOT NULL,
+	billing_period STRING(MAX) NOT NULL,
+	storage_bytes INT64 NOT NULL,
+	bandwidth_bytes INT64 NOT NULL,
+	retail_amount INT64 NOT NULL,
+	wholesale_amount INT64 NOT NULL,
+	currency STRING(MAX) NOT NULL DEFAULT ("INR"),
+	description STRING(MAX) NOT NULL DEFAULT (""),
+	features JSON NOT NULL DEFAULT (JSON "[]"),
+	recommended BOOL NOT NULL DEFAULT (false),
+	payment_plan_id INT64,
+	active BOOL NOT NULL DEFAULT (true),
+	created_at TIMESTAMP NOT NULL,
+	updated_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( id ) ;
+CREATE TABLE seller_user_plan_assignments (
+	id BYTES(MAX) NOT NULL,
+	reseller_id BYTES(MAX) NOT NULL,
+	user_id BYTES(MAX) NOT NULL,
+	plan_id BYTES(MAX) NOT NULL,
+	status STRING(MAX) NOT NULL,
+	retail_amount INT64 NOT NULL,
+	wholesale_amount INT64 NOT NULL,
+	billing_period STRING(MAX) NOT NULL,
+	duration_months INT64,
+	plan_starts_at TIMESTAMP NOT NULL,
+	plan_ends_at TIMESTAMP,
+	future_plan_id BYTES(MAX),
+	auto_switch_on_end BOOL NOT NULL DEFAULT (false),
+	notify_before_end BOOL NOT NULL DEFAULT (false),
+	notified_ending_at TIMESTAMP,
+	user_paid_at TIMESTAMP,
+	notes STRING(MAX),
+	assigned_at TIMESTAMP NOT NULL,
+	ended_at TIMESTAMP,
+	assigned_by_reseller BOOL NOT NULL DEFAULT (true),
+	created_at TIMESTAMP NOT NULL,
+	updated_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( id ) ;
 CREATE TABLE storagenode_bandwidth_rollups (
 	storagenode_id BYTES(MAX) NOT NULL,
 	interval_start TIMESTAMP NOT NULL,
@@ -1035,6 +1176,9 @@ CREATE INDEX oauth_codes_user_id_index ON oauth_codes ( user_id ) ;
 CREATE INDEX oauth_codes_client_id_index ON oauth_codes ( client_id ) ;
 CREATE INDEX oauth_tokens_user_id_index ON oauth_tokens ( user_id ) ;
 CREATE INDEX oauth_tokens_client_id_index ON oauth_tokens ( client_id ) ;
+CREATE INDEX payment_attempts_user_id_index ON payment_attempts ( user_id ) ;
+CREATE INDEX payment_methods_user_id_provider_index ON payment_methods ( user_id, provider ) ;
+CREATE INDEX payment_subscriptions_user_id_provider_index ON payment_subscriptions ( user_id, provider ) ;
 CREATE INDEX projects_public_id_index ON projects ( public_id ) ;
 CREATE INDEX projects_owner_id_index ON projects ( owner_id ) ;
 CREATE INDEX projects_status_status_updated_at_index ON projects ( status, status_updated_at ) ;
@@ -1051,6 +1195,14 @@ CREATE INDEX reseller_domain_domain_index ON reseller_domains ( domain ) ;
 CREATE INDEX reseller_theme_reseller_id_index ON reseller_themes ( reseller_id ) ;
 CREATE INDEX retention_remainder_charges_project_id_deleted_at_billed_index ON retention_remainder_charges ( project_id, deleted_at, billed ) ;
 CREATE INDEX reverification_audits_inserted_at_index ON reverification_audits ( inserted_at ) ;
+CREATE INDEX seller_billing_notifications_reseller_id_index ON seller_billing_notifications ( reseller_id ) ;
+CREATE INDEX seller_invoices_reseller_id_index ON seller_invoices ( reseller_id ) ;
+CREATE INDEX seller_invoice_lines_invoice_id_index ON seller_invoice_lines ( invoice_id ) ;
+CREATE INDEX seller_plans_active_name_index ON seller_plans ( active, name ) ;
+CREATE INDEX seller_user_plan_assignments_reseller_id_index ON seller_user_plan_assignments ( reseller_id ) ;
+CREATE INDEX seller_user_plan_assignments_user_id_status_index ON seller_user_plan_assignments ( user_id, status ) ;
+CREATE INDEX seller_user_plan_assignments_status_plan_starts_at_index ON seller_user_plan_assignments ( status, plan_starts_at ) ;
+CREATE INDEX seller_user_plan_assignments_status_plan_ends_at_index ON seller_user_plan_assignments ( status, plan_ends_at ) ;
 CREATE INDEX storagenode_bandwidth_rollups_interval_start_index ON storagenode_bandwidth_rollups ( interval_start ) ;
 CREATE INDEX storagenode_bandwidth_rollup_archives_interval_start_index ON storagenode_bandwidth_rollup_archives ( interval_start ) ;
 CREATE INDEX storagenode_payments_node_id_period_index ON storagenode_payments ( node_id, period ) ;

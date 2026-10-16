@@ -414,6 +414,56 @@ CREATE TABLE oauth_tokens (
 	expires_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( token )
 ) ;
+CREATE TABLE payment_attempts (
+	id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	plan_id bigint NOT NULL,
+	provider text NOT NULL,
+	provider_ref text NOT NULL,
+	amount_minor bigint NOT NULL,
+	currency text NOT NULL,
+	status text NOT NULL,
+	coupon_code text,
+	metadata jsonb,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( provider, provider_ref )
+) ;
+CREATE TABLE payment_customers (
+	user_id bytea NOT NULL,
+	provider text NOT NULL,
+	provider_customer_id text NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( user_id, provider ),
+	UNIQUE ( provider, provider_customer_id )
+) ;
+CREATE TABLE payment_events (
+	id bytea NOT NULL,
+	provider text NOT NULL,
+	provider_event_id text NOT NULL,
+	event_type text NOT NULL,
+	payload jsonb NOT NULL,
+	attempt_id bytea,
+	subscription_id bytea,
+	received_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( provider, provider_event_id )
+) ;
+CREATE TABLE payment_methods (
+	id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	provider text NOT NULL,
+	provider_method_id text NOT NULL,
+	brand text NOT NULL,
+	last4 text NOT NULL,
+	exp_month integer NOT NULL,
+	exp_year integer NOT NULL,
+	is_default boolean NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( provider, provider_method_id )
+) ;
 CREATE TABLE payment_plans (
 	id bigserial NOT NULL,
 	name text NOT NULL,
@@ -424,7 +474,25 @@ CREATE TABLE payment_plans (
 	validity bigint NOT NULL,
 	validity_unit text NOT NULL,
 	group text NOT NULL,
+	provider_plan_ids jsonb,
 	PRIMARY KEY ( id )
+) ;
+CREATE TABLE payment_subscriptions (
+	id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	plan_id bigint NOT NULL,
+	provider text NOT NULL,
+	provider_sub_id text NOT NULL,
+	provider_plan_id text NOT NULL,
+	status text NOT NULL,
+	current_period_end timestamp with time zone,
+	cancel_at_period_end boolean NOT NULL,
+	default_method_id bytea,
+	coupon_code text,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( provider, provider_sub_id )
 ) ;
 CREATE TABLE peer_identities (
 	node_id bytea NOT NULL,
@@ -665,6 +733,89 @@ CREATE TABLE segment_pending_audits (
 	expected_share_hash bytea NOT NULL,
 	reverify_count bigint NOT NULL,
 	PRIMARY KEY ( node_id )
+) ;
+CREATE TABLE seller_billing_notifications (
+	id bytea NOT NULL,
+	reseller_id bytea NOT NULL,
+	user_id bytea,
+	type text NOT NULL,
+	title text NOT NULL,
+	body text NOT NULL,
+	read boolean NOT NULL DEFAULT false,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+) ;
+CREATE TABLE seller_invoices (
+	id bytea NOT NULL,
+	reseller_id bytea NOT NULL,
+	period_start timestamp with time zone NOT NULL,
+	period_end timestamp with time zone NOT NULL,
+	total_amount bigint NOT NULL,
+	currency text NOT NULL DEFAULT 'INR',
+	status text NOT NULL,
+	issued_at timestamp with time zone,
+	paid_at timestamp with time zone,
+	admin_note text,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+) ;
+CREATE TABLE seller_invoice_lines (
+	id bytea NOT NULL,
+	invoice_id bytea NOT NULL,
+	assignment_id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	plan_id bytea NOT NULL,
+	description text NOT NULL,
+	amount bigint NOT NULL,
+	retail_amount bigint NOT NULL,
+	assigned_at timestamp with time zone NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+) ;
+CREATE TABLE seller_plans (
+	id bytea NOT NULL,
+	name text NOT NULL,
+	tier_key text NOT NULL,
+	billing_period text NOT NULL,
+	storage_bytes bigint NOT NULL,
+	bandwidth_bytes bigint NOT NULL,
+	retail_amount bigint NOT NULL,
+	wholesale_amount bigint NOT NULL,
+	currency text NOT NULL DEFAULT 'INR',
+	description text NOT NULL DEFAULT '',
+	features jsonb NOT NULL DEFAULT '[]',
+	recommended boolean NOT NULL DEFAULT false,
+	payment_plan_id bigint,
+	active boolean NOT NULL DEFAULT true,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+) ;
+CREATE TABLE seller_user_plan_assignments (
+	id bytea NOT NULL,
+	reseller_id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	plan_id bytea NOT NULL,
+	status text NOT NULL,
+	retail_amount bigint NOT NULL,
+	wholesale_amount bigint NOT NULL,
+	billing_period text NOT NULL,
+	duration_months integer,
+	plan_starts_at timestamp with time zone NOT NULL,
+	plan_ends_at timestamp with time zone,
+	future_plan_id bytea,
+	auto_switch_on_end boolean NOT NULL DEFAULT false,
+	notify_before_end boolean NOT NULL DEFAULT false,
+	notified_ending_at timestamp with time zone,
+	user_paid_at timestamp with time zone,
+	notes text,
+	assigned_at timestamp with time zone NOT NULL,
+	ended_at timestamp with time zone,
+	assigned_by_reseller boolean NOT NULL DEFAULT true,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
 ) ;
 CREATE TABLE storagenode_bandwidth_rollups (
 	storagenode_id bytea NOT NULL,
@@ -1101,6 +1252,9 @@ CREATE INDEX oauth_codes_user_id_index ON oauth_codes ( user_id ) ;
 CREATE INDEX oauth_codes_client_id_index ON oauth_codes ( client_id ) ;
 CREATE INDEX oauth_tokens_user_id_index ON oauth_tokens ( user_id ) ;
 CREATE INDEX oauth_tokens_client_id_index ON oauth_tokens ( client_id ) ;
+CREATE INDEX payment_attempts_user_id_index ON payment_attempts ( user_id ) ;
+CREATE INDEX payment_methods_user_id_provider_index ON payment_methods ( user_id, provider ) ;
+CREATE INDEX payment_subscriptions_user_id_provider_index ON payment_subscriptions ( user_id, provider ) ;
 CREATE INDEX projects_public_id_index ON projects ( public_id ) ;
 CREATE INDEX projects_owner_id_index ON projects ( owner_id ) ;
 CREATE INDEX projects_status_status_updated_at_index ON projects ( status, status_updated_at ) WHERE projects.status_updated_at is not NULL ;
@@ -1117,6 +1271,14 @@ CREATE INDEX reseller_domain_domain_index ON reseller_domains ( domain ) ;
 CREATE INDEX reseller_theme_reseller_id_index ON reseller_themes ( reseller_id ) ;
 CREATE INDEX retention_remainder_charges_project_id_deleted_at_billed_index ON retention_remainder_charges ( project_id, deleted_at, billed ) ;
 CREATE INDEX reverification_audits_inserted_at_index ON reverification_audits ( inserted_at ) ;
+CREATE INDEX seller_billing_notifications_reseller_id_index ON seller_billing_notifications ( reseller_id ) ;
+CREATE INDEX seller_invoices_reseller_id_index ON seller_invoices ( reseller_id ) ;
+CREATE INDEX seller_invoice_lines_invoice_id_index ON seller_invoice_lines ( invoice_id ) ;
+CREATE INDEX seller_plans_active_name_index ON seller_plans ( active, name ) ;
+CREATE INDEX seller_user_plan_assignments_reseller_id_index ON seller_user_plan_assignments ( reseller_id ) ;
+CREATE INDEX seller_user_plan_assignments_user_id_status_index ON seller_user_plan_assignments ( user_id, status ) ;
+CREATE INDEX seller_user_plan_assignments_status_plan_starts_at_index ON seller_user_plan_assignments ( status, plan_starts_at ) ;
+CREATE INDEX seller_user_plan_assignments_status_plan_ends_at_index ON seller_user_plan_assignments ( status, plan_ends_at ) ;
 CREATE INDEX storagenode_bandwidth_rollups_interval_start_index ON storagenode_bandwidth_rollups ( interval_start ) ;
 CREATE INDEX storagenode_bandwidth_rollup_archives_interval_start_index ON storagenode_bandwidth_rollup_archives ( interval_start ) ;
 CREATE INDEX storagenode_payments_node_id_period_index ON storagenode_payments ( node_id, period ) ;

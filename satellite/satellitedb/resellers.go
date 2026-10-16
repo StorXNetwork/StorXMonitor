@@ -242,6 +242,27 @@ func (repo *resellers) Update(ctx context.Context, id uuid.UUID, update seller.U
 	return resellerFromDBX(updated)
 }
 
+func (repo *resellers) List(ctx context.Context) (_ []seller.Reseller, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	rows, err := repo.db.All_Reseller(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]seller.Reseller, 0, len(rows))
+	for _, row := range rows {
+		r, convErr := resellerFromDBX(row)
+		if convErr != nil {
+			return nil, convErr
+		}
+		if r.Status == seller.ResellerDeleted {
+			continue
+		}
+		out = append(out, *r)
+	}
+	return out, nil
+}
+
 var _ seller.ResellerConfigs = (*resellerConfigs)(nil)
 
 type resellerConfigs struct {
