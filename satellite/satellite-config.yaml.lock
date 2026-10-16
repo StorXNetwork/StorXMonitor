@@ -835,6 +835,9 @@ contact.external-address: ""
 # timeout for pinging storage nodes
 # contact.timeout: 10m0s
 
+# block explorer URL template sent to storage nodes for their operator wallet; nodes replace {{WALLET_ADDRESS}} with their wallet. Empty keeps the node's built-in link.
+# contact.wallet-explorer-url-template: https://xdcscan.com/address/{{WALLET_ADDRESS}}
+
 # satellite database connection string
 # database: postgres://
 

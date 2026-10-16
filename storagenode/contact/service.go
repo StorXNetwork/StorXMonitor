@@ -19,6 +19,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/StorXNetwork/StorXMonitor/shared/nodeconfigpb"
 	"github.com/StorXNetwork/StorXMonitor/shared/nodetag"
 	"github.com/StorXNetwork/StorXMonitor/storagenode/trust"
 	"github.com/StorXNetwork/common/pb"
@@ -131,6 +132,8 @@ type Service struct {
 	signer    signing.Signer
 	allocated int64
 	used      int64
+
+	walletExplorerURLTemplate string
 }
 
 // NewService creates a new contact service.
@@ -254,7 +257,36 @@ func (service *Service) pingSatelliteOnce(ctx context.Context, id storxnetwork.N
 		}
 	}
 
+	service.fetchNodeConfig(ctx, conn, id)
+
 	return nil
+}
+
+// fetchNodeConfig stores the satellite-managed node configuration. Failures are only logged, so the
+// node keeps its previous values when a satellite does not provide the NodeConfig service.
+func (service *Service) fetchNodeConfig(ctx context.Context, conn *rpc.Conn, satellite storxnetwork.NodeID) {
+	resp, err := nodeconfigpb.NewDRPCNodeConfigClient(conn).GetNodeConfig(ctx, &nodeconfigpb.GetNodeConfigRequest{})
+	if err != nil {
+		service.log.Debug("failed to fetch node config from satellite", zap.Stringer("satellite_id", satellite), zap.Error(err))
+		return
+	}
+
+	template := resp.GetWalletExplorerUrlTemplate()
+	if err := nodeconfigpb.ValidateWalletExplorerURLTemplate(template); err != nil {
+		service.log.Warn("satellite sent an invalid wallet explorer URL template", zap.Stringer("satellite_id", satellite), zap.Error(err))
+		return
+	}
+
+	service.mu.Lock()
+	service.walletExplorerURLTemplate = template
+	service.mu.Unlock()
+}
+
+// WalletExplorerURLTemplate returns the wallet explorer URL template last received from a satellite.
+func (service *Service) WalletExplorerURLTemplate() string {
+	service.mu.Lock()
+	defer service.mu.Unlock()
+	return service.walletExplorerURLTemplate
 }
 
 // RequestPingMeQUIC sends pings request to satellite for a pingBack via QUIC.
