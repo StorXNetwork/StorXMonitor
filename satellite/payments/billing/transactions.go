@@ -82,6 +82,12 @@ type TransactionsDB interface {
 
 	GetPaymentPlansByID(ctx context.Context, id int64) (*PaymentPlans, error)
 
+	// CreatePaymentPlan inserts a new payment plan into the catalog.
+	CreatePaymentPlan(ctx context.Context, plan PaymentPlans) (*PaymentPlans, error)
+
+	// UpdatePaymentPlan updates an existing payment plan by id.
+	UpdatePaymentPlan(ctx context.Context, id int64, plan PaymentPlans) (*PaymentPlans, error)
+
 	GetActiveCoupons(ctx context.Context) ([]Coupons, error)
 
 	GetCouponByCode(ctx context.Context, code string) (*Coupons, error)
@@ -170,6 +176,8 @@ type PaymentPlans struct {
 	Validity     int64     `json:"validity"`
 	ValidityUnit string    `json:"validity_unit"`
 	Group        string    `json:"group"`
+	// ProviderPlanIDs maps provider name to remote plan id.
+	ProviderPlanIDs map[string]string `json:"provider_plan_ids,omitempty"`
 	CreatedAt    time.Time `json:"created_at"`
 }
 

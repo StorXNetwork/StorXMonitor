@@ -9,12 +9,17 @@ import (
 type Config struct {
 	ClientOrigin string `mapstructure:"CLIENT_ORIGIN"`
 
-	GoogleClientID                  string `mapstructure:"GOOGLE_OAUTH_CLIENT_ID"`
-	GoogleClientSecret              string `mapstructure:"GOOGLE_OAUTH_CLIENT_SECRET"`
+	GoogleClientID                      string `mapstructure:"GOOGLE_OAUTH_CLIENT_ID"`
+	GoogleClientSecret                  string `mapstructure:"GOOGLE_OAUTH_CLIENT_SECRET"`
 	GoogleOAuthRedirectUrl_register     string `mapstructure:"GOOGLE_OAUTH_REDIRECT_URL_REGISTER"`
 	GoogleOAuthRedirectUrl_login        string `mapstructure:"GOOGLE_OAUTH_REDIRECT_URL_LOGIN"`
 	GoogleOAuthRedirectUrl_googlebackup string `mapstructure:"GOOGLE_OAUTH_REDIRECT_URL_GOOGLE_BACKUP"`
 	GoogleOAuthRedirectUrl_seller       string `mapstructure:"GOOGLE_OAUTH_REDIRECT_URL_SELLER"`
+
+	OutlookClientID                         string `mapstructure:"OUTLOOK_CLIENT_ID"`
+	OutlookClientSecret                     string `mapstructure:"OUTLOOK_CLIENT_SECRET"`
+	OutlookOAuthRedirectUrl_microsoftbackup string `mapstructure:"OUTLOOK_OAUTH_REDIRECT_URL_MICROSOFT_BACKUP"`
+	MicrosoftAdminConsentRedirectPath       string `mapstructure:"MICROSOFT_ADMIN_CONSENT_REDIRECT_PATH"`
 
 	FacebookClientID                  string `mapstructure:"FACEBOOK_CLIENT_ID"`
 	FacebookClientSecret              string `mapstructure:"FACEBOOK_CLIENT_SECRET"`
@@ -73,6 +78,40 @@ func SetGoogleSellerOAuthRedirectURL(redirectURL string) {
 	configVal.GoogleOAuthRedirectUrl_seller = redirectURL
 }
 
+func SetOutlookSocialMediaConfig(clientID, clientSecret string) {
+	configVal.OutlookClientID = clientID
+	configVal.OutlookClientSecret = clientSecret
+}
+
+func SetMicrosoftBackupOAuthRedirectURL(redirectURL string) {
+	configVal.OutlookOAuthRedirectUrl_microsoftbackup = redirectURL
+}
+
+// SetMicrosoftAdminConsentRedirectPath sets the frontend path Microsoft redirects to after tenant admin consent.
+func SetMicrosoftAdminConsentRedirectPath(path string) {
+	configVal.MicrosoftAdminConsentRedirectPath = path
+}
+
+// DefaultMicrosoftAdminConsentRedirectPath is the frontend admin-consent callback page.
+const DefaultMicrosoftAdminConsentRedirectPath = "/connect/microsoft-admin-consent-callback"
+
+// ResolveMicrosoftAdminConsentRedirectURI returns the admin-consent redirect_uri: the microsoft-backup
+// frontend origin plus the configured callback path. It must be registered on the Azure app (Web platform).
+func ResolveMicrosoftAdminConsentRedirectURI(r *http.Request) string {
+	origin := ResolveMicrosoftBackupOrigin(r)
+	if origin == "" {
+		return ""
+	}
+	path := strings.TrimSpace(configVal.MicrosoftAdminConsentRedirectPath)
+	if path == "" {
+		path = DefaultMicrosoftAdminConsentRedirectPath
+	}
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+	return origin + path
+}
+
 func SetFacebookSocialMediaConfig(clientID string, clientSecret string, redirectUrl_register string, redirectUrl_login string) {
 	configVal.FacebookClientID = clientID
 	configVal.FacebookClientSecret = clientSecret
@@ -124,14 +163,23 @@ func SetConfig(config *Config) {
 // Uses request Host (X-Forwarded-Host / r.Host) only; UI does not send Origin.
 // Local dev falls back to google-backup-redirect-urlstring / client-origin when Host is loopback.
 func ResolveRequestOrigin(r *http.Request) string {
+	return resolveRequestOrigin(r, googleBackupOriginFallback)
+}
+
+// ResolveMicrosoftBackupOrigin returns the frontend origin for microsoft-backup OAuth redirect_uri.
+func ResolveMicrosoftBackupOrigin(r *http.Request) string {
+	return resolveRequestOrigin(r, microsoftBackupOriginFallback)
+}
+
+func resolveRequestOrigin(r *http.Request, fallback func() string) string {
 	if r == nil {
-		return googleBackupOriginFallback()
+		return fallback()
 	}
 	host := requestHostHeader(r)
 	if host == "" {
-		return googleBackupOriginFallback()
+		return fallback()
 	}
-	if fb := googleBackupOriginFallback(); fb != "" && isLoopbackHost(host) {
+	if fb := fallback(); fb != "" && isLoopbackHost(host) {
 		return fb
 	}
 	return requestScheme(r) + "://" + strings.ToLower(host)
@@ -139,6 +187,13 @@ func ResolveRequestOrigin(r *http.Request) string {
 
 func googleBackupOriginFallback() string {
 	if v := strings.TrimSpace(configVal.GoogleOAuthRedirectUrl_googlebackup); v != "" {
+		return strings.TrimRight(v, "/")
+	}
+	return strings.TrimRight(strings.TrimSpace(configVal.ClientOrigin), "/")
+}
+
+func microsoftBackupOriginFallback() string {
+	if v := strings.TrimSpace(configVal.OutlookOAuthRedirectUrl_microsoftbackup); v != "" {
 		return strings.TrimRight(v, "/")
 	}
 	return strings.TrimRight(strings.TrimSpace(configVal.ClientOrigin), "/")

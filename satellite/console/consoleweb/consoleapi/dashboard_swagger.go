@@ -28,7 +28,7 @@ type DashboardStatusSwagger struct {
 // DashboardStatsCardSwaggerResponse represents one card in GET /api/v0/dashboard/stats response.
 type DashboardStatsCardSwaggerResponse struct {
 	Title       string                  `json:"title" example:"Protected Users"`
-	Description string                  `json:"description" example:"Google accounts with backup enabled"`
+	Description string                  `json:"description" example:"Microsoft accounts with backup enabled"`
 	Icon        DashboardIconSwagger    `json:"icon"`
 	Button      *DashboardButtonSwagger `json:"button,omitempty"`
 	Status      *DashboardStatusSwagger `json:"status,omitempty"`
@@ -36,4 +36,11 @@ type DashboardStatsCardSwaggerResponse struct {
 	Value1Label string                  `json:"value_1_label,omitempty" example:""`
 	Value2      interface{}             `json:"value_2,omitempty" swaggertype:"string" example:"+2 this week"`
 	Value2Label string                  `json:"value_2_label,omitempty" example:"growth_this_week"`
+}
+
+// DashboardAlertsSwaggerResponse is returned from GET /api/v0/dashboard/alerts (Google + Microsoft).
+type DashboardAlertsSwaggerResponse struct {
+	ReAuthRequired          GoogleBackupDashboardAlertSectionSwagger `json:"re_auth_required"`
+	PausedBackups           GoogleBackupDashboardAlertSectionSwagger `json:"paused_backups"`
+	NewConnectedAccounts24h GoogleBackupDashboardAlertSectionSwagger `json:"new_connected_accounts_24h"`
 }

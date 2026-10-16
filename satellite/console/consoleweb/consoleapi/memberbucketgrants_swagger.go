@@ -19,18 +19,18 @@ type AddProjectMemberACLBucketSwaggerRequest struct {
 
 // MemberBucketGrantSwaggerItem is one grant from GET/PUT .../members/{memberID}/bucket-grants.
 type MemberBucketGrantSwaggerItem struct {
-	ID            string     `json:"id" example:"00000000-0000-0000-0000-000000000000"`
-	ProjectID     string     `json:"projectId" example:"00000000-0000-0000-0000-000000000000"`
-	MemberID      *string    `json:"memberId,omitempty" example:"00000000-0000-0000-0000-000000000001"`
-	InviteEmail   string     `json:"inviteEmail" example:"member@example.com"`
-	Bucket        string     `json:"bucket" example:"gmail"`
-	Prefix        string     `json:"prefix" example:"member@example.com/"`
-	AllowList     bool       `json:"allowList" example:"true"`
-	AllowDownload bool       `json:"allowDownload" example:"true"`
-	AllowUpload   bool       `json:"allowUpload" example:"false"` // always false; unsupported
-	AllowDelete   bool       `json:"allowDelete" example:"false"` // always false; unsupported
-	CreatedAt     time.Time  `json:"createdAt"`
-	UpdatedAt     time.Time  `json:"updatedAt"`
+	ID            string    `json:"id" example:"00000000-0000-0000-0000-000000000000"`
+	ProjectID     string    `json:"projectId" example:"00000000-0000-0000-0000-000000000000"`
+	MemberID      *string   `json:"memberId,omitempty" example:"00000000-0000-0000-0000-000000000001"`
+	InviteEmail   string    `json:"inviteEmail" example:"member@example.com"`
+	Bucket        string    `json:"bucket" example:"gmail"`
+	Prefix        string    `json:"prefix" example:"member@example.com/"`
+	AllowList     bool      `json:"allowList" example:"true"`
+	AllowDownload bool      `json:"allowDownload" example:"true"`
+	AllowUpload   bool      `json:"allowUpload" example:"false"` // always false; unsupported
+	AllowDelete   bool      `json:"allowDelete" example:"false"` // always false; unsupported
+	CreatedAt     time.Time `json:"createdAt"`
+	UpdatedAt     time.Time `json:"updatedAt"`
 }
 
 // MemberBucketGrantInputSwagger is Admin-supplied grant shape for PUT/invite.
@@ -50,9 +50,18 @@ type PutMemberBucketGrantsSwaggerRequest struct {
 	Grants []MemberBucketGrantInputSwagger `json:"grants"`
 }
 
+// InviteAccessSelectionSwagger is the permission choice on invite.
+// Omit the object to keep the previous default: read and restore both on.
+type InviteAccessSelectionSwagger struct {
+	Read    bool `json:"read" example:"true"`
+	Restore bool `json:"restore" example:"true"`
+}
+
 // InviteProjectMemberWithGrantsSwaggerRequest is optional body for POST .../invite/{email}.
-// Omit body or omit grants → defaults from current ACL registry ({inviteEmail}/ List+Download).
+// Omit body or omit grants → defaults from current ACL registry ({inviteEmail}/).
+// permissions: omit → read + restore. Set read and/or restore. Both false is rejected.
 // Explicit grants:[] → no pending folder grants.
 type InviteProjectMemberWithGrantsSwaggerRequest struct {
-	Grants []MemberBucketGrantInputSwagger `json:"grants"`
+	Grants      []MemberBucketGrantInputSwagger `json:"grants"`
+	Permissions *InviteAccessSelectionSwagger   `json:"permissions,omitempty"`
 }

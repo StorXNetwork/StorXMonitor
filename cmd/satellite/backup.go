@@ -9,13 +9,13 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"github.com/StorXNetwork/common/errs2"
-	"github.com/StorXNetwork/common/process"
-	"github.com/StorXNetwork/common/process/eventkitbq"
 	"github.com/StorXNetwork/StorXMonitor/satellite/backup"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/secretconstants"
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb"
 	"github.com/StorXNetwork/StorXMonitor/satellite/smartcontract"
+	"github.com/StorXNetwork/common/errs2"
+	"github.com/StorXNetwork/common/process"
+	"github.com/StorXNetwork/common/process/eventkitbq"
 )
 
 var mon = monkit.Package()
@@ -69,9 +69,10 @@ func cmdBackupRun(cmd *cobra.Command, args []string) (err error) {
 
 	// Create smart contract helper using console Web3Auth configuration
 	smartContractConnector, err := smartcontract.NewKeyValueWeb3Helper(smartcontract.Web3Config{
-		NetworkRPC:   runCfg.Console.Web3AuthNetworkRPC,
-		ContractAddr: runCfg.Console.Web3AuthContractAddress,
-		Address:      runCfg.Console.Web3AuthAddress,
+		NetworkRPC:      runCfg.Console.Web3AuthNetworkRPC,
+		ContractAddr:    runCfg.Console.Web3AuthContractAddress,
+		Address:         runCfg.Console.Web3AuthAddress,
+		MinGasPriceGwei: runCfg.Console.Web3AuthMinGasPriceGwei,
 	}, secretconstants.Web3AuthPrivateKey)
 	if err != nil {
 		log.Error("Failed to create smart contract connector", zap.Error(err))

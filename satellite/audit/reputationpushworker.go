@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
 	"github.com/StorXNetwork/common/storxnetwork"
 	"github.com/StorXNetwork/common/sync2"
 	"github.com/go-stack/stack"
@@ -48,6 +49,12 @@ type ReputationPushWorker struct {
 	Loop *sync2.Cycle
 
 	connector ReputationConnector
+	claimed   *overlay.ClaimedNodeSet
+}
+
+// SetClaimedNodes skips farmer registration and reputation push for org-claimed nodes.
+func (worker *ReputationPushWorker) SetClaimedNodes(set *overlay.ClaimedNodeSet) {
+	worker.claimed = set
 }
 
 type ReputationConnector interface {
@@ -103,6 +110,18 @@ func (worker *ReputationPushWorker) process(ctx context.Context) (err error) {
 
 	mon.IntVal("reputation_push_worker_total_nodes").Observe(int64(len(reputations))) //mon:locked
 	mon.Counter("reputation_push_worker_get_all_successes").Inc(1)                    //mon:locked
+	if worker.claimed != nil {
+		claimed, snapErr := worker.claimed.Snapshot(ctx)
+		if snapErr != nil {
+			worker.log.Error("own-nodes lookup failed; reputation push continues for all nodes", zap.Error(snapErr))
+		} else {
+			before := len(reputations)
+			reputations = ExcludeClaimedReputations(reputations, claimed)
+			if skipped := before - len(reputations); skipped > 0 {
+				worker.log.Info("skipping claimed own-nodes for reputation push", zap.Int("count", skipped))
+			}
+		}
+	}
 	reputations = worker.aggregateReputationsByWallet(reputations)
 	mon.IntVal("reputation_push_worker_unique_wallets").Observe(int64(len(reputations))) //mon:locked
 

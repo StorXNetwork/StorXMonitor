@@ -11,10 +11,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/StorXNetwork/common/peertls/tlsopts"
-	"github.com/StorXNetwork/common/process"
-	"github.com/StorXNetwork/common/rpc"
-	"github.com/StorXNetwork/common/signing"
 	"github.com/StorXNetwork/StorXMonitor/private/revocation"
 	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 	"github.com/StorXNetwork/StorXMonitor/satellite/orders"
@@ -24,6 +20,10 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/satellite/repair/repairer/manual"
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb"
 	"github.com/StorXNetwork/StorXMonitor/shared/modular"
+	"github.com/StorXNetwork/common/peertls/tlsopts"
+	"github.com/StorXNetwork/common/process"
+	"github.com/StorXNetwork/common/rpc"
+	"github.com/StorXNetwork/common/signing"
 )
 
 func cmdRepairSegment(cmd *cobra.Command, args []string) (err error) {
@@ -115,6 +115,7 @@ func cmdRepairSegment(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return err
 	}
+	segmentRepairer.SetOwnNodes(db.Console().OrgNodes())
 
 	cancelCtx, cancel := context.WithCancel(ctx)
 	group := errgroup.Group{}

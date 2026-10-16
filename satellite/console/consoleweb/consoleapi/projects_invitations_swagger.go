@@ -71,12 +71,13 @@ type ReinviteProjectMembersSwaggerRequest struct {
 
 // BulkInviteProjectMemberSwaggerItem is one entry in POST .../invites (same as single invite + vaults).
 type BulkInviteProjectMemberSwaggerItem struct {
-	Email  string   `json:"email" example:"alice@example.com"`
-	Vaults []string `json:"vaults" example:"gmail,google-drive"`
+	Email       string                        `json:"email" example:"alice@example.com"`
+	Vaults      []string                      `json:"vaults" example:"gmail,google-drive"`
+	Permissions *InviteAccessSelectionSwagger `json:"permissions,omitempty"`
 }
 
 // BulkInviteProjectMembersSwaggerRequest is the body for POST .../invites (multi-invite).
-// Per invite: email + vault bucket names. Server builds List+Download on {email}/ — no grants/scopes in body.
+// Per invite: email + vault bucket names. Optional permissions: omit → read + restore.
 type BulkInviteProjectMembersSwaggerRequest struct {
 	Invites []BulkInviteProjectMemberSwaggerItem `json:"invites"`
 }

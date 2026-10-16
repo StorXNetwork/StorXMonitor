@@ -80,10 +80,19 @@ const (
 	debugGCHTTP        = 2
 )
 
+// portOffset is added to every port, so that more than one network can run on the same host.
+// It must be the same for setup and run, because run-only ports (e.g. worker debug addresses)
+// are not stored in the config files.
+var portOffset int
+
+// maxPortOffset keeps the highest generated port (ranged loop of the last satellite) below 65536.
+const maxPortOffset = 65535 - (10000 + rangedloopPeer*1000 + (maxInstanceCount-1)*10 + debugSellerHTTP)
+
 // port creates a port with a consistent format for storj-sim services.
 // The port format is: "1PXXE", where P is the peer class, XX is the index of the instance, and E is the endpoint.
+// The whole range is shifted by portOffset.
 func port(peerclass, index, endpoint int) string {
-	port := 10000 + peerclass*1000 + index*10 + endpoint
+	port := 10000 + portOffset + peerclass*1000 + index*10 + endpoint
 	return strconv.Itoa(port)
 }
 
@@ -240,6 +249,11 @@ func newNetwork(flags *Flags) (*Processes, error) {
 	}
 	storjRoot := strings.TrimSuffix(filename, "/cmd/storj-sim/network.go")
 
+	if flags.PortOffset < 0 || flags.PortOffset > maxPortOffset {
+		return nil, fmt.Errorf("port offset must be between 0 and %d, got %d", maxPortOffset, flags.PortOffset)
+	}
+	portOffset = flags.PortOffset
+
 	// with common adds all common arguments to the process
 	withCommon := func(dir string, all Arguments) Arguments {
 		common := []string{"--metrics.app-suffix", "sim", "--log.level", flags.LogLevel, "--config-dir", dir}
@@ -391,12 +405,13 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 				"--developer.address", net.JoinHostPort(host, port(satellitePeer, i, developerHTTP)),
 				"--developer.static-dir", filepath.Join(storjRoot, "satellite/developer/ui/build"),
-				"--console.developer-external-address", "http://"+net.JoinHostPort(host, port(satellitePeer, i, developerHTTP)),
+				"--console.developer-external-address", "http://" + net.JoinHostPort(host, port(satellitePeer, i, developerHTTP)),
 
 				"--seller.address", net.JoinHostPort(host, port(satellitePeer, i, sellerHTTP)),
 				"--seller.static-dir", filepath.Join(storjRoot, "satellite/seller/ui/build"),
-				"--console.seller-external-address", "http://"+net.JoinHostPort(host, port(satellitePeer, i, sellerHTTP)),
-				"--console.google-seller-redirect-urlstring", "http://"+net.JoinHostPort(host, port(satellitePeer, i, sellerHTTP))+"/api/v0/seller/auth/google",
+				"--console.seller-external-address", "http://" + net.JoinHostPort(host, port(satellitePeer, i, sellerHTTP)),
+				// cfgstruct turns GoogleSellerRedirectURLstring into google-seller-redirect-ur-lstring
+				"--console.google-seller-redirect-ur-lstring", "http://" + net.JoinHostPort(host, port(satellitePeer, i, sellerHTTP)) + "/api/v0/seller/auth/google",
 			},
 			"run": {"api"},
 		})

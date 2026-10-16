@@ -441,6 +441,17 @@ func (d PlacementDefinitions) CreateFilters(constraint storxnetwork.PlacementCon
 	if filters, found := d[constraint]; found {
 		return filters.NodeFilter, filters.DownloadSelector
 	}
+	// Own-nodes uploads already fall back to placement 0 when 250 is not configured.
+	// Downloads must do the same, or every piece node is rejected and order limits stay at 0.
+	if constraint == OwnNodesPlacement {
+		if filters, found := d[storxnetwork.DefaultPlacement]; found {
+			selector = filters.DownloadSelector
+			if selector == nil {
+				selector = DefaultDownloadSelector
+			}
+			return filters.NodeFilter, selector
+		}
+	}
 	return NodeFilters{
 		ExcludeAllFilter{},
 	}, ExcludeAllDownloadSelector

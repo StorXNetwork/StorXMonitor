@@ -19,10 +19,14 @@ type Config struct {
 	Email          string         `user:"true" help:"operator email address" default:""`
 	Wallet         string         `user:"true" help:"operator wallet address" default:""`
 	WalletFeatures WalletFeatures `user:"true" help:"operator wallet features" default:""`
+	UserID         string         `user:"true" help:"console user id for org own-nodes mapping" default:""`
 }
 
 // Verify verifies whether operator config is valid.
 func (c Config) Verify(log *zap.Logger) error {
+	if c.UserID != "" {
+		log.Info("Operator own-nodes mapping configured", zap.String("user_id", c.UserID))
+	}
 	if err := isOperatorEmailValid(log, c.Email); err != nil {
 		return err
 	}
@@ -33,6 +37,21 @@ func (c Config) Verify(log *zap.Logger) error {
 		return err
 	}
 	return nil
+}
+
+// CheckInEmail returns the email value sent on check-in.
+// When UserID is set, encodes CyberLS bind as ownnodes:<user> and, when a real
+// contact Email is configured, appends "|<email>" so the satellite can store the
+// contact address in nodes.email while mapping org_nodes from the user id.
+func (c Config) CheckInEmail() string {
+	if c.UserID == "" {
+		return c.Email
+	}
+	bind := "ownnodes:" + c.UserID
+	if c.Email != "" {
+		return bind + "|" + c.Email
+	}
+	return bind
 }
 
 func isOperatorEmailValid(log *zap.Logger, email string) error {

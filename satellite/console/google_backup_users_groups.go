@@ -97,9 +97,30 @@ func (s *Service) GetGoogleBackupUsersGroupsMailboxCredentials(ctx context.Conte
 	return s.getGoogleBackupUsersGroups(ctx, tokenKey, "/users-groups/mailbox/credentials", query)
 }
 
-// GetGoogleBackupDashboardAlerts proxies Backup-Tools GET /autosync/dashboard-alerts.
+// GetDashboardAlerts proxies Backup-Tools GET /autosync/dashboard-alerts.
+// Common for Google + Microsoft health overview (same idea as GetDashboardStats → /autosync/stats).
+// When own_nodes is under MinOwnNodesRequired, attaches readiness and forces jobs inactive
+// so cron cannot keep "push to queue".
+func (s *Service) GetDashboardAlerts(ctx context.Context, tokenKey string) (body []byte, status int, err error) {
+	body, status, err = s.getGoogleBackupUsersGroups(ctx, tokenKey, "/autosync/dashboard-alerts", "")
+	if err != nil || status != http.StatusOK {
+		return body, status, err
+	}
+	user, userErr := GetUser(ctx)
+	if userErr != nil {
+		return body, status, nil
+	}
+	ownStatus, stErr := s.ownNodesCapacityForUser(ctx, user.ID)
+	if stErr != nil || ownStatus == nil {
+		return body, status, nil
+	}
+	s.enforceOwnNodesInactiveJobs(ctx, tokenKey, ownStatus)
+	return mergeOwnNodesIntoJSONObject(body, "own_nodes", ownStatus), status, nil
+}
+
+// GetGoogleBackupDashboardAlerts is kept for the legacy google-backup path; prefer GetDashboardAlerts.
 func (s *Service) GetGoogleBackupDashboardAlerts(ctx context.Context, tokenKey string) (body []byte, status int, err error) {
-	return s.getGoogleBackupUsersGroups(ctx, tokenKey, "/autosync/dashboard-alerts", "")
+	return s.GetDashboardAlerts(ctx, tokenKey)
 }
 
 // UpdateGoogleBackupUsersGroupsJobsActive proxies Backup-Tools PUT /users-groups/jobs/active.
@@ -111,6 +132,15 @@ func (s *Service) UpdateGoogleBackupUsersGroupsJobsActive(ctx context.Context, t
 	}
 	if err := (&req).Validate(); err != nil {
 		return nil, 0, err
+	}
+	if req.Active {
+		user, userErr := GetUser(ctx)
+		if userErr != nil {
+			return nil, 0, Error.Wrap(userErr)
+		}
+		if gateErr := s.requireOwnNodesReadyForActivation(ctx, user.ID); gateErr != nil {
+			return nil, 0, gateErr
+		}
 	}
 
 	payload, err := (&req).backupToolsPayload()
