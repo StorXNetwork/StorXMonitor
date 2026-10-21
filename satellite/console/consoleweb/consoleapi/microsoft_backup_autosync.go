@@ -284,9 +284,7 @@ func (m *MicrosoftBackup) manualRestoreBatch(w http.ResponseWriter, r *http.Requ
 		m.serveJSONError(ctx, w, err)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_, _ = w.Write(respBody)
+	writeBackupToolsJSON(w, status, respBody)
 }
 
 // ManualRestoreOutlook proxies Backup-Tools POST /office365/satellite-to-outlook.

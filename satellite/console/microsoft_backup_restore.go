@@ -351,6 +351,7 @@ var microsoftRestoreWorkspacesAllowedQuery = map[string]struct{}{
 	"offset":   {},
 	"login_id": {},
 	"provider": {},
+	"service":  {},
 }
 
 // PrepareMicrosoftBackupRestore proxies GET /restore/prepare for Microsoft services (token_key only).

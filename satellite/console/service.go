@@ -10751,10 +10751,6 @@ func (s *Service) GetDashboardStats(ctx context.Context, userID uuid.UUID, token
 	if user.ID != userID {
 		return nil, ErrUnauthorized.New("user mismatch")
 	}
-	// Refresh from DB so paid-tier / kind changes from seller assign or payment apply immediately.
-	if fresh, getErr := s.store.Users().Get(ctx, userID); getErr == nil && fresh != nil {
-		user = fresh
-	}
 
 	var (
 		response       DashboardCardsResponse
@@ -10971,62 +10967,37 @@ func (s *Service) enrichBillingCard(ctx context.Context, card *BaseCard, user *U
 	card.Status = &status
 
 	payment, err := s.billing.GetLatestCompletedDebitTransaction(ctx, user.ID)
-	if err != nil || payment == nil {
-		card.Value1 = "Paid"
+	if err != nil || payment == nil || payment.PlanID == nil {
+		card.Value1 = "Free"
 		card.Value2 = nil
 		card.Value2Label = ""
 		return
 	}
 
-	meta := map[string]string{}
-	if len(payment.Metadata) > 0 {
-		_ = json.Unmarshal(payment.Metadata, &meta)
-	}
-	planNameFromMeta := meta["plan_name"]
-
-	// Prefer payment_plans catalog when linked; otherwise seller metadata.
-	if payment.PlanID != nil {
-		if plan, perr := s.GetPaymentPlansByID(ctx, *payment.PlanID); perr == nil && plan != nil {
-			expiry := s.calculateExpiry(payment.Timestamp, plan)
-			daysLeft := int(expiry.Sub(now).Hours() / 24)
-			if !expiry.After(now) {
-				expiredStatus := s.getStatus("expired")
-				card.Status = &expiredStatus
-				card.Value1 = plan.Name
-				card.Value2 = int(now.Sub(expiry).Hours() / 24)
-				card.Value2Label = "Days Past Expiration"
-				return
-			}
-			card.Value1 = plan.Name
-			card.Value2 = daysLeft
-			card.Value2Label = "Days Left"
-			return
-		}
+	plan, err := s.GetPaymentPlansByID(ctx, *payment.PlanID)
+	if err != nil || plan == nil {
+		card.Value1 = "Free"
+		card.Value2 = nil
+		card.Value2Label = ""
+		return
 	}
 
-	name := planNameFromMeta
-	if name == "" {
-		name = "Paid"
-	}
-	card.Value1 = name
+	expiry := s.calculateExpiry(payment.Timestamp, plan)
+	daysLeft := int(expiry.Sub(now).Hours() / 24)
 
-	if endsAtStr := meta["plan_ends_at"]; endsAtStr != "" {
-		if endsAt, perr := time.Parse(time.RFC3339, endsAtStr); perr == nil {
-			if !endsAt.After(now) {
-				expiredStatus := s.getStatus("expired")
-				card.Status = &expiredStatus
-				card.Value2 = int(now.Sub(endsAt).Hours() / 24)
-				card.Value2Label = "Days Past Expiration"
-				return
-			}
-			card.Value2 = int(endsAt.Sub(now).Hours() / 24)
-			card.Value2Label = "Days Left"
-			return
-		}
+	if !expiry.After(now) {
+		expiredStatus := s.getStatus("expired")
+		card.Status = &expiredStatus
+		card.Value1 = plan.Price
+		// Calculate days past expiration as positive number
+		daysPastExpiration := int(now.Sub(expiry).Hours() / 24)
+		card.Value2 = daysPastExpiration
+		card.Value2Label = "Days Past Expiration"
+		return
 	}
 
-	card.Value2 = nil
-	card.Value2Label = ""
+	card.Value1 = plan.Price
+	card.Value2 = daysLeft
 }
 
 func (s *Service) calculateExpiry(start time.Time, plan *billing.PaymentPlans) time.Time {

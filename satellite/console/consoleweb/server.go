@@ -609,6 +609,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	auditLogsRouter.Handle("", server.withAuth(server.userIDRateLimiter.Limit(http.HandlerFunc(auditLogsController.ListAuditLogs)))).Methods(http.MethodGet, http.MethodOptions)
 	auditLogsRouter.Handle("/actions", server.withAuth(server.userIDRateLimiter.Limit(http.HandlerFunc(auditLogsController.ListAuditLogActions)))).Methods(http.MethodGet, http.MethodOptions)
 	auditLogsRouter.Handle("/export", server.withAuth(server.userIDRateLimiter.Limit(http.HandlerFunc(auditLogsController.ExportAuditLogs)))).Methods(http.MethodGet, http.MethodOptions)
+	auditLogsRouter.Handle("/activity", server.withAuth(server.userIDRateLimiter.Limit(http.HandlerFunc(auditLogsController.RecordActivity)))).Methods(http.MethodPost, http.MethodOptions)
 
 	googleBackupUsersGroupsController := consoleapi.NewGoogleBackupUsersGroups(logger, service, server.cookieAuth)
 	googleBackupUsersGroupsRouter := router.PathPrefix("/api/v0/google-backup/users-groups").Subrouter()

@@ -4,7 +4,11 @@
 package console
 
 import (
+	"context"
 	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
@@ -205,4 +209,30 @@ func TestFilterRestoreQuery(t *testing.T) {
 			require.Equal(t, wantValues, gotValues)
 		})
 	}
+}
+
+func TestGoogleManualRestoreUsesInvitingOwner(t *testing.T) {
+	var gotOwner string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotOwner = r.Header.Get("X-Restore-As-User")
+		_, _ = io.Copy(io.Discard, r.Body)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"message":"ok"}`))
+	}))
+	defer server.Close()
+
+	service := &Service{backupToolsURL: server.URL}
+	ownerID := "11111111-1111-1111-1111-111111111111"
+	ctx := context.WithValue(context.Background(), sharedRestoreOwnerKey{}, ownerID)
+
+	body, status, err := service.backupToolsManualRestoreRequest(ctx, http.MethodPost, "/google/gmail/insert-mail", "session", "jwt", []byte(`["a2V5"]`))
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, status)
+	require.Equal(t, ownerID, gotOwner)
+	require.Contains(t, string(body), "ok")
+
+	gotOwner = "stale"
+	_, _, err = service.backupToolsManualRestoreRequest(context.Background(), http.MethodPost, "/google/gmail/insert-mail", "session", "jwt", []byte(`["a2V5"]`))
+	require.NoError(t, err)
+	require.Empty(t, gotOwner)
 }

@@ -7,7 +7,10 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
+
+	"github.com/StorXNetwork/common/uuid"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -178,6 +181,74 @@ func (a *AuditLogs) ExportAuditLogs(w http.ResponseWriter, r *http.Request) {
 		Name:  user.FullName,
 		Email: user.Email,
 	}, w)
+}
+
+const downloadAuditMessage = "Download completed"
+
+// RecordActivity stores a vault download on the signed-in user's audit log and,
+// when that user is an invited member, copies it onto the project owner's log.
+//
+// @Summary      Record a vault download
+// @Description  **Full route:** `POST /api/v0/audit-logs/activity`
+//
+// Body `action` is `GB_DOWNLOAD` or `MB_DOWNLOAD`. `resource` is the file or archive name.
+// `projectId` is the project the invite belongs to. The owner entry message is
+// `Download completed by invited user <email>`, same pattern as restore.
+// @Tags         audit-logs
+// @Accept       json
+// @Success      204  "Recorded"
+// @Failure      400  {object}  SwaggerErrorResponse
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /audit-logs/activity [post]
+func (a *AuditLogs) RecordActivity(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	if _, err = console.GetUser(ctx); err != nil {
+		a.serveJSONError(ctx, w, console.ErrUnauthorized.Wrap(err))
+		return
+	}
+
+	var body struct {
+		ProjectID string `json:"projectId"`
+		Action    string `json:"action"`
+		Resource  string `json:"resource"`
+	}
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+	if err = dec.Decode(&body); err != nil {
+		a.serveJSONError(ctx, w, ErrAuditLogsAPI.Wrap(err))
+		return
+	}
+	if err = validateDownloadAudit(body.ProjectID, body.Action, body.Resource); err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	resource := strings.TrimSpace(body.Resource)
+	a.service.RecordUserAudit(ctx, body.Action, resource, downloadAuditMessage, nil)
+	a.service.RecordInviteeAuditForOwner(ctx, strings.TrimSpace(body.ProjectID), body.Action, resource, downloadAuditMessage, http.StatusOK, nil, nil)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func validateDownloadAudit(projectID, action, resource string) error {
+	switch action {
+	case "GB_DOWNLOAD", "MB_DOWNLOAD":
+	default:
+		return ErrAuditLogsAPI.New("action must be GB_DOWNLOAD or MB_DOWNLOAD")
+	}
+	if strings.TrimSpace(resource) == "" {
+		return ErrAuditLogsAPI.New("resource is required")
+	}
+	if len(strings.TrimSpace(resource)) > 512 {
+		return ErrAuditLogsAPI.New("resource is too long")
+	}
+	if _, err := uuid.FromString(strings.TrimSpace(projectID)); err != nil {
+		return ErrAuditLogsAPI.New("projectId is required")
+	}
+	return nil
 }
 
 func (a *AuditLogs) sessionUser(ctx context.Context) (*console.User, *auditlog.Service, error) {

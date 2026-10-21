@@ -19,6 +19,7 @@ func TestInviteeOwnerAuditMessage(t *testing.T) {
 	}{
 		{name: "restore with invitee", base: "Restore initiated", email: "employee@company.com", want: "Restore initiated by invited user employee@company.com"},
 		{name: "download with invitee", base: "Manual restore completed", email: "a@x.com", want: "Manual restore completed by invited user a@x.com"},
+		{name: "vault download", base: "Download completed", email: "a@x.com", want: "Download completed by invited user a@x.com"},
 		{name: "empty email keeps base", base: "Restore job cancelled", email: "  ", want: "Restore job cancelled"},
 		{name: "empty base", base: " ", email: "a@x.com", want: "Invited user operation by invited user a@x.com"},
 	}

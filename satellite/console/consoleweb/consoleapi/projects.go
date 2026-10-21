@@ -1138,7 +1138,7 @@ func (p *Projects) UpdatePendingInviteAccess(w http.ResponseWriter, r *http.Requ
 		Grants:          body.Grants,
 		Resend:          body.Resend,
 	})
-	p.service.RecordUserAudit(ctx, "PROJECT_INVITE_UPDATE", "Project member", "Pending invite access updated", err)
+	p.service.RecordUserAudit(ctx, "PROJECT_INVITE_UPDATE", email, accessRestoreAuditMessage("Invite access and restore", email, body.Grants), err)
 	if err != nil {
 		status := http.StatusInternalServerError
 		switch {

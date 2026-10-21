@@ -69,6 +69,7 @@ func (g *GoogleBackupRestore) parseManualRestoreRequest(r *http.Request) (consol
 		return console.GoogleBackupManualRestoreRequest{
 			GoogleAuth: googleAuth,
 			Keys:       keys,
+			ProjectID:  strings.TrimSpace(r.FormValue("project_id")),
 		}, nil
 	}
 
@@ -83,6 +84,7 @@ func (g *GoogleBackupRestore) parseManualRestoreRequest(r *http.Request) (consol
 	return console.GoogleBackupManualRestoreRequest{
 		GoogleAuth: googleAuth,
 		Keys:       keys,
+		ProjectID:  strings.TrimSpace(body.ProjectID),
 	}, nil
 }
 

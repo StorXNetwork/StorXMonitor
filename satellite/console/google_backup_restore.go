@@ -422,6 +422,8 @@ func (s *Service) BackupToolsGoogleAuth(ctx context.Context, googleKey string) (
 type GoogleBackupManualRestoreRequest struct {
 	GoogleAuth string   `json:"google_auth"`
 	Keys       []string `json:"keys"`
+	// ProjectID is the shared project. An invited member restores from the inviting owner's backup.
+	ProjectID string `json:"project_id"`
 }
 
 func (r GoogleBackupManualRestoreRequest) Validate() error {
@@ -447,6 +449,7 @@ func (s *Service) GoogleBackupManualRestore(ctx context.Context, tokenKey, backu
 	if err != nil {
 		return nil, 0, Error.Wrap(err)
 	}
+	ctx = s.withSharedRestoreOwner(ctx, req.ProjectID)
 	return s.backupToolsManualRestoreRequest(ctx, http.MethodPost, backupToolsPath, tokenKey, req.GoogleAuth, payload)
 }
 
@@ -474,6 +477,9 @@ func (s *Service) backupToolsManualRestoreRequest(ctx context.Context, method, p
 
 	req.Header.Set("token_key", tokenKey)
 	req.Header.Set("Authorization", googleAuthJWT)
+	if ownerID := restoreOwnerFromContext(ctx); ownerID != "" {
+		req.Header.Set("X-Restore-As-User", ownerID)
+	}
 	if len(payload) > 0 {
 		req.Header.Set("Content-Type", "application/json")
 	}

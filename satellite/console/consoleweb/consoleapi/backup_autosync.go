@@ -13,6 +13,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console/auditlog"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consoleapi/socialmedia"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consolewebauth"
 )
@@ -21,7 +22,7 @@ func writeBackupToolsJSON(w http.ResponseWriter, status int, body []byte) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	if len(body) > 0 {
-		_, _ = w.Write(body)
+		_, _ = w.Write([]byte(auditlog.RedactBrand(string(body))))
 	}
 }
 
