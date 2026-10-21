@@ -230,10 +230,6 @@ func (s *Service) CreateGoogleBackupAutoSyncJobs(ctx context.Context, req Create
 		payload["org_unit_schedules"] = req.OrgUnitSchedules
 	}
 
-	if denied := s.backupExceedsStorage(ctx, tokenKey, project.PublicID.String(), effectiveServices, gmailEmails); denied {
-		return nil, http.StatusConflict, ErrValidation.New("backup stopped: selected data is larger than available storage")
-	}
-
 	// own_nodes mode: allow job create, but keep inactive until >= MinOwnNodesRequired.
 	ownNodesStatus, capacityErr := s.ownNodesCapacityForUser(ctx, user.ID)
 	jobsCreatedInactive := false

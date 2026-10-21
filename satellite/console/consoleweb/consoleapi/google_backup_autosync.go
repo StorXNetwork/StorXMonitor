@@ -437,7 +437,7 @@ func (g *GoogleBackup) overlayStorageQuotaPopupMessage(ctx context.Context, body
 }
 
 func (g *GoogleBackup) storageExceededPopupMessage(ctx context.Context) string {
-	fallback := "Not enough storage for this backup. The backup stops here. Upgrade your plan to continue."
+	fallback := "Not enough CyberLS storage for the selected Google services. You can upgrade, or continue and create the job anyway."
 	configService := configs.NewService(g.service.GetConfigs())
 	dbConfig, err := configService.GetConfigByName(ctx, configs.ConfigTypePopupMessages, "popup")
 	if err != nil || !dbConfig.IsActive {

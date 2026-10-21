@@ -81,30 +81,6 @@ func (s *Service) triggerBackupServicesQuotaCheckWithProvider(ctx context.Contex
 	return s.backupToolsRequest(ctx, http.MethodPost, "/auto-sync/job/services-quota-check", tokenKey, "", btPayload)
 }
 
-// backupExceedsStorage reports whether the selected backup is larger than remaining storage.
-// A failed check does not stop the backup.
-func (s *Service) backupExceedsStorage(ctx context.Context, tokenKey, projectID string, services, emails []string) bool {
-	payload, err := json.Marshal(map[string]interface{}{
-		"project_id": projectID,
-		"services":   services,
-		"emails":     emails,
-	})
-	if err != nil {
-		return false
-	}
-	body, status, err := s.TriggerBackupServicesQuotaCheck(ctx, tokenKey, payload)
-	if err != nil || status != http.StatusOK {
-		return false
-	}
-	var result struct {
-		Allowed *bool `json:"allowed"`
-	}
-	if json.Unmarshal(body, &result) != nil || result.Allowed == nil {
-		return false
-	}
-	return !*result.Allowed
-}
-
 // triggerMicrosoftServicesQuotaCheck runs the quota check for the Microsoft account selected by
 // credential_id and the tenant selected by tenant_id; the home tenant is never assumed.
 //
