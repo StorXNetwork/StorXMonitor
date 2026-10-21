@@ -18,29 +18,27 @@ on:
         default: false
         type: boolean
 
-# Satellite and sim deployments of the same target restart the same service, so they must not overlap.
+# Google and Microsoft share one binary, so deploys must not overlap.
 concurrency:
-  group: cyberls-${{ inputs.target }}
+  group: cyberls
   cancel-in-progress: false
 
 env:
-  TARGET: ${{ inputs.target }}
-  BIN_PATH: ${{ inputs.target == 'microsoft' && 'D:\cyberls-microsoft\bin' || 'D:\bin' }}
-  TEMP_PATH: ${{ inputs.target == 'microsoft' && 'D:\cyberls-microsoft\deployment' || 'D:\deployment' }}
+  BIN_PATH: 'D:\bin'
+  TEMP_PATH: 'D:\deployment'
   MAIL_TEMPLATES_PATH: ${{ inputs.target == 'microsoft' && 'D:\cyberls-microsoft\Mails' || 'D:\Mails' }}
-  # The NSSM service runs storxnetwork-sim, which locks satellite.exe children
+  # Each target has its own NSSM service. The service runs storxnetwork-sim, which locks satellite.exe children.
   SERVICE: ${{ inputs.target == 'microsoft' && 'Cyberls-Microsoft-Satellite' || 'Cyberls-Satellite' }}
 
 jobs:
   build-satellite:
     runs-on: [self-hosted, windows, production, cyberls]
-    # Google keeps the existing production secrets; Microsoft reads its own environment.
     environment: ${{ inputs.target == 'microsoft' && 'cyberls-microsoft' || 'production' }}
     steps:
     - name: Check deployment target
       shell: powershell
       run: |
-        Write-Host "Target: $env:TARGET, service: $env:SERVICE, bin: $env:BIN_PATH"
+        Write-Host "Service: $env:SERVICE, bin: $env:BIN_PATH, mails: $env:MAIL_TEMPLATES_PATH"
         if (-not (Test-Path "$env:BIN_PATH\nssm.exe")) { Write-Error "nssm.exe not found in $env:BIN_PATH"; exit 1 }
         if (-not (Get-Service -Name $env:SERVICE -ErrorAction SilentlyContinue)) { Write-Error "Service $env:SERVICE is not installed"; exit 1 }
         New-Item -ItemType Directory -Force -Path $env:TEMP_PATH | Out-Null
