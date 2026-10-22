@@ -52,7 +52,22 @@ jobs:
       env:
         PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
       run: |
-        git config --global url."https://x-access-token:$env:PERSONAL_ACCESS_TOKEN@github.com/".insteadOf "https://github.com/"
+        $token = "$env:PERSONAL_ACCESS_TOKEN".Trim()
+        if (-not $token) {
+          Write-Error "PERSONAL_ACCESS_TOKEN is empty for this job."
+          exit 1
+        }
+        Write-Host ("Repository PAT length " + $token.Length)
+        # Older runs left extra insteadOf rules on this runner. Git can keep using one of those.
+        $oldRules = git config --global --name-only --get-regexp '^url\..*\.insteadof$' 2>$null
+        foreach ($name in @($oldRules)) {
+          if ($name) { git config --global --unset-all $name 2>$null | Out-Null }
+        }
+        # Windows Credential Manager otherwise sends a saved GitHub login instead of this token.
+        git config --global credential.helper ""
+        git config --global url."https://x-access-token:${token}@github.com/".insteadOf "https://github.com/"
+        "GIT_TERMINAL_PROMPT=0" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+        "GCM_INTERACTIVE=Never" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
         go env -w GOPRIVATE=github.com/StorXNetwork/*
         go env -w GONOSUMDB=github.com/StorXNetwork/*
         go env -w GONOPROXY=github.com/StorXNetwork/*
