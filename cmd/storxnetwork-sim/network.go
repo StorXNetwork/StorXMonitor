@@ -85,15 +85,25 @@ const (
 // are not stored in the config files.
 var portOffset int
 
+// portBase is the Google network (port offset 0): satellite 10000, versioncontrol 12000, storagenodes 13000.
+const portBase = 10000
+
+// secondNetworkGap is added when --port-offset is set. 10000+20000 puts that satellite on 30000,
+// past Google's 10000–16000 block and past authservice's default 20000–20004 listeners.
+const secondNetworkGap = 20000
+
 // maxPortOffset keeps the highest generated port (ranged loop of the last satellite) below 65536.
-const maxPortOffset = 65535 - (10000 + rangedloopPeer*1000 + (maxInstanceCount-1)*10 + debugSellerHTTP)
+const maxPortOffset = 65535 - (portBase + secondNetworkGap + rangedloopPeer*1000 + (maxInstanceCount-1)*10 + debugSellerHTTP)
 
 // port creates a port with a consistent format for storj-sim services.
 // The port format is: "1PXXE", where P is the peer class, XX is the index of the instance, and E is the endpoint.
-// The whole range is shifted by portOffset.
+// Offset 0 stays on portBase. Any other offset uses portBase+secondNetworkGap (satellite 30000).
 func port(peerclass, index, endpoint int) string {
-	port := 10000 + portOffset + peerclass*1000 + index*10 + endpoint
-	return strconv.Itoa(port)
+	base := portBase
+	if portOffset > 0 {
+		base += secondNetworkGap
+	}
+	return strconv.Itoa(base + peerclass*1000 + index*10 + endpoint)
 }
 
 func networkExec(flags *Flags, args []string, command string) error {
