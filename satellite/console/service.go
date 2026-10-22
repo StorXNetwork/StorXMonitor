@@ -323,6 +323,9 @@ type Service struct {
 	backupToolsURL    string
 	backupToolsAPIKey string
 
+	externalS3AuthURL   string
+	externalS3AuthToken string
+
 	mailExportOrdersDB MailExportOrdersDB
 
 	loginURL   string
@@ -811,9 +814,6 @@ func (s *Service) RefreshStorxTokenForBackupTools(ctx context.Context, req Refre
 	}
 
 	project := member.project
-	if project.PassphraseEnc == nil {
-		return result, ErrValidation.New("project does not support server-side storx token refresh")
-	}
 
 	user, err := s.store.Users().Get(ctx, userID)
 	if err != nil {
@@ -824,7 +824,14 @@ func (s *Service) RefreshStorxTokenForBackupTools(ctx context.Context, req Refre
 	}
 	ctx = WithUser(ctx, user)
 
-	accessGrant, err := s.CreateAccessGrantForManagedProject(ctx, project.ID)
+	// External S3 gateway tokens do not require project passphrase encryption.
+	extBackend, extErr := s.store.ExternalS3Backends().GetByUserID(ctx, userID)
+	isExternal := extErr == nil && extBackend != nil && extBackend.Status == ExternalS3StatusActive
+	if !isExternal && project.PassphraseEnc == nil {
+		return result, ErrValidation.New("project does not support server-side storx token refresh")
+	}
+
+	accessGrant, err := s.ResolveBackupStorxToken(ctx, userID, project.ID)
 	if err != nil {
 		return result, Error.Wrap(err)
 	}
@@ -844,6 +851,75 @@ func (s *Service) RefreshStorxTokenForBackupTools(ctx context.Context, req Refre
 		AccessGrant: accessGrant,
 		ProjectID:   project.PublicID.String(),
 	}, nil
+}
+
+// ProjectUsageLimitsForBackupToolsRequest is the Backup-Tools internal usage-limits body.
+type ProjectUsageLimitsForBackupToolsRequest struct {
+	UserID    string
+	ProjectID string
+}
+
+func (r ProjectUsageLimitsForBackupToolsRequest) Validate() error {
+	if strings.TrimSpace(r.UserID) == "" || strings.TrimSpace(r.ProjectID) == "" {
+		return ErrValidation.New("user_id and project_id are required")
+	}
+	if _, err := uuid.FromString(strings.TrimSpace(r.UserID)); err != nil {
+		return ErrValidation.New("invalid user_id")
+	}
+	if _, err := uuid.FromString(strings.TrimSpace(r.ProjectID)); err != nil {
+		return ErrValidation.New("invalid project_id")
+	}
+	return nil
+}
+
+// GetProjectUsageLimitsForBackupTools returns Redis-backed project usage/limits for Backup-Tools.
+// Caller must authenticate the request (X-API-Key). Does not change enforcement or Redis.
+func (s *Service) GetProjectUsageLimitsForBackupTools(ctx context.Context, req ProjectUsageLimitsForBackupToolsRequest) (limits *ProjectUsageLimits, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err := req.Validate(); err != nil {
+		return nil, err
+	}
+
+	userID, err := uuid.FromString(strings.TrimSpace(req.UserID))
+	if err != nil {
+		return nil, ErrValidation.New("invalid user_id")
+	}
+	projectID, err := uuid.FromString(strings.TrimSpace(req.ProjectID))
+	if err != nil {
+		return nil, ErrValidation.New("invalid project_id")
+	}
+
+	member, err := s.isProjectMember(ctx, userID, projectID)
+	if err != nil {
+		if ErrNoMembership.Has(err) {
+			return nil, ErrUnauthorized.Wrap(err)
+		}
+		return nil, Error.Wrap(err)
+	}
+
+	user, err := s.store.Users().Get(ctx, userID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrUnauthorized.New("user not found")
+		}
+		return nil, Error.Wrap(err)
+	}
+	ctx = WithUser(ctx, user)
+
+	prUsageLimits, err := s.getProjectUsageLimits(ctx, member.project.ID, false)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	prObjectsSegments, err := s.projectAccounting.GetProjectObjectsSegments(ctx, member.project.ID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	prUsageLimits.ObjectCount = prObjectsSegments.ObjectCount
+	prUsageLimits.SegmentCount = prObjectsSegments.SegmentCount
+
+	return prUsageLimits, nil
 }
 
 // ClearGoogleBackupTokensRequest is the Backup-Tools internal clear-google-token body.
@@ -1085,7 +1161,7 @@ type Payments struct {
 }
 
 // NewService returns new instance of Service.
-func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKeys restapikeys.Service, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets buckets.DB, attributions attribution.DB, accounts payments.Accounts, depositWallets payments.DepositWallets, billingDB billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, hubspotMailService *hubspotmails.Service, accountFreezeService *AccountFreezeService, emission *emission.Service, kmsService *kms.Service, valdiService *valdi.Service, ssoService *sso.Service, satelliteAddress string, satelliteNodeAddress string, satelliteName string, maxProjectBuckets int, ssoEnabled bool, placements nodeselection.PlacementDefinitions, versioning VersioningConfig, config Config, skuEnabled bool, loginURL string, supportURL string, bucketEventing eventingconfig.Config, entitlementsService *entitlements.Service, entitlementsConfig entitlements.Config, placementProductMap map[int]int32, productConfigs map[int32]payments.ProductUsagePriceModel, minimumChargeAmount int64, minimumChargeDate *time.Time, packagePlans map[string]payments.PackagePlan, backupToolsURL string, backupToolsAPIKey string, socialShareHelper smartcontract.SocialShareHelper) (*Service, error) {
+func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKeys restapikeys.Service, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets buckets.DB, attributions attribution.DB, accounts payments.Accounts, depositWallets payments.DepositWallets, billingDB billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, hubspotMailService *hubspotmails.Service, accountFreezeService *AccountFreezeService, emission *emission.Service, kmsService *kms.Service, valdiService *valdi.Service, ssoService *sso.Service, satelliteAddress string, satelliteNodeAddress string, satelliteName string, maxProjectBuckets int, ssoEnabled bool, placements nodeselection.PlacementDefinitions, versioning VersioningConfig, config Config, skuEnabled bool, loginURL string, supportURL string, bucketEventing eventingconfig.Config, entitlementsService *entitlements.Service, entitlementsConfig entitlements.Config, placementProductMap map[int]int32, productConfigs map[int32]payments.ProductUsagePriceModel, minimumChargeAmount int64, minimumChargeDate *time.Time, packagePlans map[string]payments.PackagePlan, backupToolsURL string, backupToolsAPIKey string, externalS3AuthURL string, externalS3AuthToken string, socialShareHelper smartcontract.SocialShareHelper) (*Service, error) {
 	if store == nil {
 		return nil, errs.New("store can't be nil")
 	}
@@ -1192,6 +1268,8 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 		socialShareHelper:          socialShareHelper,
 		backupToolsURL:             backupToolsURL,
 		backupToolsAPIKey:          backupToolsAPIKey,
+		externalS3AuthURL:          externalS3AuthURL,
+		externalS3AuthToken:        externalS3AuthToken,
 	}, nil
 }
 
@@ -5704,6 +5782,24 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 	}
 	s.SendNotificationAsync(user.ID, user.Email, "project_created", "account", variables)
 
+	// If user selected own_nodes storage, link this project to their node group.
+	if dest, destErr := s.store.StorageDestinations().GetByUserID(ctx, user.ID); destErr == nil &&
+		dest != nil && dest.Mode == StorageDestinationOwnNodes {
+		if orgID, orgErr := s.resolveOwnNodesOrgIDForUser(ctx, user.ID); orgErr == nil {
+			_ = s.store.Projects().UpdateDefaultPlacement(ctx, projectID, nodeselection.OwnNodesPlacement)
+			_ = s.store.Projects().UpdateOwnNodesOrgID(ctx, projectID, &orgID)
+			if p != nil {
+				p.DefaultPlacement = nodeselection.OwnNodesPlacement
+				p.OwnNodesOrgID = &orgID
+			}
+		} else {
+			s.log.Warn("own-nodes org link skipped for new project",
+				zap.String("project_id", projectID.String()),
+				zap.Error(orgErr),
+			)
+		}
+	}
+
 	return p, nil
 }
 
@@ -7933,7 +8029,7 @@ func (s *Service) getProjectUsageLimits(ctx context.Context, projectID uuid.UUID
 		bucketsLimit = &s.maxProjectBuckets
 	}
 
-	return &ProjectUsageLimits{
+	limitsOut := &ProjectUsageLimits{
 		StorageLimit:          *limits.Usage,
 		UserSetStorageLimit:   limits.UserSetUsage,
 		BandwidthLimit:        *limits.Bandwidth,
@@ -7944,7 +8040,10 @@ func (s *Service) getProjectUsageLimits(ctx context.Context, projectID uuid.UUID
 		SegmentUsed:           segmentUsed,
 		BucketsUsed:           int64(bucketsUsed),
 		BucketsLimit:          int64(*bucketsLimit),
-	}, nil
+	}
+	s.applyOwnNodesQuota(ctx, projectID, limitsOut)
+	s.hideExternalS3Quota(ctx, projectID, limitsOut)
+	return limitsOut, nil
 }
 
 // TokenAuth returns an authenticated context by session token.
@@ -9139,7 +9238,7 @@ func (s *Service) ReinviteProjectMembersDetailed(ctx context.Context, projectID 
 	if strings.TrimSpace(linkOpt) == "" {
 		linkOpt = DefaultInviteLinkExpiration
 	}
-	return s.inviteProjectMembers(ctx, user, projectID, params.Emails, ProjectInvitationResend, nil, linkOpt, nil)
+	return s.inviteProjectMembers(ctx, user, projectID, params.Emails, ProjectInvitationResend, nil, linkOpt, nil, nil)
 }
 
 // UpdatePendingInviteParams updates link expiry and/or pending vault grants for an existing invite.
@@ -9265,7 +9364,7 @@ func (s *Service) UpdatePendingInviteAccess(ctx context.Context, projectID uuid.
 		if strings.TrimSpace(linkOpt) == "" {
 			linkOpt = "keep"
 		}
-		_, err = s.inviteProjectMembers(ctx, user, projectID, []string{email}, ProjectInvitationResend, nil, linkOpt, nil)
+		_, err = s.inviteProjectMembers(ctx, user, projectID, []string{email}, ProjectInvitationResend, nil, linkOpt, nil, nil)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
@@ -9319,6 +9418,8 @@ type InviteProjectMemberParams struct {
 	LinkExpiration string
 	// VaultExpiration is 24h|3d|7d|30d (empty = vault access does not expire).
 	VaultExpiration string
+	// Permissions is optional. Nil keeps read + restore. Set to choose which the invitee gets.
+	Permissions *InviteAccessSelection
 }
 
 // InviteProjectMemberResult is returned to the Grant Access / invite API.
@@ -9329,8 +9430,10 @@ type InviteProjectMemberResult struct {
 	LinkExpiresAt  time.Time          `json:"link_expires_at"`
 	VaultExpiresAt *time.Time         `json:"vault_expires_at,omitempty"`
 	Vaults         []string           `json:"vaults"`
-	// Permission is always read_only for now (list + download). Write/delete scopes come later.
+	// Permission is read, restore, or read_restore.
 	Permission string `json:"permission"`
+	Read       bool   `json:"read"`
+	Restore    bool   `json:"restore"`
 }
 
 // InviteNewProjectMemberDetailed invites a member and returns link + expiry metadata for the UI.
@@ -9358,7 +9461,12 @@ func (s *Service) InviteNewProjectMemberDetailed(ctx context.Context, projectID 
 		return nil, err
 	}
 
-	invites, err := s.inviteProjectMembers(ctx, user, projectID, []string{email}, ProjectInvitationCreate, params.Grants, linkOpt, vaultDur)
+	access, err := ResolveInviteAccess(params.Permissions)
+	if err != nil {
+		return nil, err
+	}
+
+	invites, err := s.inviteProjectMembers(ctx, user, projectID, []string{email}, ProjectInvitationCreate, params.Grants, linkOpt, vaultDur, &access)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -9401,16 +9509,20 @@ func (s *Service) InviteNewProjectMemberDetailed(ctx context.Context, projectID 
 		LinkExpiresAt:  linkExpiresAt,
 		VaultExpiresAt: vaultExpiresAt,
 		Vaults:         vaults,
-		Permission:     "read_only",
+		Permission:     InvitePermissionLabel(access),
+		Read:           access.Read,
+		Restore:        access.Restore,
 	}, nil
 }
 
 // ProjectMemberInviteRequest is one entry for bulk invite (same idea as single invite).
-// Vaults are bucket names (e.g. gmail, google-drive). Server builds List+Download on `{email}/`.
+// Vaults are bucket names (e.g. cyberls-gmail, cyberls-drive). Server builds List+Download on `{email}/`.
 // Vaults == nil → ACL-registry defaults; non-nil (including empty) uses those vault names only.
+// Permissions nil → read + restore.
 type ProjectMemberInviteRequest struct {
-	Email  string
-	Vaults *[]string
+	Email       string
+	Vaults      *[]string
+	Permissions *InviteAccessSelection
 }
 
 // ProjectMemberInviteResult is the per-email outcome of a bulk invite.
@@ -9465,7 +9577,7 @@ func (s *Service) InviteNewProjectMembers(ctx context.Context, projectID uuid.UU
 		}
 		// Vaults == nil → pass nil grants → DefaultInviteGrants from ACL registry
 
-		_, inviteErr := s.inviteProjectMembers(ctx, user, projectID, []string{email}, ProjectInvitationCreate, grants, DefaultInviteLinkExpiration, nil)
+		_, inviteErr := s.inviteProjectMembers(ctx, user, projectID, []string{email}, ProjectInvitationCreate, grants, DefaultInviteLinkExpiration, nil, req.Permissions)
 		if inviteErr != nil {
 			result.Error = inviteErr.Error()
 			results = append(results, result)
@@ -9481,7 +9593,7 @@ func (s *Service) InviteNewProjectMembers(ctx context.Context, projectID uuid.UU
 // which may be its public or internal ID.
 // pendingGrants is only used for ProjectInvitationCreate with a single email (nil = defaults).
 // linkExpiration is 24h|3d|7d|30d; vaultDuration nil means vault grants do not expire.
-func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projectID uuid.UUID, emails []string, opt ProjectInvitationOption, pendingGrants []MemberBucketGrantInput, linkExpiration string, vaultDuration *time.Duration) (invites []ProjectInvitation, err error) {
+func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projectID uuid.UUID, emails []string, opt ProjectInvitationOption, pendingGrants []MemberBucketGrantInput, linkExpiration string, vaultDuration *time.Duration, access *InviteAccessSelection) (invites []ProjectInvitation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	isMember, err := s.isProjectMember(ctx, sender.ID, projectID)
@@ -9560,8 +9672,15 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 		}
 	}
 
+	// Resolve selected invite permissions (nil = read + restore).
+	accessSel, err := ResolveInviteAccess(access)
+	if err != nil {
+		return nil, err
+	}
+
 	// Validate grant buckets exist before opening a console DB transaction.
 	// HasBucket must not run inside WithTx (panics: using DB when inside of a transaction).
+	resolvedGrants := map[string][]MemberBucketGrantInput{}
 	if opt == ProjectInvitationCreate && s.config.MemberBucketGrantsEnabled {
 		for _, email := range emails {
 			var grantsForEmail []MemberBucketGrantInput
@@ -9575,7 +9694,9 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 				}
 				grantsForEmail = DefaultInviteGrants(email, names)
 			}
-			// Copy so ValidateGrantSet normalization does not mutate caller input.
+			grantsForEmail = ApplyInviteAccess(grantsForEmail, accessSel)
+			resolvedGrants[strings.ToLower(strings.TrimSpace(email))] = grantsForEmail
+			// Copy so ValidateGrantSet normalization does not mutate stored grants.
 			grantsCopy := append([]MemberBucketGrantInput(nil), grantsForEmail...)
 			if vErr := ValidateGrantSet(grantsCopy); vErr != nil {
 				return nil, ErrValidation.Wrap(vErr)
@@ -9616,10 +9737,7 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 			}
 
 			if opt == ProjectInvitationCreate {
-				var grantsForEmail []MemberBucketGrantInput
-				if len(emails) == 1 {
-					grantsForEmail = pendingGrants
-				}
+				grantsForEmail := resolvedGrants[strings.ToLower(strings.TrimSpace(email))]
 				if err = s.createPendingMemberGrants(ctx, tx, projectID, email, grantsForEmail, vaultExpiresAt); err != nil {
 					return err
 				}
@@ -10664,11 +10782,12 @@ func (s *Service) GetDashboardStats(ctx context.Context, userID uuid.UUID, token
 		if projErr != nil {
 			return projErr
 		}
-		if len(projects) == 0 {
+		projectID := ownedDashboardProjectID(user.ID, projects)
+		if projectID.IsZero() {
 			return nil
 		}
 
-		limits, limitsErr := s.getDashboardUsageLimits(gctx, user.ID, projects[0].ID)
+		limits, limitsErr := s.getDashboardUsageLimits(gctx, user.ID, projectID)
 		if limitsErr != nil {
 			return limitsErr
 		}
@@ -10712,6 +10831,21 @@ func (s *Service) GetDashboardStats(ctx context.Context, userID uuid.UUID, token
 	return result, nil
 }
 
+// ownedDashboardProjectID prefers the project this user owns.
+// GetByUserID also returns projects they were invited to; the first row is often
+// the inviter's project and would show that owner's storage on the invitee's dashboard.
+func ownedDashboardProjectID(userID uuid.UUID, projects []Project) uuid.UUID {
+	for _, p := range projects {
+		if p.OwnerID == userID {
+			return p.ID
+		}
+	}
+	if len(projects) == 0 {
+		return uuid.UUID{}
+	}
+	return projects[0].ID
+}
+
 // getDashboardUsageLimits returns quota fields for dashboard cards without object/segment or bucket counts.
 func (s *Service) getDashboardUsageLimits(ctx context.Context, userID, projectID uuid.UUID) (*ProjectUsageLimits, error) {
 	member, err := s.isProjectMember(ctx, userID, projectID)
@@ -10736,7 +10870,7 @@ func (s *Service) getDashboardUsageLimits(ctx context.Context, userID, projectID
 		return nil, err
 	}
 
-	return &ProjectUsageLimits{
+	out := &ProjectUsageLimits{
 		StorageLimit:          *limits.Usage,
 		UserSetStorageLimit:   limits.UserSetUsage,
 		BandwidthLimit:        *limits.Bandwidth,
@@ -10745,7 +10879,10 @@ func (s *Service) getDashboardUsageLimits(ctx context.Context, userID, projectID
 		BandwidthUsed:         bandwidthUsed,
 		SegmentLimit:          *limits.Segments,
 		SegmentUsed:           segmentUsed,
-	}, nil
+	}
+	s.applyOwnNodesQuota(ctx, projectID, out)
+	s.hideExternalS3Quota(ctx, projectID, out)
+	return out, nil
 }
 
 func (s *Service) loadDashboardCardConfig(ctx context.Context) DashboardCardsResponse {
@@ -10977,14 +11114,14 @@ func (s *Service) enrichBandwidthQuotaCardFromLimits(card *BaseCard, usageLimits
 }
 
 func (s *Service) enrichUsageQuotaCard(card *BaseCard, used, limit int64) {
-	percent := usagePercentUsed(used, limit)
+	percent, label := quotaCardStatus(used, limit)
 	card.Value1 = formatQuotaFraction(used, limit)
-	card.Value2 = percent
+	card.Value2 = int64(percent)
 	card.Value2Label = "percent_used"
 
 	status := s.getStatus("active")
-	status.Value = fmt.Sprintf("%d%% Used", percent)
-	if percent >= 90 {
+	status.Value = label
+	if limit > 0 && percent >= 90 {
 		warn := s.getStatus("partial_success")
 		warn.Value = status.Value
 		status = warn
@@ -11009,11 +11146,16 @@ func formatQuotaFraction(used, limit int64) string {
 	return fmt.Sprintf("%s / %s", formatBytes(displayUsed), formatBytes(limit))
 }
 
+func quotaCardStatus(used, limit int64) (percent int, label string) {
+	if limit <= 0 {
+		return 0, "No limit"
+	}
+	percent = usagePercentUsed(used, limit)
+	return percent, fmt.Sprintf("%d%% Used", percent)
+}
+
 func usagePercentUsed(used, limit int64) int {
 	if limit <= 0 {
-		if used > 0 {
-			return 100
-		}
 		return 0
 	}
 	percent := int(float64(used) / float64(limit) * 100)
@@ -11099,6 +11241,7 @@ func (s *Service) fetchProtectedServicesStats(ctx context.Context, tokenGetter f
 		return nil, Error.Wrap(err)
 	}
 
+	// Common Backup-Tools stats (same for Google + Microsoft health overview).
 	body, status, err := s.backupToolsRequest(ctx, http.MethodGet, "/autosync/stats", tokenString, "", nil)
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -11119,17 +11262,17 @@ type GmailCorporateDomainUsersResponse map[string]interface{}
 
 // GetGoogleBackupOnboarding reads user_settings for the current user and returns the API onboarding block.
 // Uses GetSettings directly (not GetUserSettings) so project ownership does not auto-complete backup onboarding.
-func (s *Service) GetGoogleBackupOnboarding(ctx context.Context) (GoogleBackupOnboardingAPI, error) {
-	defer mon.Task()(&ctx)
+func (s *Service) GetGoogleBackupOnboarding(ctx context.Context) (api GoogleBackupOnboardingAPI, err error) {
+	defer mon.Task()(&ctx)(&err)
 
 	user, err := GetUser(ctx)
 	if err != nil {
-		return GoogleBackupOnboardingAPI{}, Error.Wrap(err)
+		return api, Error.Wrap(err)
 	}
 
 	settings, err := s.store.Users().GetSettings(ctx, user.ID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return GoogleBackupOnboardingAPI{}, Error.Wrap(err)
+		return api, Error.Wrap(err)
 	}
 	return GoogleBackupOnboardingAPIFromSettings(settings), nil
 }
@@ -11340,6 +11483,20 @@ func GoogleBackupScopesPayload(granted, ungranted []string) map[string]interface
 	return out
 }
 
+// MicrosoftBackupScopesPayload is the scope-only microsoft_backup object (connect and partial responses).
+func MicrosoftBackupScopesPayload(granted, ungranted []string) map[string]interface{} {
+	out := make(map[string]interface{})
+	if granted == nil {
+		granted = []string{}
+	}
+	if ungranted == nil {
+		ungranted = []string{}
+	}
+	out["granted_scopes"] = granted
+	out["ungranted_scopes"] = ungranted
+	return out
+}
+
 // GoogleBackupRegistrationPayload merges domain-users metadata and OAuth scope summary for register-google.
 func GoogleBackupRegistrationPayload(result RegisterGoogleBackupResult) map[string]interface{} {
 	out := googleBackupDomainUsersPayload(result.DomainUsers, result.DomainError)
@@ -11363,6 +11520,17 @@ func (s *Service) fetchGmailCorporateDomainUsers(ctx context.Context, tokenKey, 
 }
 
 func (s *Service) backupToolsRequest(ctx context.Context, method, path, tokenKey, accessToken string, payload []byte) ([]byte, int, error) {
+	return s.backupToolsRequestWithHeaders(ctx, method, path, tokenKey, accessToken, "", payload)
+}
+
+// backupToolsRequestWithHeaders proxies to Backup-Tools with optional ACCESS_TOKEN and REFRESH_TOKEN headers.
+func (s *Service) backupToolsRequestWithHeaders(ctx context.Context, method, path, tokenKey, accessToken, refreshToken string, payload []byte) ([]byte, int, error) {
+	return s.backupToolsRequestWithExtraHeaders(ctx, method, path, tokenKey, accessToken, refreshToken, nil, payload)
+}
+
+// backupToolsRequestWithExtraHeaders is backupToolsRequestWithHeaders plus additional headers
+// (e.g. the Microsoft credential and tenant context).
+func (s *Service) backupToolsRequestWithExtraHeaders(ctx context.Context, method, path, tokenKey, accessToken, refreshToken string, extra map[string]string, payload []byte) ([]byte, int, error) {
 	if s.backupToolsURL == "" {
 		return nil, 0, Error.New("Backup-Tools URL not configured")
 	}
@@ -11382,9 +11550,20 @@ func (s *Service) backupToolsRequest(ctx context.Context, method, path, tokenKey
 		req.Header.Set("ACCESS_TOKEN", accessToken)
 		req.Header.Set("Authorization", "Bearer "+accessToken)
 	}
+	if refreshToken != "" {
+		req.Header.Set("REFRESH_TOKEN", refreshToken)
+	}
+	for name, value := range extra {
+		if value != "" {
+			req.Header.Set(name, value)
+		}
+	}
 	req.Header.Set("Content-Type", "application/json")
+	if ownerID := restoreOwnerFromContext(ctx); ownerID != "" {
+		req.Header.Set("X-Restore-As-User", ownerID)
+	}
 
-	resp, err := (&http.Client{Timeout: 30 * time.Second}).Do(req)
+	resp, err := (&http.Client{Timeout: 60 * time.Second}).Do(req)
 	if err != nil {
 		return nil, 0, Error.Wrap(err)
 	}

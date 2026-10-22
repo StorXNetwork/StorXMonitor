@@ -58,6 +58,7 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/satellite/mailservice/hubspotmails"
 	"github.com/StorXNetwork/StorXMonitor/satellite/oidc"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/gateway"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/paymentsconfig"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
 	"github.com/StorXNetwork/StorXMonitor/satellite/seller"
@@ -102,8 +103,8 @@ type Config struct {
 
 	ClientOrigin string `help:"client origin for redirection URLs" default:""`
 
-	BackupToolsURL    string `help:"Backup-Tools service URL for AutoSync stats (e.g., http://localhost:8000)" default:""`
-	BackupToolsAPIKey string `help:"shared API key for Backup-Tools (X-API-Key on Satellite internal routes and Satellite→BT /internal/account/* lifecycle calls)" default:""`
+	BackupToolsURL         string `help:"Backup-Tools service URL for AutoSync stats (e.g., http://localhost:8000)" default:""`
+	BackupToolsAPIKey      string `help:"shared API key for Backup-Tools (X-API-Key on Satellite internal routes, including storx-token refresh and google-token clear, and Satellite→BT /internal/account/* lifecycle calls)" default:""`
 	MailExportServiceToken string `help:"Bearer token for gateway-mt mail-export internal APIs under /api/v0/internal/mail-export-jobs and /api/v0/internal/bandwidth-quota" default:""`
 
 	GoogleClientID                string `help:"client id for google oauth" default:""`
@@ -112,6 +113,11 @@ type Config struct {
 	GoggleLoginRedirectURLstring  string `help:"redirect url for google oauth login" default:""`
 	GoogleBackupRedirectURLstring string `help:"redirect url for google oauth google-backup (GET /api/v0/auth/google-backup)" default:""`
 	GoogleSellerRedirectURLstring string `help:"redirect url for google oauth seller (GET /api/v0/seller/auth/google)" default:""`
+
+	OutlookClientID                   string `help:"client id for microsoft/outlook oauth (GET /api/v0/auth/microsoft-backup)" default:""`
+	OutlookClientSecret               string `help:"client secret for microsoft/outlook oauth (GET /api/v0/auth/microsoft-backup)" default:""`
+	MicrosoftBackupRedirectURLstring  string `help:"redirect url for microsoft oauth microsoft-backup (GET /api/v0/auth/microsoft-backup)" default:""`
+	MicrosoftAdminConsentRedirectPath string `help:"frontend path Microsoft redirects to after tenant admin consent; appended to the microsoft-backup frontend origin and must be registered on the Azure app" default:"/connect/microsoft-admin-consent-callback"`
 
 	FacebookClientID               string `help:"client id for facebook oauth" default:""`
 	FacebookClientSecret           string `help:"client secret for facebook oauth" default:""`
@@ -142,6 +148,7 @@ type Config struct {
 	Web3AuthContractAddress string `help:"contract address for web3 auth" default:""`
 	Web3AuthAddress         string `help:"address for web3 auth" default:""`
 	Web3AuthNetworkRPC      string `help:"network rpc for web3 auth" default:""`
+	Web3AuthMinGasPriceGwei int64  `help:"minimum gas price in gwei for key-value contract transactions. 0 uses the chain default (mainnet 15, apothem 630)" default:"0"`
 
 	StaticDir string `help:"path to static resources" default:""`
 	Watch     bool   `help:"whether to load templates on each request" default:"false" devDefault:"true"`
@@ -162,6 +169,7 @@ type Config struct {
 	GeneralRequestURL               string        `help:"url link to general request page" default:"https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291"`
 	ProjectLimitsIncreaseRequestURL string        `help:"url link to project limit increase request page" default:"https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212"`
 	GatewayCredentialsRequestURL    string        `help:"url link for gateway credentials requests" default:"https://auth.storjsatelliteshare.io" devDefault:"http://localhost:8000"`
+	AuthServiceToken                string        `help:"bearer token for authservice when satellite registers external S3 backends" default:"" devDefault:"my-test-auth-token"`
 	IsBetaSatellite                 bool          `help:"indicates if satellite is in beta" default:"false"`
 	BetaSatelliteFeedbackURL        string        "help:\"url link for beta satellite feedback\" default:\"\""
 	BetaSatelliteSupportURL         string        "help:\"url link for beta satellite support\" default:\"\""
@@ -302,7 +310,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	mailService *mailservice.Service, hubspotMailService *hubspotmails.Service, analytics *analytics.Service, abTesting *abtesting.Service,
 	accountFreezeService *console.AccountFreezeService, ssoService *sso.Service, csrfService *csrf.Service, listener net.Listener,
 	stripePublicKey string, neededTokenPaymentConfirmations int, nodeURL storxnetwork.NodeURL,
-	analyticsConfig analytics.Config, notificationService *pushnotifications.Service, packagePlans paymentsconfig.PackagePlans, stripe *stripe.Service, developerService *developer.Service,
+	analyticsConfig analytics.Config, notificationService *pushnotifications.Service, packagePlans paymentsconfig.PackagePlans, stripe *stripe.Service, paymentGateway *gateway.Service, developerService *developer.Service,
 	minimumChargeConfig paymentsconfig.MinimumChargeConfig, usagePrices payments.ProjectUsagePriceModel, pps ProductPriceSummaries,
 	entitlementsEnabled bool, ssoEnabled bool, sellerDB seller.DB) *Server {
 	initAdditionalMimeTypes()
@@ -422,6 +430,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	mailExportController := consoleapi.NewMailExportJobs(logger, service, config.MailExportServiceToken)
 	internalRouter := router.PathPrefix("/api/v0/internal").Subrouter()
 	internalRouter.Handle("/storx-token/refresh", http.HandlerFunc(internalStorxTokenController.RefreshStorxToken)).Methods(http.MethodPost)
+	internalRouter.Handle("/project-usage-limits", http.HandlerFunc(internalStorxTokenController.ProjectUsageLimits)).Methods(http.MethodPost)
 	internalRouter.Handle("/google-token/clear", http.HandlerFunc(internalStorxTokenController.ClearGoogleToken)).Methods(http.MethodPost)
 	internalRouter.Handle("/mail-export-jobs", http.HandlerFunc(mailExportController.Create)).Methods(http.MethodPost)
 	internalRouter.Handle("/mail-export-jobs/claim", http.HandlerFunc(mailExportController.Claim)).Methods(http.MethodPost)
@@ -482,6 +491,9 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	socialmedia.SetGoogleSocialMediaConfig(config.GoogleClientID, config.GoogleClientSecret, config.GoogleSigupRedirectURLstring, config.GoggleLoginRedirectURLstring)
 	socialmedia.SetGoogleBackupOAuthRedirectURL(config.GoogleBackupRedirectURLstring)
 	socialmedia.SetGoogleSellerOAuthRedirectURL(config.GoogleSellerRedirectURLstring)
+	socialmedia.SetOutlookSocialMediaConfig(config.OutlookClientID, config.OutlookClientSecret)
+	socialmedia.SetMicrosoftBackupOAuthRedirectURL(config.MicrosoftBackupRedirectURLstring)
+	socialmedia.SetMicrosoftAdminConsentRedirectPath(config.MicrosoftAdminConsentRedirectPath)
 	socialmedia.SetFacebookSocialMediaConfig(config.FacebookClientID, config.FacebookClientSecret, config.FacebookSigupRedirectURLstring, config.FacebookLoginRedirectURLstring)
 	socialmedia.SetLinkedinSocialMediaConfig(config.LinkedinClientID, config.LinkedinClientSecret, config.LinkedinSigupRedirectURLstring, config.LinkedinLoginRedirectURLstring, config.LinkedinRegisterIdTokenRedirectURLstring, config.LinkedinLoginIdTokenRedirectURLstring)
 	socialmedia.SetUnstoppableDomainSocialMediaConfig(config.UnstoppableDomainClientID, config.UnstoppableDomainClientSecret, config.UnstoppableDomainSignupRedirectURLstring, config.UnstoppableDomainLoginRedirectURLstring)
@@ -532,6 +544,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	authRouter.Handle("/linkedin_register/mobile", server.ipRateLimiter.Limit(http.HandlerFunc(authController.HandleLinkedInRegisterWithAuthToken))).Methods(http.MethodPost, http.MethodOptions)
 
 	authRouter.Handle("/google-backup", server.ipRateLimiter.Limit(http.HandlerFunc(authController.GoogleBackupAuth))).Methods(http.MethodGet, http.MethodOptions)
+	authRouter.Handle("/microsoft-backup", server.ipRateLimiter.Limit(http.HandlerFunc(authController.MicrosoftBackupAuth))).Methods(http.MethodGet, http.MethodOptions)
 	authRouter.Handle("/register-google", server.ipRateLimiter.Limit(http.HandlerFunc(authController.RegisterGoogle))).Methods(http.MethodGet, http.MethodOptions)
 	authRouter.Handle("/login-google", server.ipRateLimiter.Limit(http.HandlerFunc(authController.LoginUserConfirm))).Methods(http.MethodGet, http.MethodOptions)
 	authRouter.Handle("/register-google-app", server.ipRateLimiter.Limit(http.HandlerFunc(authController.RegisterGoogleForApp))).Methods(http.MethodPost, http.MethodOptions)
@@ -559,6 +572,36 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	dashboardRouter.Use(server.withCORS)
 	dashboardRouter.Use(server.withAuth)
 	dashboardRouter.Handle("/stats", http.HandlerFunc(dashboardController.GetDashboardStats)).Methods(http.MethodGet, http.MethodOptions)
+	dashboardRouter.Handle("/alerts", server.userIDRateLimiter.Limit(http.HandlerFunc(dashboardController.GetDashboardAlerts))).Methods(http.MethodGet, http.MethodOptions)
+	dashboardRouter.Handle("/backup-restore/logs", server.userIDRateLimiter.Limit(http.HandlerFunc(dashboardController.ListBackupRestoreLogs))).Methods(http.MethodGet, http.MethodOptions)
+
+	// Common backup auto-sync + policy (Google + Microsoft) — Backup-Tools /auto-sync/*.
+	backupController := consoleapi.NewBackupAutoSync(logger, service, server.cookieAuth)
+	backupPolicyController := consoleapi.NewBackupAutoSyncPolicy(logger, service, server.cookieAuth)
+	backupRouter := router.PathPrefix("/api/v0/backup").Subrouter()
+	backupRouter.Use(server.withCORS)
+	backupRouter.Use(server.withAuth)
+
+	backupAutoSyncRouter := backupRouter.PathPrefix("/auto-sync").Subrouter()
+	backupAutoSyncRouter.Handle("/jobs", server.userIDRateLimiter.Limit(http.HandlerFunc(backupController.ListAutoSyncJobs))).Methods(http.MethodGet, http.MethodOptions)
+	backupAutoSyncRouter.Handle("/jobs/services", server.userIDRateLimiter.Limit(http.HandlerFunc(backupController.ListAutoSyncJobServices))).Methods(http.MethodGet, http.MethodOptions)
+	backupAutoSyncRouter.Handle("/live", server.userIDRateLimiter.Limit(http.HandlerFunc(backupController.AutoSyncLive))).Methods(http.MethodGet, http.MethodOptions)
+	backupAutoSyncRouter.Handle("/jobs/project", server.userIDRateLimiter.Limit(http.HandlerFunc(backupController.UpdateAutoSyncJobsByProject))).Methods(http.MethodPut, http.MethodOptions)
+	backupAutoSyncRouter.Handle("/task/{job_id}/backup-now", server.userIDRateLimiter.Limit(http.HandlerFunc(backupController.BackupNowAutoSyncJob))).Methods(http.MethodPost, http.MethodOptions)
+	backupAutoSyncRouter.Handle("/jobs/{job_id}", server.userIDRateLimiter.Limit(http.HandlerFunc(backupController.GetAutoSyncJob))).Methods(http.MethodGet, http.MethodOptions)
+	backupAutoSyncRouter.Handle("/jobs/{job_id}", server.userIDRateLimiter.Limit(http.HandlerFunc(backupController.UpdateAutoSyncJob))).Methods(http.MethodPut, http.MethodOptions)
+
+	backupPolicyRouter := backupAutoSyncRouter.PathPrefix("/policy").Subrouter()
+	backupPolicyRouter.Handle("/options", server.userIDRateLimiter.Limit(http.HandlerFunc(backupPolicyController.GetPolicyOptions))).Methods(http.MethodGet, http.MethodOptions)
+	backupPolicyRouter.Handle("/available-assignments", server.userIDRateLimiter.Limit(http.HandlerFunc(backupPolicyController.GetAvailableAssignments))).Methods(http.MethodGet, http.MethodOptions)
+	backupPolicyRouter.Handle("/move", server.userIDRateLimiter.Limit(http.HandlerFunc(backupPolicyController.MoveAssignments))).Methods(http.MethodPost, http.MethodOptions)
+	backupPolicyRouter.Handle("/merge/preview", server.userIDRateLimiter.Limit(http.HandlerFunc(backupPolicyController.PreviewMergePolicies))).Methods(http.MethodGet, http.MethodOptions)
+	backupPolicyRouter.Handle("/merge", server.userIDRateLimiter.Limit(http.HandlerFunc(backupPolicyController.MergePolicies))).Methods(http.MethodPost, http.MethodOptions)
+	backupPolicyRouter.Handle("", server.userIDRateLimiter.Limit(http.HandlerFunc(backupPolicyController.ListPolicies))).Methods(http.MethodGet, http.MethodOptions)
+	backupPolicyRouter.Handle("", server.userIDRateLimiter.Limit(http.HandlerFunc(backupPolicyController.CreatePolicy))).Methods(http.MethodPost, http.MethodOptions)
+	backupPolicyRouter.Handle("/{policy_id}", server.userIDRateLimiter.Limit(http.HandlerFunc(backupPolicyController.GetPolicy))).Methods(http.MethodGet, http.MethodOptions)
+	backupPolicyRouter.Handle("/{policy_id}", server.userIDRateLimiter.Limit(http.HandlerFunc(backupPolicyController.UpdatePolicy))).Methods(http.MethodPut, http.MethodOptions)
+	backupPolicyRouter.Handle("/{policy_id}", server.userIDRateLimiter.Limit(http.HandlerFunc(backupPolicyController.DeletePolicy))).Methods(http.MethodDelete, http.MethodOptions)
 
 	auditLogsController := consoleapi.NewAuditLogs(logger, service)
 	auditLogsRouter := router.PathPrefix("/api/v0/audit-logs").Subrouter()
@@ -566,50 +609,28 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	auditLogsRouter.Handle("", server.withAuth(server.userIDRateLimiter.Limit(http.HandlerFunc(auditLogsController.ListAuditLogs)))).Methods(http.MethodGet, http.MethodOptions)
 	auditLogsRouter.Handle("/actions", server.withAuth(server.userIDRateLimiter.Limit(http.HandlerFunc(auditLogsController.ListAuditLogActions)))).Methods(http.MethodGet, http.MethodOptions)
 	auditLogsRouter.Handle("/export", server.withAuth(server.userIDRateLimiter.Limit(http.HandlerFunc(auditLogsController.ExportAuditLogs)))).Methods(http.MethodGet, http.MethodOptions)
+	auditLogsRouter.Handle("/activity", server.withAuth(server.userIDRateLimiter.Limit(http.HandlerFunc(auditLogsController.RecordActivity)))).Methods(http.MethodPost, http.MethodOptions)
 
 	googleBackupUsersGroupsController := consoleapi.NewGoogleBackupUsersGroups(logger, service, server.cookieAuth)
 	googleBackupUsersGroupsRouter := router.PathPrefix("/api/v0/google-backup/users-groups").Subrouter()
 	googleBackupUsersGroupsRouter.Use(server.withCORS)
 	googleBackupUsersGroupsRouter.Use(server.withAuth)
+	// Same mailbox/users-groups surface as /microsoft-backup/users-groups (BT: /users-groups vs /microsoft/users-groups).
 	googleBackupUsersGroupsRouter.Handle("/domains", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupUsersGroupsController.GetDomains))).Methods(http.MethodGet, http.MethodOptions)
 	googleBackupUsersGroupsRouter.Handle("/mailbox/overview", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupUsersGroupsController.GetMailboxOverview))).Methods(http.MethodGet, http.MethodOptions)
 	googleBackupUsersGroupsRouter.Handle("/mailbox/services", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupUsersGroupsController.GetMailboxServices))).Methods(http.MethodGet, http.MethodOptions)
 	googleBackupUsersGroupsRouter.Handle("/mailbox/schedule", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupUsersGroupsController.GetMailboxSchedule))).Methods(http.MethodGet, http.MethodOptions)
 	googleBackupUsersGroupsRouter.Handle("/mailbox/credentials", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupUsersGroupsController.GetMailboxCredentials))).Methods(http.MethodGet, http.MethodOptions)
 	googleBackupUsersGroupsRouter.Handle("/jobs/active", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupUsersGroupsController.UpdateJobsActive))).Methods(http.MethodPut, http.MethodOptions)
-	googleBackupUsersGroupsRouter.Handle("/dashboard-alerts", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupUsersGroupsController.GetDashboardAlerts))).Methods(http.MethodGet, http.MethodOptions)
 	googleBackupUsersGroupsRouter.Handle("", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupUsersGroupsController.List))).Methods(http.MethodGet, http.MethodOptions)
 
-	googleBackupController := consoleapi.NewGoogleBackup(logger, service, server.cookieAuth)
+	googleBackupController := consoleapi.NewGoogleBackup(logger, service, server.cookieAuth, server.config.BillingUpgradeURL)
 	googleBackupRouter := router.PathPrefix("/api/v0/google-backup").Subrouter()
 	googleBackupRouter.Use(server.withCORS)
 	googleBackupRouter.Use(server.withAuth)
 	googleBackupRouter.Handle("/connect", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.ConnectGoogle))).Methods(http.MethodPost, http.MethodOptions)
 	googleBackupRouter.Handle("/domain-users", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.GetDomainUsers))).Methods(http.MethodGet, http.MethodOptions)
-	googleBackupRouter.Handle("/backup-restore/logs", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.ListBackupRestoreLogs))).Methods(http.MethodGet, http.MethodOptions)
 	googleBackupRouter.Handle("/auto-sync/jobs", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.CreateAutoSyncJobs))).Methods(http.MethodPost, http.MethodOptions)
-	googleBackupRouter.Handle("/auto-sync/jobs", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.ListAutoSyncJobs))).Methods(http.MethodGet, http.MethodOptions)
-	googleBackupRouter.Handle("/auto-sync/jobs/services", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.ListAutoSyncJobServices))).Methods(http.MethodGet, http.MethodOptions)
-	googleBackupRouter.Handle("/auto-sync/live", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.AutoSyncLive))).Methods(http.MethodGet, http.MethodOptions)
-	googleBackupRouter.Handle("/auto-sync/jobs/project", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.UpdateAutoSyncJobsByProject))).Methods(http.MethodPut, http.MethodOptions)
-	googleBackupRouter.Handle("/auto-sync/task/{job_id}/backup-now", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.BackupNowAutoSyncJob))).Methods(http.MethodPost, http.MethodOptions)
-	googleBackupRouter.Handle("/auto-sync/jobs/{job_id}", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.UpdateAutoSyncJob))).Methods(http.MethodPut, http.MethodOptions)
-	googleBackupRouter.Handle("/auto-sync/jobs/{job_id}", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupController.GetAutoSyncJob))).Methods(http.MethodGet, http.MethodOptions)
-
-	googleBackupPolicyController := consoleapi.NewGoogleBackupAutoSyncPolicy(logger, service, server.cookieAuth)
-	googleBackupPolicyRouter := router.PathPrefix("/api/v0/google-backup/auto-sync/policy").Subrouter()
-	googleBackupPolicyRouter.Use(server.withCORS)
-	googleBackupPolicyRouter.Use(server.withAuth)
-	googleBackupPolicyRouter.Handle("/options", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupPolicyController.GetPolicyOptions))).Methods(http.MethodGet, http.MethodOptions)
-	googleBackupPolicyRouter.Handle("/available-assignments", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupPolicyController.GetAvailableAssignments))).Methods(http.MethodGet, http.MethodOptions)
-	googleBackupPolicyRouter.Handle("/move", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupPolicyController.MoveAssignments))).Methods(http.MethodPost, http.MethodOptions)
-	googleBackupPolicyRouter.Handle("/merge/preview", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupPolicyController.PreviewMergePolicies))).Methods(http.MethodGet, http.MethodOptions)
-	googleBackupPolicyRouter.Handle("/merge", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupPolicyController.MergePolicies))).Methods(http.MethodPost, http.MethodOptions)
-	googleBackupPolicyRouter.Handle("", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupPolicyController.ListPolicies))).Methods(http.MethodGet, http.MethodOptions)
-	googleBackupPolicyRouter.Handle("", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupPolicyController.CreatePolicy))).Methods(http.MethodPost, http.MethodOptions)
-	googleBackupPolicyRouter.Handle("/{policy_id}", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupPolicyController.GetPolicy))).Methods(http.MethodGet, http.MethodOptions)
-	googleBackupPolicyRouter.Handle("/{policy_id}", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupPolicyController.UpdatePolicy))).Methods(http.MethodPut, http.MethodOptions)
-	googleBackupPolicyRouter.Handle("/{policy_id}", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupPolicyController.DeletePolicy))).Methods(http.MethodDelete, http.MethodOptions)
 
 	googleBackupRestoreController := consoleapi.NewGoogleBackupRestore(logger, service, server.cookieAuth)
 	googleBackupRouter.Handle("/google-auth", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupRestoreController.GoogleAuth))).Methods(http.MethodPost, http.MethodOptions)
@@ -628,6 +649,54 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	googleBackupRouter.Handle("/google/satellite-to-photos", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupRestoreController.ManualRestorePhotos))).Methods(http.MethodPost, http.MethodOptions)
 	googleBackupRouter.Handle("/google/satellite-to-calendar", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupRestoreController.ManualRestoreCalendar))).Methods(http.MethodPost, http.MethodOptions)
 	googleBackupRouter.Handle("/google/satellite-to-contacts", server.userIDRateLimiter.Limit(http.HandlerFunc(googleBackupRestoreController.ManualRestoreContacts))).Methods(http.MethodPost, http.MethodOptions)
+
+	microsoftBackupUsersGroupsController := consoleapi.NewMicrosoftBackupUsersGroups(logger, service, server.cookieAuth)
+	microsoftBackupUsersGroupsRouter := router.PathPrefix("/api/v0/microsoft-backup/users-groups").Subrouter()
+	microsoftBackupUsersGroupsRouter.Use(server.withCORS)
+	microsoftBackupUsersGroupsRouter.Use(server.withAuth)
+	// Mirror of /google-backup/users-groups/* (domains, mailbox/*, jobs/active, list).
+	microsoftBackupUsersGroupsRouter.Handle("/domains", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupUsersGroupsController.GetDomains))).Methods(http.MethodGet, http.MethodOptions)
+	microsoftBackupUsersGroupsRouter.Handle("/mailbox/overview", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupUsersGroupsController.GetMailboxOverview))).Methods(http.MethodGet, http.MethodOptions)
+	microsoftBackupUsersGroupsRouter.Handle("/mailbox/services", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupUsersGroupsController.GetMailboxServices))).Methods(http.MethodGet, http.MethodOptions)
+	microsoftBackupUsersGroupsRouter.Handle("/mailbox/schedule", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupUsersGroupsController.GetMailboxSchedule))).Methods(http.MethodGet, http.MethodOptions)
+	microsoftBackupUsersGroupsRouter.Handle("/mailbox/credentials", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupUsersGroupsController.GetMailboxCredentials))).Methods(http.MethodGet, http.MethodOptions)
+	microsoftBackupUsersGroupsRouter.Handle("/jobs/active", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupUsersGroupsController.UpdateJobsActive))).Methods(http.MethodPut, http.MethodOptions)
+	microsoftBackupUsersGroupsRouter.Handle("", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupUsersGroupsController.List))).Methods(http.MethodGet, http.MethodOptions)
+
+	microsoftBackupRestoreAllController := consoleapi.NewMicrosoftBackupRestoreAll(logger, service, server.cookieAuth)
+	microsoftBackupController := consoleapi.NewMicrosoftBackup(logger, service, server.cookieAuth)
+	microsoftBackupRouter := router.PathPrefix("/api/v0/microsoft-backup").Subrouter()
+	microsoftBackupRouter.Use(server.withCORS)
+	microsoftBackupRouter.Use(server.withAuth)
+	microsoftBackupRouter.Handle("/connect", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.ConnectMicrosoft))).Methods(http.MethodPost, http.MethodOptions)
+	microsoftBackupRouter.Handle("/admin-consent-url", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.AdminConsentURL))).Methods(http.MethodGet, http.MethodOptions)
+	microsoftBackupRouter.Handle("/admin-consent/callback", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.AdminConsentCallback))).Methods(http.MethodGet, http.MethodOptions)
+	microsoftBackupRouter.Handle("/accounts", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.ListAccounts))).Methods(http.MethodGet, http.MethodOptions)
+	microsoftBackupRouter.Handle("/tenants", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.ListTenants))).Methods(http.MethodGet, http.MethodOptions)
+	microsoftBackupRouter.Handle("/tenants/{tid}/connect", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.ConnectTenant))).Methods(http.MethodPost, http.MethodOptions)
+	microsoftBackupRouter.Handle("/tenants/{tid}/disconnect", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.DisconnectTenant))).Methods(http.MethodPost, http.MethodOptions)
+	microsoftBackupRouter.Handle("/tenants/{tid}/roles/refresh", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.RefreshTenantRoles))).Methods(http.MethodPost, http.MethodOptions)
+	microsoftBackupRouter.Handle("/status", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.Status))).Methods(http.MethodGet, http.MethodOptions)
+	microsoftBackupRouter.Handle("/capabilities/refresh", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.RefreshCapabilities))).Methods(http.MethodPost, http.MethodOptions)
+	microsoftBackupRouter.Handle("/directory/users", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.DirectoryUsers))).Methods(http.MethodGet, http.MethodOptions)
+	microsoftBackupRouter.Handle("/domain-users", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.GetCorporateDomainUsers))).Methods(http.MethodGet, http.MethodOptions)
+	microsoftBackupRouter.Handle("/outlook/corporate/domain-users", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.GetCorporateDomainUsers))).Methods(http.MethodGet, http.MethodOptions)
+	microsoftBackupRouter.Handle("/backup/onboarding/jobs", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.CreateAutoSyncJobs))).Methods(http.MethodPost, http.MethodOptions)
+	microsoftBackupRouter.Handle("/auto-sync/job", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.CreateAutoSyncJobs))).Methods(http.MethodPost, http.MethodOptions)
+	// Job list / live / get / update / backup-now / policy: /api/v0/backup/auto-sync/* (same as Google).
+	// Restore auth for all Microsoft Graph services (mirrors /google-backup/google-auth), then office365/satellite-to-*.
+	microsoftBackupRouter.Handle("/microsoft-auth", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupController.MicrosoftAuth))).Methods(http.MethodPost, http.MethodOptions)
+	// Restore-all (mirrors /google-backup/restore/*); token_key only — Graph auth from stored credential.
+	microsoftBackupRouter.Handle("/restore/credentials", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupRestoreAllController.RestoreCredentials))).Methods(http.MethodGet, http.MethodOptions)
+	microsoftBackupRouter.Handle("/restore/workspaces", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupRestoreAllController.RestoreWorkspaces))).Methods(http.MethodGet, http.MethodOptions)
+	microsoftBackupRouter.Handle("/restore/prepare", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupRestoreAllController.RestorePrepare))).Methods(http.MethodGet, http.MethodOptions)
+	microsoftBackupRouter.Handle("/restore/all", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupRestoreAllController.RestoreAll))).Methods(http.MethodPost, http.MethodOptions)
+	microsoftBackupRouter.Handle("/restore/live", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupRestoreAllController.RestoreLive))).Methods(http.MethodGet, http.MethodOptions)
+	microsoftBackupRouter.Handle("/restore/jobs", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupRestoreAllController.RestoreJobs))).Methods(http.MethodGet, http.MethodOptions)
+	microsoftBackupRouter.Handle("/restore/job/{job_id}", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupRestoreAllController.GetRestoreJob))).Methods(http.MethodGet, http.MethodOptions)
+	microsoftBackupRouter.Handle("/restore/job/{job_id}/cancel", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupRestoreAllController.CancelRestoreJob))).Methods(http.MethodPost, http.MethodOptions)
+	microsoftBackupRouter.Handle("/restore/job/{job_id}/dead-items", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupRestoreAllController.ListRestoreDeadItems))).Methods(http.MethodGet, http.MethodOptions)
+	registerMicrosoftManualRestoreRoutes(microsoftBackupRouter, server.userIDRateLimiter.Limit, microsoftBackupController)
 
 	// User developer access management
 	authRouter.Handle("/developer-access", server.withAuth(http.HandlerFunc(authController.GetUserDeveloperAccess))).Methods(http.MethodGet, http.MethodOptions)                           // Alias for frontend compatibility
@@ -678,6 +747,34 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	domainsRouter.Handle("/project/{projectID}", server.withCSRFProtection(http.HandlerFunc(domainsController.DeleteDomain))).Methods(http.MethodDelete, http.MethodOptions)
 	domainsRouter.Handle("/project/{projectID}/paged", http.HandlerFunc(domainsController.GetProjectDomains)).Methods(http.MethodGet, http.MethodOptions)
 	domainsRouter.Handle("/project/{projectID}/names", http.HandlerFunc(domainsController.GetProjectAllDomainNames)).Methods(http.MethodGet, http.MethodOptions)
+
+	orgsController := consoleapi.NewOrgs(logger, service)
+	orgsRouter := router.PathPrefix("/api/v0/orgs").Subrouter()
+	orgsRouter.Use(server.withCORS)
+	orgsRouter.Use(server.withAuth)
+	orgsRouter.Handle("", http.HandlerFunc(orgsController.ListOrgs)).Methods(http.MethodGet, http.MethodOptions)
+	orgsRouter.Handle("", server.withCSRFProtection(http.HandlerFunc(orgsController.CreateOrg))).Methods(http.MethodPost, http.MethodOptions)
+	orgsRouter.Handle("/{id}", http.HandlerFunc(orgsController.GetOrg)).Methods(http.MethodGet, http.MethodOptions)
+	orgsRouter.Handle("/{id}/members", server.withCSRFProtection(http.HandlerFunc(orgsController.AddMember))).Methods(http.MethodPost, http.MethodOptions)
+	orgsRouter.Handle("/{id}/members/{userId}", server.withCSRFProtection(http.HandlerFunc(orgsController.RemoveMember))).Methods(http.MethodDelete, http.MethodOptions)
+	orgsRouter.Handle("/{id}/nodes", http.HandlerFunc(orgsController.ListNodes)).Methods(http.MethodGet, http.MethodOptions)
+	orgsRouter.Handle("/{id}/node-setup", http.HandlerFunc(orgsController.GetNodeSetup)).Methods(http.MethodGet, http.MethodOptions)
+
+	storageDestinationController := consoleapi.NewStorageDestination(logger, service)
+	storageDestinationRouter := router.PathPrefix("/api/v0/storage-destination").Subrouter()
+	storageDestinationRouter.Use(server.withCORS)
+	storageDestinationRouter.Use(server.withAuth)
+	storageDestinationRouter.Handle("", http.HandlerFunc(storageDestinationController.GetStorageDestination)).Methods(http.MethodGet, http.MethodOptions)
+	storageDestinationRouter.Handle("", server.withCSRFProtection(http.HandlerFunc(storageDestinationController.SetStorageDestination))).Methods(http.MethodPut, http.MethodOptions)
+
+	externalS3Controller := consoleapi.NewExternalS3(logger, service)
+	externalS3Router := router.PathPrefix("/api/v0/external-s3").Subrouter()
+	externalS3Router.Use(server.withCORS)
+	externalS3Router.Use(server.withAuth)
+	externalS3Router.Handle("", http.HandlerFunc(externalS3Controller.Get)).Methods(http.MethodGet, http.MethodOptions)
+	externalS3Router.Handle("", server.withCSRFProtection(http.HandlerFunc(externalS3Controller.Put))).Methods(http.MethodPut, http.MethodOptions)
+	externalS3Router.Handle("", server.withCSRFProtection(http.HandlerFunc(externalS3Controller.Delete))).Methods(http.MethodDelete, http.MethodOptions)
+	externalS3Router.Handle("/ensure-gateway", server.withCSRFProtection(http.HandlerFunc(externalS3Controller.EnsureGateway))).Methods(http.MethodPost, http.MethodOptions)
 
 	// Developer endpoints moved to satellite/developer/server.go
 	// These endpoints are now handled by the separate developer server
@@ -773,7 +870,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 		gatewayConfig := consoleapi.NewGatewayConfig(config.PaymentGateway_APIKey, config.PaymentGateway_APISecret,
 			config.PaymentGateway_Pay_ReqUrl, config.PaymentGateway_Pay_StatusUrl, config.PaymentGateway_Pay_Success_RedirectUrl,
 			config.PaymentGateway_Pay_Failed_RedirectUrl)
-		paymentController := consoleapi.NewPayments(logger, service, accountFreezeService, packagePlans, stripe, gatewayConfig, mailService)
+		paymentController := consoleapi.NewPayments(logger, service, accountFreezeService, packagePlans, stripe, gatewayConfig, mailService, paymentGateway)
 		server.paymentMonitor = paymentController
 
 		paymentsRouter := router.PathPrefix("/api/v0/payments").Subrouter()
@@ -783,31 +880,22 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 		allowedRoutes := []string{"/api/v0/payments/account"} // var partners can still setup stripe account
 		varBlocker := newVarBlockerMiddleWare(&server, config.VarPartners, allowedRoutes)
 		paymentsRouter.Use(varBlocker.withVarBlocker)
-		// paymentsRouter.Handle("/payment-methods", server.userIDRateLimiter.Limit(http.HandlerFunc(paymentController.AddCardByPaymentMethodID))).Methods(http.MethodPost, http.MethodOptions)
-		// paymentsRouter.Handle("/cards", server.userIDRateLimiter.Limit(http.HandlerFunc(paymentController.AddCreditCard))).Methods(http.MethodPost, http.MethodOptions)
-		// paymentsRouter.HandleFunc("/cards", paymentController.MakeCreditCardDefault).Methods(http.MethodPatch, http.MethodOptions)
-		// paymentsRouter.HandleFunc("/cards", paymentController.ListCreditCards).Methods(http.MethodGet, http.MethodOptions)
-		// paymentsRouter.HandleFunc("/cards/{cardId}", paymentController.RemoveCreditCard).Methods(http.MethodDelete, http.MethodOptions)
-		// paymentsRouter.HandleFunc("/account/charges", paymentController.ProjectsCharges).Methods(http.MethodGet, http.MethodOptions)
-		// paymentsRouter.HandleFunc("/account/balance", paymentController.AccountBalance).Methods(http.MethodGet, http.MethodOptions)
-		// paymentsRouter.HandleFunc("/account", paymentController.SetupAccount).Methods(http.MethodPost, http.MethodOptions)
-		// paymentsRouter.HandleFunc("/wallet", paymentController.GetWallet).Methods(http.MethodGet, http.MethodOptions)
-		// paymentsRouter.HandleFunc("/wallet", paymentController.ClaimWallet).Methods(http.MethodPost, http.MethodOptions)
-		// paymentsRouter.HandleFunc("/wallet/payments", paymentController.WalletPayments).Methods(http.MethodGet, http.MethodOptions)
-		// paymentsRouter.HandleFunc("/wallet/payments-with-confirmations", paymentController.WalletPaymentsWithConfirmations).Methods(http.MethodGet, http.MethodOptions)
-		// paymentsRouter.HandleFunc("/billing-history", paymentController.BillingHistory).Methods(http.MethodGet, http.MethodOptions)
-		// paymentsRouter.HandleFunc("/invoice-history", paymentController.InvoiceHistory).Methods(http.MethodGet, http.MethodOptions)
-		// paymentsRouter.Handle("/coupon/apply", server.userIDRateLimiter.Limit(http.HandlerFunc(paymentController.ApplyCouponCode))).Methods(http.MethodPatch, http.MethodOptions)
-		// paymentsRouter.HandleFunc("/coupon", paymentController.GetCoupon).Methods(http.MethodGet, http.MethodOptions)
-		// paymentsRouter.HandleFunc("/pricing", paymentController.GetProjectUsagePriceModel).Methods(http.MethodGet, http.MethodOptions)
-		// if config.PricingPackagesEnabled {
-		// 	paymentsRouter.HandleFunc("/purchase-package", paymentController.PurchasePackage).Methods(http.MethodPost, http.MethodOptions)
-		// 	paymentsRouter.HandleFunc("/package-available", paymentController.PackageAvailable).Methods(http.MethodGet, http.MethodOptions)
-		// }
-		paymentsRouter.HandleFunc("/generate-payment-link", paymentController.GeneratePaymentLink).Methods(http.MethodPost, http.MethodOptions)
+		paymentsRouter.HandleFunc("/checkout", paymentController.CreateCheckout).Methods(http.MethodPost, http.MethodOptions)
+		paymentsRouter.HandleFunc("/methods", paymentController.ListPaymentMethods).Methods(http.MethodGet, http.MethodOptions)
+		paymentsRouter.HandleFunc("/methods", paymentController.SavePaymentMethod).Methods(http.MethodPost, http.MethodOptions)
+		paymentsRouter.HandleFunc("/methods/{id}/default", paymentController.SetDefaultPaymentMethod).Methods(http.MethodPatch, http.MethodOptions)
+		paymentsRouter.HandleFunc("/methods/{id}", paymentController.DeletePaymentMethod).Methods(http.MethodDelete, http.MethodOptions)
+		paymentsRouter.HandleFunc("/subscriptions", paymentController.CreateSubscription).Methods(http.MethodPost, http.MethodOptions)
+		paymentsRouter.HandleFunc("/subscriptions/current", paymentController.GetCurrentSubscription).Methods(http.MethodGet, http.MethodOptions)
+		paymentsRouter.HandleFunc("/subscriptions/cancel", paymentController.CancelSubscription).Methods(http.MethodPost, http.MethodOptions)
 		paymentsRouter.HandleFunc("/coupons", paymentController.GetCoupons).Methods(http.MethodGet, http.MethodOptions)
 		paymentsRouter.HandleFunc("/invoice-history", paymentController.BillingTransactionHistory).Methods(http.MethodGet, http.MethodOptions)
 		router.HandleFunc("/payment-plans", paymentController.HandlePaymentPlans).Methods(http.MethodGet, http.MethodOptions)
+
+		// Webhook must be outside withAuth so Razorpay can call it.
+		webhookRouter := router.PathPrefix("/api/v0/payments/webhook").Subrouter()
+		webhookRouter.Use(server.withCORS)
+		webhookRouter.HandleFunc("/razorpay", paymentController.HandleRazorpayWebhook).Methods(http.MethodPost, http.MethodOptions)
 	}
 
 	bucketsController := consoleapi.NewBuckets(logger, service, server.config.BillingUpgradeURL, server.config.StorageWarningThreshold, server.config.BandwidthWarningThreshold, "secret")
@@ -828,6 +916,8 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	bucketsRouter.HandleFunc("/usage-totals", bucketsController.GetBucketTotals).Methods(http.MethodGet, http.MethodOptions)
 	bucketsRouter.HandleFunc("/usage-totals-for-reserved", bucketsController.GetBucketTotalsForReservedBucket).Methods(http.MethodGet, http.MethodOptions)
 	bucketsRouter.HandleFunc("/check-upload", bucketsController.CheckUpload).Methods(http.MethodPost, http.MethodOptions)
+	bucketsRouter.HandleFunc("/quota-status", bucketsController.QuotaStatus).Methods(http.MethodGet, http.MethodOptions)
+	bucketsRouter.HandleFunc("/quota-check", googleBackupController.QuotaCheck).Methods(http.MethodPost, http.MethodOptions)
 	bucketsRouter.HandleFunc("/bucket-totals", bucketsController.GetSingleBucketTotals).Methods(http.MethodGet, http.MethodOptions)
 
 	apiKeysController := consoleapi.NewAPIKeys(logger, service)
@@ -1209,10 +1299,27 @@ func (server *Server) googleVerificationHandler(googleHTML string) http.HandlerF
 	})
 }
 
+// defaultTrustSource is used when the satellite has no public contact address.
+//const defaultTrustSource = "12w2YPMMyNGdeiMuQN2uBi5hkDpmdMBqd2kyZ7SbmBwtei7XTa4@217.147.93.13:10000"
+
+// trustSourceLine prefers the running satellite identity and contact.external-address.
+// A listen address with no public host (":10000") keeps the hardcoded default.
+// func trustSourceLine(nodeURL storxnetwork.NodeURL) string {
+// 	if !nodeURL.ID.IsZero() {
+// 		return nodeURL.String()
+// 	}
+
+// 	return defaultTrustSource
+// }
+
+func trustSourceLine(nodeURL storxnetwork.NodeURL) string {
+	return nodeURL.String()
+}
+
 // oauth2IntegrationHandler handles the oauth2 integration.
 func (server *Server) trustSourceHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
-	w.Write([]byte(`12w2YPMMyNGdeiMuQN2uBi5hkDpmdMBqd2kyZ7SbmBwtei7XTa4@217.147.93.13:10000`))
+	_, _ = w.Write([]byte(trustSourceLine(server.nodeURL)))
 }
 
 // varBlockerMiddleWare is a middleware that blocks requests from VAR partners.
@@ -2096,6 +2203,26 @@ type responseWriterStatusCode struct {
 func (w *responseWriterStatusCode) WriteHeader(code int) {
 	w.code = code
 	w.ResponseWriter.WriteHeader(code)
+}
+
+// registerMicrosoftManualRestoreRoutes mounts manual select-and-restore (≤10 vault keys),
+// mirrors /google-backup/google/satellite-to-*.
+func registerMicrosoftManualRestoreRoutes(router *mux.Router, limit func(http.Handler) http.Handler, controller *consoleapi.MicrosoftBackup) {
+	routes := []struct {
+		path    string
+		handler http.HandlerFunc
+	}{
+		{"/office365/satellite-to-outlook", controller.ManualRestoreOutlook},
+		{"/office365/satellite-to-outlook-calendar", controller.ManualRestoreOutlookCalendar},
+		{"/office365/satellite-to-outlook-contacts", controller.ManualRestoreOutlookContacts},
+		{"/office365/satellite-to-onedrive", controller.ManualRestoreOneDrive},
+		{"/office365/satellite-to-sharepoint", controller.ManualRestoreSharePoint},
+		{"/office365/satellite-to-teams", controller.ManualRestoreTeams},
+		{"/office365/satellite-to-teams-chats", controller.ManualRestoreTeamsChats},
+	}
+	for _, route := range routes {
+		router.Handle(route.path, limit(route.handler)).Methods(http.MethodPost, http.MethodOptions)
+	}
 }
 
 // newTraceRequestMiddleware returns middleware for tracing each request to a

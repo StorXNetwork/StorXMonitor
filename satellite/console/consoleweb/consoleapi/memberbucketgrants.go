@@ -6,15 +6,17 @@ package consoleapi
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"github.com/StorXNetwork/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/private/web"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // MemberBucketGrants exposes Member ACL registry and grant HTTP APIs.
@@ -241,6 +243,13 @@ func (c *MemberBucketGrants) PutMemberGrants(w http.ResponseWriter, r *http.Requ
 	}
 
 	grants, err := c.service.ReplaceMemberBucketGrants(ctx, projectID, memberID, body.Grants, body.VaultExpiration)
+	resource := memberID.String()
+	if user, lookupErr := c.service.GetUser(ctx, memberID); lookupErr == nil && user != nil {
+		if email := strings.TrimSpace(user.Email); email != "" {
+			resource = email
+		}
+	}
+	c.service.RecordUserAudit(ctx, "PROJECT_MEMBER_ACCESS_UPDATE", resource, accessRestoreAuditMessage("Member access and restore", resource, &body.Grants), err)
 	if err != nil {
 		c.serveMemberACLError(ctx, w, err)
 		return
@@ -248,6 +257,34 @@ func (c *MemberBucketGrants) PutMemberGrants(w http.ResponseWriter, r *http.Requ
 	if err := json.NewEncoder(w).Encode(grants); err != nil {
 		c.log.Error("failed to write put member bucket grants response", zap.Error(err))
 	}
+}
+
+// accessRestoreAuditMessage describes a vault-access save, including whether restore is allowed.
+// A nil grants pointer means the caller left existing grants unchanged.
+func accessRestoreAuditMessage(subject, email string, grants *[]console.MemberBucketGrantInput) string {
+	who := strings.TrimSpace(email)
+	if who == "" {
+		who = "member"
+	}
+	if grants == nil {
+		return fmt.Sprintf("%s updated for %s", subject, who)
+	}
+	restore := "off"
+	buckets := make([]string, 0, len(*grants))
+	for _, grant := range *grants {
+		if grant.AllowDownload {
+			restore = "on"
+		}
+		bucket := strings.TrimSpace(grant.Bucket)
+		if bucket != "" {
+			buckets = append(buckets, bucket)
+		}
+	}
+	access := "no vault access"
+	if len(buckets) > 0 {
+		access = "vault access " + strings.Join(buckets, ", ")
+	}
+	return fmt.Sprintf("%s updated for %s: %s, restore %s", subject, who, access, restore)
 }
 
 func projectIDFromVars(r *http.Request) (uuid.UUID, error) {

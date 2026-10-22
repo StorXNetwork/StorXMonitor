@@ -11,9 +11,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 	"github.com/StorXNetwork/common/memory"
 	"github.com/StorXNetwork/common/uuid"
-	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 )
 
 const noLimits = -1
@@ -286,6 +286,18 @@ func (usage *Service) GetProjectLimits(ctx context.Context, projectID uuid.UUID)
 	}
 
 	return &limits, nil
+}
+
+// SetProjectStorageAndBandwidthLimits writes the project storage and bandwidth caps.
+func (usage *Service) SetProjectStorageAndBandwidthLimits(ctx context.Context, projectID uuid.UUID, storage, bandwidth int64) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	if err = usage.projectAccountingDB.UpdateProjectUsageLimit(ctx, projectID, memory.Size(storage)); err != nil {
+		return ErrProjectUsage.Wrap(err)
+	}
+	if err = usage.projectAccountingDB.UpdateProjectBandwidthLimit(ctx, projectID, memory.Size(bandwidth)); err != nil {
+		return ErrProjectUsage.Wrap(err)
+	}
+	return nil
 }
 
 // GetProjectBandwidthUsage get the current bandwidth usage from cache.

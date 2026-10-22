@@ -28,6 +28,7 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/satellite/orders"
 	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/billing"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/gateway"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/storjscan"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
 	"github.com/StorXNetwork/StorXMonitor/satellite/repair/queue"
@@ -345,6 +346,11 @@ func (dbc *satelliteDBCollection) StripeCoinPayments() stripe.DB {
 // Billing returns database for billing and payment transactions.
 func (dbc *satelliteDBCollection) Billing() billing.TransactionsDB {
 	return &billingDB{db: dbc.getByName("billing")}
+}
+
+// PaymentGateway returns database for payment gateway checkout/cards/subscriptions.
+func (dbc *satelliteDBCollection) PaymentGateway() gateway.DB {
+	return &paymentGatewayDB{db: dbc.getByName("paymentgateway")}
 }
 
 // Wallets returns database for storjscan wallets.

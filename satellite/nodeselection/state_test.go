@@ -42,7 +42,7 @@ func TestState_SelectNonDistinct(t *testing.T) {
 			},
 		})
 		const selectCount = 5
-		selected, err := state.Select(ctx, storxnetwork.NodeID{}, 0, selectCount, nil, nil)
+		selected, err := state.Select(ctx, storxnetwork.NodeID{}, 0, selectCount, nil, nil, nil)
 		require.NoError(t, err)
 		require.Len(t, selected, selectCount)
 	}
@@ -55,7 +55,7 @@ func TestState_SelectNonDistinct(t *testing.T) {
 				Selector: nodeselection.UnvettedSelector(0.5, nodeselection.AttributeGroupSelector(lastNet)),
 			},
 		})
-		selected, err := state.Select(ctx, storxnetwork.NodeID{}, 0, selectCount, nil, nil)
+		selected, err := state.Select(ctx, storxnetwork.NodeID{}, 0, selectCount, nil, nil, nil)
 		require.NoError(t, err)
 		require.Len(t, selected, selectCount)
 		require.Len(t, intersectLists(selected, reputableNodes), selectCount*(1-newFraction))
@@ -71,7 +71,7 @@ func TestState_SelectNonDistinct(t *testing.T) {
 			},
 		})
 
-		selected, err := state.Select(ctx, storxnetwork.NodeID{}, 0, selectCount, nil, nil)
+		selected, err := state.Select(ctx, storxnetwork.NodeID{}, 0, selectCount, nil, nil, nil)
 		require.NoError(t, err)
 
 		require.Len(t, selected, selectCount)
@@ -113,7 +113,7 @@ func TestState_UploadFilter(t *testing.T) {
 	})
 
 	for i := 0; i < 10; i++ {
-		selected, err := state.Select(ctx, storxnetwork.NodeID{}, 0, 3, nil, nil)
+		selected, err := state.Select(ctx, storxnetwork.NodeID{}, 0, 3, nil, nil, nil)
 		require.NoError(t, err)
 		require.Len(t, selected, 3)
 		for i := 0; i < len(selected); i++ {
@@ -149,7 +149,7 @@ func TestState_SelectDistinct(t *testing.T) {
 			},
 		})
 
-		selected, err := state.Select(ctx, storxnetwork.NodeID{}, 0, selectCount, nil, nil)
+		selected, err := state.Select(ctx, storxnetwork.NodeID{}, 0, selectCount, nil, nil, nil)
 		require.NoError(t, err)
 
 		require.Len(t, selected, selectCount)
@@ -163,7 +163,7 @@ func TestState_SelectDistinct(t *testing.T) {
 			},
 		})
 
-		selected, err := state.Select(ctx, storxnetwork.NodeID{}, 0, selectCount, nil, nil)
+		selected, err := state.Select(ctx, storxnetwork.NodeID{}, 0, selectCount, nil, nil, nil)
 		require.Error(t, err)
 		require.Len(t, selected, 2)
 	})
@@ -177,7 +177,7 @@ func TestState_SelectDistinct(t *testing.T) {
 			},
 		})
 
-		selected, err := state.Select(ctx, storxnetwork.NodeID{}, 0, selectCount, nil, nil)
+		selected, err := state.Select(ctx, storxnetwork.NodeID{}, 0, selectCount, nil, nil, nil)
 		require.NoError(t, err)
 		require.Len(t, selected, selectCount, nil)
 		require.Len(t, intersectLists(selected, reputableNodes), selectCount*(1-newFraction))
@@ -209,14 +209,14 @@ func TestState_Select_Concurrent(t *testing.T) {
 	var group errgroup.Group
 	group.Go(func() error {
 		const selectCount = 5
-		nodes, err := state.Select(ctx, storxnetwork.NodeID{}, 0, selectCount, nil, nil)
+		nodes, err := state.Select(ctx, storxnetwork.NodeID{}, 0, selectCount, nil, nil, nil)
 		require.Len(t, nodes, selectCount)
 		return err
 	})
 
 	group.Go(func() error {
 		const selectCount = 4
-		nodes, err := state.Select(ctx, storxnetwork.NodeID{}, 0, selectCount, nil, nil)
+		nodes, err := state.Select(ctx, storxnetwork.NodeID{}, 0, selectCount, nil, nil, nil)
 		require.Len(t, nodes, selectCount)
 		return err
 	})
