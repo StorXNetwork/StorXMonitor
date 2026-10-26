@@ -260,7 +260,7 @@ func (g *GoogleBackupRestore) RestoreAll(w http.ResponseWriter, r *http.Request)
 		ProjectID:   body.ProjectID,
 		LoginID:     body.LoginID,
 		TargetEmail: body.TargetEmail,
-	})
+	}, strings.TrimSpace(r.Header.Get("Authorization")))
 	g.service.RecordUserAuditHTTP(ctx, "GB_RESTORE_INITIATED", "Restore", "Restore initiated", status, respBody, err)
 	g.service.RecordInviteeAuditForOwner(ctx, body.ProjectID, "GB_RESTORE_INITIATED", "Restore", "Restore initiated", status, respBody, err)
 	if err != nil {

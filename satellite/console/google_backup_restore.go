@@ -148,7 +148,8 @@ func (s *Service) PrepareGoogleBackupRestore(ctx context.Context, tokenKey strin
 }
 
 // StartGoogleBackupRestoreAll proxies POST /restore/all to Backup-Tools (token_key only).
-func (s *Service) StartGoogleBackupRestoreAll(ctx context.Context, tokenKey string, req GoogleBackupRestoreAllRequest) (body []byte, status int, err error) {
+// googleAuth is the invited member's Google sign-in JWT. Owner and admin restore omit it.
+func (s *Service) StartGoogleBackupRestoreAll(ctx context.Context, tokenKey string, req GoogleBackupRestoreAllRequest, googleAuth string) (body []byte, status int, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err := (&req).Validate(); err != nil {
@@ -158,7 +159,11 @@ func (s *Service) StartGoogleBackupRestoreAll(ctx context.Context, tokenKey stri
 	if err != nil {
 		return nil, 0, Error.Wrap(err)
 	}
-	return s.backupToolsRequest(s.withSharedRestoreOwner(ctx, req.ProjectID), http.MethodPost, "/restore/all", tokenKey, "", payload)
+	var extra map[string]string
+	if jwt := strings.TrimSpace(googleAuth); jwt != "" {
+		extra = map[string]string{"Authorization": jwt}
+	}
+	return s.backupToolsRequestWithExtraHeaders(s.withSharedRestoreOwner(ctx, req.ProjectID), http.MethodPost, "/restore/all", tokenKey, "", "", extra, payload)
 }
 
 type sharedRestoreOwnerKey struct{}
@@ -449,8 +454,60 @@ func (s *Service) GoogleBackupManualRestore(ctx context.Context, tokenKey, backu
 	if err != nil {
 		return nil, 0, Error.Wrap(err)
 	}
-	ctx = s.withSharedRestoreOwner(ctx, req.ProjectID)
+	ctx = s.withManualRestoreOwner(ctx, req.ProjectID)
 	return s.backupToolsManualRestoreRequest(ctx, http.MethodPost, backupToolsPath, tokenKey, req.GoogleAuth, payload)
+}
+
+// withManualRestoreOwner uses the inviting project owner for an invited member.
+// The backup job for the mailbox belongs to that owner. The invitee's own account has no job,
+// which is the "no backup job for <mailbox>" failure.
+// A project id selects that project. When the UI omits it, a single invited project is used.
+func (s *Service) withManualRestoreOwner(ctx context.Context, projectID string) context.Context {
+	if ownerID := s.sharedRestoreOwnerUserID(ctx, projectID); ownerID != "" {
+		return context.WithValue(ctx, sharedRestoreOwnerKey{}, ownerID)
+	}
+	if strings.TrimSpace(projectID) != "" {
+		return ctx
+	}
+	ownerID := s.soleInvitedProjectOwnerID(ctx)
+	if ownerID == "" {
+		return ctx
+	}
+	return context.WithValue(ctx, sharedRestoreOwnerKey{}, ownerID)
+}
+
+// soleInvitedProjectOwnerID is the owner of the one project this user was invited into as a Member.
+func (s *Service) soleInvitedProjectOwnerID(ctx context.Context) string {
+	if s == nil || s.store == nil {
+		return ""
+	}
+	user, err := GetUser(ctx)
+	if err != nil || user == nil {
+		return ""
+	}
+	memberships, err := s.store.ProjectMembers().GetByMemberID(ctx, user.ID)
+	if err != nil {
+		return ""
+	}
+	var ownerID string
+	for _, membership := range memberships {
+		if membership.Role != RoleMember {
+			continue
+		}
+		project, getErr := s.store.Projects().Get(ctx, membership.ProjectID)
+		if getErr != nil || project == nil || project.OwnerID == user.ID {
+			continue
+		}
+		id := project.OwnerID.String()
+		if ownerID == "" {
+			ownerID = id
+			continue
+		}
+		if ownerID != id {
+			return ""
+		}
+	}
+	return ownerID
 }
 
 // backupToolsManualRestoreRequest proxies Backup-Tools manual /google/* routes (google-auth JWT + token_key).

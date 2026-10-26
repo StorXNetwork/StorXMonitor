@@ -1678,6 +1678,15 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 					`CREATE INDEX seller_billing_notifications_reseller_id_index ON seller_billing_notifications ( reseller_id )`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add preview and restore permissions to member bucket grants",
+				Version:     403,
+				Action: migrate.SQL{
+					`ALTER TABLE member_bucket_grants ADD COLUMN IF NOT EXISTS allow_preview BOOL NOT NULL DEFAULT (true);`,
+					`ALTER TABLE member_bucket_grants ADD COLUMN IF NOT EXISTS allow_restore BOOL NOT NULL DEFAULT (true);`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
@@ -6186,6 +6195,15 @@ true, NOW(), NOW());`,
 						PRIMARY KEY ( id )
 					);`,
 					`CREATE INDEX IF NOT EXISTS seller_billing_notifications_reseller_id_index ON seller_billing_notifications ( reseller_id );`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add preview and restore permissions to member bucket grants",
+				Version:     403,
+				Action: migrate.SQL{
+					`ALTER TABLE member_bucket_grants ADD COLUMN IF NOT EXISTS allow_preview boolean NOT NULL DEFAULT true;`,
+					`ALTER TABLE member_bucket_grants ADD COLUMN IF NOT EXISTS allow_restore boolean NOT NULL DEFAULT true;`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run

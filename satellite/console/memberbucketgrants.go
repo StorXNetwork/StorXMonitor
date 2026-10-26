@@ -5,6 +5,7 @@ package console
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/StorXNetwork/common/uuid"
@@ -35,7 +36,9 @@ type MemberBucketGrant struct {
 	Bucket        string     `json:"bucket"`
 	Prefix        string     `json:"prefix"`
 	AllowList     bool       `json:"allowList"`
+	AllowPreview  bool       `json:"allowPreview"`
 	AllowDownload bool       `json:"allowDownload"`
+	AllowRestore  bool       `json:"allowRestore"`
 	AllowUpload   bool       `json:"allowUpload"` // always false
 	AllowDelete   bool       `json:"allowDelete"` // always false
 	CreatedAt     time.Time  `json:"createdAt"`
@@ -50,9 +53,37 @@ type MemberBucketGrantInput struct {
 	Bucket        string `json:"bucket"`
 	Prefix        string `json:"prefix"`
 	AllowList     bool   `json:"allowList"`
+	AllowPreview  bool   `json:"allowPreview"`
 	AllowDownload bool   `json:"allowDownload"`
+	AllowRestore  bool   `json:"allowRestore"`
 	AllowUpload   bool   `json:"allowUpload"` // deprecated: ignored, always false
 	AllowDelete   bool   `json:"allowDelete"` // deprecated: ignored, always false
+}
+
+// UnmarshalJSON keeps older grant saves working.
+// A body that omits allowPreview still allows preview. A body that omits allowRestore
+// keeps the old meaning, where download stood in for restore.
+func (g *MemberBucketGrantInput) UnmarshalJSON(data []byte) error {
+	type plain MemberBucketGrantInput
+	var decoded plain
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	*g = MemberBucketGrantInput(decoded)
+	if _, ok := raw["allowPreview"]; !ok {
+		g.AllowPreview = true
+	}
+	if _, ok := raw["allowRestore"]; !ok {
+		g.AllowRestore = g.AllowDownload
+	}
+	if g.AllowRestore {
+		g.AllowDownload = true
+	}
+	return nil
 }
 
 // MemberBucketGrants persists Member prefix ACL rows.

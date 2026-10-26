@@ -1617,6 +1617,8 @@ func (obj *pgxDB) Schema() []string {
 	created_at timestamp with time zone NOT NULL,
 	updated_at timestamp with time zone NOT NULL,
 	expires_at timestamp with time zone,
+	allow_preview boolean NOT NULL DEFAULT true,
+	allow_restore boolean NOT NULL DEFAULT true,
 	PRIMARY KEY ( id ),
 	UNIQUE ( project_id, invite_email, bucket, prefix )
 )`,
@@ -3413,6 +3415,8 @@ func (obj *pgxcockroachDB) Schema() []string {
 	created_at timestamp with time zone NOT NULL,
 	updated_at timestamp with time zone NOT NULL,
 	expires_at timestamp with time zone,
+	allow_preview boolean NOT NULL DEFAULT true,
+	allow_restore boolean NOT NULL DEFAULT true,
 	PRIMARY KEY ( id ),
 	UNIQUE ( project_id, invite_email, bucket, prefix )
 )`,
@@ -5156,6 +5160,8 @@ func (obj *spannerDB) Schema() []string {
 	created_at TIMESTAMP NOT NULL,
 	updated_at TIMESTAMP NOT NULL,
 	expires_at TIMESTAMP,
+	allow_preview BOOL NOT NULL DEFAULT (true),
+	allow_restore BOOL NOT NULL DEFAULT (true),
 	CONSTRAINT member_bucket_grants_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE ,
 	CONSTRAINT member_bucket_grants_member_id_fkey FOREIGN KEY (member_id) REFERENCES users (id) ON DELETE CASCADE 
 ) PRIMARY KEY ( id )`,
@@ -26507,13 +26513,17 @@ type MemberBucketGrant struct {
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
 	ExpiresAt     *time.Time
+	AllowPreview  bool
+	AllowRestore  bool
 }
 
 func (MemberBucketGrant) _Table() string { return "member_bucket_grants" }
 
 type MemberBucketGrant_Create_Fields struct {
-	MemberId  MemberBucketGrant_MemberId_Field
-	ExpiresAt MemberBucketGrant_ExpiresAt_Field
+	MemberId     MemberBucketGrant_MemberId_Field
+	ExpiresAt    MemberBucketGrant_ExpiresAt_Field
+	AllowPreview MemberBucketGrant_AllowPreview_Field
+	AllowRestore MemberBucketGrant_AllowRestore_Field
 }
 
 type MemberBucketGrant_Update_Fields struct {
@@ -26523,6 +26533,8 @@ type MemberBucketGrant_Update_Fields struct {
 	AllowUpload   MemberBucketGrant_AllowUpload_Field
 	AllowDelete   MemberBucketGrant_AllowDelete_Field
 	ExpiresAt     MemberBucketGrant_ExpiresAt_Field
+	AllowPreview  MemberBucketGrant_AllowPreview_Field
+	AllowRestore  MemberBucketGrant_AllowRestore_Field
 }
 
 type MemberBucketGrant_Id_Field struct {
@@ -26768,6 +26780,40 @@ func (f MemberBucketGrant_ExpiresAt_Field) isnull() bool {
 }
 
 func (f MemberBucketGrant_ExpiresAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MemberBucketGrant_AllowPreview_Field struct {
+	_set   bool
+	_null  bool
+	_value bool
+}
+
+func MemberBucketGrant_AllowPreview(v bool) MemberBucketGrant_AllowPreview_Field {
+	return MemberBucketGrant_AllowPreview_Field{_set: true, _value: v}
+}
+
+func (f MemberBucketGrant_AllowPreview_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type MemberBucketGrant_AllowRestore_Field struct {
+	_set   bool
+	_null  bool
+	_value bool
+}
+
+func MemberBucketGrant_AllowRestore(v bool) MemberBucketGrant_AllowRestore_Field {
+	return MemberBucketGrant_AllowRestore_Field{_set: true, _value: v}
+}
+
+func (f MemberBucketGrant_AllowRestore_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -30446,16 +30492,43 @@ func (obj *pgxImpl) Create_MemberBucketGrant(ctx context.Context,
 	__updated_at_val := __now
 	__expires_at_val := optional.ExpiresAt.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO member_bucket_grants ( id, project_id, member_id, invite_email, bucket, prefix, allow_list, allow_download, allow_upload, allow_delete, created_at, updated_at, expires_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at")
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, project_id, member_id, invite_email, bucket, prefix, allow_list, allow_download, allow_upload, allow_delete, created_at, updated_at, expires_at")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO member_bucket_grants "), __clause, __sqlbundle_Literal(" RETURNING member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at, member_bucket_grants.allow_preview, member_bucket_grants.allow_restore")}}
 
 	var __values []any
 	__values = append(__values, __id_val, __project_id_val, __member_id_val, __invite_email_val, __bucket_val, __prefix_val, __allow_list_val, __allow_download_val, __allow_upload_val, __allow_delete_val, __created_at_val, __updated_at_val, __expires_at_val)
 
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.AllowPreview._set {
+		__values = append(__values, optional.AllowPreview.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("allow_preview"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.AllowRestore._set {
+		__values = append(__values, optional.AllowRestore.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("allow_restore"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	member_bucket_grant = &MemberBucketGrant{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt, &member_bucket_grant.AllowPreview, &member_bucket_grant.AllowRestore)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -38183,7 +38256,7 @@ func (obj *pgxImpl) All_MemberBucketGrant_By_ProjectId_And_MemberId(ctx context.
 
 	var __cond_0 = &__sqlbundle_Condition{Left: "member_bucket_grants.member_id", Equal: true, Right: "?", Null: true}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at FROM member_bucket_grants WHERE member_bucket_grants.project_id = ? AND "), __cond_0}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at, member_bucket_grants.allow_preview, member_bucket_grants.allow_restore FROM member_bucket_grants WHERE member_bucket_grants.project_id = ? AND "), __cond_0}}
 
 	var __values []any
 	__values = append(__values, member_bucket_grant_project_id.value())
@@ -38205,7 +38278,7 @@ func (obj *pgxImpl) All_MemberBucketGrant_By_ProjectId_And_MemberId(ctx context.
 
 			for __rows.Next() {
 				member_bucket_grant := &MemberBucketGrant{}
-				err = __rows.Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt)
+				err = __rows.Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt, &member_bucket_grant.AllowPreview, &member_bucket_grant.AllowRestore)
 				if err != nil {
 					return nil, err
 				}
@@ -38233,7 +38306,7 @@ func (obj *pgxImpl) All_MemberBucketGrant_By_ProjectId_And_InviteEmail(ctx conte
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at FROM member_bucket_grants WHERE member_bucket_grants.project_id = ? AND member_bucket_grants.invite_email = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at, member_bucket_grants.allow_preview, member_bucket_grants.allow_restore FROM member_bucket_grants WHERE member_bucket_grants.project_id = ? AND member_bucket_grants.invite_email = ?")
 
 	var __values []any
 	__values = append(__values, member_bucket_grant_project_id.value(), member_bucket_grant_invite_email.value())
@@ -38251,7 +38324,7 @@ func (obj *pgxImpl) All_MemberBucketGrant_By_ProjectId_And_InviteEmail(ctx conte
 
 			for __rows.Next() {
 				member_bucket_grant := &MemberBucketGrant{}
-				err = __rows.Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt)
+				err = __rows.Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt, &member_bucket_grant.AllowPreview, &member_bucket_grant.AllowRestore)
 				if err != nil {
 					return nil, err
 				}
@@ -38278,7 +38351,7 @@ func (obj *pgxImpl) Get_MemberBucketGrant_By_Id(ctx context.Context,
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at FROM member_bucket_grants WHERE member_bucket_grants.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at, member_bucket_grants.allow_preview, member_bucket_grants.allow_restore FROM member_bucket_grants WHERE member_bucket_grants.id = ?")
 
 	var __values []any
 	__values = append(__values, member_bucket_grant_id.value())
@@ -38287,7 +38360,7 @@ func (obj *pgxImpl) Get_MemberBucketGrant_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	member_bucket_grant = &MemberBucketGrant{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt, &member_bucket_grant.AllowPreview, &member_bucket_grant.AllowRestore)
 	if err != nil {
 		return (*MemberBucketGrant)(nil), obj.makeErr(err)
 	}
@@ -44828,7 +44901,7 @@ func (obj *pgxImpl) Update_MemberBucketGrant_By_Id(ctx context.Context,
 
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE member_bucket_grants SET "), __sets, __sqlbundle_Literal(" WHERE member_bucket_grants.id = ? RETURNING member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE member_bucket_grants SET "), __sets, __sqlbundle_Literal(" WHERE member_bucket_grants.id = ? RETURNING member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at, member_bucket_grants.allow_preview, member_bucket_grants.allow_restore")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []any
@@ -44864,6 +44937,16 @@ func (obj *pgxImpl) Update_MemberBucketGrant_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("expires_at = ?"))
 	}
 
+	if update.AllowPreview._set {
+		__values = append(__values, update.AllowPreview.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("allow_preview = ?"))
+	}
+
+	if update.AllowRestore._set {
+		__values = append(__values, update.AllowRestore.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("allow_restore = ?"))
+	}
+
 	__now := obj.db.Hooks.Now().UTC()
 
 	__values = append(__values, __now)
@@ -44878,7 +44961,7 @@ func (obj *pgxImpl) Update_MemberBucketGrant_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	member_bucket_grant = &MemberBucketGrant{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt, &member_bucket_grant.AllowPreview, &member_bucket_grant.AllowRestore)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -52517,16 +52600,43 @@ func (obj *pgxcockroachImpl) Create_MemberBucketGrant(ctx context.Context,
 	__updated_at_val := __now
 	__expires_at_val := optional.ExpiresAt.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO member_bucket_grants ( id, project_id, member_id, invite_email, bucket, prefix, allow_list, allow_download, allow_upload, allow_delete, created_at, updated_at, expires_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at")
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, project_id, member_id, invite_email, bucket, prefix, allow_list, allow_download, allow_upload, allow_delete, created_at, updated_at, expires_at")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO member_bucket_grants "), __clause, __sqlbundle_Literal(" RETURNING member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at, member_bucket_grants.allow_preview, member_bucket_grants.allow_restore")}}
 
 	var __values []any
 	__values = append(__values, __id_val, __project_id_val, __member_id_val, __invite_email_val, __bucket_val, __prefix_val, __allow_list_val, __allow_download_val, __allow_upload_val, __allow_delete_val, __created_at_val, __updated_at_val, __expires_at_val)
 
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.AllowPreview._set {
+		__values = append(__values, optional.AllowPreview.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("allow_preview"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.AllowRestore._set {
+		__values = append(__values, optional.AllowRestore.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("allow_restore"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	member_bucket_grant = &MemberBucketGrant{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt, &member_bucket_grant.AllowPreview, &member_bucket_grant.AllowRestore)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -60254,7 +60364,7 @@ func (obj *pgxcockroachImpl) All_MemberBucketGrant_By_ProjectId_And_MemberId(ctx
 
 	var __cond_0 = &__sqlbundle_Condition{Left: "member_bucket_grants.member_id", Equal: true, Right: "?", Null: true}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at FROM member_bucket_grants WHERE member_bucket_grants.project_id = ? AND "), __cond_0}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at, member_bucket_grants.allow_preview, member_bucket_grants.allow_restore FROM member_bucket_grants WHERE member_bucket_grants.project_id = ? AND "), __cond_0}}
 
 	var __values []any
 	__values = append(__values, member_bucket_grant_project_id.value())
@@ -60276,7 +60386,7 @@ func (obj *pgxcockroachImpl) All_MemberBucketGrant_By_ProjectId_And_MemberId(ctx
 
 			for __rows.Next() {
 				member_bucket_grant := &MemberBucketGrant{}
-				err = __rows.Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt)
+				err = __rows.Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt, &member_bucket_grant.AllowPreview, &member_bucket_grant.AllowRestore)
 				if err != nil {
 					return nil, err
 				}
@@ -60304,7 +60414,7 @@ func (obj *pgxcockroachImpl) All_MemberBucketGrant_By_ProjectId_And_InviteEmail(
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at FROM member_bucket_grants WHERE member_bucket_grants.project_id = ? AND member_bucket_grants.invite_email = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at, member_bucket_grants.allow_preview, member_bucket_grants.allow_restore FROM member_bucket_grants WHERE member_bucket_grants.project_id = ? AND member_bucket_grants.invite_email = ?")
 
 	var __values []any
 	__values = append(__values, member_bucket_grant_project_id.value(), member_bucket_grant_invite_email.value())
@@ -60322,7 +60432,7 @@ func (obj *pgxcockroachImpl) All_MemberBucketGrant_By_ProjectId_And_InviteEmail(
 
 			for __rows.Next() {
 				member_bucket_grant := &MemberBucketGrant{}
-				err = __rows.Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt)
+				err = __rows.Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt, &member_bucket_grant.AllowPreview, &member_bucket_grant.AllowRestore)
 				if err != nil {
 					return nil, err
 				}
@@ -60349,7 +60459,7 @@ func (obj *pgxcockroachImpl) Get_MemberBucketGrant_By_Id(ctx context.Context,
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at FROM member_bucket_grants WHERE member_bucket_grants.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at, member_bucket_grants.allow_preview, member_bucket_grants.allow_restore FROM member_bucket_grants WHERE member_bucket_grants.id = ?")
 
 	var __values []any
 	__values = append(__values, member_bucket_grant_id.value())
@@ -60358,7 +60468,7 @@ func (obj *pgxcockroachImpl) Get_MemberBucketGrant_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	member_bucket_grant = &MemberBucketGrant{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt, &member_bucket_grant.AllowPreview, &member_bucket_grant.AllowRestore)
 	if err != nil {
 		return (*MemberBucketGrant)(nil), obj.makeErr(err)
 	}
@@ -66899,7 +67009,7 @@ func (obj *pgxcockroachImpl) Update_MemberBucketGrant_By_Id(ctx context.Context,
 
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE member_bucket_grants SET "), __sets, __sqlbundle_Literal(" WHERE member_bucket_grants.id = ? RETURNING member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE member_bucket_grants SET "), __sets, __sqlbundle_Literal(" WHERE member_bucket_grants.id = ? RETURNING member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at, member_bucket_grants.allow_preview, member_bucket_grants.allow_restore")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []any
@@ -66935,6 +67045,16 @@ func (obj *pgxcockroachImpl) Update_MemberBucketGrant_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("expires_at = ?"))
 	}
 
+	if update.AllowPreview._set {
+		__values = append(__values, update.AllowPreview.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("allow_preview = ?"))
+	}
+
+	if update.AllowRestore._set {
+		__values = append(__values, update.AllowRestore.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("allow_restore = ?"))
+	}
+
 	__now := obj.db.Hooks.Now().UTC()
 
 	__values = append(__values, __now)
@@ -66949,7 +67069,7 @@ func (obj *pgxcockroachImpl) Update_MemberBucketGrant_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	member_bucket_grant = &MemberBucketGrant{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt, &member_bucket_grant.AllowPreview, &member_bucket_grant.AllowRestore)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -74905,10 +75025,44 @@ func (obj *spannerImpl) Create_MemberBucketGrant(ctx context.Context,
 	__updated_at_val := __now
 	__expires_at_val := optional.ExpiresAt.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO member_bucket_grants ( id, project_id, member_id, invite_email, bucket, prefix, allow_list, allow_download, allow_upload, allow_delete, created_at, updated_at, expires_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) THEN RETURN member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at")
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, project_id, member_id, invite_email, bucket, prefix, allow_list, allow_download, allow_upload, allow_delete, created_at, updated_at, expires_at")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO member_bucket_grants "), __clause, __sqlbundle_Literal(" THEN RETURN member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at, member_bucket_grants.allow_preview, member_bucket_grants.allow_restore")}}
 
 	var __values []any
 	__values = append(__values, __id_val, __project_id_val, __member_id_val, __invite_email_val, __bucket_val, __prefix_val, __allow_list_val, __allow_download_val, __allow_upload_val, __allow_delete_val, __created_at_val, __updated_at_val, __expires_at_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.AllowPreview._set {
+		__values = append(__values, optional.AllowPreview.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("allow_preview"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.AllowRestore._set {
+		__values = append(__values, optional.AllowRestore.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("allow_restore"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 && __columns.SQL == nil {
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("allow_preview"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("allow_restore"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+	}
+
+	if len(__optional_columns.SQLs) > 0 {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -74916,10 +75070,10 @@ func (obj *spannerImpl) Create_MemberBucketGrant(ctx context.Context,
 	member_bucket_grant = &MemberBucketGrant{}
 	if !obj.txn {
 		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
-			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt)
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt, &member_bucket_grant.AllowPreview, &member_bucket_grant.AllowRestore)
 		})
 	} else {
-		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt)
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt, &member_bucket_grant.AllowPreview, &member_bucket_grant.AllowRestore)
 	}
 	if err != nil {
 		return nil, obj.makeErr(err)
@@ -82937,7 +83091,7 @@ func (obj *spannerImpl) All_MemberBucketGrant_By_ProjectId_And_MemberId(ctx cont
 
 	var __cond_0 = &__sqlbundle_Condition{Left: "member_bucket_grants.member_id", Equal: true, Right: "?", Null: true}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at FROM member_bucket_grants WHERE member_bucket_grants.project_id = ? AND "), __cond_0}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at, member_bucket_grants.allow_preview, member_bucket_grants.allow_restore FROM member_bucket_grants WHERE member_bucket_grants.project_id = ? AND "), __cond_0}}
 
 	var __values []any
 	__values = append(__values, member_bucket_grant_project_id.value())
@@ -82959,7 +83113,7 @@ func (obj *spannerImpl) All_MemberBucketGrant_By_ProjectId_And_MemberId(ctx cont
 
 			for __rows.Next() {
 				member_bucket_grant := &MemberBucketGrant{}
-				err = __rows.Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt)
+				err = __rows.Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt, &member_bucket_grant.AllowPreview, &member_bucket_grant.AllowRestore)
 				if err != nil {
 					return nil, err
 				}
@@ -82987,7 +83141,7 @@ func (obj *spannerImpl) All_MemberBucketGrant_By_ProjectId_And_InviteEmail(ctx c
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at FROM member_bucket_grants WHERE member_bucket_grants.project_id = ? AND member_bucket_grants.invite_email = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at, member_bucket_grants.allow_preview, member_bucket_grants.allow_restore FROM member_bucket_grants WHERE member_bucket_grants.project_id = ? AND member_bucket_grants.invite_email = ?")
 
 	var __values []any
 	__values = append(__values, member_bucket_grant_project_id.value(), member_bucket_grant_invite_email.value())
@@ -83005,7 +83159,7 @@ func (obj *spannerImpl) All_MemberBucketGrant_By_ProjectId_And_InviteEmail(ctx c
 
 			for __rows.Next() {
 				member_bucket_grant := &MemberBucketGrant{}
-				err = __rows.Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt)
+				err = __rows.Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt, &member_bucket_grant.AllowPreview, &member_bucket_grant.AllowRestore)
 				if err != nil {
 					return nil, err
 				}
@@ -83032,7 +83186,7 @@ func (obj *spannerImpl) Get_MemberBucketGrant_By_Id(ctx context.Context,
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at FROM member_bucket_grants WHERE member_bucket_grants.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at, member_bucket_grants.allow_preview, member_bucket_grants.allow_restore FROM member_bucket_grants WHERE member_bucket_grants.id = ?")
 
 	var __values []any
 	__values = append(__values, member_bucket_grant_id.value())
@@ -83041,7 +83195,7 @@ func (obj *spannerImpl) Get_MemberBucketGrant_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	member_bucket_grant = &MemberBucketGrant{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt, &member_bucket_grant.AllowPreview, &member_bucket_grant.AllowRestore)
 	if err != nil {
 		return (*MemberBucketGrant)(nil), obj.makeErr(err)
 	}
@@ -89314,7 +89468,7 @@ func (obj *spannerImpl) Update_MemberBucketGrant_By_Id(ctx context.Context,
 
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE member_bucket_grants SET "), __sets, __sqlbundle_Literal(" WHERE member_bucket_grants.id = ? THEN RETURN member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE member_bucket_grants SET "), __sets, __sqlbundle_Literal(" WHERE member_bucket_grants.id = ? THEN RETURN member_bucket_grants.id, member_bucket_grants.project_id, member_bucket_grants.member_id, member_bucket_grants.invite_email, member_bucket_grants.bucket, member_bucket_grants.prefix, member_bucket_grants.allow_list, member_bucket_grants.allow_download, member_bucket_grants.allow_upload, member_bucket_grants.allow_delete, member_bucket_grants.created_at, member_bucket_grants.updated_at, member_bucket_grants.expires_at, member_bucket_grants.allow_preview, member_bucket_grants.allow_restore")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []any
@@ -89344,6 +89498,14 @@ func (obj *spannerImpl) Update_MemberBucketGrant_By_Id(ctx context.Context,
 		__values = append(__values, update.ExpiresAt.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("expires_at = ?"))
 	}
+	if update.AllowPreview._set {
+		__values = append(__values, update.AllowPreview.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("allow_preview = ?"))
+	}
+	if update.AllowRestore._set {
+		__values = append(__values, update.AllowRestore.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("allow_restore = ?"))
+	}
 
 	__now := obj.db.Hooks.Now().UTC()
 
@@ -89359,7 +89521,7 @@ func (obj *spannerImpl) Update_MemberBucketGrant_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	member_bucket_grant = &MemberBucketGrant{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&member_bucket_grant.Id, &member_bucket_grant.ProjectId, &member_bucket_grant.MemberId, &member_bucket_grant.InviteEmail, &member_bucket_grant.Bucket, &member_bucket_grant.Prefix, &member_bucket_grant.AllowList, &member_bucket_grant.AllowDownload, &member_bucket_grant.AllowUpload, &member_bucket_grant.AllowDelete, &member_bucket_grant.CreatedAt, &member_bucket_grant.UpdatedAt, &member_bucket_grant.ExpiresAt, &member_bucket_grant.AllowPreview, &member_bucket_grant.AllowRestore)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}

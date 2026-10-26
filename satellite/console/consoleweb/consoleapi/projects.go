@@ -58,6 +58,8 @@ type Member struct {
 	Vaults []string `json:"vaults,omitempty"`
 	// VaultExpiresAt is the earliest grant expiry (omit when none expire).
 	VaultExpiresAt *time.Time `json:"vaultExpiresAt,omitempty"`
+	// Permissions is set for a member who has vault grants. Missing means owner/admin full access.
+	Permissions *console.InviteAccessSelection `json:"permissions,omitempty"`
 }
 
 // Invitation is a project invitation in a ProjectMembersPage.
@@ -68,6 +70,8 @@ type Invitation struct {
 	LinkExpiresAt  time.Time  `json:"linkExpiresAt"`
 	VaultExpiresAt *time.Time `json:"vaultExpiresAt,omitempty"`
 	Vaults         []string   `json:"vaults,omitempty"`
+	// Permissions is what this invite can do. Missing means no vault grants yet.
+	Permissions *console.InviteAccessSelection `json:"permissions,omitempty"`
 }
 
 // NewProjects is a constructor for api analytics controller.
@@ -583,6 +587,10 @@ func (p *Projects) GetMembersAndInvitations(w http.ResponseWriter, r *http.Reque
 		}
 		if grants, gErr := p.service.GetMemberBucketGrants(ctx, project.ID, m.MemberID); gErr == nil {
 			member.Vaults, member.VaultExpiresAt = console.SummarizeVaultGrants(grants)
+			if len(grants) > 0 {
+				access := console.AccessFromGrants(grants)
+				member.Permissions = &access
+			}
 		}
 		memberPage.Members = append(memberPage.Members, member)
 	}
@@ -595,6 +603,10 @@ func (p *Projects) GetMembersAndInvitations(w http.ResponseWriter, r *http.Reque
 		}
 		if grants, gErr := p.service.GetPendingInviteBucketGrants(ctx, project.ID, inv.Email); gErr == nil {
 			invitee.Vaults, invitee.VaultExpiresAt = console.SummarizeVaultGrants(grants)
+			if len(grants) > 0 {
+				access := console.AccessFromGrants(grants)
+				invitee.Permissions = &access
+			}
 		}
 		memberPage.Invitations = append(memberPage.Invitations, invitee)
 	}
@@ -975,7 +987,7 @@ func (p *Projects) MigratePricing(w http.ResponseWriter, r *http.Request) {
 // @Summary      [4] Invite member (optional folder grants)
 // @Description  **Full route:** `POST /api/v0/projects/{id}/invite/{email}`
 //
-// Invite by email. Optional body `grants` and `permissions`. Omit `permissions` → read + restore (previous default). Set `permissions.read` and/or `permissions.restore`. Both false is rejected. Upload and delete stay off. CSRF required when enabled. Flag: `console.member-bucket-grants-enabled`.
+// Invite by email. Optional body `grants` and `permissions`. Omit `permissions` → read, preview, download, and restore. Set `permissions.read`, `permissions.preview`, `permissions.download`, and/or `permissions.restore`. All four false is rejected. Restore turns download on, because restore reads the stored mail. An older body that only sends read/restore keeps preview with read and download with read or restore. Upload and delete stay off. CSRF required when enabled. Flag: `console.member-bucket-grants-enabled`.
 // @Tags         member-bucket-restriction
 // @Accept       json
 // @Produce      json
@@ -1164,8 +1176,8 @@ func (p *Projects) UpdatePendingInviteAccess(w http.ResponseWriter, r *http.Requ
 // @Summary      [4] Invite multiple members (one-by-one)
 // @Description  **Full route:** `POST /api/v0/projects/{id}/invites`
 //
-// Body: `{ "invites": [ { "email":"a@x.com", "vaults":["gmail"], "permissions":{"read":true,"restore":false} } ] }`.
-// Omit `permissions` → read + restore. Each email gets those flags on `{email}/` under the given vault names.
+// Body: `{ "invites": [ { "email":"a@x.com", "vaults":["gmail"], "permissions":{"read":true,"preview":true,"download":false,"restore":false} } ] }`.
+// Omit `permissions` → read, preview, download, and restore. Each email gets those flags on `{email}/` under the given vault names.
 // Vault buckets must exist on the project (no separate ACL registration). Omit `vaults` → optional registry defaults. `vaults:[]` → no folder access. Max 50. Returns per-email ok/error.
 // CSRF required when enabled.
 // @Tags         member-bucket-restriction

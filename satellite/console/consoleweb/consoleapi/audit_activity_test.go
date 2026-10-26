@@ -22,7 +22,7 @@ func TestAccessRestoreAuditMessage(t *testing.T) {
 		{Bucket: "drive", AllowList: true},
 	}
 	require.Equal(t,
-		"Invite access and restore updated for a@b.com: vault access gmail, drive, restore on",
+		"Invite access and restore updated for a@b.com: vault access gmail, drive, preview off, download on, restore off",
 		accessRestoreAuditMessage("Invite access and restore", "a@b.com", &grants),
 	)
 
@@ -30,7 +30,7 @@ func TestAccessRestoreAuditMessage(t *testing.T) {
 		{Bucket: "outlook", AllowList: true},
 	}
 	require.Equal(t,
-		"Member access and restore updated for a@b.com: vault access outlook, restore off",
+		"Member access and restore updated for a@b.com: vault access outlook, preview off, download off, restore off",
 		accessRestoreAuditMessage("Member access and restore", "a@b.com", &readOnly),
 	)
 

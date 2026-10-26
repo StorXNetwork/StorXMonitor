@@ -7,9 +7,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/StorXNetwork/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console"
 	"github.com/StorXNetwork/StorXMonitor/satellite/satellitedb/dbx"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 var _ console.MemberBucketGrants = (*memberBucketGrants)(nil)
@@ -34,6 +34,8 @@ func (r *memberBucketGrants) CreatePending(ctx context.Context, projectID uuid.U
 		if expiresAt != nil {
 			createFields.ExpiresAt = dbx.MemberBucketGrant_ExpiresAt(*expiresAt)
 		}
+		createFields.AllowPreview = dbx.MemberBucketGrant_AllowPreview(g.AllowPreview)
+		createFields.AllowRestore = dbx.MemberBucketGrant_AllowRestore(g.AllowRestore)
 		row, err := r.db.Create_MemberBucketGrant(ctx,
 			dbx.MemberBucketGrant_Id(id[:]),
 			dbx.MemberBucketGrant_ProjectId(projectID[:]),
@@ -42,7 +44,7 @@ func (r *memberBucketGrants) CreatePending(ctx context.Context, projectID uuid.U
 			dbx.MemberBucketGrant_Prefix(g.Prefix),
 			dbx.MemberBucketGrant_AllowList(g.AllowList),
 			dbx.MemberBucketGrant_AllowDownload(g.AllowDownload),
-			// Member ACL supports List + Download only.
+			// Upload and delete stay off. Preview and restore are the optional fields below.
 			dbx.MemberBucketGrant_AllowUpload(false),
 			dbx.MemberBucketGrant_AllowDelete(false),
 			createFields,
@@ -114,6 +116,8 @@ func (r *memberBucketGrants) ReplaceForMember(ctx context.Context, projectID, me
 		if expiresAt != nil {
 			createFields.ExpiresAt = dbx.MemberBucketGrant_ExpiresAt(*expiresAt)
 		}
+		createFields.AllowPreview = dbx.MemberBucketGrant_AllowPreview(g.AllowPreview)
+		createFields.AllowRestore = dbx.MemberBucketGrant_AllowRestore(g.AllowRestore)
 		row, err := r.db.Create_MemberBucketGrant(ctx,
 			dbx.MemberBucketGrant_Id(id[:]),
 			dbx.MemberBucketGrant_ProjectId(projectID[:]),
@@ -122,7 +126,6 @@ func (r *memberBucketGrants) ReplaceForMember(ctx context.Context, projectID, me
 			dbx.MemberBucketGrant_Prefix(g.Prefix),
 			dbx.MemberBucketGrant_AllowList(g.AllowList),
 			dbx.MemberBucketGrant_AllowDownload(g.AllowDownload),
-			// Member ACL supports List + Download only.
 			dbx.MemberBucketGrant_AllowUpload(false),
 			dbx.MemberBucketGrant_AllowDelete(false),
 			createFields,
@@ -224,7 +227,9 @@ func memberBucketGrantFromDBX(row *dbx.MemberBucketGrant) (*console.MemberBucket
 		Bucket:        row.Bucket,
 		Prefix:        row.Prefix,
 		AllowList:     row.AllowList,
-		AllowDownload: row.AllowDownload,
+		AllowPreview:  row.AllowPreview,
+		AllowDownload: row.AllowDownload || row.AllowRestore,
+		AllowRestore:  row.AllowRestore,
 		AllowUpload:   row.AllowUpload,
 		AllowDelete:   row.AllowDelete,
 		CreatedAt:     row.CreatedAt,

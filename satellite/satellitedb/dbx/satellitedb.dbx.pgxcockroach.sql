@@ -1169,6 +1169,8 @@ CREATE TABLE member_bucket_grants (
 	created_at timestamp with time zone NOT NULL,
 	updated_at timestamp with time zone NOT NULL,
 	expires_at timestamp with time zone,
+	allow_preview boolean NOT NULL DEFAULT true,
+	allow_restore boolean NOT NULL DEFAULT true,
 	PRIMARY KEY ( id ),
 	UNIQUE ( project_id, invite_email, bucket, prefix )
 ) ;

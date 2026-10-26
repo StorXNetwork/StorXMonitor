@@ -1090,6 +1090,8 @@ CREATE TABLE member_bucket_grants (
 	created_at TIMESTAMP NOT NULL,
 	updated_at TIMESTAMP NOT NULL,
 	expires_at TIMESTAMP,
+	allow_preview BOOL NOT NULL DEFAULT (true),
+	allow_restore BOOL NOT NULL DEFAULT (true),
 	CONSTRAINT member_bucket_grants_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE ,
 	CONSTRAINT member_bucket_grants_member_id_fkey FOREIGN KEY (member_id) REFERENCES users (id) ON DELETE CASCADE 
 ) PRIMARY KEY ( id ) ;

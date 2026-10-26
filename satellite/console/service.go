@@ -9325,7 +9325,9 @@ func (s *Service) UpdatePendingInviteAccess(ctx context.Context, projectID uuid.
 				Bucket:        g.Bucket,
 				Prefix:        g.Prefix,
 				AllowList:     g.AllowList,
+				AllowPreview:  g.AllowPreview,
 				AllowDownload: g.AllowDownload,
+				AllowRestore:  g.AllowRestore,
 			})
 		}
 		updateGrants = true
@@ -9379,6 +9381,7 @@ func (s *Service) UpdatePendingInviteAccess(ctx context.Context, projectID uuid.
 		return nil, Error.Wrap(err)
 	}
 	vaults, vaultExpiresAt := SummarizeVaultGrants(grants)
+	access := AccessFromGrants(grants)
 
 	inviteLink, linkErr := s.buildInviteLink(ctx, email, *invite)
 	if linkErr != nil {
@@ -9392,7 +9395,11 @@ func (s *Service) UpdatePendingInviteAccess(ctx context.Context, projectID uuid.
 		LinkExpiresAt:  s.inviteTokenExpiresAt(invite),
 		VaultExpiresAt: vaultExpiresAt,
 		Vaults:         vaults,
-		Permission:     "read_only",
+		Permission:     InvitePermissionLabel(access),
+		Read:           access.Read,
+		Preview:        access.Preview,
+		Download:       access.Download,
+		Restore:        access.Restore,
 	}, nil
 }
 
@@ -9418,7 +9425,7 @@ type InviteProjectMemberParams struct {
 	LinkExpiration string
 	// VaultExpiration is 24h|3d|7d|30d (empty = vault access does not expire).
 	VaultExpiration string
-	// Permissions is optional. Nil keeps read + restore. Set to choose which the invitee gets.
+	// Permissions is optional. Nil keeps read, preview, download, and restore.
 	Permissions *InviteAccessSelection
 }
 
@@ -9430,9 +9437,11 @@ type InviteProjectMemberResult struct {
 	LinkExpiresAt  time.Time          `json:"link_expires_at"`
 	VaultExpiresAt *time.Time         `json:"vault_expires_at,omitempty"`
 	Vaults         []string           `json:"vaults"`
-	// Permission is read, restore, or read_restore.
+	// Permission is read, restore, or read_restore. Preview and download are the bools below.
 	Permission string `json:"permission"`
 	Read       bool   `json:"read"`
+	Preview    bool   `json:"preview"`
+	Download   bool   `json:"download"`
 	Restore    bool   `json:"restore"`
 }
 
@@ -9511,6 +9520,8 @@ func (s *Service) InviteNewProjectMemberDetailed(ctx context.Context, projectID 
 		Vaults:         vaults,
 		Permission:     InvitePermissionLabel(access),
 		Read:           access.Read,
+		Preview:        access.Preview,
+		Download:       access.Download,
 		Restore:        access.Restore,
 	}, nil
 }
@@ -9518,7 +9529,7 @@ func (s *Service) InviteNewProjectMemberDetailed(ctx context.Context, projectID 
 // ProjectMemberInviteRequest is one entry for bulk invite (same idea as single invite).
 // Vaults are bucket names (e.g. cyberls-gmail, cyberls-drive). Server builds List+Download on `{email}/`.
 // Vaults == nil → ACL-registry defaults; non-nil (including empty) uses those vault names only.
-// Permissions nil → read + restore.
+// Permissions nil → read, preview, download, and restore.
 type ProjectMemberInviteRequest struct {
 	Email       string
 	Vaults      *[]string
@@ -9672,7 +9683,7 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 		}
 	}
 
-	// Resolve selected invite permissions (nil = read + restore).
+	// Resolve selected invite permissions (nil = read, preview, download, and restore).
 	accessSel, err := ResolveInviteAccess(access)
 	if err != nil {
 		return nil, err

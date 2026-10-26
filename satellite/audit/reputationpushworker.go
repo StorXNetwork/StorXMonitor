@@ -164,10 +164,7 @@ func (worker *ReputationPushWorker) aggregateReputationsByWallet(reputations []N
 			continue
 		}
 
-		currentDQ := worker.isNodeDisqualified(rep)
-		if !currentDQ {
-			walletMap[key] = rep
-		}
+		walletMap[key] = preferReputationEntry(walletMap[key], rep)
 	}
 
 	wallets := make([]string, 0, len(walletMap))
@@ -181,6 +178,53 @@ func (worker *ReputationPushWorker) aggregateReputationsByWallet(reputations []N
 		result = append(result, walletMap[wallet])
 	}
 	return result
+}
+
+// preferReputationEntry keeps the node that should represent a shared wallet.
+// A disqualified row loses to a live row. Otherwise the latest successful contact wins,
+// then the row that is actually storing pieces, then the higher audit alpha.
+func preferReputationEntry(current, candidate NodeReputationEntry) NodeReputationEntry {
+	currentDQ := reputationDisqualified(current)
+	candidateDQ := reputationDisqualified(candidate)
+	if currentDQ != candidateDQ {
+		if currentDQ {
+			return candidate
+		}
+		return current
+	}
+	currentContact := reputationContact(current)
+	candidateContact := reputationContact(candidate)
+	if !currentContact.Equal(candidateContact) {
+		if candidateContact.After(currentContact) {
+			return candidate
+		}
+		return current
+	}
+	if candidate.PieceCount != current.PieceCount {
+		if candidate.PieceCount > current.PieceCount {
+			return candidate
+		}
+		return current
+	}
+	if candidate.AuditReputationAlpha > current.AuditReputationAlpha {
+		return candidate
+	}
+	return current
+}
+
+func reputationContact(entry NodeReputationEntry) time.Time {
+	if entry.LastContactSuccess == nil {
+		return time.Time{}
+	}
+	return *entry.LastContactSuccess
+}
+
+func reputationDisqualified(reputation NodeReputationEntry) bool {
+	return (reputation.Disqualified != nil && !(*reputation.Disqualified).IsZero()) ||
+		(reputation.ExitInitiatedAt != nil && reputation.ExitInitiatedAt.IsZero()) ||
+		(reputation.ExitFinishedAt != nil && reputation.ExitFinishedAt.IsZero()) ||
+		(reputation.ExitSuccess != nil && *reputation.ExitSuccess) ||
+		(reputation.UnderReview != nil && !(*reputation.UnderReview).IsZero())
 }
 
 // processReputation processes a single reputation entry and pushes it to the smart contract.
@@ -227,17 +271,21 @@ func (worker *ReputationPushWorker) calculateReputationValue(ctx context.Context
 		return 0
 	}
 
-	// Check if node is inactive (no recent contact or no pieces)
+	// Check if node is inactive (no recent contact or no pieces). This is only a log.
+	// Zero pieces does not change the score. The farmer value stays audit alpha × 5
+	// until the node has not checked in for 30 days.
 	if worker.isNodeInactive(reputation) {
 		worker.log.Info("node is inactive", zap.String("wallet", reputation.Wallet))
 		mon.Counter("reputation_push_worker_inactive_nodes").Inc(1) //mon:locked
-		reputationJson, _ := json.Marshal(reputation)
-		worker.db.NodeSmartContractStatus(ctx, reputation.Wallet, "info", "node is inactive because: "+string(reputationJson))
+		if worker.db != nil {
+			reputationJson, _ := json.Marshal(reputation)
+			_ = worker.db.NodeSmartContractStatus(ctx, reputation.Wallet, "info", "node is inactive because: "+string(reputationJson))
+		}
 	}
 
-	// Nodes that stopped contacting for over 30 days should be pushed with a minimum score.
-	if worker.isNodeOlderThan24Hours(reputation) {
-		worker.log.Info("node last contact older than 24 hours, forcing reputation to 5", zap.String("wallet", reputation.Wallet))
+	// Nodes that stopped contacting for over 30 days are pushed with the minimum score.
+	if worker.isNodeOlderThan30Days(reputation) {
+		worker.log.Info("node last contact older than 30 days, forcing reputation to 5", zap.String("wallet", reputation.Wallet))
 		return 5
 	}
 
@@ -246,11 +294,7 @@ func (worker *ReputationPushWorker) calculateReputationValue(ctx context.Context
 
 // isNodeDisqualified checks if a node is disqualified based on various status flags.
 func (worker *ReputationPushWorker) isNodeDisqualified(reputation NodeReputationEntry) bool {
-	return (reputation.Disqualified != nil && !(*reputation.Disqualified).IsZero()) ||
-		(reputation.ExitInitiatedAt != nil && reputation.ExitInitiatedAt.IsZero()) ||
-		(reputation.ExitFinishedAt != nil && reputation.ExitFinishedAt.IsZero()) ||
-		(reputation.ExitSuccess != nil && *reputation.ExitSuccess) ||
-		(reputation.UnderReview != nil && !(*reputation.UnderReview).IsZero())
+	return reputationDisqualified(reputation)
 }
 
 // isNodeInactive checks if a node is considered inactive.
@@ -259,10 +303,13 @@ func (worker *ReputationPushWorker) isNodeInactive(reputation NodeReputationEntr
 		reputation.PieceCount == 0
 }
 
-// isNodeOlderThan30Days checks if last successful contact is older than 30 days.
-func (worker *ReputationPushWorker) isNodeOlderThan24Hours(reputation NodeReputationEntry) bool {
-	return reputation.LastContactSuccess != nil &&
-		reputation.LastContactSuccess.Before(time.Now().Add(-time.Hour*24))
+// isNodeOlderThan30Days reports a missing check-in or one older than 30 days.
+// Those wallets are pushed as 5. A check-in inside 30 days keeps audit alpha × 5.
+func (worker *ReputationPushWorker) isNodeOlderThan30Days(reputation NodeReputationEntry) bool {
+	if reputation.LastContactSuccess == nil {
+		return true
+	}
+	return reputation.LastContactSuccess.Before(time.Now().Add(-30 * 24 * time.Hour))
 }
 
 // handleInactiveNode handles inactive nodes by checking if they're stakers, adding them if needed, and activating them.

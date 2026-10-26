@@ -26,7 +26,9 @@ type MemberBucketGrantSwaggerItem struct {
 	Bucket        string    `json:"bucket" example:"gmail"`
 	Prefix        string    `json:"prefix" example:"member@example.com/"`
 	AllowList     bool      `json:"allowList" example:"true"`
+	AllowPreview  bool      `json:"allowPreview" example:"true"`
 	AllowDownload bool      `json:"allowDownload" example:"true"`
+	AllowRestore  bool      `json:"allowRestore" example:"true"`
 	AllowUpload   bool      `json:"allowUpload" example:"false"` // always false; unsupported
 	AllowDelete   bool      `json:"allowDelete" example:"false"` // always false; unsupported
 	CreatedAt     time.Time `json:"createdAt"`
@@ -39,7 +41,9 @@ type MemberBucketGrantInputSwagger struct {
 	Bucket        string `json:"bucket" example:"gmail"`
 	Prefix        string `json:"prefix" example:"member@example.com/"`
 	AllowList     bool   `json:"allowList" example:"true"`
+	AllowPreview  bool   `json:"allowPreview" example:"true"`
 	AllowDownload bool   `json:"allowDownload" example:"true"`
+	AllowRestore  bool   `json:"allowRestore" example:"true"`
 	AllowUpload   bool   `json:"allowUpload" example:"false"` // ignored
 	AllowDelete   bool   `json:"allowDelete" example:"false"` // ignored
 }
@@ -51,15 +55,17 @@ type PutMemberBucketGrantsSwaggerRequest struct {
 }
 
 // InviteAccessSelectionSwagger is the permission choice on invite.
-// Omit the object to keep the previous default: read and restore both on.
+// Omit the object to keep read, preview, download, and restore on.
 type InviteAccessSelectionSwagger struct {
-	Read    bool `json:"read" example:"true"`
-	Restore bool `json:"restore" example:"true"`
+	Read     bool `json:"read" example:"true"`
+	Preview  bool `json:"preview" example:"true"`
+	Download bool `json:"download" example:"true"`
+	Restore  bool `json:"restore" example:"true"`
 }
 
 // InviteProjectMemberWithGrantsSwaggerRequest is optional body for POST .../invite/{email}.
 // Omit body or omit grants → defaults from current ACL registry ({inviteEmail}/).
-// permissions: omit → read + restore. Set read and/or restore. Both false is rejected.
+// permissions: omit → read, preview, download, and restore. All four false is rejected.
 // Explicit grants:[] → no pending folder grants.
 type InviteProjectMemberWithGrantsSwaggerRequest struct {
 	Grants      []MemberBucketGrantInputSwagger `json:"grants"`

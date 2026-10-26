@@ -165,6 +165,10 @@ type fakeSharedProjects struct {
 	byID map[uuid.UUID]*Project
 }
 
+func (f fakeSharedProjects) Get(ctx context.Context, id uuid.UUID) (*Project, error) {
+	return f.GetByPublicOrPrivateID(ctx, id)
+}
+
 func (f fakeSharedProjects) GetByPublicOrPrivateID(_ context.Context, id uuid.UUID) (*Project, error) {
 	if p, ok := f.byID[id]; ok {
 		c := *p

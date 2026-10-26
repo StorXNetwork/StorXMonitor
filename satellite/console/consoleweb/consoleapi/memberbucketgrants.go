@@ -269,10 +269,16 @@ func accessRestoreAuditMessage(subject, email string, grants *[]console.MemberBu
 	if grants == nil {
 		return fmt.Sprintf("%s updated for %s", subject, who)
 	}
-	restore := "off"
+	preview, download, restore := "off", "off", "off"
 	buckets := make([]string, 0, len(*grants))
 	for _, grant := range *grants {
+		if grant.AllowPreview {
+			preview = "on"
+		}
 		if grant.AllowDownload {
+			download = "on"
+		}
+		if grant.AllowRestore {
 			restore = "on"
 		}
 		bucket := strings.TrimSpace(grant.Bucket)
@@ -284,7 +290,7 @@ func accessRestoreAuditMessage(subject, email string, grants *[]console.MemberBu
 	if len(buckets) > 0 {
 		access = "vault access " + strings.Join(buckets, ", ")
 	}
-	return fmt.Sprintf("%s updated for %s: %s, restore %s", subject, who, access, restore)
+	return fmt.Sprintf("%s updated for %s: %s, preview %s, download %s, restore %s", subject, who, access, preview, download, restore)
 }
 
 func projectIDFromVars(r *http.Request) (uuid.UUID, error) {

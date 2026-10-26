@@ -4,6 +4,7 @@
 package console
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -38,11 +39,14 @@ func ValidateBucketNameForMemberACL(bucket string) error {
 }
 
 // NormalizeMemberGrantInputs clears unsupported Upload/Delete flags in place.
-// Member ACL only supports List + Download.
+// Restore reads the stored mail, so it always keeps download on.
 func NormalizeMemberGrantInputs(grants []MemberBucketGrantInput) {
 	for i := range grants {
 		grants[i].AllowUpload = false
 		grants[i].AllowDelete = false
+		if grants[i].AllowRestore {
+			grants[i].AllowDownload = true
+		}
 	}
 }
 
@@ -85,8 +89,8 @@ func ValidateGrantSet(grants []MemberBucketGrantInput) error {
 		if trimmed == "" {
 			return ErrMemberBucketGrant.New("bucket-wide prefixes are not allowed")
 		}
-		if !g.AllowList && !g.AllowDownload {
-			return ErrMemberBucketGrant.New("grant must allow at least one of list or download")
+		if !g.AllowList && !g.AllowPreview && !g.AllowDownload && !g.AllowRestore {
+			return ErrMemberBucketGrant.New("grant must allow at least one of list, preview, download, or restore")
 		}
 
 		k := key{bucket: g.Bucket, prefix: g.Prefix}
@@ -149,12 +153,14 @@ func FindMatchingGrant(requestedBucket, requestedPrefix string, aclGrants []Memb
 // Member ACL only supports List + Download; Upload/Delete are always denied.
 func IntersectPermission(requested *grant.Permission, acl MemberBucketGrant) grant.Permission {
 	out := grant.Permission{}
+	// Preview and restore open the stored mail, so they need the same read as download.
+	canFetch := acl.AllowDownload || acl.AllowPreview || acl.AllowRestore
 	if requested == nil {
 		out.AllowList = acl.AllowList
-		out.AllowDownload = acl.AllowDownload
+		out.AllowDownload = canFetch
 	} else {
 		out.AllowList = requested.AllowList && acl.AllowList
-		out.AllowDownload = requested.AllowDownload && acl.AllowDownload
+		out.AllowDownload = requested.AllowDownload && canFetch
 		out.NotBefore = requested.NotBefore
 		out.NotAfter = requested.NotAfter
 	}
@@ -182,28 +188,74 @@ func FilterActiveMemberGrants(grants []MemberBucketGrant, now time.Time) []Membe
 }
 
 // InviteAccessSelection is what the inviter chooses when sending an invitation.
-// Read is list. Restore is the product restore action. Download stays on when read is on.
-// A nil selection means both (the previous default).
+// Read lists the mailbox. Preview opens a mail. Download saves it. Restore runs restore.
+// A nil selection means all four (the previous default, plus preview).
 type InviteAccessSelection struct {
-	Read    bool `json:"read"`
-	Restore bool `json:"restore"`
+	Read     bool `json:"read"`
+	Preview  bool `json:"preview"`
+	Download bool `json:"download"`
+	Restore  bool `json:"restore"`
 }
 
-// DefaultInviteAccess is read + restore, the previous always-on invite access.
+// UnmarshalJSON keeps older invite bodies working.
+// Missing preview follows read. Missing download follows read or restore.
+func (s *InviteAccessSelection) UnmarshalJSON(data []byte) error {
+	type plain InviteAccessSelection
+	var decoded plain
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	*s = InviteAccessSelection(decoded)
+	if _, ok := raw["preview"]; !ok {
+		s.Preview = s.Read
+	}
+	if _, ok := raw["download"]; !ok {
+		s.Download = s.Read || s.Restore
+	}
+	*s = ensureRestoreHasDownload(*s)
+	return nil
+}
+
+// ensureRestoreHasDownload turns download on when restore is on.
+// Restore fetches the stored mail, so it fails when download is off.
+func ensureRestoreHasDownload(sel InviteAccessSelection) InviteAccessSelection {
+	if sel.Restore {
+		sel.Download = true
+	}
+	return sel
+}
+
+// DefaultInviteAccess is read, preview, download, and restore.
 func DefaultInviteAccess() InviteAccessSelection {
-	return InviteAccessSelection{Read: true, Restore: true}
+	return InviteAccessSelection{Read: true, Preview: true, Download: true, Restore: true}
 }
 
 // ResolveInviteAccess returns the selection, or the default when omitted.
-// Both false is rejected.
+// All four false is rejected.
 func ResolveInviteAccess(sel *InviteAccessSelection) (InviteAccessSelection, error) {
 	if sel == nil {
 		return DefaultInviteAccess(), nil
 	}
-	if !sel.Read && !sel.Restore {
-		return InviteAccessSelection{}, ErrValidation.New("select at least one permission: read or restore")
+	if !sel.Read && !sel.Preview && !sel.Download && !sel.Restore {
+		return InviteAccessSelection{}, ErrValidation.New("select at least one permission: read, preview, download, or restore")
 	}
-	return *sel, nil
+	return ensureRestoreHasDownload(*sel), nil
+}
+
+// AccessFromGrants ORs the permission flags across a member's grant rows.
+func AccessFromGrants(grants []MemberBucketGrant) InviteAccessSelection {
+	var sel InviteAccessSelection
+	for _, g := range grants {
+		sel.Read = sel.Read || g.AllowList
+		sel.Preview = sel.Preview || g.AllowPreview
+		sel.Download = sel.Download || g.AllowDownload || g.AllowRestore
+		sel.Restore = sel.Restore || g.AllowRestore
+	}
+	return sel
 }
 
 // InvitePermissionLabel is the API permission name for the chosen access.
@@ -220,17 +272,20 @@ func InvitePermissionLabel(sel InviteAccessSelection) string {
 	}
 }
 
-// ApplyInviteAccess sets list and download from read. Restore does not remove
-// download. Upload and delete stay false. Restore is enforced in the product UI.
+// ApplyInviteAccess copies the invite checkboxes onto each grant.
+// Upload and delete stay false. Restore also turns download on.
 func ApplyInviteAccess(grants []MemberBucketGrantInput, sel InviteAccessSelection) []MemberBucketGrantInput {
 	if grants == nil {
 		return nil
 	}
+	sel = ensureRestoreHasDownload(sel)
 	out := make([]MemberBucketGrantInput, len(grants))
 	copy(out, grants)
 	for i := range out {
 		out[i].AllowList = sel.Read
-		out[i].AllowDownload = sel.Read || sel.Restore
+		out[i].AllowPreview = sel.Preview
+		out[i].AllowDownload = sel.Download
+		out[i].AllowRestore = sel.Restore
 		out[i].AllowUpload = false
 		out[i].AllowDelete = false
 	}
@@ -257,7 +312,9 @@ func GrantsFromVaults(inviteEmail string, vaults []string) []MemberBucketGrantIn
 			Bucket:        bucket,
 			Prefix:        prefix,
 			AllowList:     true,
+			AllowPreview:  true,
 			AllowDownload: true,
+			AllowRestore:  true,
 		})
 	}
 	return out
