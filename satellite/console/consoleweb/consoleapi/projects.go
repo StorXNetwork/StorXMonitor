@@ -1513,7 +1513,7 @@ func (p *Projects) RespondToInvitation(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = p.service.RespondToProjectInvitation(ctx, id, payload.Response)
-	p.service.RecordUserAudit(ctx, "PROJECT_INVITATION_RESPOND", "Project invitation", "Project invitation responded", err)
+	p.service.RecordProjectInvitationResponse(ctx, id, payload.Response, err)
 	if err != nil {
 		status := http.StatusInternalServerError
 		switch {
@@ -1576,7 +1576,7 @@ func (p *Projects) DeleteMembersAndInvitations(w http.ResponseWriter, r *http.Re
 	}
 
 	err = p.service.DeleteProjectMembersAndInvitations(ctx, id, payload)
-	p.service.RecordUserAudit(ctx, "PROJECT_MEMBERS_DELETE", "Project members", "Project members removed", err)
+	p.service.RecordProjectMemberRemoval(ctx, id, payload.Emails, err)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) || console.ErrNoMembership.Has(err) {
 			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)

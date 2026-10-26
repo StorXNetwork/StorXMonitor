@@ -9116,6 +9116,7 @@ func (s *Service) RespondToProjectInvitation(ctx context.Context, projectID uuid
 			"invitee_email": user.Email,
 		}
 		s.SendNotificationAsync(user.ID, user.Email, "project_invitation_declined", "account", variables)
+		s.recordInvitationResponseOnProjectAudit(ctx, user, proj, invite.InviterID, ProjectInvitationDecline)
 
 		return nil
 	}
@@ -9191,6 +9192,7 @@ func (s *Service) RespondToProjectInvitation(ctx context.Context, projectID uuid
 		"invitee_email": user.Email,
 	}
 	s.SendNotificationAsync(user.ID, user.Email, "project_invitation_accepted", "account", variables)
+	s.recordInvitationResponseOnProjectAudit(ctx, user, proj, invite.InviterID, ProjectInvitationAccept)
 
 	return nil
 }

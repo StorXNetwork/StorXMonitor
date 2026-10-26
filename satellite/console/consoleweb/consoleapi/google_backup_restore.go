@@ -138,8 +138,9 @@ func (g *GoogleBackupRestore) manualRestoreBatch(w http.ResponseWriter, r *http.
 		return
 	}
 	respBody, status, err := g.service.GoogleBackupManualRestore(ctx, tokenKey, backupToolsPath, req)
-	g.service.RecordUserAuditHTTP(ctx, "GB_MANUAL_RESTORE", "Manual restore", "Manual restore completed", status, respBody, err)
-	g.service.RecordInviteeAuditForOwner(ctx, "", "GB_MANUAL_RESTORE", "Manual restore", "Manual restore completed", status, respBody, err)
+	service := googleRestoreServiceLabel(backupToolsPath)
+	g.service.RecordUserAuditHTTP(ctx, "GB_MANUAL_RESTORE", service, service+" restore completed", status, respBody, err)
+	g.service.RecordInviteeAuditForOwner(ctx, "", "GB_MANUAL_RESTORE", service, service+" restore completed", status, respBody, err)
 	if err != nil {
 		g.serveJSONError(ctx, w, err)
 		return
@@ -261,8 +262,17 @@ func (g *GoogleBackupRestore) RestoreAll(w http.ResponseWriter, r *http.Request)
 		LoginID:     body.LoginID,
 		TargetEmail: body.TargetEmail,
 	}, strings.TrimSpace(r.Header.Get("Authorization")))
-	g.service.RecordUserAuditHTTP(ctx, "GB_RESTORE_INITIATED", "Restore", "Restore initiated", status, respBody, err)
-	g.service.RecordInviteeAuditForOwner(ctx, body.ProjectID, "GB_RESTORE_INITIATED", "Restore", "Restore initiated", status, respBody, err)
+	service := console.AuditServiceLabel(body.Service)
+	if service == "" {
+		service = "Google"
+	}
+	name := strings.TrimSpace(body.LoginID)
+	if name == "" {
+		name = service
+	}
+	message := service + " restore initiated"
+	g.service.RecordUserAuditHTTP(ctx, "GB_RESTORE_INITIATED", name, message, status, respBody, err)
+	g.service.RecordInviteeAuditForOwner(ctx, body.ProjectID, "GB_RESTORE_INITIATED", name, message, status, respBody, err)
 	if err != nil {
 		g.serveJSONError(ctx, w, err)
 		return
@@ -538,4 +548,21 @@ func (g *GoogleBackupRestore) ManualRestoreCalendar(w http.ResponseWriter, r *ht
 // @Router       /google-backup/google/satellite-to-contacts [post]
 func (g *GoogleBackupRestore) ManualRestoreContacts(w http.ResponseWriter, r *http.Request) {
 	g.manualRestoreBatch(w, r, "/google/satellite-to-contacts")
+}
+
+func googleRestoreServiceLabel(path string) string {
+	switch {
+	case strings.Contains(path, "gmail"):
+		return "Gmail"
+	case strings.Contains(path, "drive"):
+		return "Drive"
+	case strings.Contains(path, "photos"):
+		return "Photos"
+	case strings.Contains(path, "calendar"):
+		return "Calendar"
+	case strings.Contains(path, "contacts"):
+		return "Contacts"
+	default:
+		return "Google"
+	}
 }

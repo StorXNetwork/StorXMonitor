@@ -6,6 +6,7 @@ package consoleapi
 import (
 	"context"
 	"net/http"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"go.uber.org/zap"
@@ -121,8 +122,17 @@ func (m *MicrosoftBackupRestoreAll) RestoreAll(w http.ResponseWriter, r *http.Re
 		CredentialID: body.CredentialID,
 		TenantID:     body.TenantID,
 	})
-	m.service.RecordUserAuditHTTP(ctx, "MB_RESTORE_INITIATED", "Restore", "Microsoft restore initiated", status, respBody, err)
-	m.service.RecordInviteeAuditForOwner(ctx, body.ProjectID, "MB_RESTORE_INITIATED", "Restore", "Microsoft restore initiated", status, respBody, err)
+	service := console.AuditServiceLabel(body.Service)
+	if service == "" {
+		service = "Microsoft"
+	}
+	name := strings.TrimSpace(body.LoginID)
+	if name == "" {
+		name = service
+	}
+	message := service + " restore initiated"
+	m.service.RecordUserAuditHTTP(ctx, "MB_RESTORE_INITIATED", name, message, status, respBody, err)
+	m.service.RecordInviteeAuditForOwner(ctx, body.ProjectID, "MB_RESTORE_INITIATED", name, message, status, respBody, err)
 	if err != nil {
 		m.serveJSONError(ctx, w, err)
 		return

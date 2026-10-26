@@ -215,6 +215,7 @@ func (a *AuditLogs) RecordActivity(w http.ResponseWriter, r *http.Request) {
 		ProjectID string `json:"projectId"`
 		Action    string `json:"action"`
 		Resource  string `json:"resource"`
+		Service   string `json:"service"`
 	}
 	dec := json.NewDecoder(r.Body)
 	dec.DisallowUnknownFields()
@@ -228,8 +229,12 @@ func (a *AuditLogs) RecordActivity(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resource := strings.TrimSpace(body.Resource)
-	a.service.RecordUserAudit(ctx, body.Action, resource, downloadAuditMessage, nil)
-	a.service.RecordInviteeAuditForOwner(ctx, strings.TrimSpace(body.ProjectID), body.Action, resource, downloadAuditMessage, http.StatusOK, nil, nil)
+	message := downloadAuditMessage
+	if label := console.AuditServiceLabel(body.Service); label != "" {
+		message = label + " download completed"
+	}
+	a.service.RecordUserAudit(ctx, body.Action, resource, message, nil)
+	a.service.RecordInviteeAuditForOwner(ctx, strings.TrimSpace(body.ProjectID), body.Action, resource, message, http.StatusOK, nil, nil)
 	w.WriteHeader(http.StatusNoContent)
 }
 

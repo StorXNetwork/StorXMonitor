@@ -30,3 +30,15 @@ func TestInviteeOwnerAuditMessage(t *testing.T) {
 		})
 	}
 }
+
+func TestInvitationDeclineAuditMessage(t *testing.T) {
+	t.Parallel()
+
+	require.Equal(t, "Invitation to My Project declined", console.InvitationDeclineAuditMessage("My Project", "invitee@example.com", false))
+	require.Equal(t, "Invitation to My Project declined by invited user invitee@example.com", console.InvitationDeclineAuditMessage(" My Project ", "invitee@example.com", true))
+	require.Equal(t, "Invitation to the project declined", console.InvitationDeclineAuditMessage("  ", "", false))
+	require.Equal(t, "Invitation to My Project accepted", console.InvitationAcceptAuditMessage("My Project", "invitee@example.com", false))
+	require.Equal(t, "Invitation to My Project accepted by invited user invitee@example.com", console.InvitationAcceptAuditMessage("My Project", "invitee@example.com", true))
+	require.Equal(t, "Left the invitation to My Project", console.InvitationLeaveAuditMessage("My Project", "invitee@example.com", false))
+	require.Equal(t, "Invited user invitee@example.com left the invitation to My Project", console.InvitationLeaveAuditMessage("My Project", "invitee@example.com", true))
+}
