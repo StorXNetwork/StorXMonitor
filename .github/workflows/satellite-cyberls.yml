@@ -165,37 +165,48 @@ jobs:
       shell: powershell
       run: |
         Set-Location $env:BIN_PATH
-        $service = Get-Service -Name $env:SERVICE -ErrorAction Stop
-        if ($service.Status -ne "Running") {
-          # nssm returns an error for SERVICE_START_PENDING even when the start succeeds, so the result is checked below instead.
-          $ErrorActionPreference = "Continue"
-          & cmd /c ".\nssm.exe" start $env:SERVICE 2>&1 | Out-Host
-          $ErrorActionPreference = "Stop"
-        }
+        $names = @('Cyberls-Satellite', 'Cyberls-Microsoft-Satellite')
 
-        $deadline = (Get-Date).AddSeconds(30)
-        do {
-          Start-Sleep -Seconds 1
-          $service.Refresh()
-        } while ($service.Status -ne "Running" -and (Get-Date) -lt $deadline)
-        if ($service.Status -ne "Running") {
-          Write-Error "$env:SERVICE did not reach Running (status: $($service.Status))"
-          exit 1
-        }
-
-        # nssm restarts a crashing app and the service can still look Running, so the same sim process must survive the whole window.
-        # The sim is found as the child of the service's nssm process: executable paths are hidden from non-admin runner accounts.
-        function Get-SimProcessIds {
-          $nssmPid = (Get-CimInstance Win32_Service -Filter "Name='$env:SERVICE'").ProcessId
+        function Get-SimProcessIds([string]$serviceName) {
+          $nssmPid = (Get-CimInstance Win32_Service -Filter "Name='$serviceName'").ProcessId
           if (-not $nssmPid) { return @() }
           @(Get-CimInstance Win32_Process -Filter "ParentProcessId=$nssmPid AND Name='storxnetwork-sim.exe'" | ForEach-Object { $_.ProcessId })
         }
-        $before = Get-SimProcessIds
+
+        foreach ($name in $names) {
+          $service = Get-Service -Name $name -ErrorAction SilentlyContinue
+          if (-not $service) {
+            Write-Host "$name not installed, skip"
+            continue
+          }
+          if ($service.Status -ne 'Running') {
+            $ErrorActionPreference = 'Continue'
+            try {
+              Start-Service -Name $name -WarningAction SilentlyContinue -ErrorAction Stop
+            } catch {
+              & cmd /c ".\nssm.exe" start $name 2>&1 | Out-Host
+            }
+            $ErrorActionPreference = 'Stop'
+          }
+          $deadline = (Get-Date).AddSeconds(30)
+          do {
+            Start-Sleep -Seconds 1
+            $service.Refresh()
+          } while ($service.Status -ne 'Running' -and (Get-Date) -lt $deadline)
+          if ($service.Status -ne 'Running') {
+            Write-Error "$name did not reach Running (status: $($service.Status))"
+            exit 1
+          }
+          Write-Host "$name is Running"
+        }
+
+        $service = Get-Service -Name $env:SERVICE -ErrorAction Stop
+        $before = Get-SimProcessIds $env:SERVICE
         Start-Sleep -Seconds 20
         $service.Refresh()
-        $after = Get-SimProcessIds
+        $after = Get-SimProcessIds $env:SERVICE
         $survived = @($after | Where-Object { $before -contains $_ })
-        if ($service.Status -ne "Running" -or $survived.Count -eq 0) {
+        if ($service.Status -ne 'Running' -or $survived.Count -eq 0) {
           Write-Error "$env:SERVICE is not stable (status: $($service.Status), sim processes before: $($before -join ','), after: $($after -join ',')). Check the service logs."
           exit 1
         }
