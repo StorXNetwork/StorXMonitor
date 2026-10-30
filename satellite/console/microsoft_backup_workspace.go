@@ -157,7 +157,7 @@ func (s *Service) ListMicrosoftBackupDirectoryUsers(ctx context.Context, tokenKe
 		return nil, err
 	}
 	forwarded := url.Values{}
-	for _, key := range []string{"search", "department", "page", "page_size"} {
+	for _, key := range []string{"search", "department", "page", "page_size", "all", "include_roles", "include_licenses", "enabled_only"} {
 		if v := strings.TrimSpace(query.Get(key)); v != "" {
 			forwarded.Set(key, v)
 		}
@@ -171,14 +171,19 @@ func (s *Service) ListMicrosoftBackupDirectoryUsers(ctx context.Context, tokenKe
 
 // ListMicrosoftBackupTenants returns the tenant access state of every tenant the selected account can
 // reach (Backup-Tools GET /microsoft/accounts/tenants). This is an account-level route: no tenant is selected.
-func (s *Service) ListMicrosoftBackupTenants(ctx context.Context, tokenKey, credentialID string) (result map[string]interface{}, err error) {
+// When forceRefresh is true, Backup-Tools re-probes token/roles for every tenant (?refresh=1).
+func (s *Service) ListMicrosoftBackupTenants(ctx context.Context, tokenKey, credentialID string, forceRefresh bool) (result map[string]interface{}, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	credential, err := s.resolveMicrosoftCredentialForUser(ctx, credentialID)
 	if err != nil {
 		return nil, err
 	}
-	result, err = s.backupToolsTenantJSON(ctx, http.MethodGet, "/microsoft/accounts/tenants", tokenKey, credential, "", nil)
+	path := "/microsoft/accounts/tenants"
+	if forceRefresh {
+		path += "?refresh=1"
+	}
+	result, err = s.backupToolsTenantJSON(ctx, http.MethodGet, path, tokenKey, credential, "", nil)
 	if err != nil {
 		return nil, err
 	}

@@ -404,13 +404,19 @@ func TestMicrosoftTenantScopedRoutes(t *testing.T) {
 	})
 
 	t.Run("list tenants is account-level", func(t *testing.T) {
-		result, err := h.service.ListMicrosoftBackupTenants(h.ctx, "session", alice.ID.String())
+		result, err := h.service.ListMicrosoftBackupTenants(h.ctx, "session", alice.ID.String(), false)
 		require.NoError(t, err)
 		require.Equal(t, alice.ID.String(), result["credential_id"])
 		call := h.lastCall()
 		require.Equal(t, http.MethodGet, call.Method)
 		require.Equal(t, "/microsoft/accounts/tenants", call.Path)
 		requireMicrosoftHeaders(t, call, "oid-a", "tenant-home", "")
+
+		_, err = h.service.ListMicrosoftBackupTenants(h.ctx, "session", alice.ID.String(), true)
+		require.NoError(t, err)
+		call = h.lastCall()
+		require.Equal(t, "/microsoft/accounts/tenants", call.Path)
+		require.Equal(t, []string{"1"}, call.Query["refresh"])
 	})
 
 	t.Run("connect tenant", func(t *testing.T) {

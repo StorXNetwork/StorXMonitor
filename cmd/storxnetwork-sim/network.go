@@ -574,7 +574,9 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		satellite := satellite
 		process := processes.New(Info{
 			Name:       fmt.Sprintf("gateway/%d", i),
-			Executable: "gateway",
+			// gateway-st is the single-tenant S3 gateway (--access, --non-interactive).
+			// PATH "gateway" is often gateway-mt, which rejects those flags.
+			Executable: "gateway-st",
 			Directory:  filepath.Join(processes.Directory, "gateway", strconv.Itoa(i)),
 			Address:    net.JoinHostPort(host, port(gatewayPeer, i, publicRPC)),
 		})
@@ -786,7 +788,7 @@ func identitySetup(network *Processes) (*Processes, error) {
 	processes := NewProcesses(network.Directory, network.FailFast, network.NewRelicConfig)
 
 	for _, process := range network.List {
-		if process.Info.Executable == "gateway" || process.Info.Executable == "redis-server" {
+		if process.Info.Executable == "gateway" || process.Info.Executable == "gateway-st" || process.Info.Executable == "redis-server" {
 			// gateways and redis-servers don't need an identity
 			continue
 		}

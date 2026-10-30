@@ -60,11 +60,12 @@ func TestBuildMicrosoftBackupOAuthURL(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, authURL, "client_id=test-client-id")
 	require.Contains(t, authURL, "Mail.Read")
-	require.Contains(t, authURL, "Files.Read")
+	require.Contains(t, authURL, "Files.Read.All")
 	require.Contains(t, authURL, "offline_access")
-	// Organization scopes come from admin consent (app permissions), never the user sign-in.
+	require.Contains(t, authURL, "management.azure.com")
+	require.Contains(t, authURL, "user_impersonation")
+	// Organization Graph scopes come from admin consent (app permissions), never the user sign-in.
 	require.NotContains(t, authURL, "Mail.Read.Shared")
-	require.NotContains(t, authURL, "Files.Read.All")
 	require.NotContains(t, authURL, "Sites.Read.All")
 	require.NotContains(t, authURL, "User.Read.All")
 	require.Contains(t, authURL, "prompt=consent")

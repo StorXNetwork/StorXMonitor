@@ -661,6 +661,9 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	microsoftBackupUsersGroupsRouter.Handle("/mailbox/schedule", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupUsersGroupsController.GetMailboxSchedule))).Methods(http.MethodGet, http.MethodOptions)
 	microsoftBackupUsersGroupsRouter.Handle("/mailbox/credentials", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupUsersGroupsController.GetMailboxCredentials))).Methods(http.MethodGet, http.MethodOptions)
 	microsoftBackupUsersGroupsRouter.Handle("/jobs/active", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupUsersGroupsController.UpdateJobsActive))).Methods(http.MethodPut, http.MethodOptions)
+	microsoftBackupUsersGroupsRouter.Handle("/access-verify/start", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupUsersGroupsController.StartAccessVerify))).Methods(http.MethodPost, http.MethodOptions)
+	microsoftBackupUsersGroupsRouter.Handle("/access-verify/status/{id}", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupUsersGroupsController.StatusAccessVerify))).Methods(http.MethodGet, http.MethodOptions)
+	microsoftBackupUsersGroupsRouter.Handle("/access-verify/recheck", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupUsersGroupsController.RecheckAccessVerify))).Methods(http.MethodPost, http.MethodOptions)
 	microsoftBackupUsersGroupsRouter.Handle("", server.userIDRateLimiter.Limit(http.HandlerFunc(microsoftBackupUsersGroupsController.List))).Methods(http.MethodGet, http.MethodOptions)
 
 	microsoftBackupRestoreAllController := consoleapi.NewMicrosoftBackupRestoreAll(logger, service, server.cookieAuth)

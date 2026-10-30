@@ -69,6 +69,8 @@ type CreateMicrosoftBackupAutoSyncJobsRequest struct {
 	AllUsers bool `json:"all_users,omitempty"`
 	// UserIDs selects tenant directory users by object ID (organization mode).
 	UserIDs []string `json:"user_ids,omitempty"`
+	// SystemJobID is the Access Check system job; required for org mailbox materialize.
+	SystemJobID uint `json:"system_job_id,omitempty"`
 }
 
 // needsScheduleInBody reports whether top-level interval/on should be forwarded to Backup-Tools.
@@ -388,6 +390,9 @@ func (s *Service) CreateMicrosoftBackupAutoSyncJobs(ctx context.Context, req Cre
 	}
 	if req.BackupScope != "" {
 		payload["backup_scope"] = req.BackupScope
+	}
+	if req.SystemJobID > 0 {
+		payload["system_job_id"] = req.SystemJobID
 	}
 
 	// own_nodes mode: allow job create, but keep inactive until >= MinOwnNodesRequired.

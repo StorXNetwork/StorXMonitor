@@ -31,6 +31,15 @@ func microsoftTenantSelectionFromRequest(r *http.Request) console.MicrosoftTenan
 	return console.MicrosoftTenantSelectionFromQuery(r.URL.Query())
 }
 
+func microsoftQueryTruthy(v string) bool {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
+}
+
 // microsoftTenantSelectionFromPath uses the {tid} path variable as the selected tenant.
 func microsoftTenantSelectionFromPath(r *http.Request) console.MicrosoftTenantSelection {
 	sel := microsoftTenantSelectionFromRequest(r)
@@ -103,10 +112,13 @@ func (m *MicrosoftBackup) RefreshCapabilities(w http.ResponseWriter, r *http.Req
 // @Produce      json
 // @Param        credential_id  query  string  false  "Microsoft account (backup credential ID); required when several accounts are connected"
 // @Param        tenant_id      query  string  true   "Selected Entra tenant ID"
-// @Param        search      query  string  false  "Search by name or email"
-// @Param        department  query  string  false  "Filter by department"
-// @Param        page        query  int     false  "Page number"
-// @Param        page_size   query  int     false  "Page size"
+// @Param        search           query  string  false  "Search by name or email"
+// @Param        department       query  string  false  "Filter by department"
+// @Param        page             query  int     false  "Page number"
+// @Param        page_size        query  int     false  "Page size"
+// @Param        all              query  string  false  "Set to 1 to return the full filtered set in one response"
+// @Param        include_roles    query  string  false  "Set to 1 to include Entra directory role membership (slow)"
+// @Param        enabled_only     query  string  false  "Set to true to omit disabled accounts"
 // @Success      200  {object}  BackupToolsJSONResponse
 // @Failure      400  {object}  SwaggerErrorResponse
 // @Failure      401  {object}  SwaggerErrorResponse
@@ -155,6 +167,7 @@ func (m *MicrosoftBackup) ListAccounts(w http.ResponseWriter, r *http.Request) {
 // @Tags         microsoft-backup-organization
 // @Produce      json
 // @Param        credential_id  query  string  false  "Microsoft account (backup credential ID); required when several accounts are connected"
+// @Param        refresh        query  string  false  "Set to 1/true to force live token and role probes"
 // @Success      200  {object}  BackupToolsJSONResponse
 // @Failure      400  {object}  SwaggerErrorResponse
 // @Failure      401  {object}  SwaggerErrorResponse
@@ -162,8 +175,9 @@ func (m *MicrosoftBackup) ListAccounts(w http.ResponseWriter, r *http.Request) {
 // @Security     CookieAuth
 // @Router       /microsoft-backup/tenants [get]
 func (m *MicrosoftBackup) ListTenants(w http.ResponseWriter, r *http.Request) {
+	forceRefresh := microsoftQueryTruthy(r.URL.Query().Get("refresh"))
 	m.proxyWorkspace(w, r, func(ctx context.Context, tokenKey string) (map[string]interface{}, error) {
-		return m.service.ListMicrosoftBackupTenants(ctx, tokenKey, microsoftTenantSelectionFromRequest(r).CredentialID)
+		return m.service.ListMicrosoftBackupTenants(ctx, tokenKey, microsoftTenantSelectionFromRequest(r).CredentialID, forceRefresh)
 	})
 }
 

@@ -5,8 +5,10 @@ package consoleapi
 
 import (
 	"context"
+	"io"
 	"net/http"
 
+	"github.com/gorilla/mux"
 	"go.uber.org/zap"
 
 	"github.com/StorXNetwork/StorXMonitor/satellite/console"
@@ -248,6 +250,107 @@ func (m *MicrosoftBackupUsersGroups) UpdateJobsActive(w http.ResponseWriter, r *
 		return
 	}
 	respBody, status, err := m.service.UpdateMicrosoftBackupUsersGroupsJobsActive(ctx, tokenKey, req)
+	if err != nil {
+		m.serveJSONError(ctx, w, err)
+		return
+	}
+	writeBackupToolsJSON(w, status, respBody)
+}
+
+// StartAccessVerify proxies Backup-Tools POST /microsoft/users-groups/access-verify/start.
+//
+// @Summary      Start Microsoft access-check system job
+// @Description  Creates (or resumes) one system verification job; does not create backup jobs.
+// @Tags         microsoft-backup-users-groups
+// @Accept       json
+// @Produce      json
+// @Param        body  body  object  true  "Same shape as auto-sync/job selection (services, emails/user_ids, tenant_id, credential_id, backup_mode=organization)"
+// @Success      200   {object}  BackupToolsJSONResponse
+// @Failure      400   {object}  SwaggerErrorResponse
+// @Failure      401   {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /microsoft-backup/users-groups/access-verify/start [post]
+func (m *MicrosoftBackupUsersGroups) StartAccessVerify(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	tokenKey, err := m.sessionTokenKey(r)
+	if err != nil {
+		m.serveJSONError(ctx, w, err)
+		return
+	}
+	rawBody, err := io.ReadAll(r.Body)
+	if err != nil {
+		m.serveJSONError(ctx, w, console.ErrValidation.New("could not read request body"))
+		return
+	}
+	respBody, status, err := m.service.StartMicrosoftAccessVerify(ctx, tokenKey, rawBody)
+	if err != nil {
+		m.serveJSONError(ctx, w, err)
+		return
+	}
+	writeBackupToolsJSON(w, status, respBody)
+}
+
+// StatusAccessVerify proxies Backup-Tools GET /microsoft/users-groups/access-verify/status/:id.
+//
+// @Summary      Poll Microsoft access-check system job status
+// @Tags         microsoft-backup-users-groups
+// @Produce      json
+// @Param        id   path  string  true  "system_job_id"
+// @Success      200  {object}  BackupToolsJSONResponse
+// @Failure      400  {object}  SwaggerErrorResponse
+// @Failure      401  {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /microsoft-backup/users-groups/access-verify/status/{id} [get]
+func (m *MicrosoftBackupUsersGroups) StatusAccessVerify(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	tokenKey, err := m.sessionTokenKey(r)
+	if err != nil {
+		m.serveJSONError(ctx, w, err)
+		return
+	}
+	id := mux.Vars(r)["id"]
+	respBody, status, err := m.service.StatusMicrosoftAccessVerify(ctx, tokenKey, id)
+	if err != nil {
+		m.serveJSONError(ctx, w, err)
+		return
+	}
+	writeBackupToolsJSON(w, status, respBody)
+}
+
+// RecheckAccessVerify proxies Backup-Tools POST /microsoft/users-groups/access-verify/recheck.
+//
+// @Summary      Re-check Microsoft access for existing draft/unavailable jobs
+// @Tags         microsoft-backup-users-groups
+// @Accept       json
+// @Produce      json
+// @Param        body  body  object  true  "job_ids and/or all_unavailable, optional tenant_id"
+// @Success      200   {object}  BackupToolsJSONResponse
+// @Failure      400   {object}  SwaggerErrorResponse
+// @Failure      401   {object}  SwaggerErrorResponse
+// @Security     CookieAuth
+// @Router       /microsoft-backup/users-groups/access-verify/recheck [post]
+func (m *MicrosoftBackupUsersGroups) RecheckAccessVerify(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	tokenKey, err := m.sessionTokenKey(r)
+	if err != nil {
+		m.serveJSONError(ctx, w, err)
+		return
+	}
+	rawBody, err := io.ReadAll(r.Body)
+	if err != nil {
+		m.serveJSONError(ctx, w, console.ErrValidation.New("could not read request body"))
+		return
+	}
+	respBody, status, err := m.service.RecheckMicrosoftAccessVerify(ctx, tokenKey, rawBody)
 	if err != nil {
 		m.serveJSONError(ctx, w, err)
 		return
