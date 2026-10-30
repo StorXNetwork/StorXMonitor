@@ -131,23 +131,17 @@ jobs:
         $dst = "$env:BIN_PATH\satellite.exe"
         if (-not (Test-Path $src)) { Write-Error "Missing build output: $src"; exit 1 }
 
-        # Wait until destination is unlocked (NSSM services may still hold the exe)
-        $deadline = (Get-Date).AddSeconds(30)
-        while ((Test-Path $dst) -and (Get-Date) -lt $deadline) {
-          try {
-            Remove-Item $dst -Force -ErrorAction Stop
-            break
-          } catch {
-            Get-Process -Name storxnetwork-sim,satellite -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-            Start-Sleep -Seconds 1
-          }
+        # Same as Backup-Tools: copy over the existing exe. Do not delete it first.
+        # Microsoft NSSM restarts satellite.exe while this job runs, so Remove-Item stays locked.
+        try {
+          Copy-Item $src $dst -Force -ErrorAction Stop
+        } catch {
+          $bak = "$dst.old"
+          Remove-Item $bak -Force -ErrorAction SilentlyContinue
+          Move-Item $dst $bak -Force
+          Copy-Item $src $dst -Force
+          Remove-Item $bak -Force -ErrorAction SilentlyContinue
         }
-        if (Test-Path $dst) {
-          Write-Error "Cannot replace $dst (still locked). Stop satellite-related services and retry."
-          exit 1
-        }
-
-        Copy-Item $src $dst -Force
         Remove-Item $src -Force -ErrorAction SilentlyContinue
         Write-Host "satellite.exe replaced"
 
