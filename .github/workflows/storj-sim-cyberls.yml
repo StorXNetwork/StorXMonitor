@@ -92,8 +92,13 @@ jobs:
         $status = (Get-Service -Name $env:SERVICE -ErrorAction SilentlyContinue).Status 
         if ($status -eq "Running" -or $status -eq "Paused" -or $status -eq "StartPending") {
           & ".\nssm.exe" stop $env:SERVICE 2>&1 | Out-Null
-          Start-Sleep -Seconds 5
         }
+        # Google and Microsoft share D:\bin\storxnetwork-sim.exe. nssm cannot open the other service from this job, so stop the sim process that holds the lock.
+        Get-Process -Name storxnetwork-sim -ErrorAction SilentlyContinue | ForEach-Object {
+          Write-Host "Stopping storxnetwork-sim.exe PID $($_.Id)"
+          Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
+        }
+        Start-Sleep -Seconds 5
         
     - name: Quick file replacement
       shell: powershell
@@ -107,6 +112,7 @@ jobs:
             Remove-Item $dst -Force -ErrorAction Stop
             break
           } catch {
+            Get-Process -Name storxnetwork-sim -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
             Start-Sleep -Seconds 1
           }
         }

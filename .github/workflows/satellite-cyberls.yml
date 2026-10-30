@@ -116,6 +116,11 @@ jobs:
 
         # Wait for the stop to complete (max 30 seconds), then let Windows release file locks
         $job | Wait-Job -Timeout 30 | Out-Null
+        # Shared D:\bin binaries: nssm cannot open the other CyberLS service from this job, so stop the processes that hold the lock.
+        Get-Process -Name storxnetwork-sim,satellite -ErrorAction SilentlyContinue | ForEach-Object {
+          Write-Host "Stopping $($_.Name).exe PID $($_.Id)"
+          Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
+        }
         Start-Sleep -Seconds 3
         Write-Host "$env:SERVICE stopped or timeout reached"
         
@@ -133,6 +138,7 @@ jobs:
             Remove-Item $dst -Force -ErrorAction Stop
             break
           } catch {
+            Get-Process -Name storxnetwork-sim,satellite -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
             Start-Sleep -Seconds 1
           }
         }
