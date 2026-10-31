@@ -116,7 +116,15 @@ jobs:
             continue
           }
           Write-Host "Stopping $name"
-          & ".\nssm.exe" stop $name 2>&1 | Out-Null
+          # This job cannot always open the other NSSM service. Use SCM first; never fail on nssm stderr.
+          $ErrorActionPreference = 'Continue'
+          try {
+            Stop-Service -Name $name -Force -ErrorAction Stop
+          } catch {
+            Write-Host "Stop-Service $name : $($_.Exception.Message)"
+            cmd /c "nssm.exe stop $name >nul 2>&1"
+          }
+          $ErrorActionPreference = 'Stop'
           $deadline = (Get-Date).AddSeconds(30)
           do {
             Start-Sleep -Seconds 1
@@ -191,7 +199,8 @@ jobs:
           try {
             Start-Service -Name $name -WarningAction SilentlyContinue -ErrorAction Stop
           } catch {
-            & cmd /c ".\nssm.exe" start $name 2>&1 | Out-Host
+            Write-Host "Start-Service $name : $($_.Exception.Message)"
+            cmd /c "nssm.exe start $name >nul 2>&1"
           }
           $ErrorActionPreference = 'Stop'
           $deadline = (Get-Date).AddSeconds(30)
