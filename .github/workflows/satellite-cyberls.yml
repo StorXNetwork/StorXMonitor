@@ -102,42 +102,96 @@ jobs:
           exit 1
         }
         
+    - name: Check Windows runner permissions
+      shell: powershell
+      run: |
+        Write-Host "=== Runner identity ==="
+        whoami
+        whoami /groups
+
+        Write-Host "=== GitHub Runner Service ==="
+        Get-CimInstance Win32_Service |
+          Where-Object {
+            $_.Name -like '*actions.runner*'
+          } |
+          Select-Object Name, StartName, State, ProcessId
+
+        Write-Host "=== Satellite service permissions ==="
+        foreach ($name in @('Cyberls-Satellite', 'Cyberls-Microsoft-Satellite')) {
+          Write-Host "--- $name ---"
+          sc.exe sdshow $name
+        }
+
     - name: Service stop
       shell: powershell
       run: |
-        # Shared D:\bin\satellite.exe. Stopping only the selected service lets the
-        # other NSSM service restart mid-copy and keep the old binary (outh365 HTML).
+        # Shared D:\bin\satellite.exe. Both NSSM services must be stopped before
+        # the copy, or the other service can restart and keep the old binary.
         Set-Location $env:BIN_PATH
-        $names = @('Cyberls-Satellite', 'Cyberls-Microsoft-Satellite')
+
+        $ErrorActionPreference = 'Stop'
+
+        $names = @(
+          'Cyberls-Satellite',
+          'Cyberls-Microsoft-Satellite'
+        )
+
         foreach ($name in $names) {
-          $svc = Get-Service -Name $name -ErrorAction SilentlyContinue
-          if (-not $svc) {
-            Write-Host "$name not installed, skip stop"
+
+          $service = Get-Service -Name $name -ErrorAction SilentlyContinue
+
+          if (-not $service) {
+            Write-Host "$name not installed, skipping"
             continue
           }
-          Write-Host "Stopping $name"
-          # This job cannot always open the other NSSM service. Use SCM first; never fail on nssm stderr.
-          $ErrorActionPreference = 'Continue'
-          try {
-            Stop-Service -Name $name -Force -ErrorAction Stop
-          } catch {
-            Write-Host "Stop-Service $name : $($_.Exception.Message)"
-            cmd /c "nssm.exe stop $name >nul 2>&1"
+
+          $service.Refresh()
+
+          if ($service.Status -eq 'Stopped') {
+            Write-Host "$name is already stopped"
+            continue
           }
-          $ErrorActionPreference = 'Stop'
-          $deadline = (Get-Date).AddSeconds(30)
-          do {
-            Start-Sleep -Seconds 1
-            $svc.Refresh()
-          } while ($svc.Status -ne 'Stopped' -and (Get-Date) -lt $deadline)
-          Write-Host "$name status: $($svc.Status)"
+
+          Write-Host "Stopping $name"
+
+          $stopOutput = & sc.exe stop $name 2>&1
+          $exitCode = $LASTEXITCODE
+
+          $stopOutput | ForEach-Object { Write-Host $_ }
+
+          Start-Sleep -Seconds 2
+          $service = Get-Service -Name $name
+          $service.Refresh()
+
+          if ($service.Status -ne 'Stopped') {
+
+            Write-Host "Trying NSSM stop for $name"
+
+            & .\nssm.exe stop $name
+
+            $deadline = (Get-Date).AddSeconds(30)
+
+            do {
+              Start-Sleep -Seconds 1
+              $service = Get-Service -Name $name
+              $service.Refresh()
+            } while (
+              $service.Status -ne 'Stopped' -and
+              (Get-Date) -lt $deadline
+            )
+          }
+
+          $service = Get-Service -Name $name
+          $service.Refresh()
+
+          if ($service.Status -ne 'Stopped') {
+            throw "$name failed to stop. SCM exit code: $exitCode"
+          }
+
+          Write-Host "$name successfully stopped"
         }
-        Get-Process -Name storxnetwork-sim,satellite -ErrorAction SilentlyContinue | ForEach-Object {
-          Write-Host "Stopping leftover $($_.Name).exe PID $($_.Id)"
-          Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
-        }
-        Start-Sleep -Seconds 3
-        Write-Host "Google and Microsoft satellite processes are down"
+
+        Write-Host "Both satellite services are stopped"
         
     - name: Quick file replacement
       shell: powershell
