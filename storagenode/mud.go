@@ -225,7 +225,7 @@ func Module(ball *mud.Ball) {
 				ID:      id,
 				Address: externalAddress,
 				Operator: pb.NodeOperator{
-					Email:          operator.Email,
+					Email:          operator.CheckInEmail(),
 					Wallet:         operator.Wallet,
 					WalletFeatures: operator.WalletFeatures,
 				},

@@ -853,7 +853,12 @@ func (planet *Planet) newRepairer(ctx context.Context, index int, identity *iden
 	}
 	planet.databases = append(planet.databases, revocationDB)
 
-	return satellite.NewRepairer(log, identity, metabaseDB, revocationDB, repairQueue, db.Buckets(), db.OverlayCache(), db.NodeEvents(), db.Reputation(), db.Containment(), versionInfo, &config, nil)
+	peer, err := satellite.NewRepairer(log, identity, metabaseDB, revocationDB, repairQueue, db.Buckets(), db.OverlayCache(), db.NodeEvents(), db.Reputation(), db.Containment(), versionInfo, &config, nil)
+	if err != nil {
+		return nil, err
+	}
+	peer.SegmentRepairer.SetOwnNodes(db.Console().OrgNodes())
+	return peer, nil
 }
 
 func (planet *Planet) newAuditor(ctx context.Context, index int, identity *identity.FullIdentity, db satellite.DB, metabaseDB *metabase.DB, config satellite.Config, versionInfo version.Info) (_ *satellite.Auditor, err error) {

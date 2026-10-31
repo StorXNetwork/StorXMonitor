@@ -16,7 +16,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/StorXNetwork/common/debug"
 	"github.com/StorXNetwork/StorXMonitor/private/lifecycle"
 	"github.com/StorXNetwork/StorXMonitor/satellite/accounting/nodetally"
 	"github.com/StorXNetwork/StorXMonitor/satellite/audit"
@@ -29,6 +28,7 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
 	"github.com/StorXNetwork/StorXMonitor/satellite/repair/checker"
 	"github.com/StorXNetwork/StorXMonitor/satellite/repair/queue"
+	"github.com/StorXNetwork/common/debug"
 )
 
 // RangedLoop is the satellite ranged loop process.
@@ -118,6 +118,8 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, repairQueue 
 			}
 			nodeSet = audit.NewFilteredNodes(filter, db.OverlayCache(), metabaseDB)
 		}
+		// Claimed own-nodes stay out of the audit queue. Public nodes are unchanged.
+		nodeSet = audit.NewSkipClaimedNodes(nodeSet, overlay.NewClaimedNodeSet(db.Console().OrgNodes(), 0), metabaseDB)
 		peer.Audit.Observer = audit.NewObserver(log.Named("audit"), nodeSet, db.VerifyQueue(), config.Audit)
 	}
 

@@ -42,6 +42,13 @@ type UploadSelectionCache struct {
 
 	defaultFilters nodeselection.NodeFilters
 	placements     nodeselection.PlacementDefinitions
+
+	dedicatedNodes DedicatedNodes
+}
+
+// SetDedicatedNodes configures the source of claimed own-node IDs.
+func (cache *UploadSelectionCache) SetDedicatedNodes(src DedicatedNodes) {
+	cache.dedicatedNodes = src
 }
 
 // NewUploadSelectionCache creates a new cache that keeps a list of all the storage nodes that are qualified to store data.
@@ -77,7 +84,7 @@ func (cache *UploadSelectionCache) read(ctx context.Context) (_ nodeselection.St
 
 	reputableNodes, newNodes, err := cache.db.SelectAllStorageNodesUpload(ctx, cache.selectionConfig)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nodeselection.State{}, Error.Wrap(err)
 	}
 
 	var allNodes = append(append([]*nodeselection.SelectedNode{}, reputableNodes...), newNodes...)
@@ -140,7 +147,19 @@ func (cache *UploadSelectionCache) GetNodes(ctx context.Context, req FindStorage
 		return nil, Error.Wrap(err)
 	}
 
-	nodes, err := state.Select(ctx, req.Requester, req.Placement, req.RequestedCount, req.ExcludedIDs, req.AlreadySelected)
+	excluded := req.ExcludedIDs
+	// Isolate dedicated (claimed) nodes from public uploads.
+	if len(req.AllowedIDs) == 0 && req.Placement != nodeselection.OwnNodesPlacement && cache.dedicatedNodes != nil {
+		dedicated, dedErr := cache.dedicatedNodes.AllNodeIDs(ctx)
+		if dedErr != nil {
+			return nil, Error.Wrap(dedErr)
+		}
+		if len(dedicated) > 0 {
+			excluded = append(append([]storxnetwork.NodeID{}, excluded...), dedicated...)
+		}
+	}
+
+	nodes, err := state.Select(ctx, req.Requester, req.Placement, req.RequestedCount, excluded, req.AlreadySelected, req.AllowedIDs)
 	if nodeselection.ErrNotEnoughNodes.Has(err) {
 		err = ErrNotEnoughNodes.Wrap(err)
 	}

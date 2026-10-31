@@ -4,12 +4,19 @@
 package console
 
 import (
+	"context"
 	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/StorXNetwork/common/testrand"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 func TestGoogleBackupRestorePrepareParams_Validate(t *testing.T) {
@@ -205,4 +212,56 @@ func TestFilterRestoreQuery(t *testing.T) {
 			require.Equal(t, wantValues, gotValues)
 		})
 	}
+}
+
+func TestGoogleManualRestoreUsesInvitingOwner(t *testing.T) {
+	var gotOwner string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotOwner = r.Header.Get("X-Restore-As-User")
+		_, _ = io.Copy(io.Discard, r.Body)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"message":"ok"}`))
+	}))
+	defer server.Close()
+
+	service := &Service{backupToolsURL: server.URL}
+	ownerID := "11111111-1111-1111-1111-111111111111"
+	ctx := context.WithValue(context.Background(), sharedRestoreOwnerKey{}, ownerID)
+
+	body, status, err := service.backupToolsManualRestoreRequest(ctx, http.MethodPost, "/google/gmail/insert-mail", "session", "jwt", []byte(`["a2V5"]`))
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, status)
+	require.Equal(t, ownerID, gotOwner)
+	require.Contains(t, string(body), "ok")
+
+	gotOwner = "stale"
+	_, _, err = service.backupToolsManualRestoreRequest(context.Background(), http.MethodPost, "/google/gmail/insert-mail", "session", "jwt", []byte(`["a2V5"]`))
+	require.NoError(t, err)
+	require.Empty(t, gotOwner)
+}
+
+func TestGoogleManualRestoreInvitedMemberWithoutProjectUsesOwner(t *testing.T) {
+	stub, service := newManualRestoreStub(t, http.StatusOK, `{"message":"ok"}`)
+	ownerID := testrand.UUID()
+	projectID := testrand.UUID()
+	inviteeID := testrand.UUID()
+	project := &Project{ID: projectID, PublicID: testrand.UUID(), OwnerID: ownerID}
+	service.store = &fakeSharedRestoreDB{
+		fakeConsoleDB: &fakeConsoleDB{},
+		projects:      fakeSharedProjects{byID: map[uuid.UUID]*Project{project.ID: project}},
+		members: fakeSharedMembers{byMember: map[uuid.UUID][]ProjectMember{
+			inviteeID: {{MemberID: inviteeID, ProjectID: project.ID, Role: RoleMember}},
+		}},
+	}
+
+	ctx := WithUser(context.Background(), &User{ID: inviteeID, Email: "invitee@storx.test"})
+	_, status, err := service.GoogleBackupManualRestore(ctx, "session", "/google/gmail/insert-mail", GoogleBackupManualRestoreRequest{
+		GoogleAuth: "jwt",
+		Keys:       []string{"a2V5"},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, status)
+	calls := stub.callsSnapshot()
+	require.Len(t, calls, 1)
+	require.Equal(t, ownerID.String(), calls[0].Header.Get("X-Restore-As-User"))
 }

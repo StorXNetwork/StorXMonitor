@@ -28,8 +28,9 @@ type GoogleBackupRestoreAllSwaggerRequest struct {
 // GoogleBackupManualRestoreSwaggerRequest is the UI body for manual restore (1–10 base64 vault keys per request).
 // Same body for single or multiple items: send keys or ids (not both). Backup-Tools JWT goes in Authorization header only.
 type GoogleBackupManualRestoreSwaggerRequest struct {
-	Keys []string `json:"keys,omitempty" example:"dXNlckBnbWFpbC5jb20vcGF0aC9maWxl"`
-	IDs  []string `json:"ids,omitempty" example:"dXNlckBnbWFpbC5jb20vcGF0aC9maWxl"`
+	Keys      []string `json:"keys,omitempty" example:"dXNlckBnbWFpbC5jb20vcGF0aC9maWxl"`
+	IDs       []string `json:"ids,omitempty" example:"dXNlckBnbWFpbC5jb20vcGF0aC9maWxl"`
+	ProjectID string   `json:"project_id,omitempty" example:"37159d9b-6f3c-4c38-bfe2-0efbbc4b568d"`
 }
 
 // RestoreMissingPermissionSwagger is one OAuth or grant gap from GET /restore/prepare.

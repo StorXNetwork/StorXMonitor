@@ -370,7 +370,7 @@ func TestGoogleBackupAutoSyncPolicyAvailableAssignmentsQuery(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := googleBackupAutoSyncPolicyAvailableAssignmentsQuery(tt.policyID, tt.search, tt.email)
+			got, err := backupAutoSyncPolicyAvailableAssignmentsQuery(tt.policyID, tt.search, tt.email)
 			if tt.wantErr != "" {
 				require.Error(t, err)
 				require.Contains(t, err.Error(), tt.wantErr)

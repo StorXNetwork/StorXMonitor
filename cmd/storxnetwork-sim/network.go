@@ -80,11 +80,30 @@ const (
 	debugGCHTTP        = 2
 )
 
+// portOffset is added to every port, so that more than one network can run on the same host.
+// It must be the same for setup and run, because run-only ports (e.g. worker debug addresses)
+// are not stored in the config files.
+var portOffset int
+
+// portBase is the Google network (port offset 0): satellite 10000, versioncontrol 12000, storagenodes 13000.
+const portBase = 10000
+
+// secondNetworkGap is added when --port-offset is set. 10000+20000 puts that satellite on 30000,
+// past Google's 10000–16000 block and past authservice's default 20000–20004 listeners.
+const secondNetworkGap = 20000
+
+// maxPortOffset keeps the highest generated port (ranged loop of the last satellite) below 65536.
+const maxPortOffset = 65535 - (portBase + secondNetworkGap + rangedloopPeer*1000 + (maxInstanceCount-1)*10 + debugSellerHTTP)
+
 // port creates a port with a consistent format for storj-sim services.
 // The port format is: "1PXXE", where P is the peer class, XX is the index of the instance, and E is the endpoint.
+// Offset 0 stays on portBase. Any other offset uses portBase+secondNetworkGap (satellite 30000).
 func port(peerclass, index, endpoint int) string {
-	port := 10000 + peerclass*1000 + index*10 + endpoint
-	return strconv.Itoa(port)
+	base := portBase
+	if portOffset > 0 {
+		base += secondNetworkGap
+	}
+	return strconv.Itoa(base + peerclass*1000 + index*10 + endpoint)
 }
 
 func networkExec(flags *Flags, args []string, command string) error {
@@ -240,6 +259,11 @@ func newNetwork(flags *Flags) (*Processes, error) {
 	}
 	storjRoot := strings.TrimSuffix(filename, "/cmd/storj-sim/network.go")
 
+	if flags.PortOffset < 0 || flags.PortOffset > maxPortOffset {
+		return nil, fmt.Errorf("port offset must be between 0 and %d, got %d", maxPortOffset, flags.PortOffset)
+	}
+	portOffset = flags.PortOffset
+
 	// with common adds all common arguments to the process
 	withCommon := func(dir string, all Arguments) Arguments {
 		common := []string{"--metrics.app-suffix", "sim", "--log.level", flags.LogLevel, "--config-dir", dir}
@@ -391,12 +415,13 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 				"--developer.address", net.JoinHostPort(host, port(satellitePeer, i, developerHTTP)),
 				"--developer.static-dir", filepath.Join(storjRoot, "satellite/developer/ui/build"),
-				"--console.developer-external-address", "http://"+net.JoinHostPort(host, port(satellitePeer, i, developerHTTP)),
+				"--console.developer-external-address", "http://" + net.JoinHostPort(host, port(satellitePeer, i, developerHTTP)),
 
 				"--seller.address", net.JoinHostPort(host, port(satellitePeer, i, sellerHTTP)),
 				"--seller.static-dir", filepath.Join(storjRoot, "satellite/seller/ui/build"),
-				"--console.seller-external-address", "http://"+net.JoinHostPort(host, port(satellitePeer, i, sellerHTTP)),
-				"--console.google-seller-redirect-urlstring", "http://"+net.JoinHostPort(host, port(satellitePeer, i, sellerHTTP))+"/api/v0/seller/auth/google",
+				"--console.seller-external-address", "http://" + net.JoinHostPort(host, port(satellitePeer, i, sellerHTTP)),
+				// cfgstruct turns GoogleSellerRedirectURLstring into google-seller-redirect-ur-lstring
+				"--console.google-seller-redirect-ur-lstring", "http://" + net.JoinHostPort(host, port(satellitePeer, i, sellerHTTP)) + "/api/v0/seller/auth/google",
 			},
 			"run": {"api"},
 		})
@@ -549,7 +574,9 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		satellite := satellite
 		process := processes.New(Info{
 			Name:       fmt.Sprintf("gateway/%d", i),
-			Executable: "gateway",
+			// gateway-st is the single-tenant S3 gateway (--access, --non-interactive).
+			// PATH "gateway" is often gateway-mt, which rejects those flags.
+			Executable: "gateway-st",
 			Directory:  filepath.Join(processes.Directory, "gateway", strconv.Itoa(i)),
 			Address:    net.JoinHostPort(host, port(gatewayPeer, i, publicRPC)),
 		})
@@ -761,7 +788,7 @@ func identitySetup(network *Processes) (*Processes, error) {
 	processes := NewProcesses(network.Directory, network.FailFast, network.NewRelicConfig)
 
 	for _, process := range network.List {
-		if process.Info.Executable == "gateway" || process.Info.Executable == "redis-server" {
+		if process.Info.Executable == "gateway" || process.Info.Executable == "gateway-st" || process.Info.Executable == "redis-server" {
 			// gateways and redis-servers don't need an identity
 			continue
 		}

@@ -23,6 +23,7 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/satellite/console"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleauth"
 	"github.com/StorXNetwork/StorXMonitor/satellite/mailservice"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/billing"
 	"github.com/StorXNetwork/common/http/requestid"
 	"github.com/StorXNetwork/common/uuid"
 )
@@ -93,16 +94,26 @@ type Service struct {
 	log                *zap.Logger
 	auditLogger        *zap.Logger
 	store              DB
+	usersDB            console.Users
+	projectsDB         console.Projects
+	billing            billing.TransactionsDB
 	analytics          *analytics.Service
 	tokens             *consoleauth.Service
 	authConfig         AuthConfig
 	externalAddress    string
 	badPasswordsLoaded bool
 
+	// Free-tier limits applied when a seller plan ends with no future plan.
+	freeStorageBytes   int64
+	freeBandwidthBytes int64
+	freeSegmentLimit   int64
+
 	mailService                *mailservice.Service
 	loginCaptchaHandler        console.CaptchaHandler
 	registrationCaptchaHandler console.CaptchaHandler
 	runtimeConfig              SellerServerRuntimeConfig
+	nowFn                      func() time.Time
+	invoiceBillingClock        BillingClock
 }
 
 // NewService returns a new instance of Service.
@@ -125,17 +136,75 @@ func NewService(
 	authConfig.applyDefaults()
 
 	s := &Service{
-		log:                log,
-		auditLogger:        log.Named("auditlog"),
-		store:              store,
-		analytics:          analytics,
-		tokens:             tokens,
-		authConfig:         authConfig,
-		externalAddress:    externalAddress,
-		badPasswordsLoaded: badPasswordsLoaded,
+		log:                 log,
+		auditLogger:         log.Named("auditlog"),
+		store:               store,
+		analytics:           analytics,
+		tokens:              tokens,
+		authConfig:          authConfig,
+		externalAddress:     externalAddress,
+		badPasswordsLoaded:  badPasswordsLoaded,
+		nowFn:               time.Now,
+		invoiceBillingClock: BillingClock{Day: 1},
 	}
 	s.initCaptchaHandlers()
 	return s, nil
+}
+
+// SetUsersDB wires console users DB for tenant listing and plan limit application.
+func (s *Service) SetUsersDB(usersDB console.Users) {
+	s.usersDB = usersDB
+}
+
+// SetProjectsDB wires console projects DB so plan assignment updates existing project quotas.
+func (s *Service) SetProjectsDB(projectsDB console.Projects) {
+	s.projectsDB = projectsDB
+}
+
+// SetFreeUsageLimits sets free-tier quotas used when a plan ends with no future plan.
+// Defaults match console UsageLimits free tier (2GB / 2GB / 1M segments) when zeros are passed.
+func (s *Service) SetFreeUsageLimits(storage, bandwidth, segment int64) {
+	if storage <= 0 {
+		storage = 2 * 1e9 // 2.00GB
+	}
+	if bandwidth <= 0 {
+		bandwidth = 2 * 1e9
+	}
+	if segment <= 0 {
+		segment = 1000000
+	}
+	s.freeStorageBytes = storage
+	s.freeBandwidthBytes = bandwidth
+	s.freeSegmentLimit = segment
+}
+
+// SetBillingDB wires billing transactions DB for payment_plans sync.
+func (s *Service) SetBillingDB(db billing.TransactionsDB) {
+	s.billing = db
+}
+
+// TestSetNow sets the clock for tests.
+func (s *Service) TestSetNow(fn func() time.Time) {
+	s.nowFn = fn
+}
+
+// SetInvoiceBillingClock sets the day/time used for manual last-month and automatic invoice generation.
+func (s *Service) SetInvoiceBillingClock(c BillingClock) {
+	if c.Day < InvoiceBillingDayMin || c.Day > InvoiceBillingDayMax {
+		c.Day = 1
+	}
+	if c.Hour < 0 || c.Hour > 23 {
+		c.Hour = 0
+	}
+	if c.Minute < 0 || c.Minute > 59 {
+		c.Minute = 0
+	}
+	s.invoiceBillingClock = c
+}
+
+// InvoiceBillingClock returns the configured invoice cutover clock.
+func (s *Service) InvoiceBillingClock() BillingClock {
+	return s.invoiceBillingClock
 }
 
 // ExtendService adds auth dependencies to Service.
@@ -225,6 +294,10 @@ func (s *Service) CreateBrandingForCurrentReseller(ctx context.Context, cfg Rese
 	cfg.Theme = ResellerBrandingTheme{}
 
 	encoded, err := json.Marshal(cfg)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	encoded, err = MergePreserveInvoiceBilling(dbCfg.Config, encoded)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -325,6 +398,10 @@ func (s *Service) UpdateBrandingForCurrentReseller(ctx context.Context, cfg Rese
 	if err != nil {
 		return Error.Wrap(err)
 	}
+	encoded, err = MergePreserveInvoiceBilling(existingDB.Config, encoded)
+	if err != nil {
+		return Error.Wrap(err)
+	}
 
 	_, err = s.store.ResellerConfigs().Update(ctx, reseller.ID, UpdateResellerConfigRequest{
 		Config:    encoded,
@@ -397,6 +474,12 @@ func (s *Service) UpdateMailSettingsForCurrentReseller(ctx context.Context, req 
 	encoded, err := json.Marshal(cfg)
 	if err != nil {
 		return ResellerMailSettingsView{}, Error.Wrap(err)
+	}
+	if dbCfg != nil {
+		encoded, err = MergePreserveInvoiceBilling(dbCfg.Config, encoded)
+		if err != nil {
+			return ResellerMailSettingsView{}, Error.Wrap(err)
+		}
 	}
 
 	now := time.Now()

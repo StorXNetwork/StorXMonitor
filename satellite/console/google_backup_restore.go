@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -15,6 +16,8 @@ import (
 	"time"
 
 	"golang.org/x/exp/slices"
+
+	"github.com/StorXNetwork/common/uuid"
 )
 
 var allowedGoogleBackupRestoreServices = []string{
@@ -141,11 +144,12 @@ func (s *Service) PrepareGoogleBackupRestore(ctx context.Context, tokenKey strin
 		return nil, 0, err
 	}
 	path := "/restore/prepare?" + (&params).queryString()
-	return s.backupToolsRequest(ctx, http.MethodGet, path, tokenKey, "", nil)
+	return s.backupToolsRequest(s.withSharedRestoreOwner(ctx, params.ProjectID), http.MethodGet, path, tokenKey, "", nil)
 }
 
 // StartGoogleBackupRestoreAll proxies POST /restore/all to Backup-Tools (token_key only).
-func (s *Service) StartGoogleBackupRestoreAll(ctx context.Context, tokenKey string, req GoogleBackupRestoreAllRequest) (body []byte, status int, err error) {
+// googleAuth is the invited member's Google sign-in JWT. Owner and admin restore omit it.
+func (s *Service) StartGoogleBackupRestoreAll(ctx context.Context, tokenKey string, req GoogleBackupRestoreAllRequest, googleAuth string) (body []byte, status int, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err := (&req).Validate(); err != nil {
@@ -155,7 +159,188 @@ func (s *Service) StartGoogleBackupRestoreAll(ctx context.Context, tokenKey stri
 	if err != nil {
 		return nil, 0, Error.Wrap(err)
 	}
-	return s.backupToolsRequest(ctx, http.MethodPost, "/restore/all", tokenKey, "", payload)
+	var extra map[string]string
+	if jwt := strings.TrimSpace(googleAuth); jwt != "" {
+		extra = map[string]string{"Authorization": jwt}
+	}
+	return s.backupToolsRequestWithExtraHeaders(s.withSharedRestoreOwner(ctx, req.ProjectID), http.MethodPost, "/restore/all", tokenKey, "", "", extra, payload)
+}
+
+type sharedRestoreOwnerKey struct{}
+
+func (s *Service) withSharedRestoreOwner(ctx context.Context, projectID string) context.Context {
+	ownerID := s.sharedRestoreOwnerUserID(ctx, projectID)
+	if ownerID == "" {
+		return ctx
+	}
+	return context.WithValue(ctx, sharedRestoreOwnerKey{}, ownerID)
+}
+
+func restoreOwnerFromContext(ctx context.Context) string {
+	id, _ := ctx.Value(sharedRestoreOwnerKey{}).(string)
+	return strings.TrimSpace(id)
+}
+
+// sharedRestoreOwnerUserID is the project owner when the caller was invited into the project.
+// Invited users have no Google backup credentials; restore uses the owner's connection.
+func (s *Service) sharedRestoreOwnerUserID(ctx context.Context, projectID string) string {
+	user, err := GetUser(ctx)
+	if err != nil || user == nil {
+		return ""
+	}
+	projectID = strings.TrimSpace(projectID)
+	if projectID == "" {
+		return ""
+	}
+	projectUUID, err := uuid.FromString(projectID)
+	if err != nil {
+		return ""
+	}
+	member, err := s.isProjectMember(ctx, user.ID, projectUUID)
+	if err != nil || member.project == nil || member.project.OwnerID == user.ID {
+		return ""
+	}
+	// Invites are stored as Member. Owner and Admin keep their own Google connection.
+	if member.membership == nil || member.membership.Role != RoleMember {
+		return ""
+	}
+	return member.project.OwnerID.String()
+}
+
+// ProxyRestoreListIncludingShared lists the caller's restore jobs and, for an invited
+// Member, also the owner's jobs for the mailboxes that member was granted.
+func (s *Service) ProxyRestoreListIncludingShared(ctx context.Context, tokenKey, path string) ([]byte, int, error) {
+	body, status, err := s.ProxyGoogleBackupRestoreCron(ctx, http.MethodGet, path, tokenKey, nil)
+	user, userErr := GetUser(ctx)
+	if userErr != nil || user == nil {
+		return body, status, err
+	}
+	shared, sharedErr := s.invitedRestoreMailboxesByOwner(ctx, user)
+	if sharedErr != nil || len(shared) == 0 {
+		return body, status, err
+	}
+	merged := body
+	mergedStatus := status
+	if len(merged) == 0 || status >= 300 {
+		merged = []byte(`{"message":"restore jobs","success":[],"failed":[]}`)
+		mergedStatus = http.StatusOK
+	}
+	for ownerID, emails := range shared {
+		ownerCtx := context.WithValue(ctx, sharedRestoreOwnerKey{}, ownerID)
+		ownerBody, ownerStatus, ownerErr := s.backupToolsRequest(ownerCtx, http.MethodGet, path, tokenKey, "", nil)
+		if ownerErr != nil || ownerStatus >= 300 {
+			continue
+		}
+		merged = mergeRestoreJobLists(merged, ownerBody, emails)
+	}
+	return merged, mergedStatus, nil
+}
+
+func (s *Service) invitedRestoreMailboxesByOwner(ctx context.Context, user *User) (map[string][]string, error) {
+	memberships, err := s.store.ProjectMembers().GetByMemberID(ctx, user.ID)
+	if err != nil {
+		return nil, err
+	}
+	out := map[string][]string{}
+	for _, membership := range memberships {
+		if membership.Role != RoleMember {
+			continue
+		}
+		project, getErr := s.store.Projects().Get(ctx, membership.ProjectID)
+		if getErr != nil || project == nil || project.OwnerID == user.ID {
+			continue
+		}
+		emails := map[string]struct{}{}
+		grants, gErr := s.store.MemberBucketGrants().GetByMember(ctx, project.ID, user.ID)
+		if gErr == nil {
+			for _, grant := range grants {
+				email := strings.Trim(strings.TrimSpace(grant.Prefix), "/")
+				if strings.Contains(email, "@") {
+					emails[strings.ToLower(email)] = struct{}{}
+				}
+			}
+		}
+		if user.Email != "" {
+			emails[strings.ToLower(strings.TrimSpace(user.Email))] = struct{}{}
+		}
+		if len(emails) == 0 {
+			continue
+		}
+		list := out[project.OwnerID.String()]
+		for email := range emails {
+			list = append(list, email)
+		}
+		out[project.OwnerID.String()] = list
+	}
+	return out, nil
+}
+
+func mergeRestoreJobLists(base, extra []byte, emails []string) []byte {
+	allowed := map[string]struct{}{}
+	for _, email := range emails {
+		allowed[strings.ToLower(strings.TrimSpace(email))] = struct{}{}
+	}
+	var baseObj map[string]any
+	var extraObj map[string]any
+	if err := json.Unmarshal(base, &baseObj); err != nil {
+		return base
+	}
+	if err := json.Unmarshal(extra, &extraObj); err != nil {
+		return base
+	}
+	baseJobs, _ := baseObj["success"].([]any)
+	extraJobs, _ := extraObj["success"].([]any)
+	seen := map[string]struct{}{}
+	for _, item := range baseJobs {
+		if id := restoreJobID(item); id != "" {
+			seen[id] = struct{}{}
+		}
+	}
+	for _, item := range extraJobs {
+		obj, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		loginID, _ := obj["login_id"].(string)
+		if _, ok := allowed[strings.ToLower(strings.TrimSpace(loginID))]; !ok {
+			continue
+		}
+		id := restoreJobID(item)
+		if id != "" {
+			if _, exists := seen[id]; exists {
+				continue
+			}
+			seen[id] = struct{}{}
+		}
+		baseJobs = append(baseJobs, item)
+	}
+	baseObj["success"] = baseJobs
+	out, err := json.Marshal(baseObj)
+	if err != nil {
+		return base
+	}
+	return out
+}
+
+func restoreJobID(item any) string {
+	obj, ok := item.(map[string]any)
+	if !ok {
+		return ""
+	}
+	switch id := obj["id"].(type) {
+	case float64:
+		return fmt.Sprintf("%.0f", id)
+	case string:
+		return id
+	}
+	switch id := obj["ID"].(type) {
+	case float64:
+		return fmt.Sprintf("%.0f", id)
+	case string:
+		return id
+	default:
+		return ""
+	}
 }
 
 // ProxyGoogleBackupRestoreCron proxies Backup-Tools async restore routes (/restore/*) with token_key only.
@@ -242,6 +427,8 @@ func (s *Service) BackupToolsGoogleAuth(ctx context.Context, googleKey string) (
 type GoogleBackupManualRestoreRequest struct {
 	GoogleAuth string   `json:"google_auth"`
 	Keys       []string `json:"keys"`
+	// ProjectID is the shared project. An invited member restores from the inviting owner's backup.
+	ProjectID string `json:"project_id"`
 }
 
 func (r GoogleBackupManualRestoreRequest) Validate() error {
@@ -267,7 +454,60 @@ func (s *Service) GoogleBackupManualRestore(ctx context.Context, tokenKey, backu
 	if err != nil {
 		return nil, 0, Error.Wrap(err)
 	}
+	ctx = s.withManualRestoreOwner(ctx, req.ProjectID)
 	return s.backupToolsManualRestoreRequest(ctx, http.MethodPost, backupToolsPath, tokenKey, req.GoogleAuth, payload)
+}
+
+// withManualRestoreOwner uses the inviting project owner for an invited member.
+// The backup job for the mailbox belongs to that owner. The invitee's own account has no job,
+// which is the "no backup job for <mailbox>" failure.
+// A project id selects that project. When the UI omits it, a single invited project is used.
+func (s *Service) withManualRestoreOwner(ctx context.Context, projectID string) context.Context {
+	if ownerID := s.sharedRestoreOwnerUserID(ctx, projectID); ownerID != "" {
+		return context.WithValue(ctx, sharedRestoreOwnerKey{}, ownerID)
+	}
+	if strings.TrimSpace(projectID) != "" {
+		return ctx
+	}
+	ownerID := s.soleInvitedProjectOwnerID(ctx)
+	if ownerID == "" {
+		return ctx
+	}
+	return context.WithValue(ctx, sharedRestoreOwnerKey{}, ownerID)
+}
+
+// soleInvitedProjectOwnerID is the owner of the one project this user was invited into as a Member.
+func (s *Service) soleInvitedProjectOwnerID(ctx context.Context) string {
+	if s == nil || s.store == nil {
+		return ""
+	}
+	user, err := GetUser(ctx)
+	if err != nil || user == nil {
+		return ""
+	}
+	memberships, err := s.store.ProjectMembers().GetByMemberID(ctx, user.ID)
+	if err != nil {
+		return ""
+	}
+	var ownerID string
+	for _, membership := range memberships {
+		if membership.Role != RoleMember {
+			continue
+		}
+		project, getErr := s.store.Projects().Get(ctx, membership.ProjectID)
+		if getErr != nil || project == nil || project.OwnerID == user.ID {
+			continue
+		}
+		id := project.OwnerID.String()
+		if ownerID == "" {
+			ownerID = id
+			continue
+		}
+		if ownerID != id {
+			return ""
+		}
+	}
+	return ownerID
 }
 
 // backupToolsManualRestoreRequest proxies Backup-Tools manual /google/* routes (google-auth JWT + token_key).
@@ -294,6 +534,9 @@ func (s *Service) backupToolsManualRestoreRequest(ctx context.Context, method, p
 
 	req.Header.Set("token_key", tokenKey)
 	req.Header.Set("Authorization", googleAuthJWT)
+	if ownerID := restoreOwnerFromContext(ctx); ownerID != "" {
+		req.Header.Set("X-Restore-As-User", ownerID)
+	}
 	if len(payload) > 0 {
 		req.Header.Set("Content-Type", "application/json")
 	}
