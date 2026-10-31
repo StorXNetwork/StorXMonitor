@@ -89,16 +89,28 @@ jobs:
       shell: powershell
       run: |
         Set-Location $env:BIN_PATH
-        $status = (Get-Service -Name $env:SERVICE -ErrorAction SilentlyContinue).Status 
-        if ($status -eq "Running" -or $status -eq "Paused" -or $status -eq "StartPending") {
-          & ".\nssm.exe" stop $env:SERVICE 2>&1 | Out-Null
+        $names = @('Cyberls-Satellite', 'Cyberls-Microsoft-Satellite')
+        foreach ($name in $names) {
+          $svc = Get-Service -Name $name -ErrorAction SilentlyContinue
+          if (-not $svc) {
+            Write-Host "$name not installed, skip stop"
+            continue
+          }
+          Write-Host "Stopping $name"
+          & ".\nssm.exe" stop $name 2>&1 | Out-Null
+          $deadline = (Get-Date).AddSeconds(30)
+          do {
+            Start-Sleep -Seconds 1
+            $svc.Refresh()
+          } while ($svc.Status -ne 'Stopped' -and (Get-Date) -lt $deadline)
+          Write-Host "$name status: $($svc.Status)"
         }
-        # Google and Microsoft share D:\bin\storxnetwork-sim.exe. nssm cannot open the other service from this job, so stop the sim process that holds the lock.
-        Get-Process -Name storxnetwork-sim -ErrorAction SilentlyContinue | ForEach-Object {
-          Write-Host "Stopping storxnetwork-sim.exe PID $($_.Id)"
+        Get-Process -Name storxnetwork-sim,satellite -ErrorAction SilentlyContinue | ForEach-Object {
+          Write-Host "Stopping leftover $($_.Name).exe PID $($_.Id)"
           Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
         }
         Start-Sleep -Seconds 5
+        Write-Host "Google and Microsoft satellite processes are down"
         
     - name: Quick file replacement
       shell: powershell
@@ -132,21 +144,21 @@ jobs:
           @(Get-CimInstance Win32_Process -Filter "ParentProcessId=$nssmPid AND Name='storxnetwork-sim.exe'" | ForEach-Object { $_.ProcessId })
         }
 
+        $started = @()
         foreach ($name in $names) {
           $service = Get-Service -Name $name -ErrorAction SilentlyContinue
           if (-not $service) {
             Write-Host "$name not installed, skip"
             continue
           }
-          if ($service.Status -ne 'Running') {
-            $ErrorActionPreference = 'Continue'
-            try {
-              Start-Service -Name $name -WarningAction SilentlyContinue -ErrorAction Stop
-            } catch {
-              & cmd /c ".\nssm.exe" start $name 2>&1 | Out-Host
-            }
-            $ErrorActionPreference = 'Stop'
+          Write-Host "Starting $name"
+          $ErrorActionPreference = 'Continue'
+          try {
+            Start-Service -Name $name -WarningAction SilentlyContinue -ErrorAction Stop
+          } catch {
+            & cmd /c ".\nssm.exe" start $name 2>&1 | Out-Host
           }
+          $ErrorActionPreference = 'Stop'
           $deadline = (Get-Date).AddSeconds(30)
           do {
             Start-Sleep -Seconds 1
@@ -157,17 +169,28 @@ jobs:
             exit 1
           }
           Write-Host "$name is Running"
+          $started += $name
         }
 
-        $service = Get-Service -Name $env:SERVICE -ErrorAction Stop
-        $before = Get-SimProcessIds $env:SERVICE
-        Start-Sleep -Seconds 20
-        $service.Refresh()
-        $after = Get-SimProcessIds $env:SERVICE
-        $survived = @($after | Where-Object { $before -contains $_ })
-        if ($service.Status -ne 'Running' -or $survived.Count -eq 0) {
-          Write-Error "$env:SERVICE is not stable (status: $($service.Status), sim processes before: $($before -join ','), after: $($after -join ',')). Check the service logs."
+        if ($started.Count -eq 0) {
+          Write-Error "No CyberLS satellite service started"
           exit 1
         }
-        Write-Host "$env:SERVICE is running (storxnetwork-sim PID $($survived -join ','))"
+
+        $before = @{}
+        foreach ($name in $started) {
+          $before[$name] = @(Get-SimProcessIds $name)
+        }
+        Start-Sleep -Seconds 20
+        foreach ($name in $started) {
+          $service = Get-Service -Name $name -ErrorAction Stop
+          $service.Refresh()
+          $after = @(Get-SimProcessIds $name)
+          $survived = @($after | Where-Object { $before[$name] -contains $_ })
+          if ($service.Status -ne 'Running' -or $survived.Count -eq 0) {
+            Write-Error "$name is not stable (status: $($service.Status), sim processes before: $($before[$name] -join ','), after: $($after -join ',')). Check the service logs."
+            exit 1
+          }
+          Write-Host "$name is stable (storxnetwork-sim PID $($survived -join ','))"
+        }
         exit 0
