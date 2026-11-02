@@ -19,10 +19,11 @@ type GoogleBackupAuthSwaggerResponse struct {
 
 // GoogleBackupRestoreAllSwaggerRequest starts async restore-all on Backup-Tools (token_key only; credentials from DB).
 type GoogleBackupRestoreAllSwaggerRequest struct {
-	Service     string `json:"service" binding:"required" example:"gmail" enums:"gmail,drive,photos,calendar,contacts"`
-	ProjectID   string `json:"project_id" binding:"required" example:"37159d9b-6f3c-4c38-bfe2-0efbbc4b568d"`
-	LoginID     string `json:"login_id" binding:"required" example:"alice@company.com"`
-	TargetEmail string `json:"target_email,omitempty" example:"bob@company.com"`
+	Service     string   `json:"service" binding:"required" example:"gmail" enums:"gmail,drive,photos,calendar,contacts"`
+	ProjectID   string   `json:"project_id" binding:"required" example:"37159d9b-6f3c-4c38-bfe2-0efbbc4b568d"`
+	LoginID     string   `json:"login_id" binding:"required" example:"alice@company.com"`
+	TargetEmail string   `json:"target_email,omitempty" example:"bob@company.com"`
+	Keys        []string `json:"keys,omitempty" example:"alice@company.com/contacts/a.json"`
 }
 
 // GoogleBackupManualRestoreSwaggerRequest is the UI body for manual restore (1–10 base64 vault keys per request).

@@ -66,10 +66,11 @@ func (p GoogleBackupRestorePrepareParams) queryString() string {
 // GoogleBackupRestoreAllRequest is the UI body for Backup-Tools POST /restore/all.
 // Backup-Tools resolves StorX and Google credentials from DB using token_key; do not send grants or JWT.
 type GoogleBackupRestoreAllRequest struct {
-	Service     string `json:"service"`
-	ProjectID   string `json:"project_id"`
-	LoginID     string `json:"login_id"`
-	TargetEmail string `json:"target_email,omitempty"`
+	Service     string   `json:"service"`
+	ProjectID   string   `json:"project_id"`
+	LoginID     string   `json:"login_id"`
+	TargetEmail string   `json:"target_email,omitempty"`
+	Keys        []string `json:"keys,omitempty"`
 }
 
 func (r *GoogleBackupRestoreAllRequest) Validate() error {
@@ -93,7 +94,7 @@ func (r *GoogleBackupRestoreAllRequest) Validate() error {
 }
 
 func (r *GoogleBackupRestoreAllRequest) backupToolsPayload() ([]byte, error) {
-	out := map[string]string{
+	out := map[string]interface{}{
 		"service":    r.Service,
 		"project_id": r.ProjectID,
 		"login_id":   r.LoginID,
@@ -101,7 +102,27 @@ func (r *GoogleBackupRestoreAllRequest) backupToolsPayload() ([]byte, error) {
 	if target := strings.TrimSpace(r.TargetEmail); target != "" {
 		out["target_email"] = target
 	}
+	if keys := normalizeRestoreAllKeys(r.Keys); len(keys) > 0 {
+		out["keys"] = keys
+	}
 	return json.Marshal(out)
+}
+
+func normalizeRestoreAllKeys(keys []string) []string {
+	out := make([]string, 0, len(keys))
+	seen := make(map[string]struct{}, len(keys))
+	for _, raw := range keys {
+		key := strings.TrimSpace(raw)
+		if key == "" {
+			continue
+		}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, key)
+	}
+	return out
 }
 
 var restoreCredentialsAllowedQuery = map[string]struct{}{

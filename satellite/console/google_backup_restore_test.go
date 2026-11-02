@@ -82,6 +82,15 @@ func TestGoogleBackupRestoreAllRequest_Validate_andPayload(t *testing.T) {
 			},
 			wantTarget: true,
 		},
+		{
+			name: "with selected keys",
+			req: GoogleBackupRestoreAllRequest{
+				Service:   "contacts",
+				ProjectID: "proj-1",
+				LoginID:   "alice@company.com",
+				Keys:      []string{" alice@company.com/contacts/a.json ", "alice@company.com/contacts/a.json", "alice@company.com/contacts/b.json"},
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -91,7 +100,7 @@ func TestGoogleBackupRestoreAllRequest_Validate_andPayload(t *testing.T) {
 			raw, err := (&tt.req).backupToolsPayload()
 			require.NoError(t, err)
 
-			var m map[string]string
+			var m map[string]interface{}
 			require.NoError(t, json.Unmarshal(raw, &m))
 			require.Equal(t, strings.TrimSpace(strings.ToLower(tt.req.Service)), m["service"])
 			require.Equal(t, strings.TrimSpace(tt.req.ProjectID), m["project_id"])
@@ -100,6 +109,17 @@ func TestGoogleBackupRestoreAllRequest_Validate_andPayload(t *testing.T) {
 				require.Equal(t, "bob@company.com", m["target_email"])
 			} else {
 				_, ok := m["target_email"]
+				require.False(t, ok)
+			}
+			if len(tt.req.Keys) > 0 {
+				got, ok := m["keys"].([]interface{})
+				require.True(t, ok)
+				require.Equal(t, []interface{}{
+					"alice@company.com/contacts/a.json",
+					"alice@company.com/contacts/b.json",
+				}, got)
+			} else {
+				_, ok := m["keys"]
 				require.False(t, ok)
 			}
 		})

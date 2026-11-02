@@ -261,6 +261,7 @@ func (g *GoogleBackupRestore) RestoreAll(w http.ResponseWriter, r *http.Request)
 		ProjectID:   body.ProjectID,
 		LoginID:     body.LoginID,
 		TargetEmail: body.TargetEmail,
+		Keys:        body.Keys,
 	}, strings.TrimSpace(r.Header.Get("Authorization")))
 	service := console.AuditServiceLabel(body.Service)
 	if service == "" {
