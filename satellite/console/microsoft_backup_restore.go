@@ -201,7 +201,8 @@ var allowedMicrosoftBackupRestoreServices = []string{
 // normalizeMicrosoftBackupRestoreService maps UI aliases to Backup-Tools service names.
 func normalizeMicrosoftBackupRestoreService(service string) string {
 	switch strings.TrimSpace(strings.ToLower(service)) {
-	case "mail", "outlook":
+	// "gmail" is the vault browser tab id in microsoft-storx (Outlook mail).
+	case "mail", "outlook", "gmail":
 		return "outlook"
 	case "calendar", "outlook_calendar":
 		return "outlook_calendar"
@@ -264,13 +265,15 @@ func (p MicrosoftBackupRestorePrepareParams) queryString() string {
 }
 
 // MicrosoftBackupRestoreAllRequest is the UI body for Backup-Tools POST /restore/all (MS).
+// Keys (optional) limits the job to selected vault items — same as Google restore-all.
 type MicrosoftBackupRestoreAllRequest struct {
-	Service      string `json:"service"`
-	ProjectID    string `json:"project_id"`
-	LoginID      string `json:"login_id"`
-	TargetEmail  string `json:"target_email,omitempty"`
-	CredentialID string `json:"credential_id,omitempty"`
-	TenantID     string `json:"tenant_id,omitempty"`
+	Service      string   `json:"service"`
+	ProjectID    string   `json:"project_id"`
+	LoginID      string   `json:"login_id"`
+	TargetEmail  string   `json:"target_email,omitempty"`
+	CredentialID string   `json:"credential_id,omitempty"`
+	TenantID     string   `json:"tenant_id,omitempty"`
+	Keys         []string `json:"keys,omitempty"`
 }
 
 func (r *MicrosoftBackupRestoreAllRequest) Validate() error {
@@ -294,7 +297,7 @@ func (r *MicrosoftBackupRestoreAllRequest) Validate() error {
 }
 
 func (r *MicrosoftBackupRestoreAllRequest) backupToolsPayload() ([]byte, error) {
-	out := map[string]string{
+	out := map[string]interface{}{
 		"service":    r.Service,
 		"project_id": r.ProjectID,
 		"login_id":   r.LoginID,
@@ -304,6 +307,9 @@ func (r *MicrosoftBackupRestoreAllRequest) backupToolsPayload() ([]byte, error) 
 	}
 	if tenantID := strings.ToLower(strings.TrimSpace(r.TenantID)); tenantID != "" {
 		out["tenant_id"] = tenantID
+	}
+	if keys := normalizeRestoreAllKeys(r.Keys); len(keys) > 0 {
+		out["keys"] = keys
 	}
 	return json.Marshal(out)
 }

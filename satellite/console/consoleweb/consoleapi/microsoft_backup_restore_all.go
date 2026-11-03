@@ -61,12 +61,13 @@ func (m *MicrosoftBackupRestoreAll) restoreCron(w http.ResponseWriter, r *http.R
 
 // MicrosoftBackupRestoreAllSwaggerRequest is the body for POST /microsoft-backup/restore/all.
 type MicrosoftBackupRestoreAllSwaggerRequest struct {
-	Service      string `json:"service"`
-	ProjectID    string `json:"project_id"`
-	LoginID      string `json:"login_id"`
-	TargetEmail  string `json:"target_email,omitempty"`
-	CredentialID string `json:"credential_id,omitempty"`
-	TenantID     string `json:"tenant_id,omitempty"`
+	Service      string   `json:"service"`
+	ProjectID    string   `json:"project_id"`
+	LoginID      string   `json:"login_id"`
+	TargetEmail  string   `json:"target_email,omitempty"`
+	CredentialID string   `json:"credential_id,omitempty"`
+	TenantID     string   `json:"tenant_id,omitempty"`
+	Keys         []string `json:"keys,omitempty" example:"user@contoso.com/outlook/inbox/msg.eml"`
 }
 
 // RestorePrepare proxies GET /restore/prepare for Microsoft services.
@@ -121,6 +122,7 @@ func (m *MicrosoftBackupRestoreAll) RestoreAll(w http.ResponseWriter, r *http.Re
 		TargetEmail:  body.TargetEmail,
 		CredentialID: body.CredentialID,
 		TenantID:     body.TenantID,
+		Keys:         body.Keys,
 	})
 	service := console.AuditServiceLabel(body.Service)
 	if service == "" {
@@ -131,6 +133,9 @@ func (m *MicrosoftBackupRestoreAll) RestoreAll(w http.ResponseWriter, r *http.Re
 		name = service
 	}
 	message := service + " restore initiated"
+	if len(body.Keys) > 0 {
+		message = service + " selected restore initiated"
+	}
 	m.service.RecordUserAuditHTTP(ctx, "MB_RESTORE_INITIATED", name, message, status, respBody, err)
 	m.service.RecordInviteeAuditForOwner(ctx, body.ProjectID, "MB_RESTORE_INITIATED", name, message, status, respBody, err)
 	if err != nil {
