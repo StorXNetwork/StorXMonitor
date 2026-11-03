@@ -482,6 +482,10 @@ model member_bucket_grant (
 	field updated_at     timestamp ( autoinsert, autoupdate )
 	// expires_at is when vault folder access from this grant ends (nullable = no expiry).
 	field expires_at     timestamp ( nullable, updatable )
+	// allow_preview is the invited user's mail preview permission.
+	field allow_preview   bool ( updatable, default true )
+	// allow_restore is the invited user's restore permission.
+	field allow_restore   bool ( updatable, default true )
 )
 
 create member_bucket_grant ( )

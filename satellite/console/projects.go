@@ -92,6 +92,11 @@ type Projects interface {
 	// UpdateDefaultPlacement is a method to update the project's default placement for new segments.
 	UpdateDefaultPlacement(ctx context.Context, id uuid.UUID, placement storxnetwork.PlacementConstraint) error
 
+	// UpdateOwnNodesOrgID sets or clears the organization used for own-nodes placement.
+	UpdateOwnNodesOrgID(ctx context.Context, id uuid.UUID, orgID *uuid.UUID) error
+	// GetOwnNodesOrgID returns the organization ID used for own-nodes placement, if any.
+	GetOwnNodesOrgID(ctx context.Context, id uuid.UUID) (*uuid.UUID, error)
+
 	// UpdateStorageUsedPercentage is a method for updating the storage used percentage for a project.
 	UpdateStorageUsedPercentage(ctx context.Context, id uuid.UUID, percentage float64) error
 
@@ -183,6 +188,7 @@ type Project struct {
 	PassphraseEnc      []byte                           `json:"-"`
 	PassphraseEncKeyID *int                             `json:"-"`
 	PathEncryption     *bool                            `json:"-"`
+	OwnNodesOrgID      *uuid.UUID                       `json:"ownNodesOrgId,omitempty"`
 
 	IsClassic bool `json:"isClassic"`
 }

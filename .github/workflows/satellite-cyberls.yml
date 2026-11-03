@@ -1,25 +1,48 @@
 name: Build Satellite on CyberLS
+run-name: Build Satellite on CyberLS (${{ inputs.target }})
 
 on:
   workflow_dispatch:
     inputs:
+      target:
+        description: 'Deployment to update'
+        required: true
+        default: google
+        type: choice
+        options:
+          - google
+          - microsoft
       run_go_mod_tidy:
         description: 'Run go mod tidy'
         required: false
         default: false
         type: boolean
 
+# Google and Microsoft share one binary, so deploys must not overlap.
+concurrency:
+  group: cyberls
+  cancel-in-progress: false
+
 env:
   BIN_PATH: 'D:\bin'
   TEMP_PATH: 'D:\deployment'
-  MAIL_TEMPLATES_PATH: 'D:\Mails'
-  SERVICES: 'StorxBackup,StorxAuditor,storxnetworksatellite'
+  MAIL_TEMPLATES_PATH: ${{ inputs.target == 'microsoft' && 'D:\cyberls-microsoft\Mails' || 'D:\Mails' }}
+  # Each target has its own NSSM service. The service runs storxnetwork-sim, which locks satellite.exe children.
+  SERVICE: ${{ inputs.target == 'microsoft' && 'Cyberls-Microsoft-Satellite' || 'Cyberls-Satellite' }}
 
 jobs:
   build-satellite:
     runs-on: [self-hosted, windows, production, cyberls]
-    environment: production
+    environment: ${{ inputs.target == 'microsoft' && 'cyberls-microsoft' || 'production' }}
     steps:
+    - name: Check deployment target
+      shell: powershell
+      run: |
+        Write-Host "Service: $env:SERVICE, bin: $env:BIN_PATH, mails: $env:MAIL_TEMPLATES_PATH"
+        if (-not (Test-Path "$env:BIN_PATH\nssm.exe")) { Write-Error "nssm.exe not found in $env:BIN_PATH"; exit 1 }
+        if (-not (Get-Service -Name $env:SERVICE -ErrorAction SilentlyContinue)) { Write-Error "Service $env:SERVICE is not installed"; exit 1 }
+        New-Item -ItemType Directory -Force -Path $env:TEMP_PATH | Out-Null
+
     - name: Checkout code
       uses: actions/checkout@v4
       with:
@@ -47,6 +70,7 @@ jobs:
       run: go mod tidy
 
     - name: Fast build satellite.exe
+      shell: powershell
       env:
         WEB3_AUTH_PRIVATE_KEY: ${{ secrets.WEB3_AUTH_PRIVATE_KEY }}
       run: |
@@ -56,51 +80,72 @@ jobs:
         # Use Go build cache and skip tests for faster build
         $env:GOFLAGS = "-buildvcs=false"
         
-        # Build the ldflags with proper variable expansion
+        $out = "$env:TEMP_PATH\satellite.exe"
+        # A leftover exe from an interrupted run would otherwise be deployed when this build fails.
+        Remove-Item $out -Force -ErrorAction SilentlyContinue
+
         $ldflags = "-s -w -X 'github.com/StorXNetwork/StorXMonitor/satellite/console/secretconstants.Web3AuthPrivateKey=$env:WEB3_AUTH_PRIVATE_KEY'"
-        $buildCmd = "go build -ldflags `"$ldflags`" -o `"$env:TEMP_PATH\satellite.exe`" ./cmd/satellite"
-        Write-Host "Build command: $buildCmd"
-        
-        Invoke-Expression $buildCmd
-        
+        go build -ldflags $ldflags -o $out ./cmd/satellite
+        if ($LASTEXITCODE -ne 0) {
+          Write-Error "go build failed with exit code $LASTEXITCODE"
+          exit 1
+        }
+
         $buildTime = (Get-Date) - $buildStart
         Write-Host "Build completed in $($buildTime.TotalSeconds) seconds"
-        
-        if (Test-Path "$env:TEMP_PATH\satellite.exe") {
-          $size = (Get-Item "$env:TEMP_PATH\satellite.exe").Length
+
+        if (Test-Path $out) {
+          $size = (Get-Item $out).Length
           Write-Host "satellite.exe built successfully ($([math]::Round($size/1MB, 2)) MB)"
         } else {
           Write-Error "Build failed - satellite.exe not found"
           exit 1
         }
         
-    - name: Parallel service stop
+    - name: Service stop
+      shell: powershell
       run: |
-        $services = $env:SERVICES -split ','
-        $stopJobs = @()
-        
-        foreach ($service in $services) {
-          $stopJobs += Start-Job -ScriptBlock {
-            param($serviceName, $binPath)
-            Set-Location $binPath
-            $status = (Get-Service -Name $serviceName -ErrorAction SilentlyContinue).Status
-            if ($status -eq "Running" -or $status -eq "Paused" -or $status -eq "StartPending") {
-              & ".\nssm.exe" stop $serviceName 2>&1 | Out-Null
-            }
-          } -ArgumentList $service, $env:BIN_PATH
+        # Shared D:\bin\satellite.exe — stop both NSSM services before the copy.
+        Set-Location $env:BIN_PATH
+        $names = @('Cyberls-Satellite', 'Cyberls-Microsoft-Satellite')
+        foreach ($name in $names) {
+          $svc = Get-Service -Name $name -ErrorAction SilentlyContinue
+          if (-not $svc) {
+            Write-Host "$name not installed, skip stop"
+            continue
+          }
+          if ($svc.Status -eq 'Stopped') {
+            Write-Host "$name already stopped"
+            continue
+          }
+          Write-Host "Stopping $name"
+          & ".\nssm.exe" stop $name 2>&1 | Out-Null
+          $deadline = (Get-Date).AddSeconds(30)
+          do {
+            Start-Sleep -Seconds 1
+            $svc.Refresh()
+          } while ($svc.Status -ne 'Stopped' -and (Get-Date) -lt $deadline)
+          Write-Host "$name status: $($svc.Status)"
         }
-        
-        # Wait for all stop jobs to complete (max 10 seconds)
-        $stopJobs | Wait-Job -Timeout 10 | Out-Null
-        Write-Host "All services stopped or timeout reached"
         
     - name: Quick file replacement
+      shell: powershell
       run: |
-        # Minimal file operations
-        if (Test-Path "$env:BIN_PATH\satellite.exe") {
-          Remove-Item "$env:BIN_PATH\satellite.exe" -Force -ErrorAction SilentlyContinue
+        $src = "$env:TEMP_PATH\satellite.exe"
+        $dst = "$env:BIN_PATH\satellite.exe"
+        if (-not (Test-Path $src)) { Write-Error "Missing build output: $src"; exit 1 }
+
+        # Both NSSM services are stopped above so this copy is not locked.
+        try {
+          Copy-Item $src $dst -Force -ErrorAction Stop
+        } catch {
+          $bak = "$dst.old"
+          Remove-Item $bak -Force -ErrorAction SilentlyContinue
+          Move-Item $dst $bak -Force
+          Copy-Item $src $dst -Force
+          Remove-Item $bak -Force -ErrorAction SilentlyContinue
         }
-        Move-Item "$env:TEMP_PATH\satellite.exe" "$env:BIN_PATH\satellite.exe" -Force
+        Remove-Item $src -Force -ErrorAction SilentlyContinue
         Write-Host "satellite.exe replaced"
 
     - name: Deploy mail templates
@@ -119,25 +164,27 @@ jobs:
         $count = (Get-ChildItem (Join-Path $dest 'emails') -Filter '*.html').Count
         Write-Host "Deployed $count email templates to $dest"
         
-    - name: Parallel service start
+    - name: Service start
+      shell: powershell
       run: |
-        $services = $env:SERVICES -split ','
-        $startJobs = @()
-        
-        foreach ($service in $services) {
-          $startJobs += Start-Job -ScriptBlock {
-            param($serviceName, $binPath)
-            Set-Location $binPath
-            & cmd /c ".\nssm.exe" start $serviceName 2>&1 | Out-Null
-          } -ArgumentList $service, $env:BIN_PATH
+        Set-Location $env:BIN_PATH
+        $names = @('Cyberls-Satellite', 'Cyberls-Microsoft-Satellite')
+        foreach ($name in $names) {
+          $svc = Get-Service -Name $name -ErrorAction SilentlyContinue
+          if (-not $svc) {
+            Write-Host "$name not installed, skip"
+            continue
+          }
+          Write-Host "Starting $name"
+          & cmd /c ".\nssm.exe" start $name 2>&1 | Out-Null
+          $deadline = (Get-Date).AddSeconds(30)
+          do {
+            Start-Sleep -Seconds 1
+            $svc.Refresh()
+          } while ($svc.Status -ne 'Running' -and (Get-Date) -lt $deadline)
+          Write-Host "$name status: $($svc.Status)"
+          if ($svc.Status -ne 'Running') {
+            Write-Error "$name did not reach Running"
+            exit 1
+          }
         }
-        
-        # Wait for all start jobs to complete (max 15 seconds)
-        $startJobs | Wait-Job -Timeout 15 | Out-Null
-        
-        # Quick status check
-        foreach ($service in $services) {
-          $status = (Get-Service -Name $service -ErrorAction SilentlyContinue).Status
-          Write-Host "$service status: $status"
-        }
-        Write-Host "All services started"

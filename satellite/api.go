@@ -61,6 +61,8 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/paymentsconfig"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/gateway"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/razorpay"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/storjscan"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
 	"github.com/StorXNetwork/StorXMonitor/satellite/reputation"
@@ -164,9 +166,10 @@ type API struct {
 		StorjscanService *storjscan.Service
 		StorjscanClient  *storjscan.Client
 
-		StripeService *stripe.Service
-		StripeClient  stripe.Client
-		EmailWebhook  *consoleapi.EmailWebhook
+		StripeService  *stripe.Service
+		StripeClient   stripe.Client
+		GatewayService *gateway.Service
+		EmailWebhook   *consoleapi.EmailWebhook
 	}
 
 	Console struct {
@@ -334,6 +337,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+		peer.Overlay.Service.SetDedicatedNodes(peer.DB.Console().OrgNodes())
 		peer.Services.Add(lifecycle.Item{
 			Name:  "overlay",
 			Run:   peer.Overlay.Service.Run,
@@ -577,6 +581,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.Console().Projects(),
 			peer.DB.Console().ProjectMembers(),
 			peer.DB.Console().Users(),
+			peer.DB.Console().OrgNodes(),
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.DB.Revocation(),
 			peer.SuccessTrackers,
@@ -737,6 +742,24 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			pc.BonusRate)
 
 		peer.Payments.DepositWallets = peer.Payments.StorjscanService
+
+		var providers []gateway.Provider
+		if pc.Razorpay.Enabled {
+			providers = append(providers, razorpay.NewProvider(pc.Razorpay))
+		}
+		peer.Payments.GatewayService = gateway.NewService(
+			log.Named("payment-gateway"),
+			pc.Gateway,
+			gateway.ServiceDependencies{
+				DB:       peer.DB.PaymentGateway(),
+				Billing:  peer.DB.Billing(),
+				Users:    peer.DB.Console().Users(),
+				Projects: peer.DB.Console().Projects(),
+				Mail:     peer.Mail.Service,
+			},
+			pc.Razorpay.Currency,
+			providers...,
+		)
 	}
 
 	{ // setup account management api keys
@@ -759,9 +782,10 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			return nil, errs.New("Web3AuthPrivateKey is not set")
 		}
 		web3AuthSocialShareHelper, err := smartcontract.NewKeyValueWeb3Helper(smartcontract.Web3Config{
-			NetworkRPC:   consoleConfig.Web3AuthNetworkRPC,
-			ContractAddr: consoleConfig.Web3AuthContractAddress,
-			Address:      consoleConfig.Web3AuthAddress,
+			NetworkRPC:      consoleConfig.Web3AuthNetworkRPC,
+			ContractAddr:    consoleConfig.Web3AuthContractAddress,
+			Address:         consoleConfig.Web3AuthAddress,
+			MinGasPriceGwei: consoleConfig.Web3AuthMinGasPriceGwei,
 		}, secretconstants.Web3AuthPrivateKey)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -843,6 +867,8 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			pc.PackagePlans.Packages,
 			consoleConfig.BackupToolsURL,
 			consoleConfig.BackupToolsAPIKey,
+			consoleConfig.GatewayCredentialsRequestURL,
+			consoleConfig.AuthServiceToken,
 			web3AuthSocialShareHelper,
 		)
 		if err != nil {
@@ -850,6 +876,9 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 		peer.Console.Service.SetResellerTenantLookup(consoleweb.NewResellerTenantResolver(peer.DB.Seller(), consoleConfig.SellerExternalAddress))
 		peer.Console.Service.SetMailExportOrdersDB(peer.Orders.DB)
+		if peer.Contact.Endpoint != nil {
+			peer.Contact.Endpoint.SetOwnNodesMapper(peer.Console.Service)
+		}
 		if peer.Mail.Service != nil {
 			peer.Mail.Service.SetBrandingResolver(peer.Console.Service.ResellerMailBranding)
 			peer.Mail.Service.SetSenderResolver(peer.Console.Service.ResellerMailSender)
@@ -938,6 +967,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.PushNotification.Service,
 			config.Payments.PackagePlans,
 			peer.Payments.StripeService,
+			peer.Payments.GatewayService,
 			developerService,
 			config.Payments.MinimumCharge,
 			prices,
@@ -1143,6 +1173,24 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				pc.BonusRate)
 
 			peer.Payments.DepositWallets = peer.Payments.StorjscanService
+
+			var providers []gateway.Provider
+			if pc.Razorpay.Enabled {
+				providers = append(providers, razorpay.NewProvider(pc.Razorpay))
+			}
+			peer.Payments.GatewayService = gateway.NewService(
+				log.Named("payment-gateway"),
+				pc.Gateway,
+				gateway.ServiceDependencies{
+					DB:       peer.DB.PaymentGateway(),
+					Billing:  peer.DB.Billing(),
+					Users:    peer.DB.Console().Users(),
+					Projects: peer.DB.Console().Projects(),
+					Mail:     peer.Mail.Service,
+				},
+				pc.Razorpay.Currency,
+				providers...,
+			)
 		}
 
 		{ // setup console
@@ -1226,9 +1274,10 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			var web3AuthSocialShareHelper smartcontract.SocialShareHelper
 			if secretconstants.Web3AuthPrivateKey != "" {
 				web3AuthSocialShareHelper, err = smartcontract.NewKeyValueWeb3Helper(smartcontract.Web3Config{
-					NetworkRPC:   consoleConfig.Web3AuthNetworkRPC,
-					ContractAddr: consoleConfig.Web3AuthContractAddress,
-					Address:      consoleConfig.Web3AuthAddress,
+					NetworkRPC:      consoleConfig.Web3AuthNetworkRPC,
+					ContractAddr:    consoleConfig.Web3AuthContractAddress,
+					Address:         consoleConfig.Web3AuthAddress,
+					MinGasPriceGwei: consoleConfig.Web3AuthMinGasPriceGwei,
 				}, secretconstants.Web3AuthPrivateKey)
 				if err != nil {
 					return nil, errs.Combine(err, peer.Close())
@@ -1278,6 +1327,8 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				config.Payments.PackagePlans.Packages,
 				consoleConfig.BackupToolsURL,
 				consoleConfig.BackupToolsAPIKey,
+				consoleConfig.GatewayCredentialsRequestURL,
+				consoleConfig.AuthServiceToken,
 				web3AuthSocialShareHelper,
 			)
 			if err != nil {
@@ -1285,6 +1336,9 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			}
 			peer.Console.Service.SetResellerTenantLookup(consoleweb.NewResellerTenantResolver(peer.DB.Seller(), consoleConfig.SellerExternalAddress))
 			peer.Console.Service.SetMailExportOrdersDB(peer.Orders.DB)
+			if peer.Contact.Endpoint != nil {
+				peer.Contact.Endpoint.SetOwnNodesMapper(peer.Console.Service)
+			}
 			if peer.Mail.Service != nil {
 				peer.Mail.Service.SetBrandingResolver(peer.Console.Service.ResellerMailBranding)
 				peer.Mail.Service.SetSenderResolver(peer.Console.Service.ResellerMailSender)
@@ -1360,6 +1414,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				pushNotificationService,
 				config.Payments.PackagePlans,
 				peer.Payments.StripeService,
+				peer.Payments.GatewayService,
 				developerService,
 				config.Payments.MinimumCharge,
 				prices,

@@ -60,6 +60,7 @@ ENTRYPOINT ["/entrypoint"]
 ENV ADDRESS="" \
     EMAIL="" \
     WALLET="" \
+    USER_ID="" \
     STORAGE="2.0TB" \
     SETUP="false" \
     LOG_LEVEL=""

@@ -234,7 +234,7 @@ func (a *Auth) getExternalAddress(ctx context.Context) string {
 }
 
 func (a *Auth) recordFailedLoginByEmail(ctx context.Context, email, failureMessage string) {
-	a.service.RecordUserAuditForEmail(ctx, email, "AUTH_LOGIN", "Session", "User logged in", console.ErrLoginCredentials.New(failureMessage))
+	a.service.RecordUserAuditForEmail(ctx, email, "AUTH_LOGIN", "Session", "User logged in", console.ErrLoginCredentials.New("%s", failureMessage))
 }
 
 // Register creates a new user account with email and password.
@@ -4944,7 +4944,8 @@ func (a *Auth) getStatusCode(err error) int {
 		console.ErrMFAMissing.Has(err), console.ErrMFAPasscode.Has(err),
 		console.ErrMFARecoveryCode.Has(err), console.ErrChangePassword.Has(err),
 		console.ErrInvalidProjectLimit.Has(err), sso.ErrInvalidProvider.Has(err),
-		sso.ErrInvalidCode.Has(err), sso.ErrNoIdToken.Has(err):
+		sso.ErrInvalidCode.Has(err), sso.ErrNoIdToken.Has(err),
+		console.ErrMicrosoftCredentialRequired.Has(err), console.ErrMicrosoftTenantRequired.Has(err):
 		return http.StatusBadRequest
 	case console.ErrUnauthorized.Has(err), console.ErrTokenExpiration.Has(err),
 		console.ErrRecoveryToken.Has(err), console.ErrLoginCredentials.Has(err),
@@ -4963,9 +4964,10 @@ func (a *Auth) getStatusCode(err error) int {
 		return http.StatusRequestEntityTooLarge
 	case console.ErrAlreadyMember.Has(err):
 		return http.StatusConflict
-	case console.ErrEmailNotFound.Has(err):
+	case console.ErrEmailNotFound.Has(err), console.ErrMicrosoftCredentialNotFound.Has(err):
 		return http.StatusNotFound
-	case console.ErrCredentialsInvalid.Has(err), console.ErrReauthRequired.Has(err):
+	case console.ErrCredentialsInvalid.Has(err), console.ErrReauthRequired.Has(err),
+		console.ErrOwnNodesInsufficient.Has(err):
 		return http.StatusUnprocessableEntity
 	default:
 		return http.StatusInternalServerError
@@ -5002,9 +5004,17 @@ func (a *Auth) getUserErrorMessage(err error) string {
 		return err.Error()
 	case console.ErrLoginRestricted.Has(err):
 		return "You can't be authenticated. Please contact support"
+	case console.ErrOwnNodesInsufficient.Has(err):
+		msg := err.Error()
+		if i := strings.Index(msg, ": "); i >= 0 {
+			return strings.TrimSpace(msg[i+2:])
+		}
+		return "Connect at least 10 storage nodes to your node group before starting backups."
 	case console.ErrValidation.Has(err), console.ErrChangePassword.Has(err), console.ErrInvalidProjectLimit.Has(err),
 		console.ErrNotPaidTier.Has(err), console.ErrTooManyAttempts.Has(err), console.ErrMFAEnabled.Has(err),
-		console.ErrForbidden.Has(err), console.ErrConflict.Has(err), console.ErrProjectInviteInvalid.Has(err):
+		console.ErrForbidden.Has(err), console.ErrConflict.Has(err), console.ErrProjectInviteInvalid.Has(err),
+		console.ErrMicrosoftCredentialRequired.Has(err), console.ErrMicrosoftTenantRequired.Has(err),
+		console.ErrMicrosoftCredentialNotFound.Has(err):
 		return err.Error()
 	case errors.Is(err, errNotImplemented):
 		return "The server is incapable of fulfilling the request"

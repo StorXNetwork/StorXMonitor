@@ -22,6 +22,9 @@ type Flags struct {
 	Host      string
 	LogLevel  string
 
+	// PortOffset is added to every generated port, so several networks can share a host.
+	PortOffset int
+
 	SatelliteCount   int
 	StorageNodeCount int
 	Identities       int
@@ -73,6 +76,7 @@ func main() {
 	rootCmd.PersistentFlags().StringVarP(&flags.Directory, "config-dir", "", configDir, "base project directory")
 	rootCmd.PersistentFlags().StringVarP(&flags.Host, "host", "", "", "host to use for network")
 	rootCmd.PersistentFlags().StringVarP(&flags.LogLevel, "log-level", "", "debug", "log level (any value, defaults to debug)")
+	rootCmd.PersistentFlags().IntVarP(&flags.PortOffset, "port-offset", "", 0, "non-zero runs this network at satellite port 30000 (10000+20000); must be the same for setup and run")
 
 	rootCmd.PersistentFlags().IntVarP(&flags.SatelliteCount, "satellites", "", 1, "number of satellites to start")
 	rootCmd.PersistentFlags().IntVarP(&flags.StorageNodeCount, "storage-nodes", "", 10, "number of storage nodes to start")

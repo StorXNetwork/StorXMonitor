@@ -146,7 +146,15 @@ func (s *Service) List(ctx context.Context, params ListParams) (result ListResul
 	if params.Limit > 200 {
 		params.Limit = 200
 	}
-	return s.db.List(ctx, params)
+	result, err = s.db.List(ctx, params)
+	if err != nil {
+		return result, err
+	}
+	for i := range result.Items {
+		result.Items[i].Message = RedactBrand(result.Items[i].Message)
+		result.Items[i].Resource = RedactBrand(result.Items[i].Resource)
+	}
+	return result, nil
 }
 
 func (s *Service) Count(ctx context.Context, params ListParams) (count int, err error) {
@@ -198,7 +206,7 @@ func (s *Service) ExportCSV(ctx context.Context, params ListParams, actor ActorD
 				r.ActorName,
 				r.Action,
 				r.Resource,
-				r.Message,
+				RedactBrand(r.Message),
 				r.IPAddress,
 				string(r.Status),
 			}); err != nil {
@@ -280,7 +288,7 @@ func normalizeAction(action string) (string, error) {
 }
 
 func normalizeMessage(message string) (string, error) {
-	message = strings.TrimSpace(message)
+	message = RedactBrand(message)
 	if message == "" {
 		return "", Error.New("message is required")
 	}

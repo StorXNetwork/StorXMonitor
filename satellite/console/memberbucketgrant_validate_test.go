@@ -4,14 +4,15 @@
 package console_test
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
 	"github.com/StorXNetwork/common/grant"
 	"github.com/StorXNetwork/common/uuid"
-	"github.com/StorXNetwork/StorXMonitor/satellite/console"
 )
 
 func TestValidateBulkInviteCount(t *testing.T) {
@@ -39,6 +40,75 @@ func TestValidateBulkInviteCount(t *testing.T) {
 			require.NoError(t, err)
 		})
 	}
+}
+
+func TestApplyInviteAccess(t *testing.T) {
+	t.Parallel()
+
+	base := []console.MemberBucketGrantInput{{
+		Bucket: "gmail", Prefix: "a@x.com/", AllowList: true, AllowDownload: true, AllowUpload: true,
+	}}
+
+	tests := []struct {
+		name         string
+		sel          *console.InviteAccessSelection
+		wantErr      bool
+		wantList     bool
+		wantPreview  bool
+		wantDownload bool
+		wantRestore  bool
+		wantLabel    string
+	}{
+		{name: "omitted keeps every permission", wantList: true, wantPreview: true, wantDownload: true, wantRestore: true, wantLabel: "read_restore"},
+		{name: "read only", sel: &console.InviteAccessSelection{Read: true}, wantList: true, wantLabel: "read"},
+		{name: "preview only", sel: &console.InviteAccessSelection{Preview: true}, wantPreview: true},
+		{name: "download only", sel: &console.InviteAccessSelection{Download: true}, wantDownload: true},
+		{name: "restore only", sel: &console.InviteAccessSelection{Restore: true}, wantDownload: true, wantRestore: true, wantLabel: "restore"},
+		{name: "none rejected", sel: &console.InviteAccessSelection{}, wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sel, err := console.ResolveInviteAccess(tt.sel)
+			if tt.wantErr {
+				require.Error(t, err)
+				require.True(t, console.ErrValidation.Has(err))
+				return
+			}
+			require.NoError(t, err)
+			got := console.ApplyInviteAccess(base, sel)
+			require.Equal(t, tt.wantList, got[0].AllowList)
+			require.Equal(t, tt.wantPreview, got[0].AllowPreview)
+			require.Equal(t, tt.wantDownload, got[0].AllowDownload)
+			require.Equal(t, tt.wantRestore, got[0].AllowRestore)
+			require.False(t, got[0].AllowUpload)
+			require.False(t, got[0].AllowDelete)
+			require.Equal(t, tt.wantLabel, console.InvitePermissionLabel(sel))
+		})
+	}
+}
+
+func TestInviteAccessSelectionJSON(t *testing.T) {
+	t.Parallel()
+
+	var legacy console.InviteAccessSelection
+	require.NoError(t, json.Unmarshal([]byte(`{"read":true,"restore":false}`), &legacy))
+	require.True(t, legacy.Read)
+	require.True(t, legacy.Preview)
+	require.True(t, legacy.Download)
+	require.False(t, legacy.Restore)
+
+	var explicit console.InviteAccessSelection
+	require.NoError(t, json.Unmarshal([]byte(`{"read":true,"preview":true,"download":false,"restore":false}`), &explicit))
+	require.True(t, explicit.Read)
+	require.True(t, explicit.Preview)
+	require.False(t, explicit.Download)
+	require.False(t, explicit.Restore)
+
+	var restoreNeedsDownload console.InviteAccessSelection
+	require.NoError(t, json.Unmarshal([]byte(`{"read":false,"preview":false,"download":false,"restore":true}`), &restoreNeedsDownload))
+	require.True(t, restoreNeedsDownload.Download)
+	require.True(t, restoreNeedsDownload.Restore)
 }
 
 func TestGrantsFromVaults(t *testing.T) {

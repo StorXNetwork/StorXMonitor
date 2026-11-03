@@ -131,7 +131,7 @@ update oauth_token (
 model backup_credentials (
 	key id
 
-	unique user_id provider email
+	unique user_id provider external_account_id
 
 	index (
 		name backup_credentials_user_id_index
@@ -149,8 +149,11 @@ model backup_credentials (
 	field user_id             user.id restrict
 	// provider is google or microsoft.
 	field provider            text
-	// email is the provider account email used for OAuth.
-	field email               text
+	// email is the provider account email used for OAuth. It is a display label, not identity.
+	field email               text       ( updatable )
+	// external_account_id identifies the signed-in account within the provider:
+	// the home-tenant object ID (oid) for Microsoft, the subject or lowercased email for Google.
+	field external_account_id text
 	// access_token is the OAuth access token.
 	field access_token        text       ( updatable )
 	// refresh_token is the OAuth refresh token for offline access.
@@ -159,7 +162,8 @@ model backup_credentials (
 	field access_token_expiry timestamp ( nullable, updatable )
 	// account_type is the workspace classification (personal, employee_workspace, admin_workspace, corporate).
 	field account_type        text       ( nullable, updatable )
-	// tenant_id is the Entra tenant GUID for Microsoft organization accounts.
+	// tenant_id is the Entra home tenant GUID (tid) of the Microsoft sign-in.
+	// It is never the tenant selected for backup.
 	field tenant_id           text       ( nullable, updatable )
 	// tenant_name is the display name of the Microsoft organization tenant.
 	field tenant_name         text       ( nullable, updatable )
@@ -189,4 +193,11 @@ read all (
 	select backup_credentials
 	where backup_credentials.user_id = ?
 	where backup_credentials.provider = ?
+)
+
+read one (
+	select backup_credentials
+	where backup_credentials.user_id = ?
+	where backup_credentials.provider = ?
+	where backup_credentials.external_account_id = ?
 )

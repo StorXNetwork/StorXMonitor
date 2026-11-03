@@ -10,9 +10,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 	"github.com/StorXNetwork/common/memory"
 	"github.com/StorXNetwork/common/sync2"
-	"github.com/StorXNetwork/StorXMonitor/satellite/metabase"
 )
 
 // Error is the default audit errs class.
@@ -41,6 +41,7 @@ type Config struct {
 	SmartContractReputationContractAddr string `help:"reputation contract address for smart contract" default:""`
 	SmartContractNounceAddr             string `help:"nounce address for smart contract" default:""`
 	SmartContractPrivateKey             string `help:"private key for smart contract" default:""`
+	SmartContractMinGasPriceGwei        int64  `help:"minimum gas price in gwei for reputation contract transactions. 0 uses the chain default (mainnet 15, apothem 630)" default:"0"`
 }
 
 // Worker contains information for populating audit queue and processing audits.

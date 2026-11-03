@@ -30,6 +30,7 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/satellite/mailservice"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/billing"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/gateway"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/paymentsconfig"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
 	"github.com/StorXNetwork/common/memory"
@@ -50,6 +51,7 @@ type Payments struct {
 	accountFreezeService *console.AccountFreezeService
 	packagePlans         paymentsconfig.PackagePlans
 	stripe               *stripe.Service
+	gateway              *gateway.Service
 
 	mailService *mailservice.Service
 
@@ -152,7 +154,8 @@ type RequestUser struct {
 
 // NewPayments is a constructor for api payments controller.
 func NewPayments(log *zap.Logger, service *console.Service, accountFreezeService *console.AccountFreezeService,
-	packagePlans paymentsconfig.PackagePlans, stripe *stripe.Service, config GatewayConfig, mailService *mailservice.Service) *Payments {
+	packagePlans paymentsconfig.PackagePlans, stripe *stripe.Service, config GatewayConfig, mailService *mailservice.Service,
+	gatewayService *gateway.Service) *Payments {
 	return &Payments{
 		log:                  log,
 		service:              service,
@@ -161,6 +164,7 @@ func NewPayments(log *zap.Logger, service *console.Service, accountFreezeService
 		stripe:               stripe,
 		gatewayConfig:        config,
 		mailService:          mailService,
+		gateway:              gatewayService,
 	}
 }
 

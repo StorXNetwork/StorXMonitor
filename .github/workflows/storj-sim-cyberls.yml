@@ -1,23 +1,46 @@
-name: Build StorXNetwork Sim on CyberLS
+name: Build Storxnetwork Sim on CyberLS
+run-name: Build Storxnetwork Sim on CyberLS (${{ inputs.target }})
 
 on:
   workflow_dispatch:
     inputs:
+      target:
+        description: 'Deployment to update'
+        required: true
+        default: google
+        type: choice
+        options:
+          - google
+          - microsoft
       run_go_mod_tidy:
         description: 'Run go mod tidy'
         required: false
         default: false
         type: boolean
 
+# Google and Microsoft share one binary, so deploys must not overlap.
+concurrency:
+  group: cyberls
+  cancel-in-progress: false
+
 env:
   BIN_PATH: 'D:\bin'
   TEMP_PATH: 'D:\deployment'
+  SERVICE: ${{ inputs.target == 'microsoft' && 'Cyberls-Microsoft-Satellite' || 'Cyberls-Satellite' }}
 
 jobs:
   build-storxnetwork-sim:
     runs-on: [self-hosted, windows, CyberLS]
-    environment: production
+    environment: ${{ inputs.target == 'microsoft' && 'cyberls-microsoft' || 'production' }}
     steps:
+    - name: Check deployment target
+      shell: powershell
+      run: |
+        Write-Host "Service: $env:SERVICE, bin: $env:BIN_PATH"
+        if (-not (Test-Path "$env:BIN_PATH\nssm.exe")) { Write-Error "nssm.exe not found in $env:BIN_PATH"; exit 1 }
+        if (-not (Get-Service -Name $env:SERVICE -ErrorAction SilentlyContinue)) { Write-Error "Service $env:SERVICE is not installed"; exit 1 }
+        New-Item -ItemType Directory -Force -Path $env:TEMP_PATH | Out-Null
+
     - name: Checkout code
       uses: actions/checkout@v4
       with:
@@ -29,7 +52,22 @@ jobs:
       env:
         PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
       run: |
-        git config --global url."https://x-access-token:$env:PERSONAL_ACCESS_TOKEN@github.com/".insteadOf "https://github.com/"
+        $token = "$env:PERSONAL_ACCESS_TOKEN".Trim()
+        if (-not $token) {
+          Write-Error "PERSONAL_ACCESS_TOKEN is empty for this job."
+          exit 1
+        }
+        Write-Host ("Repository PAT length " + $token.Length)
+        # Older runs left extra insteadOf rules on this runner. Git can keep using one of those.
+        $oldRules = git config --global --name-only --get-regexp '^url\..*\.insteadof$' 2>$null
+        foreach ($name in @($oldRules)) {
+          if ($name) { git config --global --unset-all $name 2>$null | Out-Null }
+        }
+        # Windows Credential Manager otherwise sends a saved GitHub login instead of this token.
+        git config --global credential.helper ""
+        git config --global url."https://x-access-token:${token}@github.com/".insteadOf "https://github.com/"
+        "GIT_TERMINAL_PROMPT=0" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+        "GCM_INTERACTIVE=Never" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
         go env -w GOPRIVATE=github.com/StorXNetwork/*
         go env -w GONOSUMDB=github.com/StorXNetwork/*
         go env -w GONOPROXY=github.com/StorXNetwork/*
@@ -42,95 +80,77 @@ jobs:
       shell: powershell
       run: go mod tidy
 
-    - name: Fast build storxnetwork-sim.exe
+    - name: Build storxnetwork-sim.exe
+      shell: powershell
       run: |
-        $buildStart = Get-Date
-        Write-Host "Building storxnetwork-sim.exe with optimizations..."
-        
-        # Use Go build cache and skip tests for faster build
-        $env:GOFLAGS = "-buildvcs=false"
-        
-        $buildCmd = "go build -ldflags `"-s -w`" -o `"$env:TEMP_PATH\storxnetwork-sim.exe`" ./cmd/storxnetwork-sim"
-        Write-Host "Build command: $buildCmd"
-        
-        Invoke-Expression $buildCmd
-        
-        $buildTime = (Get-Date) - $buildStart
-        Write-Host "Build completed in $($buildTime.TotalSeconds) seconds"
-        
-        if (Test-Path "$env:TEMP_PATH\storxnetwork-sim.exe") {
-          $size = (Get-Item "$env:TEMP_PATH\storxnetwork-sim.exe").Length
-          Write-Host "storxnetwork-sim.exe built successfully ($([math]::Round($size/1MB, 2)) MB)"
-        } else {
-          Write-Error "Build failed - storxnetwork-sim.exe not found"
-          exit 1
-        }
+        go build -ldflags "-s -w" -o "$env:TEMP_PATH\storxnetwork-sim.exe" ./cmd/storxnetwork-sim
         
     - name: Quick service stop
       shell: powershell
       run: |
         Set-Location $env:BIN_PATH
-        $service = Get-Service -Name storxnetworksatellite -ErrorAction SilentlyContinue
-        if (-not $service) {
-          Write-Host "Service storxnetworksatellite not found; skipping stop"
-          exit 0
-        }
-        if ($service.Status -eq "Running" -or $service.Status -eq "Paused" -or $service.Status -eq "StartPending") {
-          $ErrorActionPreference = "Continue"
-          & ".\nssm.exe" stop storxnetworksatellite 2>&1 | Out-Null
-          $ErrorActionPreference = "Stop"
-          Start-Sleep -Seconds 2
+        $names = @('Cyberls-Satellite', 'Cyberls-Microsoft-Satellite')
+        foreach ($name in $names) {
+          $svc = Get-Service -Name $name -ErrorAction SilentlyContinue
+          if (-not $svc) {
+            Write-Host "$name not installed, skip stop"
+            continue
+          }
+          if ($svc.Status -eq 'Stopped') {
+            Write-Host "$name already stopped"
+            continue
+          }
+          Write-Host "Stopping $name"
+          & ".\nssm.exe" stop $name 2>&1 | Out-Null
+          $deadline = (Get-Date).AddSeconds(30)
+          do {
+            Start-Sleep -Seconds 1
+            $svc.Refresh()
+          } while ($svc.Status -ne 'Stopped' -and (Get-Date) -lt $deadline)
+          Write-Host "$name status: $($svc.Status)"
         }
         
     - name: Quick file replacement
+      shell: powershell
       run: |
-        # Minimal file operations
-        if (Test-Path "$env:BIN_PATH\storxnetwork-sim.exe") {
-          Remove-Item "$env:BIN_PATH\storxnetwork-sim.exe" -Force -ErrorAction SilentlyContinue
+        $src = "$env:TEMP_PATH\storxnetwork-sim.exe"
+        $dst = "$env:BIN_PATH\storxnetwork-sim.exe"
+        if (-not (Test-Path $src)) { Write-Error "Missing build output: $src"; exit 1 }
+
+        # Same as Backup-Tools: copy over the existing exe. Do not delete it first.
+        try {
+          Copy-Item $src $dst -Force -ErrorAction Stop
+        } catch {
+          $bak = "$dst.old"
+          Remove-Item $bak -Force -ErrorAction SilentlyContinue
+          Move-Item $dst $bak -Force
+          Copy-Item $src $dst -Force
+          Remove-Item $bak -Force -ErrorAction SilentlyContinue
         }
-        Move-Item "$env:TEMP_PATH\storxnetwork-sim.exe" "$env:BIN_PATH\storxnetwork-sim.exe" -Force
+        Remove-Item $src -Force -ErrorAction SilentlyContinue
         Write-Host "storxnetwork-sim.exe replaced"
         
     - name: Quick service start
       shell: powershell
       run: |
         Set-Location $env:BIN_PATH
-        $service = Get-Service -Name storxnetworksatellite -ErrorAction SilentlyContinue
-        if (-not $service) {
-          Write-Host "Service storxnetworksatellite not found; skipping start (binary deployed to $env:BIN_PATH\storxnetwork-sim.exe)"
-          exit 0
-        }
-
-        $maxWait = 10
-        while ($maxWait -gt 0 -and ($service.Status -match "Pending")) {
-          Start-Sleep -Seconds 1
-          $service.Refresh()
-          $maxWait--
-        }
-
-        if ($service.Status -eq "Stopped") {
-          $ErrorActionPreference = "Continue"
-          $result = & cmd /c ".\nssm.exe" start storxnetworksatellite 2>&1 | Out-String
-          $ErrorActionPreference = "Stop"
-          Start-Sleep -Seconds 3
-          $service.Refresh()
-
-          if ($result -match "Can't open service") {
-            Write-Host "NSSM could not open storxnetworksatellite; binary deployed without service restart"
-            exit 0
+        $names = @('Cyberls-Satellite', 'Cyberls-Microsoft-Satellite')
+        foreach ($name in $names) {
+          $svc = Get-Service -Name $name -ErrorAction SilentlyContinue
+          if (-not $svc) {
+            Write-Host "$name not installed, skip"
+            continue
           }
-          if ($result -match "SERVICE_START_PENDING" -or $service.Status -eq "Running" -or $service.Status -eq "StartPending") {
-            Write-Host "Service started successfully (Status: $($service.Status))"
-            exit 0
+          Write-Host "Starting $name"
+          & cmd /c ".\nssm.exe" start $name 2>&1 | Out-Null
+          $deadline = (Get-Date).AddSeconds(30)
+          do {
+            Start-Sleep -Seconds 1
+            $svc.Refresh()
+          } while ($svc.Status -ne 'Running' -and (Get-Date) -lt $deadline)
+          Write-Host "$name status: $($svc.Status)"
+          if ($svc.Status -ne 'Running') {
+            Write-Error "$name did not reach Running"
+            exit 1
           }
-          Write-Host "NSSM start output: $result"
-          Write-Host "Service status: $($service.Status)"
-          exit 0
         }
-
-        if ($service.Status -eq "Running") {
-          Write-Host "Service already running"
-          exit 0
-        }
-
-        Write-Host "Service in unexpected state: $($service.Status)"

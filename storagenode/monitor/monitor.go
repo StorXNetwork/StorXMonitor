@@ -223,6 +223,7 @@ func (service *Service) updateNodeInformation(ctx context.Context) (err error) {
 	service.contact.UpdateSelf(&pb.NodeCapacity{
 		FreeDisk: spaceReport.Available,
 	})
+	service.contact.UpdateDisk(spaceReport.Allocated, spaceReport.Used)
 
 	return nil
 }

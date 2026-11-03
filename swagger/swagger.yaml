@@ -1,5 +1,18 @@
 basePath: /api/v0
 definitions:
+  console.AccountDeleteRequest:
+    properties:
+      code:
+        description: Code is a fresh Google OAuth authorization code for Google re-auth.
+        type: string
+      mfaPasscode:
+        type: string
+      mfaRecoveryCode:
+        type: string
+      password:
+        description: ignored; kept for older clients
+        type: string
+    type: object
   console.AnnouncementConfig:
     properties:
       body:
@@ -18,6 +31,45 @@ definitions:
         $ref: '#/definitions/console.MultiCaptchaConfig'
       registration:
         $ref: '#/definitions/console.MultiCaptchaConfig'
+    type: object
+  console.InviteProjectMemberResult:
+    properties:
+      email:
+        type: string
+      invite_link:
+        type: string
+      link_expires_at:
+        type: string
+      permission:
+        description: Permission is read, restore, or read_restore.
+        type: string
+      read:
+        type: boolean
+      restore:
+        type: boolean
+      vault_expires_at:
+        type: string
+      vaults:
+        items:
+          type: string
+        type: array
+    type: object
+  console.MicrosoftBackupAccount:
+    properties:
+      account_type:
+        type: string
+      email:
+        type: string
+      external_account_id:
+        type: string
+      has_refresh_token:
+        type: boolean
+      home_tenant_id:
+        type: string
+      home_tenant_name:
+        type: string
+      id:
+        type: string
     type: object
   console.MinimumChargeConfig:
     properties:
@@ -564,6 +616,95 @@ definitions:
       task_memory:
         type: object
     type: object
+  consoleapi.BackupAutoSyncBackupNowSwaggerResponse:
+    properties:
+      data:
+        $ref: '#/definitions/consoleapi.BackupAutoSyncBackupNowTaskSwagger'
+      success:
+        example: true
+        type: boolean
+    type: object
+  consoleapi.BackupAutoSyncBackupNowTaskSwagger:
+    properties:
+      created_at:
+        example: "2026-01-01T00:00:00Z"
+        type: string
+      id:
+        example: task-789
+        type: string
+      job_id:
+        example: job-456
+        type: string
+      status:
+        example: queued
+        type: string
+      trigger:
+        example: on_demand
+        type: string
+    type: object
+  consoleapi.BackupAutoSyncJobServiceStatsSwagger:
+    properties:
+      active:
+        example: 4
+        type: integer
+      count:
+        example: 5
+        type: integer
+      service:
+        example: gmail
+        type: string
+    type: object
+  consoleapi.BackupAutoSyncJobServicesSwaggerResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/consoleapi.BackupAutoSyncJobServiceStatsSwagger'
+        type: array
+      success:
+        example: true
+        type: boolean
+    type: object
+  consoleapi.BackupAutoSyncLiveJobSwagger:
+    properties:
+      backup_status:
+        example: running
+        type: string
+      email:
+        example: user@gmail.com
+        type: string
+      id:
+        example: job-456
+        type: string
+      method:
+        example: gmail
+        type: string
+      tasks:
+        items:
+          $ref: '#/definitions/consoleapi.BackupAutoSyncLiveTaskSwagger'
+        type: array
+    type: object
+  consoleapi.BackupAutoSyncLiveSwaggerResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/consoleapi.BackupAutoSyncLiveJobSwagger'
+        type: array
+      success:
+        example: true
+        type: boolean
+    type: object
+  consoleapi.BackupAutoSyncLiveTaskSwagger:
+    properties:
+      id:
+        example: task-123
+        type: string
+      status:
+        enum:
+        - running
+        - failed
+        example: running
+        type: string
+    type: object
   consoleapi.BackupToolsJSONResponse:
     additionalProperties: true
     type: object
@@ -628,6 +769,47 @@ definitions:
         example: 3
         type: integer
     type: object
+  consoleapi.BulkInviteProjectMemberSwaggerItem:
+    properties:
+      email:
+        example: alice@example.com
+        type: string
+      permissions:
+        $ref: '#/definitions/consoleapi.InviteAccessSelectionSwagger'
+      vaults:
+        example:
+        - gmail
+        - google-drive
+        items:
+          type: string
+        type: array
+    type: object
+  consoleapi.BulkInviteProjectMemberSwaggerResult:
+    properties:
+      email:
+        example: alice@example.com
+        type: string
+      error:
+        example: ""
+        type: string
+      ok:
+        example: true
+        type: boolean
+    type: object
+  consoleapi.BulkInviteProjectMembersSwaggerRequest:
+    properties:
+      invites:
+        items:
+          $ref: '#/definitions/consoleapi.BulkInviteProjectMemberSwaggerItem'
+        type: array
+    type: object
+  consoleapi.BulkInviteProjectMembersSwaggerResponse:
+    properties:
+      results:
+        items:
+          $ref: '#/definitions/consoleapi.BulkInviteProjectMemberSwaggerResult'
+        type: array
+    type: object
   consoleapi.CheckUploadSwaggerRequest:
     properties:
       file_size:
@@ -689,38 +871,7 @@ definitions:
         example: https://billing.example.com
         type: string
     type: object
-  consoleapi.CreateGoogleBackupAutoSyncJobsSwaggerRequest:
-    properties:
-      emails:
-        example:
-        - billing@salestalker.com
-        - support@salestalker.com
-        items:
-          type: string
-        type: array
-      interval:
-        example: 6h
-        type: string
-      "on":
-        example: 12am
-        type: string
-      policy_id:
-        example: 50
-        type: integer
-      policy_name:
-        example: New team policy
-        type: string
-      services:
-        example:
-        - gmail
-        - drive
-        items:
-          type: string
-        type: array
-    required:
-    - services
-    type: object
-  consoleapi.CreateGoogleBackupAutoSyncPolicySwaggerRequest:
+  consoleapi.CreateBackupAutoSyncPolicySwaggerRequest:
     properties:
       interval:
         enum:
@@ -758,6 +909,137 @@ definitions:
     - name
     - retention_type
     type: object
+  consoleapi.CreateGoogleBackupAutoSyncJobsSwaggerRequest:
+    properties:
+      account_type:
+        example: admin_workspace
+        type: string
+      email_org_units:
+        additionalProperties:
+          type: string
+        example:
+          billing@salestalker.com: /
+          support@salestalker.com: /SAles
+        type: object
+      emails:
+        example:
+        - billing@salestalker.com
+        - support@salestalker.com
+        items:
+          type: string
+        type: array
+      interval:
+        example: 6h
+        type: string
+      "on":
+        example: 12am
+        type: string
+      org_unit_schedules:
+        additionalProperties:
+          $ref: '#/definitions/consoleapi.GoogleBackupOrgUnitScheduleSwagger'
+        type: object
+      policy_id:
+        example: 50
+        type: integer
+      policy_name:
+        example: New team policy
+        type: string
+      policy_scope:
+        example: org_unit
+        type: string
+      services:
+        example:
+        - gmail
+        - drive
+        items:
+          type: string
+        type: array
+    type: object
+  consoleapi.CreateMicrosoftBackupAutoSyncJobsSwaggerRequest:
+    properties:
+      all_users:
+        type: boolean
+      backup_mode:
+        description: BackupMode self = delegated own-mailbox backup; organization
+          = app-only tenant backup (no refresh token sent).
+        enum:
+        - self
+        - organization
+        example: organization
+        type: string
+      backup_scope:
+        example: all_tenant
+        type: string
+      credential_id:
+        description: CredentialID selects the Microsoft account; required when several
+          accounts are connected.
+        example: 6f1c2a1e-4c1b-4d2a-9c3e-2f6a7b8c9d0e
+        type: string
+      emails:
+        example:
+        - user@contoso.com
+        items:
+          type: string
+        type: array
+      interval:
+        example: daily
+        type: string
+      microsoft_email:
+        example: user@contoso.com
+        type: string
+      "on":
+        example: 12am
+        type: string
+      policy_id:
+        type: integer
+      policy_name:
+        example: Outlook defaults
+        type: string
+      project_id:
+        example: 00000000-0000-0000-0000-000000000001
+        type: string
+      services:
+        example:
+        - outlook
+        - calendar
+        - contacts
+        - onedrive
+        - sharepoint
+        - teams
+        items:
+          type: string
+        type: array
+      sites:
+        items:
+          $ref: '#/definitions/consoleapi.SharePointSiteSwaggerInput'
+        type: array
+      storx_token:
+        type: string
+      teams:
+        items:
+          $ref: '#/definitions/consoleapi.TeamsOnboardingSwaggerInput'
+        type: array
+      tenant_id:
+        description: TenantID is the tenant connected for backup (POST /microsoft-backup/tenants/{tid}/connect);
+          required.
+        example: 72f988bf-86f1-41af-91ab-2d7cd011db47
+        type: string
+      user_ids:
+        items:
+          type: string
+        type: array
+    required:
+    - services
+    type: object
+  consoleapi.DashboardAlertsSwaggerResponse:
+    properties:
+      new_connected_accounts_24h:
+        $ref: '#/definitions/consoleapi.GoogleBackupDashboardAlertSectionSwagger'
+      paused_backups:
+        $ref: '#/definitions/consoleapi.GoogleBackupDashboardAlertSectionSwagger'
+      re_auth_required:
+        $ref: '#/definitions/consoleapi.GoogleBackupDashboardAlertSectionSwagger'
+    type: object
   consoleapi.DashboardButtonSwagger:
     properties:
       click:
@@ -790,7 +1072,7 @@ definitions:
       button:
         $ref: '#/definitions/consoleapi.DashboardButtonSwagger'
       description:
-        example: Google accounts with backup enabled
+        example: Microsoft accounts with backup enabled
         type: string
       icon:
         $ref: '#/definitions/consoleapi.DashboardIconSwagger'
@@ -958,11 +1240,15 @@ definitions:
     type: object
   consoleapi.GoogleBackupAuthSuccess:
     properties:
+      account_pending_deletion:
+        type: boolean
       action:
         enum:
         - registered
         - logged_in
         example: registered
+        type: string
+      delete_at:
         type: string
       google_backup:
         type: object
@@ -1134,15 +1420,6 @@ definitions:
           $ref: '#/definitions/consoleapi.GoogleBackupDashboardMailboxSwagger'
         type: array
     type: object
-  consoleapi.GoogleBackupDashboardAlertsSwaggerResponse:
-    properties:
-      new_connected_accounts_24h:
-        $ref: '#/definitions/consoleapi.GoogleBackupDashboardAlertSectionSwagger'
-      paused_backups:
-        $ref: '#/definitions/consoleapi.GoogleBackupDashboardAlertSectionSwagger'
-      re_auth_required:
-        $ref: '#/definitions/consoleapi.GoogleBackupDashboardAlertSectionSwagger'
-    type: object
   consoleapi.GoogleBackupDashboardCredentialSwagger:
     properties:
       credential_id:
@@ -1200,10 +1477,47 @@ definitions:
         example: gmail
         type: string
     type: object
+  consoleapi.GoogleBackupDomainUsersPayload:
+    properties:
+      account:
+        example: sales@salestalker.com
+        type: string
+      account_type:
+        enum:
+        - personal
+        - employee_workspace
+        - admin_workspace
+        example: admin_workspace
+        type: string
+      count:
+        example: 2
+        type: integer
+      domain_users_error:
+        type: string
+      grouped_emails:
+        type: object
+      mailbox_count:
+        example: 3
+        type: integer
+      org_units:
+        example:
+        - /
+        - /SAles
+        items:
+          type: string
+        type: array
+      organizational_units:
+        items:
+          $ref: '#/definitions/consoleapi.GoogleBackupOrganizationalUnit'
+        type: array
+      ou_count:
+        example: 3
+        type: integer
+    type: object
   consoleapi.GoogleBackupDomainUsersSwaggerResponse:
     properties:
       google_backup:
-        type: object
+        $ref: '#/definitions/consoleapi.GoogleBackupDomainUsersPayload'
       success:
         example: true
         type: boolean
@@ -1242,6 +1556,62 @@ definitions:
         example: GoogleBackupPending
         type: string
     type: object
+  consoleapi.GoogleBackupOrgUnitScheduleSwagger:
+    properties:
+      interval:
+        example: daily
+        type: string
+      "on":
+        example: 12am
+        type: string
+      policy_name:
+        example: SAles
+        type: string
+      services:
+        example:
+        - gmail
+        - drive
+        items:
+          type: string
+        type: array
+    type: object
+  consoleapi.GoogleBackupOrganizationalUnit:
+    properties:
+      name:
+        example: Customer Support
+        type: string
+      org_unit_path:
+        example: /Customer Support
+        type: string
+      user_count:
+        example: 1
+        type: integer
+      users:
+        items:
+          $ref: '#/definitions/consoleapi.GoogleBackupOrganizationalUnitUser'
+        type: array
+    type: object
+  consoleapi.GoogleBackupOrganizationalUnitUser:
+    properties:
+      email:
+        example: support@salestalker.com
+        type: string
+      is_admin:
+        example: false
+        type: boolean
+      is_delegated_admin:
+        example: false
+        type: boolean
+      org_unit_path:
+        example: /Customer Support
+        type: string
+      role:
+        enum:
+        - admin
+        - user
+        example: user
+        type: string
+    type: object
   consoleapi.GoogleBackupRestoreAllSwaggerRequest:
     properties:
       login_id:
@@ -1267,6 +1637,36 @@ definitions:
     - project_id
     - service
     type: object
+  consoleapi.GoogleBackupUsersGroupsEntitySwagger:
+    properties:
+      account_type:
+        enum:
+        - corporate
+        - individual
+        example: corporate
+        type: string
+      credential:
+        $ref: '#/definitions/consoleapi.GoogleBackupDashboardCredentialSwagger'
+      credential_status:
+        enum:
+        - healthy
+        - re_auth_required
+        example: healthy
+        type: string
+      email:
+        example: billing@salestalker.com
+        type: string
+      name:
+        example: billing
+        type: string
+      org_unit_path:
+        example: /
+        type: string
+      services:
+        items:
+          $ref: '#/definitions/consoleapi.GoogleBackupDashboardServiceSwagger'
+        type: array
+    type: object
   consoleapi.GoogleBackupUsersGroupsJobsActiveSwaggerRequest:
     properties:
       active:
@@ -1284,12 +1684,57 @@ definitions:
     - active
     - job_ids
     type: object
+  consoleapi.GoogleBackupUsersGroupsListSwaggerResponse:
+    properties:
+      entities:
+        items:
+          $ref: '#/definitions/consoleapi.GoogleBackupUsersGroupsEntitySwagger'
+        type: array
+      org_units:
+        example:
+        - /
+        - /SAles
+        items:
+          type: string
+        type: array
+      pagination:
+        $ref: '#/definitions/consoleapi.GoogleBackupUsersGroupsPaginationSwagger'
+    type: object
+  consoleapi.GoogleBackupUsersGroupsPaginationSwagger:
+    properties:
+      limit:
+        example: 10
+        type: integer
+      offset:
+        example: 0
+        type: integer
+      page:
+        example: 1
+        type: integer
+      total_count:
+        example: 2
+        type: integer
+      total_pages:
+        example: 1
+        type: integer
+    type: object
+  consoleapi.InviteAccessSelectionSwagger:
+    properties:
+      read:
+        example: true
+        type: boolean
+      restore:
+        example: true
+        type: boolean
+    type: object
   consoleapi.InviteProjectMemberWithGrantsSwaggerRequest:
     properties:
       grants:
         items:
           $ref: '#/definitions/consoleapi.MemberBucketGrantInputSwagger'
         type: array
+      permissions:
+        $ref: '#/definitions/consoleapi.InviteAccessSelectionSwagger'
     type: object
   consoleapi.MFADisableSwaggerRequest:
     properties:
@@ -1318,6 +1763,7 @@ definitions:
   consoleapi.MemberBucketGrantInputSwagger:
     properties:
       allowDelete:
+        description: ignored
         example: false
         type: boolean
       allowDownload:
@@ -1327,6 +1773,7 @@ definitions:
         example: true
         type: boolean
       allowUpload:
+        description: ignored
         example: false
         type: boolean
       bucket:
@@ -1339,6 +1786,7 @@ definitions:
   consoleapi.MemberBucketGrantSwaggerItem:
     properties:
       allowDelete:
+        description: always false; unsupported
         example: false
         type: boolean
       allowDownload:
@@ -1348,6 +1796,7 @@ definitions:
         example: true
         type: boolean
       allowUpload:
+        description: always false; unsupported
         example: false
         type: boolean
       bucket:
@@ -1373,7 +1822,7 @@ definitions:
       updatedAt:
         type: string
     type: object
-  consoleapi.MergeGoogleBackupAutoSyncPoliciesSwaggerRequest:
+  consoleapi.MergeBackupAutoSyncPoliciesSwaggerRequest:
     properties:
       name:
         example: My Unified Backup Policy
@@ -1390,7 +1839,125 @@ definitions:
     - name
     - policy_ids
     type: object
-  consoleapi.MoveGoogleBackupAutoSyncPolicyAssignmentsSwaggerRequest:
+  consoleapi.MicrosoftAdminConsentURLResponse:
+    properties:
+      consent_url:
+        type: string
+      redirect_uri:
+        type: string
+      success:
+        type: boolean
+    type: object
+  consoleapi.MicrosoftBackupAccountsResponse:
+    properties:
+      accounts:
+        items:
+          $ref: '#/definitions/console.MicrosoftBackupAccount'
+        type: array
+    type: object
+  consoleapi.MicrosoftBackupAuthError:
+    properties:
+      error:
+        example: Error getting token from Microsoft!
+        type: string
+      success:
+        example: false
+        type: boolean
+    type: object
+  consoleapi.MicrosoftBackupAuthSuccess:
+    properties:
+      action:
+        enum:
+        - registered
+        - logged_in
+        example: logged_in
+        type: string
+      microsoft_backup:
+        type: object
+      onboarding:
+        $ref: '#/definitions/consoleapi.MicrosoftBackupOnboardingSwagger'
+      success:
+        example: true
+        type: boolean
+      token:
+        example: '...'
+        type: string
+    type: object
+  consoleapi.MicrosoftBackupAuthSwaggerRequest:
+    properties:
+      microsoft_key:
+        example: <Microsoft Graph access_token from restore OAuth>
+        type: string
+    type: object
+  consoleapi.MicrosoftBackupConnectSwaggerRequest:
+    properties:
+      code:
+        example: 0.AXo...
+        type: string
+    type: object
+  consoleapi.MicrosoftBackupConnectSwaggerResponse:
+    properties:
+      created:
+        example: true
+        type: boolean
+      has_refresh_token:
+        example: true
+        type: boolean
+      microsoft_backup:
+        type: object
+      microsoft_email:
+        example: user@contoso.com
+        type: string
+      success:
+        example: true
+        type: boolean
+    type: object
+  consoleapi.MicrosoftBackupOnboardingSwagger:
+    properties:
+      onboarding_status:
+        enum:
+        - pending
+        - in_progress
+        - completed
+        example: pending
+        type: string
+      onboardingEnd:
+        example: false
+        type: boolean
+      onboardingStart:
+        example: true
+        type: boolean
+      onboardingStep:
+        example: MicrosoftBackupPending
+        type: string
+    type: object
+  consoleapi.MicrosoftBackupTenantConnectRequest:
+    properties:
+      backup_mode:
+        description: BackupMode is personal or organization.
+        example: organization
+        type: string
+      credential_id:
+        example: 6f1c2a1e-4c1b-4d2a-9c3e-2f6a7b8c9d0e
+        type: string
+    type: object
+  consoleapi.MicrosoftBackupUsersGroupsJobsActiveSwaggerRequest:
+    properties:
+      active:
+        example: false
+        type: boolean
+      job_ids:
+        example:
+        - 101
+        - 102
+        items:
+          type: integer
+        type: array
+    required:
+    - active
+    - job_ids
+    type: object
+  consoleapi.MoveBackupAutoSyncPolicyAssignmentsSwaggerRequest:
     properties:
       job_ids:
         example:
@@ -1850,6 +2417,56 @@ definitions:
           $ref: '#/definitions/consoleapi.MemberBucketGrantInputSwagger'
         type: array
     type: object
+  consoleapi.QuotaMetricStatusSwagger:
+    properties:
+      level:
+        enum:
+        - ok
+        - warn
+        - error
+        example: warn
+        type: string
+      limit:
+        example: 2147483648
+        type: integer
+      message:
+        example: 'Storage warning: 85% used (threshold 80%).'
+        type: string
+      percent:
+        example: 85.5
+        type: number
+      remaining:
+        example: 311386112
+        type: integer
+      threshold:
+        example: 80
+        type: number
+      used:
+        example: 1836097536
+        type: integer
+    type: object
+  consoleapi.QuotaStatusSwaggerResponse:
+    properties:
+      bandwidth:
+        $ref: '#/definitions/consoleapi.QuotaMetricStatusSwagger'
+      bandwidth_warning_threshold:
+        example: 80
+        type: number
+      message:
+        example: 'Storage warning: 85% used (threshold 80%).'
+        type: string
+      popup_show:
+        example: true
+        type: boolean
+      storage:
+        $ref: '#/definitions/consoleapi.QuotaMetricStatusSwagger'
+      storage_warning_threshold:
+        example: 80
+        type: number
+      upgrade_url:
+        example: /dashboard/billing
+        type: string
+    type: object
   consoleapi.RegisterFCMTokenSwaggerRequest:
     properties:
       appVersion:
@@ -1899,7 +2516,7 @@ definitions:
         example: "2026-05-28T10:00:00Z"
         type: string
       bucketName:
-        example: gmail
+        example: outlook
         type: string
       createdAt:
         example: "2024-03-20T10:00:00Z"
@@ -2409,10 +3026,32 @@ definitions:
         example: token updated successfully
         type: string
     type: object
+  consoleapi.SharePointSiteSwaggerInput:
+    properties:
+      site_id:
+        example: contoso.sharepoint.com,abc123,def456
+        type: string
+      site_url:
+        example: https://contoso.sharepoint.com/sites/HR
+        type: string
+    type: object
   consoleapi.SwaggerErrorResponse:
     properties:
       error:
         example: request validation failed
+        type: string
+    type: object
+  consoleapi.TeamsOnboardingSwaggerInput:
+    properties:
+      channel_ids:
+        items:
+          type: string
+        type: array
+      team_id:
+        example: 00000000-0000-0000-0000-000000000001
+        type: string
+      team_name:
+        example: Engineering
         type: string
     type: object
   consoleapi.UnreadCountResponse:
@@ -2445,6 +3084,73 @@ definitions:
       shortName:
         example: Jane
         type: string
+    type: object
+  consoleapi.UpdateBackupAutoSyncJobSwaggerRequest:
+    properties:
+      active:
+        example: true
+        type: boolean
+      apply_storx_to_all_linked_accounts:
+        type: boolean
+      refresh_token:
+        type: string
+      storx_token:
+        type: string
+    type: object
+  consoleapi.UpdateBackupAutoSyncJobsByProjectSwaggerRequest:
+    properties:
+      active:
+        example: true
+        type: boolean
+      code:
+        example: ""
+        type: string
+      credential_id:
+        example: 12
+        type: integer
+      google_email:
+        example: user@gmail.com
+        type: string
+      microsoft_email:
+        example: user@contoso.com
+        type: string
+      project_id:
+        example: 00000000-0000-0000-0000-000000000000
+        type: string
+      refresh_token:
+        example: <oauth refresh token>
+        type: string
+      storx_token:
+        example: <storx access grant>
+        type: string
+    required:
+    - project_id
+    type: object
+  consoleapi.UpdateBackupAutoSyncPolicySwaggerRequest:
+    properties:
+      interval:
+        enum:
+        - 3h
+        - 12h
+        - daily
+        - weekly
+        - monthly
+        example: 3h
+        type: string
+      "on":
+        example: ""
+        type: string
+      retention_type:
+        enum:
+        - never
+        - 30_days
+        - 1_year
+        - 7_years
+        example: never
+        type: string
+    required:
+    - interval
+    - retention_type
     type: object
   consoleapi.UpdateFCMTokenSwaggerRequest:
     properties:
@@ -2511,32 +3217,6 @@ definitions:
     required:
     - google_email
     - project_id
-    type: object
-  consoleapi.UpdateGoogleBackupAutoSyncPolicySwaggerRequest:
-    properties:
-      interval:
-        enum:
-        - 3h
-        - 12h
-        - daily
-        - weekly
-        - monthly
-        example: 3h
-        type: string
-      "on":
-        example: ""
-        type: string
-      retention_type:
-        enum:
-        - never
-        - 30_days
-        - 1_year
-        - 7_years
-        example: never
-        type: string
-    required:
-    - interval
-    - retention_type
     type: object
   consoleapi.UpsertProjectSwaggerRequest:
     properties:
@@ -2653,6 +3333,8 @@ definitions:
       inviterEmail:
         example: owner@example.com
         type: string
+      linkExpiresAt:
+        type: string
       projectDescription:
         example: Shared backup project
         type: string
@@ -2662,6 +3344,12 @@ definitions:
       projectName:
         example: My Project
         type: string
+      vaultExpiresAt:
+        type: string
+      vaults:
+        items:
+          type: string
+        type: array
     type: object
   consoleapi.V1AccessCreateSwaggerRequest:
     properties:
@@ -3835,6 +4523,29 @@ paths:
       summary: Update account display name
       tags:
       - auth-account
+  /auth/account/cancel-delete-request:
+    post:
+      description: Restores Active status, cancels the delete queue row, and notifies
+        Backup-Tools to resume (clear tombstone). Only while PendingDeletion and before
+        hard delete starts.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Cancel account deletion
+      tags:
+      - auth
   /auth/account/change-password:
     post:
       consumes:
@@ -3869,6 +4580,38 @@ paths:
       summary: Change password (logged in, password already set)
       tags:
       - auth-account
+  /auth/account/delete-request:
+    post:
+      consumes:
+      - application/json
+      description: Soft-deletes the account (PendingDeletion), revokes sessions, queues
+        hard delete after 30 calendar days, and notifies Backup-Tools. Blocked when
+        active_subscription. Re-auth is MFA passcode/recovery OR Google OAuth `code`
+        (either one; not both required). Password is not used.
+      parameters:
+      - description: Re-auth credentials
+        in: body
+        name: body
+        schema:
+          $ref: '#/definitions/console.AccountDeleteRequest'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Request account deletion
+      tags:
+      - auth
   /auth/account/freezestatus:
     get:
       description: '**Full route:** `GET /api/v0/auth/account/freezestatus`'
@@ -4295,6 +5038,50 @@ paths:
       summary: Regenerate MFA recovery codes
       tags:
       - auth-account
+  /auth/microsoft-backup:
+    get:
+      description: '**Route:** `GET /api/v0/auth/microsoft-backup`. Same pattern as
+        `GET /auth/google-backup`: UI builds the Microsoft authorize URL client-side
+        (`OUTLOOK_CLIENT_ID`, frontend origin as `redirect_uri`, `MicrosoftBackupScopes`,
+        `prompt=consent`, `offline_access`), then redirects here with OAuth `code`.
+        `redirect_uri` on token exchange is derived server-side from request Host
+        (or `OUTLOOK_OAUTH_REDIRECT_URL_MICROSOFT_BACKUP`). MSAL JWT-as-code still
+        works for login but will not yield refresh_token. Personal vs work/school,
+        tenant, and admin roles come from Backup-Tools account detection (`GET /microsoft/account/detect`);
+        Satellite does not classify accounts locally. Returns `action`, `token`, `onboarding`,
+        and `microsoft_backup` (Backup-Tools contract: `account_type`, `workspace_kind`,
+        `tenant_id`, `tenant_name`, `is_admin`, `admin_roles`, plus `email` and `has_refresh_token`).
+        `account_type` is `work_account` for every work/school account (admins included,
+        see `is_admin`) until admin consent grants app-only access. Pending-deletion
+        accounts get `account_pending_deletion`. Sets session cookie.'
+      parameters:
+      - description: Microsoft OAuth authorization code (preferred) or MSAL idToken/accessToken
+        in: query
+        name: code
+        required: true
+        type: string
+      - description: OAuth state (UTM / verifier payload)
+        in: query
+        name: state
+        type: string
+      - description: When true, inserts CRM lead in Zoho
+        in: query
+        name: zoho-insert
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'Set-Cookie: _tokenKey'
+          schema:
+            $ref: '#/definitions/consoleapi.MicrosoftBackupAuthSuccess'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.MicrosoftBackupAuthError'
+      summary: Microsoft Backup auth (register or login)
+      tags:
+      - microsoft-backup-onboarding
   /auth/refresh-session:
     post:
       description: '**Full route:** `POST /api/v0/auth/refresh-session`'
@@ -4382,6 +5169,528 @@ paths:
       summary: Email + password login
       tags:
       - auth-email-login
+  /backup/auto-sync/jobs:
+    get:
+      description: '**Route:** `GET /api/v0/backup/auto-sync/jobs`. Proxies Backup-Tools
+        `GET /auto-sync/job/`. Filter `method`: gmail, google_drive, outlook, outlook_onedrive,
+        etc.'
+      parameters:
+      - description: URL-encoded AutosyncJobListFilter JSON
+        in: query
+        name: filter
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.AutosyncJobListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: List backup auto-sync jobs
+      tags:
+      - backup
+  /backup/auto-sync/jobs/{job_id}:
+    get:
+      description: '**Route:** `GET /api/v0/backup/auto-sync/jobs/{job_id}`. Proxies
+        Backup-Tools `GET /auto-sync/job/{job_id}`.'
+      parameters:
+      - description: Job ID
+        in: path
+        name: job_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.AutosyncJobDetailResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Get backup auto-sync job
+      tags:
+      - backup
+    put:
+      consumes:
+      - application/json
+      description: '**Route:** `PUT /api/v0/backup/auto-sync/jobs/{job_id}`. Typically
+        `{ "active": true|false }`; Microsoft may also send storx_token / refresh_token.'
+      parameters:
+      - description: Job ID
+        in: path
+        name: job_id
+        required: true
+        type: string
+      - description: Job update
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.UpdateBackupAutoSyncJobSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.AutosyncJobDetailResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Update backup auto-sync job
+      tags:
+      - backup
+  /backup/auto-sync/jobs/project:
+    put:
+      consumes:
+      - application/json
+      description: '**Route:** `PUT /api/v0/backup/auto-sync/jobs/project`. Same Grant
+        Access pattern for Google and Microsoft: exchange OAuth `code`, upsert Satellite
+        `backup_credentials`, forward `refresh_token` to Backup-Tools. Google: `google_email`
+        + `code`. Microsoft: `microsoft_email` + `code` (redirect_uri uses Microsoft
+        backup origin, same as connect/auth).'
+      parameters:
+      - description: Project-scoped update
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.UpdateBackupAutoSyncJobsByProjectSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Update backup jobs by project (Grant Access / reconnect)
+      tags:
+      - backup
+  /backup/auto-sync/jobs/services:
+    get:
+      description: '**Route:** `GET /api/v0/backup/auto-sync/jobs/services`. Google
+        + Microsoft services update page.'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupAutoSyncJobServicesSwaggerResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: List backup auto-sync service stats
+      tags:
+      - backup
+  /backup/auto-sync/live:
+    get:
+      description: '**Route:** `GET /api/v0/backup/auto-sync/live`. Poll every 3–5s
+        for in-progress backup UI.'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupAutoSyncLiveSwaggerResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Live auto-sync backup progress
+      tags:
+      - backup
+  /backup/auto-sync/policy:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: List backup policies
+      tags:
+      - backup-policy
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Policy create request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.CreateBackupAutoSyncPolicySwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Create backup policy
+      tags:
+      - backup-policy
+  /backup/auto-sync/policy/{policy_id}:
+    delete:
+      parameters:
+      - description: Policy ID (linked_job_count must be 0)
+        in: path
+        name: policy_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Delete empty backup policy
+      tags:
+      - backup-policy
+    get:
+      parameters:
+      - description: Policy ID
+        in: path
+        name: policy_id
+        required: true
+        type: string
+      - description: Filter linked_jobs
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Get backup policy details
+      tags:
+      - backup-policy
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Policy ID
+        in: path
+        name: policy_id
+        required: true
+        type: string
+      - description: interval, on, retention_type
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.UpdateBackupAutoSyncPolicySwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Update backup policy schedule
+      tags:
+      - backup-policy
+  /backup/auto-sync/policy/available-assignments:
+    get:
+      parameters:
+      - description: Target policy ID
+        in: query
+        name: policy_id
+        required: true
+        type: string
+      - description: Filter mailbox name or email
+        in: query
+        name: search
+        type: string
+      - description: Return services for this mailbox
+        in: query
+        name: email
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: List available assignments for Add Email modal
+      tags:
+      - backup-policy
+  /backup/auto-sync/policy/merge:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: policy_ids and new policy name
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.MergeBackupAutoSyncPoliciesSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Merge duplicate policies into a new policy
+      tags:
+      - backup-policy
+  /backup/auto-sync/policy/merge/preview:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Preview duplicate policy merge
+      tags:
+      - backup-policy
+  /backup/auto-sync/policy/move:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: target_policy_id and job_ids
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.MoveBackupAutoSyncPolicyAssignmentsSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Move job assignments to a policy
+      tags:
+      - backup-policy
+  /backup/auto-sync/policy/options:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: List policy options for move picker
+      tags:
+      - backup-policy
+  /backup/auto-sync/task/{job_id}/backup-now:
+    post:
+      description: '**Route:** `POST /api/v0/backup/auto-sync/task/{job_id}/backup-now`.'
+      parameters:
+      - description: Auto-sync job ID
+        in: path
+        name: job_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupAutoSyncBackupNowSwaggerResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Trigger on-demand auto-sync backup
+      tags:
+      - backup
   /blog-list:
     get:
       description: '**Full route:** `GET /blog-list` (server root, not under `/api/v0`).'
@@ -4431,6 +5740,64 @@ paths:
       security:
       - CookieAuth: []
       summary: Check storage and bandwidth quota (popup)
+      tags:
+      - buckets-quota-check
+  /buckets/quota-check:
+    post:
+      consumes:
+      - application/json
+      description: '**Full route:** `POST /api/v0/buckets/quota-check`'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Google / Microsoft 365 backup services storage quota check
+      tags:
+      - buckets-quota-check
+  /buckets/quota-status:
+    get:
+      description: '**Full route:** `GET /api/v0/buckets/quota-status?project_id=`'
+      parameters:
+      - description: Project UUID
+        in: query
+        name: project_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.QuotaStatusSwaggerResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Project quota status (storage + bandwidth)
       tags:
       - buckets-quota-check
   /buckets/usage-totals:
@@ -4546,6 +5913,81 @@ paths:
       tags:
       - auth-email-login
       - config
+  /dashboard/alerts:
+    get:
+      description: '**Full route:** `GET /api/v0/dashboard/alerts`. Proxies Backup-Tools
+        `GET /autosync/dashboard-alerts`. Same payload for Google and Microsoft.'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.DashboardAlertsSwaggerResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Dashboard alert cards (common)
+      tags:
+      - dashboard
+  /dashboard/backup-restore/logs:
+    get:
+      description: '**Full route:** `GET /api/v0/dashboard/backup-restore/logs`. Proxies
+        Backup-Tools `GET /backup-restore/logs`. Shared for Google and Microsoft.'
+      parameters:
+      - description: 'Comma-separated: backup, restore, or both (default backup,restore).'
+        in: query
+        name: types
+        type: string
+      - description: Partial match on subject or message.
+        in: query
+        name: search
+        type: string
+      - description: 'Service filter: gmail, google_drive, google_photos, google_contacts,
+          google_calendar, outlook, outlook_calendar, outlook_contacts, outlook_onedrive,
+          outlook_sharepoint, outlook_teams.'
+        in: query
+        name: method
+        type: string
+      - description: info, warning, or error.
+        in: query
+        name: message_status
+        type: string
+      - description: Page size (default 10, max 100).
+        in: query
+        name: limit
+        type: integer
+      - description: Rows to skip (default 0).
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Backup and restore logs
+      tags:
+      - dashboard
   /dashboard/stats:
     get:
       description: '**Full route:** `GET /api/v0/dashboard/stats`'
@@ -4755,8 +6197,15 @@ paths:
       - application/json
       description: '**Route:** `POST /api/v0/google-backup/auto-sync/jobs`. Satellite
         enriches the UI payload (tokens, project_id) and POSTs Backup-Tools `/auto-sync/job`.
-        Omits `interval`/`on` when `policy_id` is set; schedule validation is handled
-        by Backup-Tools. On success (no failed jobs) sets onboarding to `GoogleBackupCompleted`.'
+        Create still uses `emails[]`. Optional `email_org_units` (email → Google Admin
+        `org_unit_path`) is forwarded onto each mailbox job as `input_data.org_unit_path`.
+        Optional `policy_scope=org_unit` plus `org_unit_schedules` apply schedule/services
+        per OU (top-level `interval`/`on`/`services` optional when every OU has `services`).
+        For `admin_workspace`, Satellite fills missing paths from domain-users OUs;
+        Backup-Tools Directory lookup is the fallback. Individual Gmail has no path.
+        Omits `interval`/`on` when `policy_id` is set. On success (no failed jobs)
+        sets onboarding to `GoogleBackupCompleted`. Create response is Backup-Tools
+        JSON as-is, including `org_units` and `policies` when present.'
       parameters:
       - description: Backup-Tools sync type (default daily)
         in: query
@@ -4955,306 +6404,6 @@ paths:
       summary: Live auto-sync backup progress
       tags:
       - google-backup-autosync-live
-  /google-backup/auto-sync/policy:
-    get:
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
-      security:
-      - CookieAuth: []
-      summary: List backup policies
-      tags:
-      - google-backup-policy
-    post:
-      consumes:
-      - application/json
-      parameters:
-      - description: Omit job_ids for empty policy; set job_ids for split or move-to-new
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/consoleapi.CreateGoogleBackupAutoSyncPolicySwaggerRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
-      security:
-      - CookieAuth: []
-      summary: Create backup policy
-      tags:
-      - google-backup-policy
-  /google-backup/auto-sync/policy/{policy_id}:
-    delete:
-      parameters:
-      - description: Policy ID (linked_job_count must be 0)
-        in: path
-        name: policy_id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
-      security:
-      - CookieAuth: []
-      summary: Delete empty backup policy
-      tags:
-      - google-backup-policy
-    get:
-      parameters:
-      - description: Policy ID
-        in: path
-        name: policy_id
-        required: true
-        type: string
-      - description: Filter linked_jobs by email, name, method, or service label.
-        in: query
-        name: search
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
-      security:
-      - CookieAuth: []
-      summary: Get backup policy details
-      tags:
-      - google-backup-policy
-    put:
-      consumes:
-      - application/json
-      parameters:
-      - description: Policy ID
-        in: path
-        name: policy_id
-        required: true
-        type: string
-      - description: interval, on, retention_type
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/consoleapi.UpdateGoogleBackupAutoSyncPolicySwaggerRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
-      security:
-      - CookieAuth: []
-      summary: Update backup policy schedule
-      tags:
-      - google-backup-policy
-  /google-backup/auto-sync/policy/available-assignments:
-    get:
-      parameters:
-      - description: Target policy ID.
-        in: query
-        name: policy_id
-        required: true
-        type: string
-      - description: Step 1 — filter mailbox name or email.
-        in: query
-        name: search
-        type: string
-      - description: Step 2 — return services for this mailbox.
-        in: query
-        name: email
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
-      security:
-      - CookieAuth: []
-      summary: List available assignments for Add Email modal
-      tags:
-      - google-backup-policy
-  /google-backup/auto-sync/policy/merge:
-    post:
-      consumes:
-      - application/json
-      parameters:
-      - description: Complete policy_ids from one preview group plus new policy name
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/consoleapi.MergeGoogleBackupAutoSyncPoliciesSwaggerRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
-      security:
-      - CookieAuth: []
-      summary: Merge duplicate policies into a new policy
-      tags:
-      - google-backup-policy
-  /google-backup/auto-sync/policy/merge/preview:
-    get:
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
-      security:
-      - CookieAuth: []
-      summary: Preview duplicate policy merge
-      tags:
-      - google-backup-policy
-  /google-backup/auto-sync/policy/move:
-    post:
-      consumes:
-      - application/json
-      parameters:
-      - description: target_policy_id and job_ids
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/consoleapi.MoveGoogleBackupAutoSyncPolicyAssignmentsSwaggerRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
-      security:
-      - CookieAuth: []
-      summary: Move job assignments to a policy
-      tags:
-      - google-backup-policy
-  /google-backup/auto-sync/policy/options:
-    get:
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
-      security:
-      - CookieAuth: []
-      summary: List policy options for move picker
-      tags:
-      - google-backup-policy
   /google-backup/auto-sync/task/{job_id}/backup-now:
     post:
       description: '**Full route:** `POST /api/v0/google-backup/auto-sync/task/{job_id}/backup-now`'
@@ -5381,7 +6530,13 @@ paths:
   /google-backup/domain-users:
     get:
       description: '**Route:** `GET /api/v0/google-backup/domain-users`. Workspace
-        mailboxes for corporate Gmail. Optional `google_email` query.'
+        mailboxes for corporate Gmail. Optional `google_email` query. Backup-Tools
+        JSON is forwarded as-is under `google_backup`, including `organizational_units[]`
+        and `org_units` (`["/","/SAles"]` for policy-by-group). Wizard Step 2 should
+        render `google_backup.organizational_units[]` (org_unit_path, name, user_count,
+        users[].email/role). Keep `grouped_emails` for old clients only; do not build
+        the OU tree from `connected_emails`. OU paths come from Google Admin Directory
+        (`orgUnitPath`); Satellite does not invent OUs.'
       parameters:
       - description: 'Google account email (default: latest credential for user)'
         in: query
@@ -5975,12 +7130,18 @@ paths:
       - google-backup-restore-cron
   /google-backup/users-groups:
     get:
+      description: '**Full route:** `GET /api/v0/google-backup/users-groups`. Same
+        URL. Each entity may include `org_unit_path` (omit/empty if unknown; UI shows
+        —). `org_units` is the unique-path dropdown. Filter with `org_unit_path=/SAles`.
+        `search` matches mailbox email and OU path. No groups table — path is stored
+        on the mailbox job. Existing domain/account_type/method/credential_status/active/pagination
+        unchanged. Bind `org_unit_path` + `org_units`; keep using `entities`.'
       parameters:
       - description: Filter by domain.
         in: query
         name: domain
         type: string
-      - description: Partial match on mailbox email.
+      - description: Partial match on mailbox email or org_unit_path.
         in: query
         name: search
         type: string
@@ -5997,6 +7158,10 @@ paths:
         in: query
         name: credential_status
         type: string
+      - description: Filter by Google Admin OU path (e.g. /SAles). Empty/omit = all.
+        in: query
+        name: org_unit_path
+        type: string
       - description: Page size (default 10).
         in: query
         name: limit
@@ -6011,7 +7176,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+            $ref: '#/definitions/consoleapi.GoogleBackupUsersGroupsListSwaggerResponse'
         "400":
           description: Bad Request
           schema:
@@ -6023,35 +7188,6 @@ paths:
       security:
       - CookieAuth: []
       summary: List Users & Groups mailboxes
-      tags:
-      - google-backup-users-groups
-  /google-backup/users-groups/dashboard-alerts:
-    get:
-      description: '**Full route:** `GET /api/v0/google-backup/users-groups/dashboard-alerts`.
-        Proxies Backup-Tools `GET /autosync/dashboard-alerts` with session `token_key`.
-        UI mapping: Auth Errors → `re_auth_required`; Paused Backups → `paused_backups`;
-        New Mailboxes (24h) → `new_connected_accounts_24h`. Review links: re-auth
-        → `GET .../users-groups?credential_status=re_auth_required`; paused → `GET
-        .../users-groups?active=false`; new → sort by `connected_at` on users-groups
-        list.'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/consoleapi.GoogleBackupDashboardAlertsSwaggerResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
-      security:
-      - CookieAuth: []
-      summary: Dashboard alert cards
       tags:
       - google-backup-users-groups
   /google-backup/users-groups/domains:
@@ -6226,6 +7362,7 @@ paths:
         - cyberls-google-connect
         - cyberls-domain-wide-delegation
         - cyberls-2fa
+        - cyberls-storage-node-shell
         in: query
         name: type
         required: true
@@ -6248,6 +7385,770 @@ paths:
       summary: Get documentation guide
       tags:
       - static-api
+  /microsoft-backup/accounts:
+    get:
+      description: '**Route:** `GET /api/v0/microsoft-backup/accounts`. Answered by
+        Satellite. Each Microsoft sign-in is one account identified by its home object
+        ID (`external_account_id`) and home tenant; it can reach several tenants (see
+        `GET /microsoft-backup/tenants`). Use `id` as `credential_id` on every other
+        Microsoft route.'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.MicrosoftBackupAccountsResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: List connected Microsoft accounts
+      tags:
+      - microsoft-backup-organization
+  /microsoft-backup/admin-consent-url:
+    get:
+      description: '**Route:** `GET /api/v0/microsoft-backup/admin-consent-url`. For
+        the selected tenant (`tenant_id`, required) of the selected work or school
+        account (`credential_id`), only when Backup-Tools detection reports the account
+        as an Entra administrator there (`is_admin`, any Entra Administrator role).
+        `admin_workspace` is not required. Returns `https://login.microsoftonline.com/{tenant}/adminconsent?client_id&redirect_uri&state`
+        with an HMAC-signed callback `state` (user, account, tenant, client, expiry,
+        nonce) that only protects the redirect. `redirect_uri` is the frontend origin
+        plus `microsoft-admin-consent-redirect-path` and must be registered on the
+        Azure app (Web platform).'
+      parameters:
+      - description: Microsoft account (backup credential ID); required when several
+          accounts are connected
+        in: query
+        name: credential_id
+        type: string
+      - description: Entra tenant ID to consent for
+        in: query
+        name: tenant_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.MicrosoftAdminConsentURLResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Microsoft tenant admin-consent URL
+      tags:
+      - microsoft-backup-organization
+  /microsoft-backup/admin-consent/callback:
+    get:
+      description: '**Route:** `GET /api/v0/microsoft-backup/admin-consent/callback`.
+        The frontend callback page forwards Microsoft''s query (`state`, `tenant`,
+        `admin_consent`, `error`, `error_description`). Satellite verifies the signed
+        `state` (the account and tenant come from it), then calls Backup-Tools `POST
+        /microsoft/tenants/{tid}/consent` with `consented_by`. Backup-Tools decides
+        consent (`granted`, `insufficient`, `revoked`, `auth_error`) from the app-only
+        token; its contract is returned unchanged. Satellite stores only `account_type`,
+        and only when Backup-Tools returns `admin_workspace`. Backup-Tools 4xx responses
+        are passed through.'
+      parameters:
+      - description: Signed callback state from admin-consent-url
+        in: query
+        name: state
+        required: true
+        type: string
+      - description: Tenant ID returned by Microsoft
+        in: query
+        name: tenant
+        type: string
+      - description: True when Microsoft reports consent was granted
+        in: query
+        name: admin_consent
+        type: string
+      - description: Microsoft error code
+        in: query
+        name: error
+        type: string
+      - description: Microsoft error description
+        in: query
+        name: error_description
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Complete Microsoft tenant admin consent
+      tags:
+      - microsoft-backup-organization
+  /microsoft-backup/auto-sync/job:
+    post:
+      consumes:
+      - application/json
+      description: '**Route:** `POST /api/v0/microsoft-backup/auto-sync/job`. The
+        body selects the Microsoft account (`credential_id`, optional with one account)
+        and the tenant (`tenant_id`: required in both modes, the tenant connected
+        via `POST /microsoft-backup/tenants/{tid}/connect`; the home tenant is never
+        assumed; error 400 `tenant_id_required`). Satellite enriches the UI payload
+        (account_type, project_id, storx_token), sends the selected `tenant_id` plus
+        the `MICROSOFT_ACCOUNT_ID` / `MICROSOFT_HOME_TENANT_ID` / `MICROSOFT_TENANT_ID`
+        headers, and POSTs Backup-Tools `/microsoft/auto-sync/job`. `backup_mode`
+        decides the job''s `auth_mode`: `self` (default) → `delegated`, own mailbox
+        only, refresh_token sent; `organization` → `application`, tenant users via
+        `all_users`/`user_ids`/`emails`, no refresh token sent. Backup-Tools authorizes
+        organization jobs from tenant consent and capabilities, never from `account_type`.
+        Services: outlook/mail, calendar, contacts, onedrive (`outlook_onedrive`),
+        sharepoint (`outlook_sharepoint` + `sites[]`), teams (`outlook_teams` + `teams[]`
+        or `backup_scope=all_tenant`). In own-nodes mode jobs are created inactive
+        until enough nodes exist. On success (no failed jobs) sets onboarding to `MicrosoftBackupCompleted`.'
+      parameters:
+      - description: daily or one_time (default daily)
+        in: query
+        name: sync_type
+        type: string
+      - description: Job create request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.CreateMicrosoftBackupAutoSyncJobsSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Create Microsoft Backup auto-sync jobs
+      tags:
+      - microsoft-backup
+  /microsoft-backup/capabilities/refresh:
+    post:
+      description: '**Route:** `POST /api/v0/microsoft-backup/capabilities/refresh`.
+        Proxies Backup-Tools `POST /microsoft/tenants/{tid}/capabilities/refresh`
+        for the selected account and tenant.'
+      parameters:
+      - description: Microsoft account (backup credential ID); required when several
+          accounts are connected
+        in: query
+        name: credential_id
+        type: string
+      - description: Selected Entra tenant ID
+        in: query
+        name: tenant_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Refresh Microsoft tenant capabilities
+      tags:
+      - microsoft-backup-organization
+  /microsoft-backup/connect:
+    post:
+      consumes:
+      - application/json
+      description: '**Route:** `POST /api/v0/microsoft-backup/connect`. Same pattern
+        as `POST /google-backup/connect`. Body: Microsoft OAuth `code` only (from
+        UI-built authorize URL); `redirect_uri` is derived server-side from request
+        Host. Requires real refresh_token. Returns `email`, `account_type`, and `has_refresh_token`.
+        Tokens stored server-side only.'
+      parameters:
+      - description: OAuth authorization code
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.MicrosoftBackupConnectSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.MicrosoftBackupConnectSwaggerResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Connect Microsoft account for backup
+      tags:
+      - microsoft-backup
+  /microsoft-backup/directory/users:
+    get:
+      description: '**Route:** `GET /api/v0/microsoft-backup/directory/users`. Proxies
+        Backup-Tools `GET /microsoft/tenants/{tid}/directory/users` for the selected
+        account and tenant (listed live from Microsoft Graph; nothing is stored).'
+      parameters:
+      - description: Microsoft account (backup credential ID); required when several
+          accounts are connected
+        in: query
+        name: credential_id
+        type: string
+      - description: Selected Entra tenant ID
+        in: query
+        name: tenant_id
+        required: true
+        type: string
+      - description: Search by name or email
+        in: query
+        name: search
+        type: string
+      - description: Filter by department
+        in: query
+        name: department
+        type: string
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Page size
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: List Microsoft tenant directory users
+      tags:
+      - microsoft-backup-organization
+  /microsoft-backup/microsoft-auth:
+    post:
+      consumes:
+      - application/json
+      description: Proxies Backup-Tools POST /microsoft-auth. Call before office365/satellite-to-*
+        restore. UI must OAuth with MicrosoftRestoreScopes (write), then pass the
+        Graph access_token as microsoft_key. Same pattern as POST /google-backup/google-auth.
+      parameters:
+      - description: Graph access token from restore consent
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.MicrosoftBackupAuthSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Exchange Microsoft Graph token for Backup-Tools restore JWT
+      tags:
+      - microsoft-backup-auth
+  /microsoft-backup/status:
+    get:
+      description: '**Route:** `GET /api/v0/microsoft-backup/status`. Proxies Backup-Tools
+        `GET /microsoft/workspace` for the selected Microsoft account (`credential_id`,
+        optional with one account) and tenant (`tenant_id`, required for work or school
+        accounts; the home tenant is never assumed) and returns its contract unchanged
+        plus `has_refresh_token` and `credential_id`: `account_type`, `workspace_kind`,
+        `tenant_id`, `tenant_name`, `is_admin`, `admin_roles`, `consent` (`not_requested|granted|insufficient|revoked|auth_error`),
+        `capabilities`, `capability_errors`, `directory`. Personal accounts are answered
+        locally. Errors: 400 `microsoft_credential_required`, 400 `tenant_id_required`,
+        404 `microsoft_credential_not_found`.'
+      parameters:
+      - description: Microsoft account (backup credential ID); required when several
+          accounts are connected
+        in: query
+        name: credential_id
+        type: string
+      - description: Selected Entra tenant ID (required for work or school accounts)
+        in: query
+        name: tenant_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Microsoft workspace status
+      tags:
+      - microsoft-backup-organization
+  /microsoft-backup/tenants:
+    get:
+      description: '**Route:** `GET /api/v0/microsoft-backup/tenants`. Proxies Backup-Tools
+        `GET /microsoft/accounts/tenants` for the selected account: tenant discovery
+        plus the tenant access state of each tenant (role, consent, token, capabilities,
+        connection). Account-level: no tenant is selected. Backup-Tools responses,
+        including 4xx errors, are passed through.'
+      parameters:
+      - description: Microsoft account (backup credential ID); required when several
+          accounts are connected
+        in: query
+        name: credential_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: List tenants of a Microsoft account
+      tags:
+      - microsoft-backup-organization
+  /microsoft-backup/tenants/{tid}/connect:
+    post:
+      consumes:
+      - application/json
+      description: '**Route:** `POST /api/v0/microsoft-backup/tenants/{tid}/connect`.
+        Proxies Backup-Tools `POST /microsoft/accounts/tenants/{tid}/connect` with
+        body `{backup_mode}` (`personal` or `organization`). The account comes from
+        `credential_id` (query or body).'
+      parameters:
+      - description: Entra tenant ID
+        in: path
+        name: tid
+        required: true
+        type: string
+      - description: Microsoft account (backup credential ID); required when several
+          accounts are connected
+        in: query
+        name: credential_id
+        type: string
+      - description: Backup mode
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.MicrosoftBackupTenantConnectRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Connect a Microsoft tenant
+      tags:
+      - microsoft-backup-organization
+  /microsoft-backup/tenants/{tid}/disconnect:
+    post:
+      description: '**Route:** `POST /api/v0/microsoft-backup/tenants/{tid}/disconnect`.
+        Proxies Backup-Tools `POST /microsoft/accounts/tenants/{tid}/disconnect`.
+        Backups are kept; backup, browse and restore for the tenant are blocked until
+        it is connected again.'
+      parameters:
+      - description: Entra tenant ID
+        in: path
+        name: tid
+        required: true
+        type: string
+      - description: Microsoft account (backup credential ID); required when several
+          accounts are connected
+        in: query
+        name: credential_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Disconnect a Microsoft tenant
+      tags:
+      - microsoft-backup-organization
+  /microsoft-backup/tenants/{tid}/roles/refresh:
+    post:
+      description: '**Route:** `POST /api/v0/microsoft-backup/tenants/{tid}/roles/refresh`.
+        Proxies Backup-Tools `POST /microsoft/accounts/tenants/{tid}/roles/refresh`
+        and returns the updated tenant access state.'
+      parameters:
+      - description: Entra tenant ID
+        in: path
+        name: tid
+        required: true
+        type: string
+      - description: Microsoft account (backup credential ID); required when several
+          accounts are connected
+        in: query
+        name: credential_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Refresh Microsoft tenant roles
+      tags:
+      - microsoft-backup-organization
+  /microsoft-backup/users-groups:
+    get:
+      description: 'Filter method: outlook, outlook_calendar, outlook_contacts, outlook_onedrive,
+        outlook_sharepoint, outlook_teams, or all. Response includes `organization_resources`
+        with `sharepoint_sites` and `teams` (admin_workspace).'
+      parameters:
+      - description: Filter by domain
+        in: query
+        name: domain
+        type: string
+      - description: Partial email match
+        in: query
+        name: search
+        type: string
+      - description: outlook, outlook_calendar, outlook_contacts, outlook_onedrive,
+          outlook_sharepoint, outlook_teams, all
+        in: query
+        name: method
+        type: string
+      - description: corporate, individual, all
+        in: query
+        name: account_type
+        type: string
+      - description: Same as Google credential_status
+        in: query
+        name: credential_status
+        type: string
+      - description: Filter by active
+        in: query
+        name: active
+        type: boolean
+      - description: Page size
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: List Microsoft Users & Groups mailboxes
+      tags:
+      - microsoft-backup-users-groups
+  /microsoft-backup/users-groups/domains:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: List Microsoft Users & Groups domains
+      tags:
+      - microsoft-backup-users-groups
+  /microsoft-backup/users-groups/jobs/active:
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: job_ids and active
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.MicrosoftBackupUsersGroupsJobsActiveSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Bulk pause or resume Microsoft jobs
+      tags:
+      - microsoft-backup-users-groups
+  /microsoft-backup/users-groups/mailbox/credentials:
+    get:
+      parameters:
+      - description: Mailbox email
+        in: query
+        name: email
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Microsoft mailbox credentials tab
+      tags:
+      - microsoft-backup-users-groups
+  /microsoft-backup/users-groups/mailbox/overview:
+    get:
+      parameters:
+      - description: Mailbox email
+        in: query
+        name: email
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Microsoft mailbox overview tab
+      tags:
+      - microsoft-backup-users-groups
+  /microsoft-backup/users-groups/mailbox/schedule:
+    get:
+      parameters:
+      - description: Mailbox email
+        in: query
+        name: email
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Microsoft mailbox schedule tab
+      tags:
+      - microsoft-backup-users-groups
+  /microsoft-backup/users-groups/mailbox/services:
+    get:
+      parameters:
+      - description: Mailbox email
+        in: query
+        name: email
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BackupToolsJSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      summary: Microsoft mailbox services tab
+      tags:
+      - microsoft-backup-users-groups
   /notifications:
     get:
       description: '**Full route:** `GET /api/v0/notifications`'
@@ -6842,6 +8743,102 @@ paths:
       summary: '[4] Invite member (optional folder grants)'
       tags:
       - member-bucket-restriction
+    put:
+      consumes:
+      - application/json
+      description: '**Full route:** `PUT /api/v0/projects/{id}/invite/{email}`'
+      parameters:
+      - description: Project UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Invitee email
+        in: path
+        name: email
+        required: true
+        type: string
+      - description: Update fields
+        in: body
+        name: body
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/console.InviteProjectMemberResult'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      - CSRFAuth: []
+      summary: Update pending invite access
+      tags:
+      - member-bucket-restriction
+  /projects/{id}/invites:
+    post:
+      consumes:
+      - application/json
+      description: '**Full route:** `POST /api/v0/projects/{id}/invites`'
+      parameters:
+      - description: Project UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Invites with vaults
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/consoleapi.BulkInviteProjectMembersSwaggerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/consoleapi.BulkInviteProjectMembersSwaggerResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/consoleapi.SwaggerErrorResponse'
+      security:
+      - CookieAuth: []
+      - CSRFAuth: []
+      summary: '[4] Invite multiple members (one-by-one)'
+      tags:
+      - member-bucket-restriction
   /projects/{id}/member-acl-buckets:
     get:
       description: '**Full route:** `GET /api/v0/projects/{id}/member-acl-buckets`'
@@ -7042,6 +9039,22 @@ paths:
         in: query
         name: order-direction
         type: integer
+      - description: all|members|pending|admins
+        in: query
+        name: kind
+        type: string
+      - description: admin|member or 0|1 (members only; excludes owner)
+        in: query
+        name: role
+        type: string
+      - description: all|active|pending|expired
+        in: query
+        name: status
+        type: string
+      - description: Filter by vault bucket name with ACL grant
+        in: query
+        name: vault
+        type: string
       produces:
       - application/json
       responses:
@@ -8823,12 +10836,12 @@ tags:
 - description: 'Member bucket & folder restriction — ALL invite/member/ACL APIs in
     one place. Flag: console.member-bucket-grants-enabled (default OFF). OFF = existing
     one-user/project access unchanged. ON = Owner/Admin full access; Member only grant
-    rows (bucket+prefix+perms). Test order: (1) CookieAuth+CSRF (2) create/ensure
-    bucket (3) POST member-acl-buckets (4) POST invite/{email} (omit body = defaults
-    email/ List+Download) (5) GET members (6) invitee GET invitations + POST respond
-    response=1 (7) GET/PUT members/{id}/bucket-grants (8) PATCH role / DELETE / reinvite
-    / invite-link. Prefix must end with /. PUT grants:[] clears Member access + invalidates
-    keys.'
+    rows (bucket+prefix+List/Download; Upload/Delete unsupported). Test order: (1)
+    CookieAuth+CSRF (2) create/ensure bucket (3) POST member-acl-buckets (4) POST
+    invite/{email} (omit body = defaults email/ List+Download) (5) GET members (6)
+    invitee GET invitations + POST respond response=1 (7) GET/PUT members/{id}/bucket-grants
+    (8) PATCH role / DELETE / reinvite / invite-link. Prefix must end with /. PUT
+    grants:[] clears Member access + invalidates keys.'
   name: member-bucket-restriction
 - description: 'Storage & bandwidth trends: GET /api/v0/projects/{id}/daily-usage
     — daily storageUsage and settledBandwidthUsage (bytes per day) for charts'
@@ -8845,7 +10858,8 @@ tags:
     and bucket APIs'
   name: buckets
 - description: 'Reserved integration vault usage: GET /api/v0/buckets/usage-totals-for-reserved
-    — bucketName, storage (GB), objectCount per vault (Google Backup, Dropbox, etc.)'
+    — bucketName, storage (GB), objectCount per vault (Google Backup, Microsoft Backup,
+    Dropbox, etc.)'
   name: buckets-reserved-usage
 - description: 'Storage & bandwidth quota popup: POST /api/v0/buckets/check-upload
     — usage percents, allow_upload/download, popup_show + message (login, upload,
@@ -8862,20 +10876,46 @@ tags:
     login by email). Returns `action`, `onboarding` block, and `google_backup`. OAuth
     redirect = `GOOGLE_OAUTH_REDIRECT_URL_GOOGLE_BACKUP`.'
   name: google-backup-onboarding
-- description: Google Backup auto-sync APIs (jobs, connect, domain-users). OAuth `code`
-    on `POST /google-backup/connect` and `PUT /auto-sync/jobs/project` uses `GOOGLE_OAUTH_REDIRECT_URL_GOOGLE_BACKUP`
-    (same as `GET /auth/google-backup`). `POST /auto-sync/jobs` sets onboarding complete
-    on success.
+- description: 'Microsoft Backup combined auth: `GET /auth/microsoft-backup` (register
+    or login by email). Same as Google: UI builds OAuth authorize URL client-side
+    (`OUTLOOK_CLIENT_ID`, frontend origin, `MicrosoftBackupScopes`, `prompt=consent`);
+    callback exchanges `code` here. Returns `action`, `token`, `onboarding`, and `microsoft_backup`.
+    Config: `OUTLOOK_CLIENT_ID` / `OUTLOOK_CLIENT_SECRET` / `OUTLOOK_OAUTH_REDIRECT_URL_MICROSOFT_BACKUP`.'
+  name: microsoft-backup-onboarding
+- description: 'Microsoft Backup product APIs under `/api/v0/microsoft-backup/*` →
+    Backup-Tools `/microsoft/*`. Job create uses stored credential `account_type`
+    + `tenant_id` (not UI body). Services: outlook/mail, calendar, contacts, onedrive,
+    sharepoint (+ `sites[]`), teams (+ `teams[]` or `backup_scope=all_tenant`), groups
+    (+ `groups[]` or `backup_scope=all_tenant`).'
+  name: microsoft-backup
+- description: 'GET/PUT `/microsoft-backup/users-groups/*` → Backup-Tools `/microsoft/users-groups/*`.
+    Method filter: outlook, outlook_calendar, outlook_contacts, outlook_onedrive,
+    outlook_sharepoint, outlook_teams. List response splits `mailboxes` vs `organization_resources`
+    (`sharepoint_sites`, `teams`).'
+  name: microsoft-backup-users-groups
+- description: Common backup auto-sync + policy for Google + Microsoft under `/api/v0/backup/auto-sync/*`
+    → Backup-Tools `/auto-sync/*` (Google template until BT unifies Microsoft). Alerts
+    and logs stay on `/dashboard/*`.
+  name: backup
+- description: 'Live backup progress: `GET /api/v0/backup/auto-sync/live` → Backup-Tools
+    `GET /auto-sync/live` (Google + Microsoft when BT unified).'
+  name: backup-autosync-live
+- description: 'Deprecated: use `/api/v0/backup/auto-sync/policy/*` (common). Legacy
+    Microsoft policy routes removed from Satellite.'
+  name: microsoft-backup-policy
+- description: 'Google Backup provider APIs: connect, domain-users, job create (`POST
+    /google-backup/auto-sync/jobs`), restore. Shared list/live/policy/job-mutate use
+    `/api/v0/backup/auto-sync/*`.'
   name: google-backup
-- description: 'Live backup progress poll: GET /api/v0/google-backup/auto-sync/live
-    → Backup-Tools GET /auto-sync/live (running/failed tasks only; poll 3–5s). Not
-    `/autosync/live`.'
+- description: 'Deprecated: use `GET /api/v0/backup/auto-sync/live`.'
   name: google-backup-autosync-live
-- description: GET /google-backup/users-groups/*
-  name: google-backup-users-groups
-- description: 'Google Backup shared policies: schedule, retention, merge (Backup-Tools
-    /auto-sync/policy/*)'
+- description: 'Deprecated: use `/api/v0/backup/auto-sync/policy/*` (common Backup-Tools
+    `/auto-sync/policy/*`).'
   name: google-backup-policy
+- description: GET /google-backup/users-groups/* — list returns `entities[].org_unit_path`
+    and `org_units` (Google Admin OU paths stored on jobs; no groups table). Filter
+    `org_unit_path`; `search` also matches OU path.
+  name: google-backup-users-groups
 - description: 'Google Backup authentication: POST /google-backup/google-auth (Backup-Tools
     google-auth JWT)'
   name: google-backup-auth
@@ -8890,13 +10930,15 @@ tags:
     polling GET /restore/live|jobs|job/* (token_key only; no ACCESS_TOKEN). List/detail/live
     use {message,success,failed} envelope except credentials/workspaces/prepare. UI
     service param (gmail,drive,...) maps to DB method (gmail,google_drive,...). OAuth
-    reconnect via POST /google-backup/connect or PUT /auto-sync/jobs/project.'
+    reconnect via POST /google-backup/connect or PUT /backup/auto-sync/jobs/project.'
   name: google-backup-restore-cron
-- description: GET /google-backup/backup-restore/logs
-  name: google-backup-logs
+- description: 'Protected Services overview: `GET /dashboard/stats`, `GET /dashboard/alerts`,
+    `GET /dashboard/backup-restore/logs`. Job list/live/policy use `/api/v0/backup/auto-sync/*`.'
+  name: dashboard
 - description: 'Logged-in account: profile (`GET/PATCH /auth/account` — check `hasPassword`),
     change-password when password exists, MFA, settings, onboarding PATCH, refresh-session,
-    developer-access. Login: Google via `/auth/google-backup` or email via `POST /auth/token`.'
+    developer-access. Login: Google via `/auth/google-backup`, Microsoft via `/auth/microsoft-backup`,
+    or email via `POST /auth/token`.'
   name: auth-account
 - description: '**Email + password login:** `GET /config` first for `captcha.login`
     site keys and `csrfToken` when CSRF is enabled, then `POST /auth/token` with `captchaResponse`

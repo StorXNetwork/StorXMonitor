@@ -282,6 +282,16 @@ func NewAuditor(log *zap.Logger, full *identity.FullIdentity,
 	return peer, nil
 }
 
+// UseClaimedNodes skips audit reputation and farmer registration for org-claimed nodes.
+func (peer *Auditor) UseClaimedNodes(set *overlay.ClaimedNodeSet) {
+	if r, ok := peer.Audit.Reporter.(*audit.DBReporter); ok {
+		r.SetClaimedNodes(set)
+	}
+	if peer.Audit.ReputationPushWorker != nil {
+		peer.Audit.ReputationPushWorker.SetClaimedNodes(set)
+	}
+}
+
 // Run runs the auditor process until it's either closed or it errors.
 func (peer *Auditor) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)

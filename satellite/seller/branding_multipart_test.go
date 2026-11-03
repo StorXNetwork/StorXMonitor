@@ -42,6 +42,10 @@ func (d *themeTestDB) ResellerDomains() ResellerDomains              { return ni
 func (d *themeTestDB) WebappSessionResellers() WebappSessionResellers { return nil }
 func (d *themeTestDB) ResetPasswordTokens() ResellerResetPasswordTokens { return nil }
 func (d *themeTestDB) ResellerDeleteRequests() ResellerDeleteRequests { return nil }
+func (d *themeTestDB) SellerPlans() SellerPlans                       { return nil }
+func (d *themeTestDB) UserPlanAssignments() UserPlanAssignments       { return nil }
+func (d *themeTestDB) SellerInvoices() SellerInvoices                 { return nil }
+func (d *themeTestDB) BillingNotifications() BillingNotifications     { return nil }
 
 func (d *themeTestDB) ThemePresets() ThemePresets { return &themeTestPresets{preset: d.preset} }
 func (d *themeTestDB) ResellerThemes() ResellerThemes {

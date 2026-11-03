@@ -58,7 +58,9 @@ import (
 	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/billing"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/gateway"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/paymentsconfig"
+	"github.com/StorXNetwork/StorXMonitor/satellite/payments/razorpay"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/storjscan"
 	"github.com/StorXNetwork/StorXMonitor/satellite/payments/stripe"
 	"github.com/StorXNetwork/StorXMonitor/satellite/piecelist"
@@ -135,8 +137,13 @@ func Module(ball *mud.Ball) {
 		mud.View[DB, overlay.DB](ball, DB.OverlayCache)
 
 		// TODO: we must keep it here as it uses consoleweb.Config from overlay package.
-		mud.Provide[*overlay.Service](ball, func(log *zap.Logger, db overlay.DB, nodeEvents nodeevents.DB, placements nodeselection.PlacementDefinitions, consoleConfig consoleweb.Config, config overlay.Config) (*overlay.Service, error) {
-			return overlay.NewService(log, db, nodeEvents, placements, consoleConfig.ExternalAddress, consoleConfig.SatelliteName, config)
+		mud.Provide[*overlay.Service](ball, func(log *zap.Logger, db overlay.DB, nodeEvents nodeevents.DB, placements nodeselection.PlacementDefinitions, consoleConfig consoleweb.Config, config overlay.Config, consoleDB console.DB) (*overlay.Service, error) {
+			svc, err := overlay.NewService(log, db, nodeEvents, placements, consoleConfig.ExternalAddress, consoleConfig.SatelliteName, config)
+			if err != nil {
+				return nil, err
+			}
+			svc.SetDedicatedNodes(consoleDB.OrgNodes())
+			return svc, nil
 		})
 	}
 
@@ -172,6 +179,7 @@ func Module(ball *mud.Ball) {
 	mud.View[DB, overlay.PeerIdentities](ball, DB.PeerIdentities)
 	mud.View[DB, srevocation.DB](ball, DB.Revocation)
 	mud.View[DB, console.DB](ball, DB.Console)
+	mud.View[console.DB, console.OrgNodes](ball, console.DB.OrgNodes)
 	mud.View[overlay.DB, bloomfilter.Overlay](ball, func(db overlay.DB) bloomfilter.Overlay {
 		return db
 	})
@@ -389,6 +397,34 @@ func Module(ball *mud.Ball) {
 	})
 	storjscan.Module(ball)
 
+	mud.View[DB, gateway.DB](ball, DB.PaymentGateway)
+	mud.Provide[*gateway.Service](ball, func(
+		log *zap.Logger,
+		pc paymentsconfig.Config,
+		gdb gateway.DB,
+		billingDB billing.TransactionsDB,
+		consoleDB console.DB,
+		mailService *mailservice.Service,
+	) *gateway.Service {
+		var providers []gateway.Provider
+		if pc.Razorpay.Enabled {
+			providers = append(providers, razorpay.NewProvider(pc.Razorpay))
+		}
+		return gateway.NewService(
+			log.Named("payment-gateway"),
+			pc.Gateway,
+			gateway.ServiceDependencies{
+				DB:       gdb,
+				Billing:  billingDB,
+				Users:    consoleDB.Users(),
+				Projects: consoleDB.Projects(),
+				Mail:     mailService,
+			},
+			pc.Razorpay.Currency,
+			providers...,
+		)
+	})
+
 }
 
 // EndpointRegistration is a pseudo component to wire server and DRPC endpoints together.
@@ -413,6 +449,7 @@ func CreateServer(logger *zap.Logger,
 	analyticsConfig analytics.Config,
 	notificationService *pushnotifications.Service,
 	stripeService *stripe.Service,
+	paymentGateway *gateway.Service,
 	developerService *developer.Service,
 	ecfg entitlements.Config,
 	ssoCfg sso.Config,
@@ -443,7 +480,7 @@ func CreateServer(logger *zap.Logger,
 
 	return consoleweb.NewServer(logger, *cwconfig, service, consoleService, oidcService, mailService, hubspotMailService, analytics, abTesting,
 		accountFreezeService, ssoService, csrfService, listener, stripePublicKey, storjscanCfg.Confirmations, nodeURL,
-		analyticsConfig, notificationService, pc.PackagePlans, stripeService, developerService, pc.MinimumCharge, prices, summaries, ecfg.Enabled, ssoCfg.Enabled, nil), nil
+		analyticsConfig, notificationService, pc.PackagePlans, stripeService, paymentGateway, developerService, pc.MinimumCharge, prices, summaries, ecfg.Enabled, ssoCfg.Enabled, nil), nil
 }
 
 // CreateService creates console service.
@@ -477,5 +514,6 @@ func CreateService(log *zap.Logger, store console.DB, restKeys restapikeys.DB, o
 		},
 		cfg, pc.StripeCoinPayments.SkuEnabled, loginURL, cw.SupportURL(), bucketEventing,
 		entitlementsService, entitlementsConfig, pc.PlacementPriceOverrides.ToMap(), productModels,
-		pc.MinimumCharge.Amount, minimumChargeDate, pc.PackagePlans.Packages, cw.BackupToolsURL, cw.BackupToolsAPIKey, nil)
+		pc.MinimumCharge.Amount, minimumChargeDate, pc.PackagePlans.Packages, cw.BackupToolsURL, cw.BackupToolsAPIKey,
+		cw.GatewayCredentialsRequestURL, cw.AuthServiceToken, nil)
 }

@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -617,6 +618,46 @@ func (projects *projects) UpdateDefaultPlacement(
 	)
 
 	return err
+}
+
+// UpdateOwnNodesOrgID sets or clears the organization used for own-nodes placement.
+func (projects *projects) UpdateOwnNodesOrgID(ctx context.Context, id uuid.UUID, orgID *uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if orgID == nil {
+		_, err = projects.db.ExecContext(ctx, projects.db.Rebind(`
+			UPDATE projects SET own_nodes_org_id = NULL WHERE id = ?
+		`), id[:])
+		return Error.Wrap(err)
+	}
+	_, err = projects.db.ExecContext(ctx, projects.db.Rebind(`
+		UPDATE projects SET own_nodes_org_id = ? WHERE id = ?
+	`), orgID[:], id[:])
+	return Error.Wrap(err)
+}
+
+// GetOwnNodesOrgID returns the organization ID used for own-nodes placement, if any.
+func (projects *projects) GetOwnNodesOrgID(ctx context.Context, id uuid.UUID) (orgID *uuid.UUID, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var raw []byte
+	err = projects.db.QueryRowContext(ctx, projects.db.Rebind(`
+		SELECT own_nodes_org_id FROM projects WHERE id = ?
+	`), id[:]).Scan(&raw)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, Error.Wrap(err)
+	}
+	if len(raw) == 0 {
+		return nil, nil
+	}
+	parsed, err := uuid.FromBytes(raw)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	return &parsed, nil
 }
 
 // UpdateDefaultVersioning is a method to update the project's default versioning state for new buckets.

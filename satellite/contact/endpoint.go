@@ -13,6 +13,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/StorXNetwork/StorXMonitor/private/nodeoperator"
+	"github.com/StorXNetwork/StorXMonitor/satellite/console"
 	"github.com/StorXNetwork/StorXMonitor/satellite/overlay"
 	"github.com/StorXNetwork/StorXMonitor/shared/nodeconfigpb"
 	"github.com/StorXNetwork/common/identity"
@@ -32,11 +33,17 @@ var (
 	errCheckInNetwork   = errs.Class("check-in network")
 )
 
+// OwnNodesMapper maps storage nodes to orgs from check-in operator email.
+type OwnNodesMapper interface {
+	MapNodeFromCheckIn(ctx context.Context, nodeID storxnetwork.NodeID, operatorEmail string) error
+}
+
 // Endpoint implements the contact service Endpoints.
 type Endpoint struct {
 	pb.DRPCNodeUnimplementedServer
-	log     *zap.Logger
-	service *Service
+	log            *zap.Logger
+	service        *Service
+	ownNodesMapper OwnNodesMapper
 }
 
 // NewEndpoint returns a new contact service endpoint.
@@ -45,6 +52,11 @@ func NewEndpoint(log *zap.Logger, service *Service) *Endpoint {
 		log:     log,
 		service: service,
 	}
+}
+
+// SetOwnNodesMapper sets the optional mapper used after successful check-in.
+func (endpoint *Endpoint) SetOwnNodesMapper(mapper OwnNodesMapper) {
+	endpoint.ownNodesMapper = mapper
 }
 
 // CheckIn is periodically called by storage nodes to keep the satellite informed of its existence,
@@ -118,6 +130,17 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 		endpoint.log.Info("failed to update node tags", zap.String("node_address", req.Address), zap.Stringer("node_id", nodeID), zap.Error(err))
 	}
 
+	// ownnodes:<user>[:org][|<contactEmail>] — map with bind token; never store
+	// the bind token itself as nodes.email (use real contact email, or clear).
+	var ownNodesBindToken string
+	if req.Operator != nil && req.Operator.Email != "" {
+		bindToken, contactEmail := console.SplitOwnNodesCheckInEmail(req.Operator.Email)
+		if bindToken != "" {
+			ownNodesBindToken = bindToken
+			req.Operator.Email = contactEmail // may be "" when USER_ID-only check-in
+		}
+	}
+
 	nodeInfo := overlay.NodeCheckInInfo{
 		NodeID: peerID.ID,
 		Address: &pb.NodeAddress{
@@ -139,6 +162,15 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 		endpoint.log.Info("failed to update check in", zap.String("node_address", req.Address), zap.Stringer("node_id", nodeID), zap.Error(err))
 		endpoint.service.idLimiter.BackOut(ctx, nodeIDBytesAsString)
 		return nil, rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
+	}
+
+	if endpoint.ownNodesMapper != nil && ownNodesBindToken != "" {
+		if mapErr := endpoint.ownNodesMapper.MapNodeFromCheckIn(ctx, nodeID, ownNodesBindToken); mapErr != nil {
+			endpoint.log.Info("failed to map own-nodes from check-in",
+				zap.Stringer("node_id", nodeID),
+				zap.Error(mapErr),
+			)
+		}
 	}
 
 	emitEventkitEvent(ctx, req, pingNodeSuccess, pingNodeSuccessQUIC, nodeInfo, checkInResult)

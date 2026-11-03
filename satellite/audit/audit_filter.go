@@ -87,3 +87,71 @@ func (a AllNodes) Match(alias metabase.NodeAlias) bool {
 }
 
 var _ AuditedNodes = (*AllNodes)(nil)
+
+// SkipClaimedNodes drops org-claimed nodes from the audit queue.
+// inner may be nil, in which case every non-claimed node is audited.
+type SkipClaimedNodes struct {
+	inner   AuditedNodes
+	claimed *overlay.ClaimedNodeSet
+	meta    *metabase.DB
+
+	blocked []bool
+}
+
+// NewSkipClaimedNodes wraps inner so claimed node aliases are not audited.
+func NewSkipClaimedNodes(inner AuditedNodes, claimed *overlay.ClaimedNodeSet, meta *metabase.DB) *SkipClaimedNodes {
+	return &SkipClaimedNodes{
+		inner:   inner,
+		claimed: claimed,
+		meta:    meta,
+	}
+}
+
+// Reload loads the inner filter and the claimed-node alias set.
+func (s *SkipClaimedNodes) Reload(ctx context.Context) error {
+	if s.inner != nil {
+		if err := s.inner.Reload(ctx); err != nil {
+			return err
+		}
+	}
+	s.blocked = nil
+	if s.claimed == nil || s.meta == nil {
+		return nil
+	}
+
+	ids, err := s.claimed.Snapshot(ctx)
+	if err != nil || len(ids) == 0 {
+		// A lookup failure must not cancel the audit cycle for public nodes.
+		return nil
+	}
+	aliasMap, err := s.meta.LatestNodesAliasMap(ctx)
+	if err != nil {
+		return nil
+	}
+	maxAlias := aliasMap.Max()
+	if maxAlias < 0 {
+		return nil
+	}
+	s.blocked = make([]bool, maxAlias+1)
+	for id := range ids {
+		alias, found := aliasMap.Alias(id)
+		if found && int(alias) >= 0 && int(alias) < len(s.blocked) {
+			s.blocked[alias] = true
+		}
+	}
+	return nil
+}
+
+// Match reports whether alias should be audited.
+func (s *SkipClaimedNodes) Match(alias metabase.NodeAlias) bool {
+	if s.inner != nil && !s.inner.Match(alias) {
+		return false
+	}
+	idx := int(alias)
+	if idx >= 0 && idx < len(s.blocked) && s.blocked[idx] {
+		return false
+	}
+	return true
+}
+
+var _ AuditedNodes = (*SkipClaimedNodes)(nil)

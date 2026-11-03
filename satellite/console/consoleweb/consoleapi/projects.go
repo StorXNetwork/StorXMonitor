@@ -17,11 +17,11 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"github.com/StorXNetwork/common/grant"
-	"github.com/StorXNetwork/common/uuid"
 	"github.com/StorXNetwork/StorXMonitor/private/web"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console"
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/consoleweb/consoleapi/utils"
+	"github.com/StorXNetwork/common/grant"
+	"github.com/StorXNetwork/common/uuid"
 )
 
 // Projects is an api controller that exposes projects related functionality.
@@ -58,6 +58,8 @@ type Member struct {
 	Vaults []string `json:"vaults,omitempty"`
 	// VaultExpiresAt is the earliest grant expiry (omit when none expire).
 	VaultExpiresAt *time.Time `json:"vaultExpiresAt,omitempty"`
+	// Permissions is set for a member who has vault grants. Missing means owner/admin full access.
+	Permissions *console.InviteAccessSelection `json:"permissions,omitempty"`
 }
 
 // Invitation is a project invitation in a ProjectMembersPage.
@@ -68,6 +70,8 @@ type Invitation struct {
 	LinkExpiresAt  time.Time  `json:"linkExpiresAt"`
 	VaultExpiresAt *time.Time `json:"vaultExpiresAt,omitempty"`
 	Vaults         []string   `json:"vaults,omitempty"`
+	// Permissions is what this invite can do. Missing means no vault grants yet.
+	Permissions *console.InviteAccessSelection `json:"permissions,omitempty"`
 }
 
 // NewProjects is a constructor for api analytics controller.
@@ -583,6 +587,10 @@ func (p *Projects) GetMembersAndInvitations(w http.ResponseWriter, r *http.Reque
 		}
 		if grants, gErr := p.service.GetMemberBucketGrants(ctx, project.ID, m.MemberID); gErr == nil {
 			member.Vaults, member.VaultExpiresAt = console.SummarizeVaultGrants(grants)
+			if len(grants) > 0 {
+				access := console.AccessFromGrants(grants)
+				member.Permissions = &access
+			}
 		}
 		memberPage.Members = append(memberPage.Members, member)
 	}
@@ -595,6 +603,10 @@ func (p *Projects) GetMembersAndInvitations(w http.ResponseWriter, r *http.Reque
 		}
 		if grants, gErr := p.service.GetPendingInviteBucketGrants(ctx, project.ID, inv.Email); gErr == nil {
 			invitee.Vaults, invitee.VaultExpiresAt = console.SummarizeVaultGrants(grants)
+			if len(grants) > 0 {
+				access := console.AccessFromGrants(grants)
+				invitee.Permissions = &access
+			}
 		}
 		memberPage.Invitations = append(memberPage.Invitations, invitee)
 	}
@@ -975,7 +987,7 @@ func (p *Projects) MigratePricing(w http.ResponseWriter, r *http.Request) {
 // @Summary      [4] Invite member (optional folder grants)
 // @Description  **Full route:** `POST /api/v0/projects/{id}/invite/{email}`
 //
-// Invite by email. Optional body `grants`: omit → defaults from optional ACL registry (`{inviteEmail}/` List+Download); empty registry → no defaults; custom grants for any bucket that exists on the project. Only List+Download are honored (Upload/Delete ignored). Creates pending member_bucket_grants. CSRF required when enabled. Flag: `console.member-bucket-grants-enabled`.
+// Invite by email. Optional body `grants` and `permissions`. Omit `permissions` → read, preview, download, and restore. Set `permissions.read`, `permissions.preview`, `permissions.download`, and/or `permissions.restore`. All four false is rejected. Restore turns download on, because restore reads the stored mail. An older body that only sends read/restore keeps preview with read and download with read or restore. Upload and delete stay off. CSRF required when enabled. Flag: `console.member-bucket-grants-enabled`.
 // @Tags         member-bucket-restriction
 // @Accept       json
 // @Produce      json
@@ -1021,11 +1033,13 @@ func (p *Projects) InviteUser(w http.ResponseWriter, r *http.Request) {
 
 	var grants []console.MemberBucketGrantInput
 	var linkExpiration, vaultExpiration string
+	var permissions *console.InviteAccessSelection
 	if r.Body != nil && r.ContentLength != 0 {
 		var body struct {
 			Grants          []console.MemberBucketGrantInput `json:"grants"`
 			LinkExpiration  string                           `json:"link_expiration"`
 			VaultExpiration string                           `json:"vault_expiration"`
+			Permissions     *console.InviteAccessSelection   `json:"permissions"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil && err != io.EOF {
 			p.serveJSONError(ctx, w, http.StatusBadRequest, err)
@@ -1037,12 +1051,14 @@ func (p *Projects) InviteUser(w http.ResponseWriter, r *http.Request) {
 		}
 		linkExpiration = body.LinkExpiration
 		vaultExpiration = body.VaultExpiration
+		permissions = body.Permissions
 	}
 
 	result, err := p.service.InviteNewProjectMemberDetailed(ctx, id, email, console.InviteProjectMemberParams{
 		Grants:          grants,
 		LinkExpiration:  linkExpiration,
 		VaultExpiration: vaultExpiration,
+		Permissions:     permissions,
 	})
 	p.service.RecordUserAudit(ctx, "PROJECT_INVITE", "Project member", "Project member invited", err)
 	if err != nil {
@@ -1134,7 +1150,7 @@ func (p *Projects) UpdatePendingInviteAccess(w http.ResponseWriter, r *http.Requ
 		Grants:          body.Grants,
 		Resend:          body.Resend,
 	})
-	p.service.RecordUserAudit(ctx, "PROJECT_INVITE_UPDATE", "Project member", "Pending invite access updated", err)
+	p.service.RecordUserAudit(ctx, "PROJECT_INVITE_UPDATE", email, accessRestoreAuditMessage("Invite access and restore", email, body.Grants), err)
 	if err != nil {
 		status := http.StatusInternalServerError
 		switch {
@@ -1160,8 +1176,8 @@ func (p *Projects) UpdatePendingInviteAccess(w http.ResponseWriter, r *http.Requ
 // @Summary      [4] Invite multiple members (one-by-one)
 // @Description  **Full route:** `POST /api/v0/projects/{id}/invites`
 //
-// Body: `{ "invites": [ { "email":"a@x.com", "vaults":["gmail","google-drive"] } ] }`.
-// Same as single invite: each email gets List+Download on `{email}/` under the given vault names.
+// Body: `{ "invites": [ { "email":"a@x.com", "vaults":["gmail"], "permissions":{"read":true,"preview":true,"download":false,"restore":false} } ] }`.
+// Omit `permissions` → read, preview, download, and restore. Each email gets those flags on `{email}/` under the given vault names.
 // Vault buckets must exist on the project (no separate ACL registration). Omit `vaults` → optional registry defaults. `vaults:[]` → no folder access. Max 50. Returns per-email ok/error.
 // CSRF required when enabled.
 // @Tags         member-bucket-restriction
@@ -1195,8 +1211,9 @@ func (p *Projects) InviteUsers(w http.ResponseWriter, r *http.Request) {
 
 	var body struct {
 		Invites []struct {
-			Email  string    `json:"email"`
-			Vaults *[]string `json:"vaults"`
+			Email       string                         `json:"email"`
+			Vaults      *[]string                      `json:"vaults"`
+			Permissions *console.InviteAccessSelection `json:"permissions"`
 		} `json:"invites"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -1215,8 +1232,9 @@ func (p *Projects) InviteUsers(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		requests = append(requests, console.ProjectMemberInviteRequest{
-			Email:  email,
-			Vaults: item.Vaults,
+			Email:       email,
+			Vaults:      item.Vaults,
+			Permissions: item.Permissions,
 		})
 	}
 
@@ -1495,7 +1513,7 @@ func (p *Projects) RespondToInvitation(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = p.service.RespondToProjectInvitation(ctx, id, payload.Response)
-	p.service.RecordUserAudit(ctx, "PROJECT_INVITATION_RESPOND", "Project invitation", "Project invitation responded", err)
+	p.service.RecordProjectInvitationResponse(ctx, id, payload.Response, err)
 	if err != nil {
 		status := http.StatusInternalServerError
 		switch {
@@ -1558,7 +1576,7 @@ func (p *Projects) DeleteMembersAndInvitations(w http.ResponseWriter, r *http.Re
 	}
 
 	err = p.service.DeleteProjectMembersAndInvitations(ctx, id, payload)
-	p.service.RecordUserAudit(ctx, "PROJECT_MEMBERS_DELETE", "Project members", "Project members removed", err)
+	p.service.RecordProjectMemberRemoval(ctx, id, payload.Emails, err)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) || console.ErrNoMembership.Has(err) {
 			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)

@@ -67,6 +67,8 @@ type Users interface {
 	GetByExternalID(ctx context.Context, externalID string) (user *User, err error)
 	// GetByStatus is a method for querying user by status from the database.
 	GetByStatus(ctx context.Context, status UserStatus, cursor UserCursor) (*UsersPage, error)
+	// GetPagedByTenantID returns a page of users belonging to the given tenant ID.
+	GetPagedByTenantID(ctx context.Context, tenantID string, cursor UserCursor) (*UsersPage, error)
 	// GetUserInfoByProjectID gets the user info of the project (id) owner.
 	GetUserInfoByProjectID(ctx context.Context, id uuid.UUID) (*UserInfo, error)
 	// GetByEmailAndTenant is a method for querying user by email and tenantID from the database.

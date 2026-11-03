@@ -302,6 +302,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+		peer.Overlay.Service.SetDedicatedNodes(peer.DB.Console().OrgNodes())
 		peer.Services.Add(lifecycle.Item{
 			Name:  "overlay",
 			Run:   peer.Overlay.Service.Run,
@@ -773,9 +774,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 	{ // setup backup service
 		// Create smart contract helper using console Web3Auth configuration
 		smartContractConnector, err := smartcontract.NewKeyValueWeb3Helper(smartcontract.Web3Config{
-			NetworkRPC:   config.Console.Web3AuthNetworkRPC,
-			ContractAddr: config.Console.Web3AuthContractAddress,
-			Address:      config.Console.Web3AuthAddress,
+			NetworkRPC:      config.Console.Web3AuthNetworkRPC,
+			ContractAddr:    config.Console.Web3AuthContractAddress,
+			Address:         config.Console.Web3AuthAddress,
+			MinGasPriceGwei: config.Console.Web3AuthMinGasPriceGwei,
 		}, secretconstants.Web3AuthPrivateKey)
 		if err != nil {
 			peer.Log.Warn("Failed to create smart contract connector for backup", zap.Error(err))

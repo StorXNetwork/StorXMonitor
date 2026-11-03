@@ -1,0 +1,191 @@
+// Copyright (C) 2026 StorX Network.
+// See LICENSE for copying information.
+
+// payment_customers maps satellite users to provider customer ids.
+model payment_customers (
+	key user_id provider
+	unique provider provider_customer_id
+
+	field user_id               blob
+	field provider              text
+	field provider_customer_id  text
+	field created_at            timestamp ( autoinsert )
+)
+
+create payment_customers ( )
+
+read one (
+	select payment_customers
+	where payment_customers.user_id = ?
+	where payment_customers.provider = ?
+)
+
+read one (
+	select payment_customers
+	where payment_customers.provider = ?
+	where payment_customers.provider_customer_id = ?
+)
+
+delete payment_customers (
+	where payment_customers.user_id = ?
+	where payment_customers.provider = ?
+)
+
+// payment_methods stores saved cards / tokens.
+model payment_methods (
+	key id
+	unique provider provider_method_id
+
+	index ( fields user_id provider )
+
+	field id                  blob
+	field user_id             blob
+	field provider            text
+	field provider_method_id  text
+	field brand               text
+	field last4               text
+	field exp_month           int
+	field exp_year            int
+	field is_default          bool ( updatable )
+	field created_at          timestamp ( autoinsert )
+)
+
+create payment_methods ( )
+
+read one (
+	select payment_methods
+	where payment_methods.id = ?
+)
+
+read one (
+	select payment_methods
+	where payment_methods.provider = ?
+	where payment_methods.provider_method_id = ?
+)
+
+read all (
+	select payment_methods
+	where payment_methods.user_id = ?
+	where payment_methods.provider = ?
+)
+
+read one (
+	select payment_methods
+	where payment_methods.user_id = ?
+	where payment_methods.provider = ?
+	where payment_methods.is_default = ?
+)
+
+update payment_methods (
+	where payment_methods.id = ?
+)
+
+delete payment_methods (
+	where payment_methods.id = ?
+)
+
+// payment_attempts stores one-time checkout attempts.
+model payment_attempts (
+	key id
+	unique provider provider_ref
+
+	index ( fields user_id )
+
+	field id            blob
+	field user_id       blob
+	field plan_id       int64
+	field provider      text
+	field provider_ref  text ( updatable )
+	field amount_minor  int64
+	field currency      text
+	field status        text ( updatable )
+	field coupon_code   text ( nullable )
+	field metadata      json ( nullable, updatable )
+	field created_at    timestamp ( autoinsert )
+	field updated_at    timestamp ( autoinsert, autoupdate )
+)
+
+create payment_attempts ( )
+
+read one (
+	select payment_attempts
+	where payment_attempts.id = ?
+)
+
+read one (
+	select payment_attempts
+	where payment_attempts.provider = ?
+	where payment_attempts.provider_ref = ?
+)
+
+update payment_attempts (
+	where payment_attempts.id = ?
+)
+
+// payment_subscriptions stores autopay subscriptions.
+model payment_subscriptions (
+	key id
+	unique provider provider_sub_id
+
+	index ( fields user_id provider )
+
+	field id                   blob
+	field user_id              blob
+	field plan_id              int64
+	field provider             text
+	field provider_sub_id      text
+	field provider_plan_id     text
+	field status               text ( updatable )
+	field current_period_end   timestamp ( nullable, updatable )
+	field cancel_at_period_end bool ( updatable )
+	field default_method_id    blob ( nullable, updatable )
+	field coupon_code          text ( nullable )
+	field created_at           timestamp ( autoinsert )
+	field updated_at           timestamp ( autoinsert, autoupdate )
+)
+
+create payment_subscriptions ( )
+
+read one (
+	select payment_subscriptions
+	where payment_subscriptions.id = ?
+)
+
+read one (
+	select payment_subscriptions
+	where payment_subscriptions.provider = ?
+	where payment_subscriptions.provider_sub_id = ?
+)
+
+read all (
+	select payment_subscriptions
+	where payment_subscriptions.user_id = ?
+	where payment_subscriptions.provider = ?
+)
+
+update payment_subscriptions (
+	where payment_subscriptions.id = ?
+)
+
+// payment_events stores webhook events for idempotency.
+model payment_events (
+	key id
+	unique provider provider_event_id
+
+	field id                 blob
+	field provider           text
+	field provider_event_id  text
+	field event_type         text
+	field payload            json
+	field attempt_id         blob ( nullable )
+	field subscription_id    blob ( nullable )
+	field received_at        timestamp ( autoinsert )
+)
+
+create payment_events ( )
+
+read one (
+	select payment_events.id
+	where payment_events.provider = ?
+	where payment_events.provider_event_id = ?
+)
