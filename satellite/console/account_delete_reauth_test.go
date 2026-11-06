@@ -51,6 +51,17 @@ func TestVerifyAccountDeleteReauth(t *testing.T) {
 			req:     AccountDeleteRequest{GoogleReauthEmail: "other@example.com"},
 			wantErr: "google account does not match",
 		},
+		{
+			name: "microsoft reauth alone ok",
+			user: &User{Email: "a@example.com", MFAEnabled: true},
+			req:  AccountDeleteRequest{Provider: "microsoft", GoogleReauthEmail: "a@example.com"},
+		},
+		{
+			name:    "microsoft reauth email mismatch",
+			user:    &User{Email: "a@example.com", MFAEnabled: true},
+			req:     AccountDeleteRequest{Provider: "microsoft", GoogleReauthEmail: "other@example.com"},
+			wantErr: "microsoft account does not match",
+		},
 	}
 
 	for _, tt := range tests {

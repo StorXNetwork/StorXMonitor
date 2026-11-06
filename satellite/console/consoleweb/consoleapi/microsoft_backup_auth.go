@@ -124,9 +124,10 @@ func (a *Auth) completeMicrosoftBackupRegister(w http.ResponseWriter, r *http.Re
 			}
 		}
 
+		fullName := registrationFullName(msUser.Name, msUser.Email)
 		user, err = a.service.CreateUser(ctx,
 			console.CreateUser{
-				FullName:  msUser.Name,
+				FullName:  fullName,
 				Email:     msUser.Email,
 				Status:    1,
 				IP:        ip,
@@ -136,6 +137,12 @@ func (a *Auth) completeMicrosoftBackupRegister(w http.ResponseWriter, r *http.Re
 			secret, true,
 		)
 		if err != nil {
+			a.log.Error("microsoft-backup: create user failed",
+				zap.String("email", msUser.Email),
+				zap.String("display_name", msUser.Name),
+				zap.String("full_name", fullName),
+				zap.Error(err),
+			)
 			a.writeMicrosoftBackupAuthError(w, "Error creating user!")
 			return
 		}
@@ -188,6 +195,10 @@ func (a *Auth) completeMicrosoftBackupRegister(w http.ResponseWriter, r *http.Re
 		ManagePassphrase: true,
 	})
 	if err != nil {
+		a.log.Error("microsoft-backup: create default project failed",
+			zap.String("email", user.Email),
+			zap.Error(err),
+		)
 		a.writeMicrosoftBackupAuthError(w, "Error creating default project!")
 		return
 	}

@@ -4928,6 +4928,9 @@ func (s *Service) verifyAccountDeleteReauth(ctx context.Context, user *User, req
 
 	if googleProvided {
 		if !strings.EqualFold(strings.TrimSpace(req.GoogleReauthEmail), strings.TrimSpace(user.Email)) {
+			if strings.EqualFold(strings.TrimSpace(req.Provider), "microsoft") {
+				return ErrUnauthorized.New("microsoft account does not match this user")
+			}
 			return ErrUnauthorized.New("google account does not match this user")
 		}
 		return nil

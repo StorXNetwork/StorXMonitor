@@ -309,8 +309,10 @@ type AccountDeleteRequest struct {
 	Password        string `json:"password,omitempty"` // ignored; kept for older clients
 	MFAPasscode     string `json:"mfaPasscode,omitempty"`
 	MFARecoveryCode string `json:"mfaRecoveryCode,omitempty"`
-	// Code is a fresh Google OAuth authorization code for Google re-auth.
+	// Code is a fresh OAuth authorization code. Provider selects the exchange.
 	Code string `json:"code,omitempty"`
+	// Provider is "microsoft" or "google" (default). Microsoft CyberLS sends "microsoft".
+	Provider string `json:"provider,omitempty"`
 	// GoogleReauthEmail is set by the API after exchanging Code; never accept from the client.
 	GoogleReauthEmail string `json:"-"`
 }

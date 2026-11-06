@@ -3689,6 +3689,38 @@ func (a *Auth) GetFreezeStatus(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// accountDeleteReauthKind is "microsoft" when the client says so; otherwise Google.
+func accountDeleteReauthKind(provider string) string {
+	if strings.EqualFold(strings.TrimSpace(provider), "microsoft") {
+		return "microsoft"
+	}
+	return "google"
+}
+
+// exchangeAccountDeleteReauth turns an OAuth code into the signed-in email.
+// Microsoft uses the configured Microsoft backup redirect. Google uses the request origin.
+func exchangeAccountDeleteReauth(r *http.Request, provider, code string) (string, error) {
+	if accountDeleteReauthKind(provider) == "microsoft" {
+		session, err := socialmedia.ResolveMicrosoftAuth(code, "")
+		if err != nil {
+			return "", err
+		}
+		if session == nil || session.User == nil || strings.TrimSpace(session.User.Email) == "" {
+			return "", errs.New("microsoft profile has no email")
+		}
+		return session.User.Email, nil
+	}
+	redirectURI := socialmedia.ResolveRequestOrigin(r)
+	session, err := socialmedia.ExchangeGoogleAuthCodeWithRedirect(code, "googlebackup", false, redirectURI)
+	if err != nil {
+		return "", err
+	}
+	if session == nil || session.User == nil || strings.TrimSpace(session.User.Email) == "" {
+		return "", errs.New("google profile has no email")
+	}
+	return session.User.Email, nil
+}
+
 // DeleteAccountRequest starts the account soft-deletion workflow (PendingDeletion + 30-day grace).
 //
 // UI contract: after success, log the user out. While pending, login returns account_pending_deletion
@@ -3696,7 +3728,7 @@ func (a *Auth) GetFreezeStatus(w http.ResponseWriter, r *http.Request) {
 // POST /auth/account/cancel-delete-request.
 //
 // @Summary      Request account deletion
-// @Description  Soft-deletes the account (PendingDeletion), revokes sessions, queues hard delete after 30 calendar days, and notifies Backup-Tools. Blocked when active_subscription. Re-auth is MFA passcode/recovery OR Google OAuth `code` (either one; not both required). Password is not used.
+// @Description  Soft-deletes the account (PendingDeletion), revokes sessions, queues hard delete after 30 calendar days, and notifies Backup-Tools. Blocked when active_subscription. Re-auth is MFA passcode/recovery OR OAuth `code` (Google by default, Microsoft when `provider` is `microsoft`). Password is not used.
 // @Tags         auth
 // @Accept       json
 // @Produce      json
@@ -3719,21 +3751,19 @@ func (a *Auth) DeleteAccountRequest(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Google re-auth: exchange OAuth code server-side; never trust a client-supplied email.
+	// Exchange the OAuth code server-side; never trust a client-supplied email.
+	// Microsoft CyberLS sends provider=microsoft. Google (default) stays on Google exchange.
 	if code := strings.TrimSpace(req.Code); code != "" {
-		redirectURI := socialmedia.ResolveRequestOrigin(r)
-		session, exchangeErr := socialmedia.ExchangeGoogleAuthCodeWithRedirect(code, "googlebackup", false, redirectURI)
+		email, exchangeErr := exchangeAccountDeleteReauth(r, req.Provider, code)
 		if exchangeErr != nil {
-			a.log.Info("delete-request: google re-auth code exchange failed", zap.Error(exchangeErr))
-			a.serveJSONError(ctx, w, console.ErrUnauthorized.New("google re-authentication failed"))
+			kind := accountDeleteReauthKind(req.Provider)
+			a.log.Info("delete-request: oauth re-auth code exchange failed",
+				zap.String("provider", kind), zap.Error(exchangeErr))
+			a.serveJSONError(ctx, w, console.ErrUnauthorized.New("%s re-authentication failed", kind))
 			return
 		}
-		if session == nil || session.User == nil || strings.TrimSpace(session.User.Email) == "" {
-			a.serveJSONError(ctx, w, console.ErrUnauthorized.New("google re-authentication failed"))
-			return
-		}
-		req.GoogleReauthEmail = session.User.Email
-		req.Code = "" // do not keep the one-time code around
+		req.GoogleReauthEmail = email
+		req.Code = ""
 	}
 
 	err = a.service.DeleteAccountRequest(ctx, req)
