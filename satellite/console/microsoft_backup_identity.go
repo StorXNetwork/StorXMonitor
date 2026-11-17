@@ -100,6 +100,12 @@ func hasUsableRefreshToken(credential *BackupCredential) bool {
 // Without a credentialID the only Microsoft credential is used; with several it fails with
 // ErrMicrosoftCredentialRequired. A credential of another user is reported as not found.
 func (s *Service) resolveMicrosoftCredential(ctx context.Context, userID uuid.UUID, credentialID string) (*BackupCredential, error) {
+	return s.resolveMicrosoftCredentialMatching(ctx, userID, credentialID, "")
+}
+
+// resolveMicrosoftCredentialMatching is resolveMicrosoftCredential, and when several accounts
+// exist it picks the one whose email matches loginID (restore mailbox).
+func (s *Service) resolveMicrosoftCredentialMatching(ctx context.Context, userID uuid.UUID, credentialID, loginID string) (*BackupCredential, error) {
 	credentialID = strings.TrimSpace(credentialID)
 	store := s.store.BackupCredentials()
 
@@ -131,17 +137,45 @@ func (s *Service) resolveMicrosoftCredential(ctx context.Context, userID uuid.UU
 	case 1:
 		return &credentials[0], nil
 	default:
+		if matched := matchMicrosoftCredentialByLogin(credentials, loginID); matched != nil {
+			return matched, nil
+		}
 		return nil, ErrMicrosoftCredentialRequired.New("several Microsoft accounts are connected; select one with credential_id")
 	}
 }
 
+// matchMicrosoftCredentialByLogin returns the only credential whose email equals loginID.
+func matchMicrosoftCredentialByLogin(credentials []BackupCredential, loginID string) *BackupCredential {
+	loginID = strings.ToLower(strings.TrimSpace(loginID))
+	if loginID == "" {
+		return nil
+	}
+	var hit *BackupCredential
+	for i := range credentials {
+		email := strings.ToLower(strings.TrimSpace(credentials[i].Email))
+		if email == "" || email != loginID {
+			continue
+		}
+		if hit != nil {
+			return nil
+		}
+		hit = &credentials[i]
+	}
+	return hit
+}
+
 // resolveMicrosoftCredentialForUser is resolveMicrosoftCredential for the context user.
 func (s *Service) resolveMicrosoftCredentialForUser(ctx context.Context, credentialID string) (*BackupCredential, error) {
+	return s.resolveMicrosoftCredentialForUserMatching(ctx, credentialID, "")
+}
+
+// resolveMicrosoftCredentialForUserMatching is resolveMicrosoftCredentialMatching for the context user.
+func (s *Service) resolveMicrosoftCredentialForUserMatching(ctx context.Context, credentialID, loginID string) (*BackupCredential, error) {
 	user, err := GetUser(ctx)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	return s.resolveMicrosoftCredential(ctx, user.ID, credentialID)
+	return s.resolveMicrosoftCredentialMatching(ctx, user.ID, credentialID, loginID)
 }
 
 // latestMicrosoftCredential returns the most recently updated Microsoft credential, or nil.

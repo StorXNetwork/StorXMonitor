@@ -224,7 +224,7 @@ func TestMicrosoftRestoreAllSharedProjectOwner(t *testing.T) {
 			LoginID:      "owner@contoso.com",
 			TenantID:     "tenant-home",
 			CredentialID: credentialID,
-		})
+		}, "")
 		if err != nil || h.callCount() == before {
 			return backupToolsCall{}, err
 		}
@@ -287,5 +287,19 @@ func TestMicrosoftRestoreAllSharedProjectOwner(t *testing.T) {
 		require.Equal(t, "/restore/prepare", call.Path)
 		require.Equal(t, owner.ID.String(), call.Header.Get("X-Restore-As-User"))
 		require.True(t, strings.HasPrefix(call.Header.Get("REFRESH_TOKEN"), "1.refresh-owner"))
+	})
+
+	t.Run("invited member restores when owner has several accounts", func(t *testing.T) {
+		h.addCredential(owner.ID, BackupProviderMicrosoft, "other@contoso.com", "oid-other", "tenant-home")
+		_, _, err := h.service.StartMicrosoftBackupRestoreAll(WithUser(context.Background(), invitee), "session", MicrosoftBackupRestoreAllRequest{
+			Service:   "outlook",
+			ProjectID: project.PublicID.String(),
+			LoginID:   "owner@contoso.com",
+			TenantID:  "tenant-home",
+		}, "invite-ms-jwt")
+		require.NoError(t, err)
+		call := h.lastCall()
+		require.Equal(t, owner.ID.String(), call.Header.Get("X-Restore-As-User"))
+		require.Equal(t, "invite-ms-jwt", call.Header.Get("Authorization"))
 	})
 }

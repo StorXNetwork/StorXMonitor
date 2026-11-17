@@ -3698,10 +3698,12 @@ func accountDeleteReauthKind(provider string) string {
 }
 
 // exchangeAccountDeleteReauth turns an OAuth code into the signed-in email.
-// Microsoft uses the configured Microsoft backup redirect. Google uses the request origin.
+// Microsoft and Google both exchange with the same Host-derived redirect used for
+// login/connect. An empty Microsoft redirect falls back to config only and breaks
+// when the UI got the code with localhost (or another origin) as redirect_uri.
 func exchangeAccountDeleteReauth(r *http.Request, provider, code string) (string, error) {
 	if accountDeleteReauthKind(provider) == "microsoft" {
-		session, err := socialmedia.ResolveMicrosoftAuth(code, "")
+		session, err := socialmedia.ResolveMicrosoftAuth(code, socialmedia.ResolveMicrosoftBackupOrigin(r))
 		if err != nil {
 			return "", err
 		}
@@ -3754,11 +3756,20 @@ func (a *Auth) DeleteAccountRequest(w http.ResponseWriter, r *http.Request) {
 	// Exchange the OAuth code server-side; never trust a client-supplied email.
 	// Microsoft CyberLS sends provider=microsoft. Google (default) stays on Google exchange.
 	if code := strings.TrimSpace(req.Code); code != "" {
+		kind := accountDeleteReauthKind(req.Provider)
+		redirectHint := ""
+		if kind == "microsoft" {
+			redirectHint = socialmedia.ResolveMicrosoftBackupOrigin(r)
+		} else {
+			redirectHint = socialmedia.ResolveRequestOrigin(r)
+		}
 		email, exchangeErr := exchangeAccountDeleteReauth(r, req.Provider, code)
 		if exchangeErr != nil {
-			kind := accountDeleteReauthKind(req.Provider)
 			a.log.Info("delete-request: oauth re-auth code exchange failed",
-				zap.String("provider", kind), zap.Error(exchangeErr))
+				zap.String("provider", kind),
+				zap.String("redirect_uri", redirectHint),
+				zap.Int("code_len", len(code)),
+				zap.Error(exchangeErr))
 			a.serveJSONError(ctx, w, console.ErrUnauthorized.New("%s re-authentication failed", kind))
 			return
 		}

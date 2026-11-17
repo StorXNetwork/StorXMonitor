@@ -568,7 +568,7 @@ func TestMicrosoftRestoreIdentity(t *testing.T) {
 			ProjectID: "project-1",
 			LoginID:   "alice@contoso.com",
 			TenantID:  "tenant-guest",
-		})
+		}, "")
 		require.NoError(t, err)
 		call := h.lastCall()
 		require.Equal(t, "/restore/all", call.Path)
@@ -582,22 +582,45 @@ func TestMicrosoftRestoreIdentity(t *testing.T) {
 			Service:   "outlook",
 			ProjectID: "project-1",
 			LoginID:   "alice@contoso.com",
-		})
+		}, "")
 		require.NoError(t, err)
 		call := h.lastCall()
 		require.NotContains(t, call.Body, "tenant_id")
 		requireMicrosoftHeaders(t, call, "oid-a", "tenant-home", "")
 	})
 
-	t.Run("several accounts require credential_id", func(t *testing.T) {
+	t.Run("several accounts match login mailbox", func(t *testing.T) {
 		h.addCredential(h.user.ID, BackupProviderMicrosoft, "alice@fabrikam.com", "oid-b", "tenant-other")
 		_, _, err := h.service.StartMicrosoftBackupRestoreAll(h.ctx, "session", MicrosoftBackupRestoreAllRequest{
 			Service:   "outlook",
 			ProjectID: "project-1",
 			LoginID:   "alice@contoso.com",
 			TenantID:  "tenant-guest",
-		})
+		}, "")
+		require.NoError(t, err)
+		requireMicrosoftHeaders(t, h.lastCall(), "oid-a", "tenant-home", "tenant-guest")
+	})
+
+	t.Run("several accounts require credential_id when login does not match", func(t *testing.T) {
+		_, _, err := h.service.StartMicrosoftBackupRestoreAll(h.ctx, "session", MicrosoftBackupRestoreAllRequest{
+			Service:   "outlook",
+			ProjectID: "project-1",
+			LoginID:   "other@contoso.com",
+			TenantID:  "tenant-guest",
+		}, "")
 		require.True(t, ErrMicrosoftCredentialRequired.Has(err), "%v", err)
+	})
+
+	t.Run("invite jwt restores without credential_id when several accounts", func(t *testing.T) {
+		_, _, err := h.service.StartMicrosoftBackupRestoreAll(h.ctx, "session", MicrosoftBackupRestoreAllRequest{
+			Service:   "outlook",
+			ProjectID: "project-1",
+			LoginID:   "other@contoso.com",
+			TenantID:  "tenant-guest",
+		}, "invite-ms-jwt")
+		require.NoError(t, err)
+		call := h.lastCall()
+		require.Equal(t, "invite-ms-jwt", call.Header.Get("Authorization"))
 	})
 }
 

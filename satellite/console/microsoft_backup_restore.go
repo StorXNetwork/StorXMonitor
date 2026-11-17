@@ -317,29 +317,42 @@ func (r *MicrosoftBackupRestoreAllRequest) backupToolsPayload() ([]byte, error) 
 // microsoftRestoreRequest sends a restore request for the selected Microsoft account. The tenant is
 // optional here: Backup-Tools answers tenant_required when the backup cannot be attributed to one.
 // An invited Member of projectID restores with the project owner's Microsoft account, as Google
-// restore does.
-func (s *Service) microsoftRestoreRequest(ctx context.Context, method, path, tokenKey, projectID string, sel MicrosoftTenantSelection, payload []byte) ([]byte, int, error) {
+// restore does. microsoftAuth is the invited member's Backup-Tools JWT (Authorization); owners omit it.
+func (s *Service) microsoftRestoreRequest(ctx context.Context, method, path, tokenKey, projectID, loginID, microsoftAuth string, sel MicrosoftTenantSelection, payload []byte) ([]byte, int, error) {
 	sel = sel.normalized()
 	ctx = s.withSharedRestoreOwner(ctx, projectID)
-	credential, err := s.resolveMicrosoftRestoreCredential(ctx, sel.CredentialID)
+	var extra map[string]string
+	if jwt := strings.TrimSpace(microsoftAuth); jwt != "" {
+		extra = map[string]string{"Authorization": jwt}
+	}
+	credential, err := s.resolveMicrosoftRestoreCredential(ctx, sel.CredentialID, loginID)
 	if err != nil {
+		// Invite sign-in JWT restores without the owner's Microsoft refresh token (same as Google).
+		if extra != nil && (ErrMicrosoftCredentialRequired.Has(err) || ErrNotFound.Has(err)) {
+			return s.backupToolsRequestWithExtraHeaders(ctx, method, path, tokenKey, "", "", extra, payload)
+		}
 		return nil, 0, err
 	}
-	return s.backupToolsRequestWithExtraHeaders(ctx, method, path, tokenKey, "", microsoftCredentialRefreshToken(credential), microsoftBackupToolsHeaders(credential, sel.TenantID), payload)
+	headers := microsoftBackupToolsHeaders(credential, sel.TenantID)
+	for k, v := range extra {
+		headers[k] = v
+	}
+	return s.backupToolsRequestWithExtraHeaders(ctx, method, path, tokenKey, "", microsoftCredentialRefreshToken(credential), headers, payload)
 }
 
 // resolveMicrosoftRestoreCredential is the restoring account's credential: the shared project
-// owner's when the context carries one, else the session user's.
-func (s *Service) resolveMicrosoftRestoreCredential(ctx context.Context, credentialID string) (*BackupCredential, error) {
+// owner's when the context carries one, else the session user's. When several Microsoft accounts
+// exist, loginID (mailbox) picks the matching credential so invitees are not blocked.
+func (s *Service) resolveMicrosoftRestoreCredential(ctx context.Context, credentialID, loginID string) (*BackupCredential, error) {
 	ownerID := restoreOwnerFromContext(ctx)
 	if ownerID == "" {
-		return s.resolveMicrosoftCredentialForUser(ctx, credentialID)
+		return s.resolveMicrosoftCredentialForUserMatching(ctx, credentialID, loginID)
 	}
 	owner, err := uuid.FromString(ownerID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	return s.resolveMicrosoftCredential(ctx, owner, credentialID)
+	return s.resolveMicrosoftCredentialMatching(ctx, owner, credentialID, loginID)
 }
 
 var microsoftRestoreCredentialsAllowedQuery = map[string]struct{}{
@@ -367,11 +380,12 @@ func (s *Service) PrepareMicrosoftBackupRestore(ctx context.Context, tokenKey st
 		return nil, 0, err
 	}
 	path := "/restore/prepare?" + (&params).queryString()
-	return s.microsoftRestoreRequest(ctx, http.MethodGet, path, tokenKey, params.ProjectID, MicrosoftTenantSelection{CredentialID: params.CredentialID, TenantID: params.TenantID}, nil)
+	return s.microsoftRestoreRequest(ctx, http.MethodGet, path, tokenKey, params.ProjectID, params.LoginID, "", MicrosoftTenantSelection{CredentialID: params.CredentialID, TenantID: params.TenantID}, nil)
 }
 
 // StartMicrosoftBackupRestoreAll proxies POST /restore/all for Microsoft services (token_key only).
-func (s *Service) StartMicrosoftBackupRestoreAll(ctx context.Context, tokenKey string, req MicrosoftBackupRestoreAllRequest) (body []byte, status int, err error) {
+// microsoftAuth is the invited member's Microsoft sign-in JWT. Owner and admin restore omit it.
+func (s *Service) StartMicrosoftBackupRestoreAll(ctx context.Context, tokenKey string, req MicrosoftBackupRestoreAllRequest, microsoftAuth string) (body []byte, status int, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if err := (&req).Validate(); err != nil {
 		return nil, 0, err
@@ -380,7 +394,7 @@ func (s *Service) StartMicrosoftBackupRestoreAll(ctx context.Context, tokenKey s
 	if err != nil {
 		return nil, 0, Error.Wrap(err)
 	}
-	return s.microsoftRestoreRequest(ctx, http.MethodPost, "/restore/all", tokenKey, req.ProjectID, MicrosoftTenantSelection{CredentialID: req.CredentialID, TenantID: req.TenantID}, payload)
+	return s.microsoftRestoreRequest(ctx, http.MethodPost, "/restore/all", tokenKey, req.ProjectID, req.LoginID, microsoftAuth, MicrosoftTenantSelection{CredentialID: req.CredentialID, TenantID: req.TenantID}, payload)
 }
 
 // ProxyMicrosoftBackupRestoreCron proxies Backup-Tools async restore routes (/restore/*) with token_key only.

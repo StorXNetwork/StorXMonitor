@@ -123,7 +123,7 @@ func (m *MicrosoftBackupRestoreAll) RestoreAll(w http.ResponseWriter, r *http.Re
 		CredentialID: body.CredentialID,
 		TenantID:     body.TenantID,
 		Keys:         body.Keys,
-	})
+	}, strings.TrimSpace(r.Header.Get("Authorization")))
 	service := console.AuditServiceLabel(body.Service)
 	if service == "" {
 		service = "Microsoft"

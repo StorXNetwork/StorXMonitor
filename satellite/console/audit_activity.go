@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"strings"
 
 	"github.com/StorXNetwork/StorXMonitor/satellite/console/auditlog"
@@ -177,19 +178,117 @@ func (s *Service) recordUserAuditEvent(ctx context.Context, user *User, action, 
 	if status == "" {
 		status = auditlog.StatusSuccess
 	}
-	sourceIP, _ := getRequestingIP(ctx)
 	event := auditlog.Event{
 		ActorID:   user.ID.String(),
 		Action:    action,
 		Resource:  resource,
 		Message:   message,
-		IPAddress: sourceIP,
+		IPAddress: resolveAuditClientIP(ctx),
 		Status:    status,
 	}
 	auditSvc := s.auditLogService
 	go func() {
 		auditSvc.RecordAsync(context.Background(), event)
 	}()
+}
+
+// resolveAuditClientIP prefers X-Forwarded-For / X-Real-IP (proxy chain), then RemoteAddr.
+// Host only — strips :port and [IPv6] brackets. Loopback (::1 / 127.x) falls back to this
+// host's primary LAN IPv4 so audit rows never store useless loopback from local proxies.
+func resolveAuditClientIP(ctx context.Context) string {
+	req := GetRequest(ctx)
+	if req == nil {
+		return preferRoutableAuditIP("")
+	}
+	if xff := req.Header.Get("X-Forwarded-For"); xff != "" {
+		if ip := strings.TrimSpace(strings.SplitN(xff, ",", 2)[0]); ip != "" {
+			return preferRoutableAuditIP(ip)
+		}
+	}
+	if xri := strings.TrimSpace(req.Header.Get("X-Real-IP")); xri != "" {
+		return preferRoutableAuditIP(xri)
+	}
+	return preferRoutableAuditIP(req.RemoteAddr)
+}
+
+func preferRoutableAuditIP(raw string) string {
+	host := normalizeAuditIP(raw)
+	if host == "" || isLoopbackAuditIP(host) {
+		if lan := primaryLANIPv4(); lan != "" {
+			return lan
+		}
+		return "127.0.0.1"
+	}
+	return host
+}
+
+func isLoopbackAuditIP(host string) bool {
+	ip := net.ParseIP(strings.TrimSpace(host))
+	return ip != nil && ip.IsLoopback()
+}
+
+func primaryLANIPv4() string {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return ""
+	}
+	for _, iface := range ifaces {
+		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		addrs, err := iface.Addrs()
+		if err != nil {
+			continue
+		}
+		for _, addr := range addrs {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+			if ip == nil || ip.IsLoopback() {
+				continue
+			}
+			if v4 := ip.To4(); v4 != nil {
+				return v4.String()
+			}
+		}
+	}
+	return ""
+}
+
+func normalizeAuditIP(raw string) string {
+	text := strings.TrimSpace(raw)
+	if text == "" {
+		return ""
+	}
+	if strings.HasPrefix(text, "[") {
+		if end := strings.Index(text, "]"); end > 1 {
+			return text[1:end]
+		}
+	}
+	// IPv4 host:port — only split when there is a single colon.
+	if colon := strings.LastIndex(text, ":"); colon > 0 && strings.Count(text, ":") == 1 {
+		host, port := text[:colon], text[colon+1:]
+		if host != "" && isAllDigits(port) {
+			return host
+		}
+	}
+	return text
+}
+
+func isAllDigits(s string) bool {
+	if s == "" {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		if s[i] < '0' || s[i] > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 // AuditServiceLabel is the name shown for a backup service in an audit message.

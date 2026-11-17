@@ -84,3 +84,46 @@ func TestUserAuditOutcome(t *testing.T) {
 		})
 	}
 }
+
+func TestNormalizeAuditIP(t *testing.T) {
+	tests := []struct {
+		name string
+		raw  string
+		want string
+	}{
+		{name: "empty", raw: "", want: ""},
+		{name: "ipv4 with port", raw: "203.0.113.10:57217", want: "203.0.113.10"},
+		{name: "ipv4 bare", raw: "203.0.113.10", want: "203.0.113.10"},
+		{name: "ipv6 loopback with port", raw: "[::1]:58807", want: "::1"},
+		{name: "ipv6 loopback brackets", raw: "[::1]", want: "::1"},
+		{name: "ipv6 full with port", raw: "[2001:db8::1]:443", want: "2001:db8::1"},
+		{name: "whitespace", raw: "  127.0.0.1:8080  ", want: "127.0.0.1"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, normalizeAuditIP(tt.raw))
+		})
+	}
+}
+
+func TestPreferRoutableAuditIP(t *testing.T) {
+	lan := primaryLANIPv4()
+	require.NotEmpty(t, lan)
+
+	tests := []struct {
+		name string
+		raw  string
+		want string
+	}{
+		{name: "empty uses lan", raw: "", want: lan},
+		{name: "ipv6 loopback uses lan", raw: "[::1]:58807", want: lan},
+		{name: "ipv4 loopback uses lan", raw: "127.0.0.1:9", want: lan},
+		{name: "keeps public", raw: "203.0.113.10:443", want: "203.0.113.10"},
+		{name: "keeps lan peer", raw: "192.168.1.50", want: "192.168.1.50"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, preferRoutableAuditIP(tt.raw))
+		})
+	}
+}
