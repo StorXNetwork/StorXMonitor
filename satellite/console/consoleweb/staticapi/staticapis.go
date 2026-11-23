@@ -14,6 +14,9 @@ var userGuideline []byte
 //go:embed resources.json
 var resources []byte
 
+//go:embed resources-microsoft.json
+var resourcesMicrosoft []byte
+
 //go:embed app-resources.json
 var appResources []byte
 
@@ -50,24 +53,46 @@ var cyberls2FAGuide []byte
 //go:embed cyberls-storage-node-shell-guide.html
 var cyberlsStorageNodeShellGuide []byte
 
+//go:embed cyberls-ms-signup-guide.html
+var cyberlsMSSignupGuide []byte
+
+//go:embed cyberls-ms-login-guide.html
+var cyberlsMSLoginGuide []byte
+
+//go:embed cyberls-ms-2fa-guide.html
+var cyberlsMS2FAGuide []byte
+
+//go:embed cyberls-ms-account-addition-guide.html
+var cyberlsMSAccountAdditionGuide []byte
+
+//go:embed cyberls-ms-invite-guide.html
+var cyberlsMSInviteGuide []byte
+
 // HandleResources returns curated help links for the web console or mobile app.
 //
 // @Summary      List help resources
 // @Description  **Full route:** `GET /resources-list` (server root, not under `/api/v0`).
 //
 // Returns a JSON array of resource cards (guides, blogs, contact). Pass `app=true` for the mobile app list (fewer entries, app-specific usage guideline link).
+// Pass `provider=microsoft` for CyberLs Microsoft resources; default / `provider=google` returns Google CyberLs resources.
 // @Tags         static-api
 // @Produce      json
-// @Param        app  query  bool  false  "If true, returns app-specific resources (app-resources.json)"
+// @Param        app       query  bool    false  "If true, returns app-specific resources (app-resources.json)"
+// @Param        provider  query  string  false  "google (default) or microsoft"
 // @Success      200  {array}   StaticResourceItemSwagger
 // @Router       /resources-list [get]
 func HandleResources(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 
 	if r.URL.Query().Get("app") == "true" {
-		w.Header().Set("Content-Type", "application/json")
 		w.Write(appResources)
-	} else {
-		w.Header().Set("Content-Type", "application/json")
+		return
+	}
+
+	switch r.URL.Query().Get("provider") {
+	case "microsoft", "ms", "office365", "outlook":
+		w.Write(resourcesMicrosoft)
+	default:
 		w.Write(resources)
 	}
 }
@@ -108,11 +133,12 @@ func HandleUserGuidelineforApp(w http.ResponseWriter, r *http.Request) {
 // @Description  **Full route:** `GET /guides` (server root, not under `/api/v0`).
 //
 // Serves embedded HTML guides. Use the `type` query parameter to select which guide to return.
-// Active CyberLs guides: cyberls-signup, cyberls-login, cyberls-google-connect, cyberls-domain-wide-delegation, cyberls-2fa, cyberls-storage-node-shell.
-// Guide screenshots are served from `/static/resources/cyberls-*` (e.g. `/static/resources/cyberls-google-signup/img-1.png`).
+// Active CyberLs guides: Google (cyberls-signup, cyberls-login, cyberls-google-connect, cyberls-domain-wide-delegation, cyberls-2fa, cyberls-storage-node-shell)
+// and Microsoft (cyberls-ms-signup, cyberls-ms-login, cyberls-ms-2fa, cyberls-ms-account-addition, cyberls-ms-invite).
+// Guide screenshots are served from `/static/resources/cyberls-*` (e.g. `/static/resources/cyberls-ms-signup/img-1.png`).
 // @Tags         static-api
 // @Produce      html
-// @Param        type  query  string  true  "Guide identifier"  Enums(cyberls-signup, cyberls-login, cyberls-google-connect, cyberls-domain-wide-delegation, cyberls-2fa, cyberls-storage-node-shell)
+// @Param        type  query  string  true  "Guide identifier"  Enums(cyberls-signup, cyberls-login, cyberls-google-connect, cyberls-domain-wide-delegation, cyberls-2fa, cyberls-storage-node-shell, cyberls-ms-signup, cyberls-ms-login, cyberls-ms-2fa, cyberls-ms-account-addition, cyberls-ms-invite)
 // @Success      200   {string}  string  "HTML guide page"
 // @Failure      404   {string}  string  "Guide not found"
 // @Failure      405   {string}  string  "Method Not Allowed"
@@ -143,6 +169,21 @@ func HandleGuides(w http.ResponseWriter, r *http.Request) {
 
 	case "cyberls-storage-node-shell":
 		w.Write(cyberlsStorageNodeShellGuide)
+
+	case "cyberls-ms-signup":
+		w.Write(cyberlsMSSignupGuide)
+
+	case "cyberls-ms-login":
+		w.Write(cyberlsMSLoginGuide)
+
+	case "cyberls-ms-2fa":
+		w.Write(cyberlsMS2FAGuide)
+
+	case "cyberls-ms-account-addition":
+		w.Write(cyberlsMSAccountAdditionGuide)
+
+	case "cyberls-ms-invite":
+		w.Write(cyberlsMSInviteGuide)
 
 	// Old templates — commented out until new guides are added.
 	// case "usage-guideline":

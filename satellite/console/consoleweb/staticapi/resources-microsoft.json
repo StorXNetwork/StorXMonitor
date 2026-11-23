@@ -1,0 +1,44 @@
+[
+  {
+    "name": "Corporate Admin Signup & Onboarding",
+    "desc": "Step-by-step Microsoft organization signup and onboarding on CyberLs",
+    "type": "url",
+    "link": "/guides?type=cyberls-ms-signup"
+  },
+  {
+    "name": "How to Log In to CyberLs (Microsoft)",
+    "desc": "Login with Microsoft, email/password, and 2FA login",
+    "type": "url",
+    "link": "/guides?type=cyberls-ms-login"
+  },
+  {
+    "name": "How to Set Up 2-FA (Microsoft)",
+    "desc": "Enable and disable two-factor authentication on CyberLs Microsoft",
+    "type": "url",
+    "link": "/guides?type=cyberls-ms-2fa"
+  },
+  {
+    "name": "Account Addition (Corporate & Personal)",
+    "desc": "Connect corporate admin or personal Microsoft accounts for backup",
+    "type": "url",
+    "link": "/guides?type=cyberls-ms-account-addition"
+  },
+  {
+    "name": "Invite User & Shared Services",
+    "desc": "Invite members and preview shared Microsoft backup services",
+    "type": "url",
+    "link": "/guides?type=cyberls-ms-invite"
+  },
+  {
+    "name": "Blogs",
+    "desc": "Access wealth of information, shares on our articles",
+    "type": "url",
+    "link": "https://medium.com/storx-network"
+  },
+  {
+    "name": "Still Need Help?",
+    "desc": "Can't find what you're looking for?",
+    "type": "contact",
+    "link": ""
+  }
+]
