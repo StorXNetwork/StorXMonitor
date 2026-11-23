@@ -80,12 +80,6 @@ type SetAuthUserSettingsSwaggerRequest struct {
 	NoticeDismissal  map[string]interface{} `json:"noticeDismissal,omitempty" swaggertype:"object"`
 }
 
-// DeleteAuthAccountSwaggerRequest is the body for DELETE /api/v0/auth/account (admin flow).
-type DeleteAuthAccountSwaggerRequest struct {
-	Email    string `json:"email" example:"user@example.com"`
-	Password string `json:"password" example:"admin-verification-password"`
-}
-
 // PaymentPlansSwaggerResponse is returned by GET /payment-plans (server root, not under /api/v0).
 type PaymentPlansSwaggerResponse struct {
 	CryptoModes []string                  `json:"crypto_modes" example:"SRX,XDC,USDT"`
