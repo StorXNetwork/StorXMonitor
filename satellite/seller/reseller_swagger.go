@@ -134,12 +134,6 @@ type SellerAccountActionSwaggerRequest struct {
 	Data string `json:"data" example:"currentPassword123"`
 }
 
-// SellerDeleteAccountSwaggerRequest is the body for DELETE /seller/auth/account.
-type SellerDeleteAccountSwaggerRequest struct {
-	Email    string `json:"email" example:"reseller@example.com"`
-	Password string `json:"password" example:"admin-verification-password"`
-}
-
 // SellerWebappSessionSwagger is one active reseller webapp session.
 type SellerWebappSessionSwagger struct {
 	ID                        string `json:"id" example:"00000000-0000-0000-0000-000000000001"`

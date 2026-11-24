@@ -281,38 +281,3 @@ func (s *Service) DeleteAccountRequestReseller(ctx context.Context) error {
 	return nil
 }
 
-// DeleteAccountReseller soft-deletes a reseller account by email (admin verification).
-func (s *Service) DeleteAccountReseller(ctx context.Context, email string) error {
-	verified, unverified, err := s.GetResellerByEmailWithUnverified(ctx, email)
-	if err != nil && !ErrEmailNotFound.Has(err) {
-		return Error.Wrap(err)
-	}
-
-	var reseller *Reseller
-	if verified != nil {
-		reseller = verified
-	} else if len(unverified) > 0 {
-		reseller = &unverified[0]
-	} else {
-		return ErrEmailNotFound.New("reseller not found with email: %s", email)
-	}
-
-	now := time.Now()
-	deletedStatus := ResellerDeleted
-	_, err = s.store.Resellers().Update(ctx, reseller.ID, UpdateResellerRequest{
-		Status:    &deletedStatus,
-		DeletedAt: &now,
-		UpdatedAt: now,
-	})
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	_, _ = s.store.WebappSessionResellers().DeleteAllByResellerID(ctx, reseller.ID)
-	if secret, _, tokenErr := s.store.ResetPasswordTokens().GetByOwnerID(ctx, reseller.ID); tokenErr == nil {
-		_ = s.store.ResetPasswordTokens().Delete(ctx, secret)
-	}
-
-	s.auditLog(ctx, "delete account", &reseller.ID, reseller.Email)
-	return nil
-}
