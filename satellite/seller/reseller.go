@@ -6,7 +6,6 @@ package seller
 import (
 	"context"
 	"encoding/json"
-	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -944,67 +943,6 @@ func (a *SellerAuth) DeleteAccountRequest(w http.ResponseWriter, r *http.Request
 	}
 
 	w.WriteHeader(http.StatusAccepted)
-}
-
-// DeleteAccount deletes a reseller account by email with admin verification password.
-//
-// @Summary      Delete account (admin)
-// @Description  **Route:** `DELETE /api/v0/seller/auth/account`. Requires admin verification password in body.
-// @Tags         reseller-account
-// @Accept       json
-// @Produce      json
-// @Param        body  body  SellerDeleteAccountSwaggerRequest  true  "Email and admin password"
-// @Success      200
-// @Failure      400  {object}  SellerAuthErrorResponse
-// @Failure      401  {object}  SellerAuthErrorResponse
-// @Security     SellerCookieAuth
-// @Security     SellerCSRFAuth
-// @Router       /seller/auth/account [delete]
-func (a *SellerAuth) DeleteAccount(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	var requestData struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
-	}
-
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		a.serveJSONError(ctx, w, err)
-		return
-	}
-
-	if err = json.Unmarshal(body, &requestData); err != nil {
-		a.serveJSONError(ctx, w, err)
-		return
-	}
-
-	if requestData.Email == "" {
-		a.serveJSONError(ctx, w, ErrValidation.New("email is required"))
-		return
-	}
-	if requestData.Password == "" {
-		a.serveJSONError(ctx, w, ErrValidation.New("password is required"))
-		return
-	}
-
-	const hardcodedPassword = "StorX@2024#Secure!Admin"
-	if requestData.Password != hardcodedPassword {
-		a.serveJSONError(ctx, w, console.ErrUnauthorized.New("invalid password"))
-		return
-	}
-
-	if err = a.service.DeleteAccountReseller(ctx, requestData.Email); err != nil {
-		a.serveJSONError(ctx, w, err)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(map[string]string{
-		"message": "Account deleted successfully",
-	})
 }
 
 func (a *SellerAuth) completeGoogleLogin(w http.ResponseWriter, ctx context.Context, reseller *Reseller, ip string) {

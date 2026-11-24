@@ -1996,6 +1996,11 @@ func TestRegister_WithMemberInvitation(t *testing.T) {
 }
 
 func TestAuth_DeleteAccount(t *testing.T) {
+	// DELETE /api/v0/auth/account (and unauthenticated /auth/user) admin hard-delete
+	// with a static verifier was removed. Self-serve deletion uses
+	// POST /auth/account/delete-request only.
+	t.Skip("insecure DELETE account-by-email route removed; use DeleteAccountRequest")
+
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
 		Reconfigure: testplanet.Reconfigure{

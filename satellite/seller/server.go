@@ -188,7 +188,6 @@ func NewServer(
 	sellerAuthRouter.Handle("/account", server.withAuthSeller(http.HandlerFunc(authController.GetAccount))).Methods(http.MethodGet, http.MethodOptions)
 	sellerAuthRouter.Handle("/account", server.withCSRFProtection(server.withAuthSeller(http.HandlerFunc(authController.UpdateAccount)))).Methods(http.MethodPatch, http.MethodOptions)
 	sellerAuthRouter.Handle("/account/delete-request", server.withAuthSeller(http.HandlerFunc(authController.DeleteAccountRequest))).Methods(http.MethodPost, http.MethodOptions)
-	sellerAuthRouter.Handle("/account", server.withCSRFProtection(server.withAuthSeller(http.HandlerFunc(authController.DeleteAccount)))).Methods(http.MethodDelete, http.MethodOptions)
 	sellerAuthRouter.Handle("/account/change-password", server.withCSRFProtection(server.withAuthSeller(server.ipRateLimiter.Limit(http.HandlerFunc(authController.ChangePassword))))).Methods(http.MethodPost, http.MethodOptions)
 	sellerAuthRouter.Handle("/account/set-password", server.withCSRFProtection(server.withAuthSeller(server.ipRateLimiter.Limit(http.HandlerFunc(authController.SetPassword))))).Methods(http.MethodPost, http.MethodOptions)
 	sellerAuthRouter.Handle("/mfa/enable", server.withCSRFProtection(server.withAuthSeller(server.ipRateLimiter.Limit(http.HandlerFunc(authController.EnableUserMFA))))).Methods(http.MethodPost, http.MethodOptions)
